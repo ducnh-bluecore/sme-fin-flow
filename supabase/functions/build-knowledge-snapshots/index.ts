@@ -75,18 +75,50 @@ async function buildChannelBreakdown(supabase: any, tenantId: string): Promise<S
 }
 
 async function buildTopProducts(supabase: any, tenantId: string): Promise<SnapshotResult> {
-  // Use RPC or direct query - join order_items with products via SKU
+  // Query pre-aggregated view that handles name fallback: products.name > order_items.product_name > SKU
+  const { data: rows, error } = await supabase
+    .from('v_top_products_30d')
+    .select('sku, product_name, category, total_qty, total_revenue, order_count')
+    .eq('tenant_id', tenantId)
+    .order('total_revenue', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error('v_top_products_30d query failed, falling back:', error.message);
+    // Fallback: raw query with product_name from order items
+    return buildTopProductsFallback(supabase, tenantId);
+  }
+
+  const top20 = (rows || []).map((r: any, i: number) => ({
+    rank: i + 1,
+    sku: r.sku,
+    name: r.product_name || r.sku,
+    category: r.category || 'N/A',
+    qty: r.total_qty || 0,
+    revenue: r.total_revenue || 0,
+    orderCount: r.order_count || 0,
+  }));
+
+  const lines = top20.map(p =>
+    `${p.rank}. ${p.name} (${p.sku}): ${fmtNum(p.qty)} sp, ${fmtVND(p.revenue)}, ${p.orderCount} đơn`
+  );
+  const summary_text = `=== TOP 20 SẢN PHẨM (theo doanh thu) ===\n${lines.join('\n')}`;
+
+  return { snapshot_type: 'top_products', data: { top20 }, summary_text };
+}
+
+async function buildTopProductsFallback(supabase: any, tenantId: string): Promise<SnapshotResult> {
   const { data: items } = await supabase
     .from('cdp_order_items')
-    .select('sku, qty, line_revenue')
+    .select('sku, product_name, qty, line_revenue')
     .eq('tenant_id', tenantId)
-    .limit(1000);
+    .gt('line_revenue', 0)
+    .limit(5000);
 
   const { data: products } = await supabase
     .from('products')
-    .select('sku, name, category, cost_price')
+    .select('sku, name, category')
     .eq('tenant_id', tenantId)
-    .eq('is_active', true)
     .limit(500);
 
   const productMap = new Map((products || []).map((p: any) => [p.sku, p]));
@@ -94,11 +126,11 @@ async function buildTopProducts(supabase: any, tenantId: string): Promise<Snapsh
 
   for (const item of (items || [])) {
     if (!item.sku) continue;
-    const prod = productMap.get(item.sku);
     if (!skuAgg[item.sku]) {
+      const prod = productMap.get(item.sku);
       skuAgg[item.sku] = {
         qty: 0, revenue: 0,
-        name: prod?.name || item.sku,
+        name: prod?.name || item.product_name || item.sku,
         category: prod?.category || 'N/A',
       };
     }
@@ -114,9 +146,8 @@ async function buildTopProducts(supabase: any, tenantId: string): Promise<Snapsh
       qty: d.qty, revenue: d.revenue,
     }));
 
-  const lines = top20.map(p => `${p.rank}. ${p.sku} - ${p.name}: ${fmtNum(p.qty)} đơn, ${fmtVND(p.revenue)}`);
+  const lines = top20.map(p => `${p.rank}. ${p.name} (${p.sku}): ${fmtNum(p.qty)} sp, ${fmtVND(p.revenue)}`);
   const summary_text = `=== TOP 20 SẢN PHẨM (theo doanh thu) ===\n${lines.join('\n')}`;
-
   return { snapshot_type: 'top_products', data: { top20 }, summary_text };
 }
 
