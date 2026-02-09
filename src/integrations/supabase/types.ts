@@ -18921,6 +18921,65 @@ export type Database = {
           },
         ]
       }
+      knowledge_snapshots: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          snapshot_date: string
+          snapshot_type: string
+          summary_text: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          id?: string
+          snapshot_date?: string
+          snapshot_type: string
+          summary_text?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          snapshot_date?: string
+          snapshot_type?: string
+          summary_text?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "knowledge_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "knowledge_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       kpi_definition_templates: {
         Row: {
           category: string
