@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
@@ -17,6 +17,10 @@ import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { buildStoreMap } from '@/lib/inventory-store-map';
 import { useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useActiveTenantId } from '@/hooks/useActiveTenantId';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function InventoryAllocationPage() {
   const [activeTab, setActiveTab] = useState('all');
@@ -29,6 +33,27 @@ export default function InventoryAllocationPage() {
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
   const approveRebalance = useApproveRebalance();
+  const tenantId = useActiveTenantId();
+  const queryClient = useQueryClient();
+  const [isRecalcTier, setIsRecalcTier] = useState(false);
+
+  const handleRecalcTier = useCallback(async () => {
+    if (!tenantId) return;
+    setIsRecalcTier(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('auto-tier-stores', {
+        body: { tenant_id: tenantId },
+      });
+      if (error) throw error;
+      const changes = data?.tier_changes || 0;
+      toast.success(`Đã cập nhật tier cho ${data?.total_stores || 0} cửa hàng (${changes} thay đổi)`);
+      queryClient.invalidateQueries({ queryKey: ['inv-stores'] });
+    } catch (err: any) {
+      toast.error(`Lỗi tính tier: ${err.message}`);
+    } finally {
+      setIsRecalcTier(false);
+    }
+  }, [tenantId, queryClient]);
 
   const handleApprove = (ids: string[], editedQty?: Record<string, number>) => {
     approveRebalance.mutate({ suggestionIds: ids, action: 'approved', editedQty });
@@ -109,6 +134,10 @@ export default function InventoryAllocationPage() {
                 <DropdownMenuItem onClick={() => runRebalance.mutate()} className="gap-2">
                   <ArrowRightLeft className="h-4 w-4" />
                   Rebalance (cân bằng)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleRecalcTier} disabled={isRecalcTier} className="gap-2">
+                  <Crown className="h-4 w-4" />
+                  {isRecalcTier ? 'Đang tính...' : 'Tính lại Tier (S/A/B/C)'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
