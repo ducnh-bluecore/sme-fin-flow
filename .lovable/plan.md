@@ -1,101 +1,136 @@
 
 
-# Fix: Daily Sync Incremental + Multi-Channel Products
+# Hop nhat san pham cung SKU cross-channel
 
-## 3 Van de chinh
+## Thuc trang du lieu
 
-### 1. Daily job khong incremental - keo het data tu dau
-- `syncProducts`: KHONG nhan `date_from` param --> moi lan chay daily sync deu pull 16,706 products
-- `syncOrderItems`: Comment ghi ro "no date filter" --> keo 2.2M items moi ngay thay vi chi 2 ngay gan nhat
-- Cac model khac (orders, payments, fulfillments, refunds, ad_spend) DA co date filter hoat dong tot
+| Channel | So SP | Co SKU that | Co the match |
+|---------|-------|-------------|--------------|
+| KiotViet | 28,526 | Co (ma noi bo) | Source of truth |
+| Shopee | 3,436 | KHONG (item_sku = NULL) | Chi match bang ten |
+| Tiki | 3,857 | KHONG (dung ID so cua Tiki) | Chi match bang ten |
 
-### 2. Products chi keo tu 1 source KiotViet
-- Hien tai chi co `PRODUCT_SOURCE = { table: 'bdm_master_data_products' }` (1 source duy nhat)
-- Thieu san pham tu: Shopee, Lazada, TikTok, Tiki
-- Khach hang mua tren san nhung san pham khong ton tai trong bang `products`
+Van de chinh: Shopee va Tiki KHONG LUU seller SKU trong BigQuery. Ca bang `shopee_Products` lan `shopee_OrderItems` deu co `item_sku = NULL` va `model_sku = NULL`.
 
-### 3. Sai ten bang source KiotViet
-- Dang dung `bdm_master_data_products` (bang BDM da transform)
-- Nen dung `raw_kiotviet_Products` (bang raw goc) de nhat quan voi cac model khac (raw_kiotviet_Orders, raw_kiotviet_Customers...)
+## Giai phap: Product Mapping Table + Name-based Auto-match
 
----
+### Buoc 1: Tao bang `product_channel_mapping`
 
-## Giai phap
-
-### Buoc 1: Chuyen Products sang multi-source (nhu Orders)
-
-Thay `PRODUCT_SOURCE` (1 source) bang `PRODUCT_SOURCES` (nhieu source):
+Bang nay lien ket san pham tu cac san khac nhau ve 1 "master product" (KiotViet la goc):
 
 ```text
-PRODUCT_SOURCES = [
-  { channel: 'kiotviet', dataset: 'olvboutique', table: 'raw_kiotviet_Products' }
-  { channel: 'shopee', dataset: 'olvboutique_shopee', table: 'shopee_Products' }
-  { channel: 'lazada', dataset: 'olvboutique_lazada', table: 'lazada_Products' }
-  { channel: 'tiktok', dataset: 'olvboutique_tiktokshop', table: 'tiktok_Products' }
-  { channel: 'tiki', dataset: 'olvboutique_tiki', table: 'tiki_Products' }
-]
+product_channel_mapping
+  - id (uuid, PK)
+  - tenant_id (uuid)
+  - master_sku (text) -- SKU KiotViet (source of truth)
+  - channel (text) -- shopee / tiki
+  - channel_product_id (text) -- item_id cua Shopee / product_id cua Tiki
+  - channel_product_name (text) -- ten tren san
+  - match_method (text) -- 'auto_name' / 'manual'
+  - confidence (float) -- do tin cay (0-1)
+  - created_at, updated_at
+  - UNIQUE(tenant_id, channel, channel_product_id)
 ```
 
-Moi source se co mapping rieng (ten cot khac nhau tuy platform).
+### Buoc 2: Auto-match bang ten san pham
 
-### Buoc 2: Them date_from vao syncProducts
+Logic tu dong:
+1. Lay tat ca san pham KiotViet co ten
+2. Voi moi SP Shopee/Tiki, tim SP KiotViet co ten giong nhat (sau khi loai bo prefix "OLV - ", "OLV-", chuyen lowercase)
+3. Neu ten match chinh xac (sau normalize) => confidence = 1.0
+4. Neu ten chua 1 phan (substring) => confidence = 0.7
+5. Luu ket qua vao `product_channel_mapping`
 
-- Them `date_from` vao options type cua `syncProducts`
-- Dung cot ngay phu hop de filter incremental (vd: `Date` cho KiotViet, `dw_timestamp` cho marketplace)
-- Daily job chi keo products thay doi trong 2 ngay gan nhat
+Vi du matching:
+- Shopee: "OLV - Ao Gigi Black Top" => KiotViet: "Gigi Black Top" (confidence: 1.0)
+- Shopee: "OLV - Dam maxi hoa co yem Odette Fleur Dress" => KiotViet: "Odette Fleur Dress" (confidence: 0.8)
 
-### Buoc 3: Them date filter cho syncOrderItems
+### Buoc 3: Cross-fill cost_price
 
-- Order items tu Shopee/Lazada/TikTok co the JOIN voi orders table de filter theo ngay
-- Hoac dung cot `dw_timestamp` (BigQuery watermark) neu co
-- KiotViet order items: dung `OrderId` lien ket voi orders da co date filter
+Sau khi co mapping:
+```sql
+UPDATE products p_target
+SET cost_price = p_kv.cost_price
+FROM product_channel_mapping m
+JOIN products p_kv ON p_kv.sku = m.master_sku 
+  AND p_kv.channel = 'kiotviet' AND p_kv.tenant_id = m.tenant_id
+WHERE p_target.channel = m.channel
+  AND p_target.sku = m.channel_product_id  -- or matching logic
+  AND p_target.tenant_id = m.tenant_id
+  AND p_target.cost_price = 0
+  AND p_kv.cost_price > 0;
+```
 
-### Buoc 4: Them cot `channel` vao bang products
+### Buoc 4: Cap nhat view `v_top_products_30d`
 
-- Hien tai `products` unique constraint la `(tenant_id, sku)`
-- Can them `channel` de phan biet cung SKU tu nhieu san
-- Update constraint thanh `(tenant_id, channel, sku)`
+View se JOIN voi `product_channel_mapping` de:
+- Gop doanh thu cua cung 1 san pham ban tren nhieu kenh
+- Hien thi ten KiotViet (day du) thay vi ten san
 
----
+### Buoc 5: Admin UI de review/fix mapping
+
+Them tab trong trang BigQuery Backfill de:
+- Xem danh sach mapping tu dong (sort theo confidence thap nhat)
+- Cho phep admin sua/xoa mapping sai
+- Cho phep admin map thu cong cac SP chua match duoc
 
 ## Technical Details
 
-### File thay doi: `supabase/functions/backfill-bigquery/index.ts`
-
-**1. Thay PRODUCT_SOURCE bang PRODUCT_SOURCES (dong 444-448):**
-
-Khai bao mang sources voi mapping cho tung channel. Can xac nhan ten cot chinh xac tu BigQuery cho tung san (Shopee, Lazada, TikTok, Tiki) - co the can chay `bigquery-query` de verify column names.
-
-**2. Viet lai syncProducts (dong 1857-2011):**
-
-- Chuyen tu single-source sang multi-source loop (giong syncOrders)
-- Them `date_from` vao options
-- Them source progress tracking cho tung channel
-- Mapping rieng cho tung source
-
-**3. Cap nhat syncOrderItems (dong 1198-1414):**
-
-- Them logic date filter: dung BigQuery date column hoac filter theo order date
-- Cho daily incremental chi keo items cua orders trong 2 ngay gan nhat
-
-### Migration: Them channel vao products table
+### Migration SQL
 
 ```sql
--- Them cot channel
-ALTER TABLE products ADD COLUMN IF NOT EXISTS channel text DEFAULT 'kiotviet';
+CREATE TABLE IF NOT EXISTS product_channel_mapping (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  master_sku text NOT NULL,
+  channel text NOT NULL,
+  channel_product_id text NOT NULL,
+  channel_product_name text,
+  match_method text DEFAULT 'auto_name',
+  confidence float DEFAULT 0,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, channel, channel_product_id)
+);
 
--- Drop constraint cu
-ALTER TABLE products DROP CONSTRAINT IF EXISTS products_tenant_id_sku_key;
-
--- Tao constraint moi
-ALTER TABLE products ADD CONSTRAINT products_tenant_channel_sku_key 
-  UNIQUE (tenant_id, channel, sku);
+ALTER TABLE product_channel_mapping ENABLE ROW LEVEL SECURITY;
 ```
 
-### Luu y quan trong
+### Edge Function hoac RPC cho auto-match
 
-- Can verify ten bang san pham tren BigQuery cho tung san (shopee_Products, lazada_Products...) bang cach chay query kham pha truoc
-- Mapping cot (ten, gia, SKU) khac nhau tuy platform
-- View `v_top_products_30d` van hoat dong vi JOIN qua SKU, khong phu thuoc channel
-- Daily sync sau fix se chi mat vai giay thay vi hang gio
+Tao RPC `auto_match_products`:
+1. Query products KiotViet va Shopee/Tiki
+2. Normalize ten (bo prefix OLV, lowercase, trim)
+3. Tim exact match truoc, roi substring match
+4. Insert vao product_channel_mapping
+
+### Cap nhat `v_top_products_30d`
+
+```sql
+CREATE OR REPLACE VIEW v_top_products_30d AS
+SELECT 
+  oi.tenant_id,
+  COALESCE(m.master_sku, oi.sku) as sku,
+  COALESCE(p_master.name, p.name, MAX(oi.product_name), oi.sku) as product_name,
+  ...
+FROM cdp_order_items oi
+LEFT JOIN product_channel_mapping m 
+  ON oi.tenant_id = m.tenant_id 
+  AND oi.channel = m.channel 
+  AND oi.sku = m.channel_product_id
+LEFT JOIN products p_master 
+  ON m.master_sku = p_master.sku 
+  AND p_master.channel = 'kiotviet'
+LEFT JOIN products p 
+  ON oi.sku = p.sku AND oi.tenant_id = p.tenant_id
+GROUP BY COALESCE(m.master_sku, oi.sku), ...
+ORDER BY total_revenue DESC;
+```
+
+### Luu y
+
+- Auto-match se khong 100% chinh xac vi ten SP tren san thuong khac KiotViet (them prefix, them size...)
+- Can admin review cac mapping co confidence < 0.9
+- Mapping chi can chay 1 lan + cap nhat incremental khi co SP moi
+- KiotViet la source of truth cho gia von (cost_price), ten chinh thuc, va ma SKU
 
