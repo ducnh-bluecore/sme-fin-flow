@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Send, Bot, User, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import ReactMarkdown from 'react-markdown';
+import AIMessageContent from '@/components/ai/AIMessageContent';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
@@ -288,9 +288,7 @@ export default function AIAgentTestPage() {
                     msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   )}>
                     {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown>{msg.content || '...'}</ReactMarkdown>
-                      </div>
+                      <AIMessageContent content={msg.content} />
                     ) : (
                       <p className="text-sm">{msg.content}</p>
                     )}

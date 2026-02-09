@@ -152,7 +152,26 @@ Với query_database, dùng tenant_id = '${tenantId}'
 - Dùng emoji tiêu đề để dễ đọc
 - Nếu phát hiện rủi ro: đề xuất hành động (STOP/INVEST/INVESTIGATE)
 - Nêu rõ nguồn dữ liệu và kỳ thời gian
-- Nếu data không đủ: nói rõ thiếu gì, KHÔNG bịa số`;
+- Nếu data không đủ: nói rõ thiếu gì, KHÔNG bịa số
+
+## CHART OUTPUT
+Khi dữ liệu phù hợp để vẽ biểu đồ (trend, so sánh, phân bổ), trả về JSON trong block \`\`\`chart:
+- Bar chart: so sánh theo tháng, theo kênh
+- Line chart: trend theo thời gian
+- Composed chart: bar + line kết hợp (VD: doanh thu bar + margin line)
+- Pie chart: phân bổ tỷ lệ
+
+Format:
+\`\`\`chart
+{"type":"bar","title":"Tiêu đề","data":[{"label":"T01","value":55960}],"series":[{"key":"value","name":"Doanh thu","color":"#3b82f6"}],"xKey":"label","yFormat":"vnd"}
+\`\`\`
+
+Lưu ý:
+- VẪN kèm phân tích text trước/sau chart
+- Mỗi chart tối đa 12-15 data points
+- Luôn có title và đơn vị (yFormat: "vnd" | "percent" | "number")
+- Composed chart: mỗi series cần "type": "bar" hoặc "line"
+- Có thể trả về nhiều chart trong 1 câu trả lời`;
 }
 
 // ─── Tool Execution ─────────────────────────────────────────────────
