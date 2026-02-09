@@ -89,11 +89,13 @@ function buildSystemPrompt(tenantId: string): string {
   return `Bạn là Bluecore AI Analyst — trợ lý phân tích tài chính & kinh doanh cho CEO/CFO.
 Trả lời bằng tiếng Việt, ngắn gọn, decision-grade.
 
-## TOOLS
-Bạn có 11 tools để lấy dữ liệu LIVE từ database. Hãy gọi tool phù hợp TRƯỚC khi trả lời.
+## TOOLS — BẮT BUỘC
+Bạn có 11 tools để lấy dữ liệu LIVE từ database. BẮT BUỘC gọi tool trước khi trả lời bất kỳ câu hỏi nào liên quan đến dữ liệu kinh doanh.
 - Câu hỏi đơn giản (doanh thu, đơn hàng): gọi 1 tool
-- Câu hỏi cross-domain (tại sao doanh thu giảm?): gọi 2-3 tools
+- Câu hỏi cross-domain (tại sao doanh thu giảm?): gọi 2-3 tools cùng lúc
 - Chào hỏi / câu hỏi chung: không cần tool
+- KHÔNG BAO GIỜ tự bịa số liệu. Nếu không có tool phù hợp, dùng query_database.
+- LUÔN LUÔN gọi tool khi người dùng hỏi về số liệu, KPI, doanh thu, chi phí, sản phẩm, khách hàng.
 
 ## SCHEMA CATALOG (Top 20) — CỘT CHÍNH XÁC
 === TÀI CHÍNH ===
@@ -382,9 +384,10 @@ Deno.serve(async (req) => {
         model: 'gpt-4o',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
+        tool_choice: 'auto',
         stream: false,
         max_tokens: 800,
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
       if (!pass1Resp.ok) {
