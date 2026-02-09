@@ -476,7 +476,7 @@ TUYỆT ĐỐI KHÔNG được chỉ liệt kê từng dòng số rồi dừng. 
       model: 'gpt-4o',
       messages: pass2Messages,
       stream: true,
-      max_tokens: 4000,
+      max_tokens: 10000,
       temperature: 0.3,
     });
 
