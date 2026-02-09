@@ -1,99 +1,134 @@
 
 
-# Upgrade cdp-qa: Expand to Full SSOT Agent + Migrate to Lovable AI Gateway
+# Chuyển đổi AI Agent: Từ "SQL Generator" sang "Knowledge-Based Reasoning"
 
-## Problem
+## Vấn đề hiện tại
 
-The `cdp-qa` Edge Function currently:
-1. Only queries **7 CDP views** (v_cdp_ltv_*, v_cdp_equity_*, v_cdp_population_catalog)
-2. Uses **OPENAI_API_KEY** (legacy) instead of Lovable AI Gateway
-3. Cannot answer questions about orders, KPIs, alerts, products, or customer equity -- the core L2/L3/L4 data
-
-## Solution
-
-### 1. Migrate cdp-qa to Lovable AI Gateway
-
-**File: `supabase/functions/cdp-qa/index.ts`**
-
-- Replace `openaiChat()` calls (OpenAI API) with Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`)
-- Use `LOVABLE_API_KEY` instead of `OPENAI_API_KEY`
-- Switch model to `google/gemini-3-flash-preview`
-- Keep the existing 2-step flow (SQL generation -> execute -> answer with data)
-
-### 2. Expand queryable tables in cdp-schema.ts
-
-**File: `supabase/functions/_shared/cdp-schema.ts`**
-
-Add these tables/views to `CDP_QUERYABLE_VIEWS` and `CDP_SCHEMA_DESCRIPTIONS`:
-
-| Table | Layer | Purpose |
-|-------|-------|---------|
-| `cdp_orders` | L2 | Orders with revenue, COGS, channel, status |
-| `cdp_customers` | L2 | Customer profiles, acquisition source, lifetime value |
-| `cdp_order_items` | L2 | Line items, products, quantities |
-| `products` | L2 | Product catalog, SKU, pricing, stock |
-| `kpi_facts_daily` | L3 | Pre-aggregated daily KPIs (NET_REVENUE, COGS, ROAS, etc.) |
-| `alert_instances` | L4 | Active alerts with severity, status, metrics |
-| `cdp_customer_equity_computed` | L4 | Customer equity, churn risk, RFM scores |
-
-Schema descriptions for each new table (columns + Vietnamese context):
-
-- **cdp_orders**: `tenant_id, order_key, customer_id, order_at, channel, net_revenue, cogs, gross_margin, status, shop_name, province_name, payment_method, discount_amount, platform_fee, shipping_fee`
-- **cdp_customers**: `tenant_id, id, name, phone, email, province, acquisition_source, first_order_at, last_order_at, status, lifetime_value`
-- **cdp_order_items**: `tenant_id, order_id, product_id, qty, unit_price, line_revenue, discount_amount`
-- **products**: `tenant_id, sku, name, category, brand, cost_price, selling_price, current_stock, avg_daily_sales, is_active`
-- **kpi_facts_daily**: `tenant_id, grain_date, metric_code, dimension_type, dimension_value, metric_value, comparison_value, period_type` (metric_codes: NET_REVENUE, ORDER_COUNT, AOV, COGS, GROSS_MARGIN, AD_SPEND, ROAS, CPA, etc.)
-- **alert_instances**: `tenant_id, alert_type, category, severity, title, message, metric_name, current_value, threshold_value, change_percent, status, priority, created_at`
-- **cdp_customer_equity_computed**: `tenant_id, customer_id, as_of_date, orders_30d/90d/180d, net_revenue_30d/90d/180d, equity_12m, equity_24m, churn_risk_score, risk_level, equity_confidence`
-
-### 3. Update suggested questions
-
-Expand `SUGGESTED_QUESTIONS` to cover all layers:
+Kiến trúc hiện tại bắt AI làm việc quá khó:
 
 ```text
-# L2 - Orders & Products
-- "Tong doanh thu 30 ngay gan nhat theo tung kenh?"
-- "Top 10 san pham ban chay nhat?"
-- "Kenh nao co gross margin cao nhat?"
-
-# L3 - KPIs
-- "ROAS trung binh 7 ngay gan nhat?"
-- "So sanh NET_REVENUE thang nay vs thang truoc?"
-
-# L4 - Alerts & Equity
-- "Co bao nhieu alert critical dang open?"
-- "Top 20 khach hang co equity cao nhat?"
-- "Bao nhieu khach hang co risk level = high?"
-
-# CDP Views (existing)
-- "Cohort nao co LTV cao nhat?"
-- "Nguon khach hang nao co LTV:CAC ratio tot nhat?"
+User hỏi -> AI sinh SQL -> Chạy SQL (thường lỗi) -> AI đọc kết quả
+                 |
+                 +-- JOIN sai, type mismatch, timeout, 500 errors
 ```
 
-### 4. Update SQL generation prompt
+AI phải "viết code" đúng trên 14 bảng với quan hệ phức tạp. Mỗi lỗi nhỏ (sai tên cột, sai kiểu dữ liệu) đều khiến toàn bộ flow fail.
 
-Enhance `buildSqlGenerationPrompt` to:
-- List all queryable tables (not just views)
-- Add query hints: "For aggregate revenue questions, prefer kpi_facts_daily over cdp_orders (pre-aggregated, faster)"
-- Add JOIN guidance: "cdp_orders.customer_id -> cdp_customers.id" and "cdp_order_items.order_id -> cdp_orders.id"
+## Giải pháp: Knowledge Snapshot Architecture
+
+Thay vì bắt AI sinh SQL mỗi lần hỏi, ta **pre-compute các bản tóm tắt kinh doanh** (Knowledge Snapshots) theo lịch, rồi AI chỉ cần **đọc và suy luận** từ đó.
+
+```text
+[Scheduled Job - mỗi ngày/giờ]
+   |
+   v
+Database (14 bảng L2-L4) --> Pre-compute --> knowledge_snapshots table
+                                              (JSON summaries)
+
+[User hỏi]
+   |
+   v
+Load relevant snapshots --> Đưa vào context AI --> AI suy luận & trả lời
+                                                    (KHÔNG cần SQL)
+```
+
+## Chi tiết triển khai
+
+### 1. Tạo bảng `knowledge_snapshots`
+
+Lưu các bản tóm tắt kinh doanh đã tính sẵn:
+
+```text
+knowledge_snapshots
+  - tenant_id (uuid)
+  - snapshot_type (text): 'revenue_daily', 'top_products', 'channel_breakdown', 
+                          'customer_equity', 'alert_summary', 'cohort_ltv', ...
+  - snapshot_date (date): ngày tính
+  - data (jsonb): dữ liệu tóm tắt dạng JSON
+  - summary_text (text): mô tả bằng ngôn ngữ tự nhiên (cho AI đọc trực tiếp)
+  - created_at (timestamptz)
+```
+
+### 2. Tạo Edge Function `build-knowledge-snapshots`
+
+Scheduled job chạy hàng ngày (hoặc sau mỗi lần sync), tính toán ~10 loại snapshot:
+
+| Snapshot Type | Nguồn dữ liệu | Nội dung |
+|---|---|---|
+| `revenue_summary` | kpi_facts_daily | Tổng doanh thu 7/30/90 ngày, so sánh kỳ trước |
+| `channel_breakdown` | kpi_facts_daily | Doanh thu/margin theo từng kênh |
+| `top_products` | cdp_order_items + products | Top 20 sản phẩm theo doanh thu & lợi nhuận |
+| `customer_overview` | cdp_customers + v_cdp_ltv_summary | Tổng KH, equity, risk distribution |
+| `cohort_analysis` | v_cdp_ltv_by_cohort | LTV theo cohort, retention rates |
+| `source_performance` | v_cdp_ltv_by_source | Hiệu quả từng nguồn khách |
+| `alert_digest` | alert_instances | Tóm tắt alerts đang active |
+| `marketing_kpi` | kpi_facts_daily (ad metrics) | ROAS, CPA, ad spend trends |
+| `inventory_health` | products | Tồn kho, days of stock |
+| `order_trends` | kpi_facts_daily | Xu hướng đơn hàng, AOV |
+
+Mỗi snapshot bao gồm:
+- `data`: JSON với số liệu chi tiết (cho AI tham chiếu chính xác)
+- `summary_text`: Đoạn văn tiếng Việt tóm tắt (cho AI đọc tự nhiên)
+
+### 3. Viết lại `cdp-qa` Edge Function
+
+Flow mới:
+
+```text
+1. User hỏi "Top 10 sản phẩm bán chạy nhất?"
+2. Load tất cả snapshots gần nhất cho tenant (10-15 rows, mỗi row ~2KB)
+3. Ghép thành 1 khối "Knowledge Context" (~20KB text)
+4. Gửi cho AI: system prompt + knowledge context + câu hỏi
+5. AI đọc context và trả lời trực tiếp (KHÔNG sinh SQL)
+```
+
+**Ưu điểm:**
+- Không còn SQL errors, JOIN failures, type mismatches
+- AI trả lời nhanh hơn (1 lần gọi AI thay vì 2)
+- Có thể trả lời câu hỏi phức tạp xuyên nhiều bảng
+- Dữ liệu luôn nhất quán (pre-computed, verified)
+
+**Fallback SQL (hybrid):**
+- Giữ lại khả năng sinh SQL cho câu hỏi cực kỳ cụ thể mà snapshots không cover
+- Nếu AI phát hiện cần drill-down chi tiết, nó có thể yêu cầu SQL query bổ sung
+
+### 4. Cập nhật Frontend
+
+- Không thay đổi giao diện chat
+- Thêm indicator "Knowledge updated: [timestamp]" để user biết dữ liệu mới đến đâu
 
 ## Technical Details
 
-### Changes summary
+### File changes:
 
-| File | Action |
-|------|--------|
-| `supabase/functions/_shared/cdp-schema.ts` | Add 7 tables to whitelist + schema descriptions |
-| `supabase/functions/cdp-qa/index.ts` | Replace OpenAI with Lovable AI Gateway |
+1. **New migration**: Tạo bảng `knowledge_snapshots` với RLS policy theo tenant
+2. **New edge function**: `build-knowledge-snapshots/index.ts` - scheduled job tính snapshot
+3. **Rewrite**: `cdp-qa/index.ts` - chuyển từ SQL-gen sang knowledge-based
+4. **Update**: `_shared/cdp-schema.ts` - thêm helper functions cho knowledge loading
+5. **Optional**: Cron trigger gọi `build-knowledge-snapshots` sau mỗi `daily-bigquery-sync`
 
-### Security
+### Knowledge Context Format (ví dụ cho AI):
 
-- `validateSQL()` already blocks INSERT/UPDATE/DELETE/DROP -- no change needed
-- `injectTenantFilter()` already adds `WHERE tenant_id = ?` -- works for tables too
-- `execute_readonly_query` RPC enforces read-only at DB level
+```text
+=== DOANH THU (cập nhật: 2026-02-09) ===
+- 7 ngày gần nhất: 1.2 tỷ VND (giảm 8% vs tuần trước)
+- 30 ngày: 5.1 tỷ VND (tăng 3% vs tháng trước)
+- Kênh: KiotViet 3.8 tỷ (75%), Shopee 0.9 tỷ (18%), TikTok 0.4 tỷ (7%)
 
-### Risk mitigation
+=== TOP SẢN PHẨM (30 ngày) ===
+1. SKU 2220178FS - Áo thun basic: 850 đơn, 425 triệu, margin 42%
+2. SKU 3310456XL - Quần jean slim: 620 đơn, 380 triệu, margin 38%
+...
 
-- kpi_facts_daily has ~8K rows, cdp_orders has 1.1M rows -- the SQL gen prompt will guide AI to use kpi_facts_daily for aggregate questions and add LIMIT for cdp_orders queries
-- Large table queries will include prompt instruction: "Always add LIMIT 100 when querying cdp_orders or cdp_order_items directly"
+=== KHÁCH HÀNG ===
+- Tổng: 310K, Active 30d: 12K
+- Equity 12m: 8.2 tỷ, At-risk: 1.4 tỷ (17%)
+- Top cohort: 2025-06 (LTV 12m: 2.1 triệu/KH)
+...
+```
+
+### Sizing estimate:
+- 10 snapshot types x ~2KB mỗi loại = ~20KB context
+- Gemini Flash context window: 1M tokens --> 20KB chỉ chiếm ~0.5%
+- Hoàn toàn fit trong 1 lần gọi AI
 
