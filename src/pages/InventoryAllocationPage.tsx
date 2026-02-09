@@ -14,6 +14,9 @@ import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
+import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
+import { buildStoreMap } from '@/lib/inventory-store-map';
+import { useMemo } from 'react';
 
 export default function InventoryAllocationPage() {
   const [activeTab, setActiveTab] = useState('all');
@@ -21,6 +24,8 @@ export default function InventoryAllocationPage() {
 
   const { data: latestRun } = useLatestRebalanceRun();
   const { data: suggestions = [], isLoading } = useRebalanceSuggestions(latestRun?.id);
+  const { data: stores = [] } = useInventoryStores();
+  const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
   const approveRebalance = useApproveRebalance();
@@ -153,45 +158,45 @@ export default function InventoryAllocationPage() {
           {/* All suggestions */}
           <TabsContent value="all">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} />
+              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* V1: Phủ nền — filter by reason starting with "V1:" */}
           <TabsContent value="v1">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" />
+              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* V2: Nhu cầu — filter by reason starting with "V2:" */}
           <TabsContent value="v2">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" />
+              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* Push from CW */}
           <TabsContent value="push">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* Lateral */}
           <TabsContent value="lateral">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" />
+              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" storeMap={storeMap} />
             )}
           </TabsContent>
 
