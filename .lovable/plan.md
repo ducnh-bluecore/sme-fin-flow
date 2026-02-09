@@ -1,68 +1,79 @@
 
+# Nang cap Board Table: Hien thi tot hon, chinh sua hang loat, xuat Excel
 
-# Nang cap Mo phong What-If: Validation thong minh + De xuat hanh dong
+## Van de hien tai
 
-## Van de hien tai (nhu screenshot)
-
-1. **Kho nguon chi co 96 units nhung user nhap 200** -- he thong van cho phep va bao "+70M revenue" -- **SAI va nguy hiem**
-2. **Kho dich se co 29 tuan cover** -- overstock nghiem trong nhung khong co canh bao
-3. **Thieu yeu to mua** -- seasonal_safety_factor da co trong DB nhung chua duoc ap dung vao simulation
-4. **Thieu de xuat NEN/KHONG NEN** -- CEO phai tu suy luan thay vi he thong noi thang
+1. **Hien thi chua toi uu cho hang loat** -- bang dai, kho scan, thieu summary nhanh va batch actions
+2. **Chinh qty tung dong** -- da co input nhung thieu batch approve/reject, thieu tong hop thay doi
+3. **Khong co xuat Excel** -- sau khi duyet, user phai tu tay lam phieu dieu chuyen, khong co file san de giao cho kho
 
 ---
 
 ## Giai phap
 
-### 1. Validation "kho nguon khong du hang"
+### 1. Cai thien hien thi bang
 
-- Neu `transferQty > fromPosition.on_hand`: hien canh bao do **"Khong kha thi: Kho nguon chi co X units"**
-- Tu dong cap `transferQty` toi da = `on_hand - safety_stock` (de goi y so hop ly)
-- Hien thi **qty kha dung** (available = on_hand - reserved - safety_stock) ben canh dropdown kho nguon
+**Toolbar phia tren bang:**
+- Checkbox "Chon tat ca pending" + counter "Da chon X/Y"
+- Nut "Duyet tat ca da chon" (xanh) + "Tu choi tat ca da chon" (do)
+- Nut "Xuat Excel" (download)
+- Filter nhanh: Priority (P1/P2/P3), Status (Pending/Approved/Rejected)
+- Search theo ten san pham hoac kho
 
-### 2. Canh bao overstock kho dich
+**Bang toi uu:**
+- Them checkbox moi dong (cho batch select)
+- Sticky header khi scroll
+- Row grouping theo kho nguon (collapsible) -- giup CEO nhin theo tung kho thay vi list phang
+- Subtotal row cho moi nhom kho: tong qty, tong revenue
+- Highlight dong da chinh qty (background vang nhe)
+- Pagination hoac virtual scroll khi > 50 dong
 
-- Neu `toCoverAfter > max_cover_weeks` (tu constraint registry, mac dinh 6 tuan): hien badge vang **"Overstock risk: X tuan cover > nguong Y tuan"**
-- Tinh **overstock cost** = (toCoverAfter - max_cover_weeks) * toVelocity * 7 * avg_unit_cost -- tien bi khoa trong ton kho thua
+**Summary bar phia duoi bang (sticky):**
+- Tong so de xuat pending / approved / rejected
+- Tong qty da chon
+- Tong revenue da chon
+- Nut "Duyet X de xuat da chon" (primary action)
 
-### 3. Ap dung seasonal_safety_factor
+### 2. Chinh sua qty hang loat
 
-- Fetch `seasonal_safety_factor` tu `useConstraintRegistry`
-- Nhan safety_stock va nguong cover voi factor nay
-- Hien thi dong: "He so mua: 1.5x (cao diem)" hoac "He so mua: 1.0x (binh thuong)"
+- Input qty van o tung dong (da co)
+- Them: khi chinh qty, hien thi delta (`+50` hoac `-30`) ben canh input
+- Them: badge "Da chinh" tren toolbar cho biet co bao nhieu dong bi sua
+- Khi approve hang loat, gui `editedQty` map cho tat ca dong da chinh
 
-### 4. De xuat NEN / KHONG NEN / CAN NHAC
+### 3. Xuat Excel
 
-Logic phan loai:
+Nut "Xuat Excel" tao file `.xlsx` voi:
 
-```text
-KHONG NEN (do):
-  - transferQty > fromOnHand (khong du hang)
-  - fromCoverAfter < min_cover_weeks (kho nguon xuong duoi nguong)
-  - toCoverAfter > max_cover_weeks * 1.5 (overstock qua muc)
+**Sheet 1: "Phieu dieu chuyen"**
+| Cot | Noi dung |
+|-----|---------|
+| STT | So thu tu |
+| Ma SP (FC) | fc_id |
+| Ten SP | fc_name |
+| Kho nguon | from_location_name |
+| Loai kho nguon | from_location_type |
+| Kho dich | to_location_name |
+| Loai kho dich | to_location_type |
+| SL de xuat | qty goc |
+| SL da chinh | qty da edit (neu co) |
+| SL cuoi cung | qty cuoi cung (edit hoac goc) |
+| Uu tien | priority |
+| Trang thai | status |
+| Cover truoc (nguon) | from_weeks_cover |
+| Cover truoc (dich) | to_weeks_cover |
+| Cover sau | balanced_weeks_cover |
+| Revenue du kien | potential_revenue_gain |
+| Ghi chu | reason |
 
-CAN NHAC (vang):
-  - fromCoverAfter < min_cover_weeks * seasonal_factor
-  - toCoverAfter > max_cover_weeks (overstock nhe)
-  - revenue gain < min_lateral_net_benefit
+**Sheet 2: "Tom tat"**
+- Tong so dong
+- Tong qty chuyen
+- Tong revenue du kien
+- Ngay xuat
+- Trang thai run
 
-NEN CHUYEN (xanh):
-  - Tat ca dieu kien an toan
-  - Revenue gain > 0
-  - Kho dich thuc su thieu hang (toCoverBefore < min_cover_weeks)
-```
-
-Hien thi thanh **Verdict Card** lon o cuoi:
-- Mau do/vang/xanh
-- Dong chu chinh: "KHONG NEN chuyen 200 units"
-- Ly do cu the: "Kho OLV chi co 96 units, se ve am (-104). Kho dich se thua 29 tuan hang."
-- De xuat thay the: "Nen chuyen toi da 50 units de giu kho nguon >= 2 tuan cover"
-
-### 5. Suggested optimal qty
-
-- Tu dong tinh `optimalQty` sao cho:
-  - fromCoverAfter >= min_cover_weeks * seasonal_factor
-  - toCoverAfter <= max_cover_weeks
-- Hien thi nut "Ap dung de xuat: X units" de user 1-click thay doi
+Su dung thu vien `xlsx` da co san trong project.
 
 ---
 
@@ -70,16 +81,35 @@ Hien thi thanh **Verdict Card** lon o cuoi:
 
 | File | Thay doi |
 |------|---------|
-| `RebalanceSimulationTab.tsx` | Toan bo logic moi: validation, overstock warning, seasonal factor, verdict card, optimal qty |
-
-Khong can them file moi, khong can migration -- chi refactor component hien tai va su dung constraint data da co.
+| `src/components/inventory/RebalanceBoardTable.tsx` | Refactor toan bo: them toolbar, checkbox, batch actions, filter, search, grouping, summary bar, export button |
+| `src/lib/inventory-export.ts` | Tao moi: ham `exportRebalanceToExcel()` dung thu vien xlsx |
+| `src/pages/InventoryAllocationPage.tsx` | Truyen them props neu can (suggestions cho export) |
 
 ---
 
 ## Chi tiet ky thuat
 
-- Fetch constraints tu `useConstraintRegistry()` de lay: `min_cover_weeks`, `max_cover_weeks`, `seasonal_safety_factor`, `min_lateral_net_benefit`
-- Tinh `availableToTransfer = on_hand - reserved - (safety_stock * seasonal_factor)`
-- Revenue calculation can fix: hien tai dang dung `potential_revenue_gain` tu suggestion -- nen tinh = `min(transferQty, shortage_at_dest) * avg_revenue_per_unit`
-- Verdict logic chay sau khi tinh simulation, output enum: 'recommended' | 'caution' | 'not_recommended'
+### RebalanceBoardTable refactor:
 
+- State moi: `selectedIds: Set<string>`, `filterPriority`, `filterStatus`, `searchQuery`
+- Group logic: `Map<from_location, suggestions[]>` voi collapsible sections
+- Sticky summary bar dung `position: sticky; bottom: 0`
+- Batch approve: collect edited qty cho tat ca selected ids, goi `onApprove(selectedIds, editedQtyMap)`
+
+### inventory-export.ts:
+
+```text
+exportRebalanceToExcel(suggestions, editedQty) {
+  1. Build data rows voi qty cuoi cung = editedQty[id] ?? qty
+  2. Tao worksheet "Phieu dieu chuyen"
+  3. Tao worksheet "Tom tat" voi summary stats
+  4. Style: header bold, columns auto-width
+  5. Download file "dieu-chuyen-hang-YYYY-MM-DD.xlsx"
+}
+```
+
+### Thu tu build:
+
+1. `src/lib/inventory-export.ts` -- ham export Excel
+2. `src/components/inventory/RebalanceBoardTable.tsx` -- refactor voi toolbar, batch, grouping, export
+3. `src/pages/InventoryAllocationPage.tsx` -- cap nhat neu can
