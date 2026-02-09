@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown, Store } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
@@ -11,6 +11,7 @@ import { InventoryFCDecisionCards } from '@/components/inventory/InventoryFCDeci
 import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPanel';
 import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulationTab';
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
+import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
@@ -182,6 +183,10 @@ export default function InventoryAllocationPage() {
               <Settings2 className="h-3.5 w-3.5" />
               Cấu hình
             </TabsTrigger>
+            <TabsTrigger value="stores" className="gap-1.5">
+              <Store className="h-3.5 w-3.5" />
+              Cửa hàng
+            </TabsTrigger>
           </TabsList>
 
           {/* All suggestions */}
@@ -237,6 +242,9 @@ export default function InventoryAllocationPage() {
           </TabsContent>
           <TabsContent value="config">
             <RebalanceConfigPanel />
+          </TabsContent>
+          <TabsContent value="stores">
+            <StoreDirectoryTab />
           </TabsContent>
         </Tabs>
       </div>
