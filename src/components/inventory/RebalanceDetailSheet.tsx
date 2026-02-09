@@ -132,7 +132,23 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                       <span className="mx-1">→</span>
                       <span className="text-emerald-400 font-medium">{s.balanced_weeks_cover?.toFixed(1)}w</span>
                     </TableCell>
-                    <TableCell className="text-xs max-w-[120px] truncate" title={s.reason}>{s.reason}</TableCell>
+                    <TableCell className="text-xs max-w-[200px]">
+                      <div className="font-medium">{s.reason}</div>
+                      {(s as any).explain_text && (
+                        <div className="text-muted-foreground mt-1 whitespace-pre-wrap text-[11px] leading-relaxed">
+                          {(s as any).explain_text}
+                        </div>
+                      )}
+                      {(s as any).constraint_checks && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {Object.entries((s as any).constraint_checks as Record<string, any>).map(([key, val]) => (
+                            <Badge key={key} variant="outline" className={cn("text-[9px] font-normal", val === true || val === 'pass' ? 'border-emerald-500/30 text-emerald-400' : 'border-red-500/30 text-red-400')}>
+                              {key}: {String(val)}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
                     </TableCell>
