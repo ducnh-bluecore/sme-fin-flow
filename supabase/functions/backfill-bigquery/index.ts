@@ -76,6 +76,25 @@ function shouldPause(startTimeMs: number) {
   return Date.now() - startTimeMs >= MAX_EXECUTION_TIME_MS;
 }
 
+// ============= KiotViet Marketplace Dedup =============
+// SaleChannelId values that represent marketplace orders flowing through KiotViet POS.
+// These orders are already synced from their native marketplace datasets,
+// so they must be filtered OUT to prevent double-counting.
+const KIOTVIET_MARKETPLACE_CHANNEL_IDS = new Set([
+  '38487',       // Shopee (104.5k orders, prefix DELETEDHSPE_)
+  '5389',        // Haravan channel 1 (68.7k orders)
+  '5872',        // Haravan channel 2 (43.8k orders, prefix DHHRV-)
+  '277489',      // Haravan channel 3 (31.6k orders, prefix DHHRV-)
+  '38485',       // Lazada (39.5k orders, prefix DELETEDDHLZD_)
+  '1000000082',  // Lazada channel 2 (6.7k orders)
+  '238790',      // TikTok Shop
+]);
+
+function isKiotVietNativeOrder(saleChannelId: string | null | undefined): boolean {
+  if (!saleChannelId || saleChannelId === '0') return true; // NULL or 0 = native KiotViet
+  return !KIOTVIET_MARKETPLACE_CHANNEL_IDS.has(saleChannelId);
+}
+
 const CUSTOMER_SOURCES: CustomerSource[] = [
   {
     name: 'kiotviet',
@@ -199,6 +218,8 @@ const ORDER_SOURCES = [
       customer_phone: 'deliveryContactNumber',
       gross_revenue: 'Total',
       discount: 'discount',
+      sale_channel_id: 'SaleChannelId',  // For marketplace dedup filtering
+      order_code: 'OrderCode',            // For traceability (DHHRV-, DHLZD_, etc.)
     }
   }
 ];
@@ -369,6 +390,7 @@ const PAYMENT_SOURCES = [
       payment_status: 'Status',
       amount: 'TotalPayment',
       paid_at: 'PurchaseDate',
+      sale_channel_id: 'SaleChannelId',  // For marketplace dedup
     }
   }
 ];
@@ -424,6 +446,7 @@ const FULFILLMENT_SOURCES = [
       shipping_carrier: null,
       fulfillment_status: 'Status',
       shipped_at: 'PurchaseDate',
+      sale_channel_id: 'SaleChannelId',  // For marketplace dedup
     }
   },
   {
@@ -1195,7 +1218,16 @@ async function syncOrders(
         }
         
         // Transform and upsert
-        const orders = rows.map(row => ({
+        // For KiotViet: filter out marketplace orders (already synced from native datasets)
+        const filteredRows = source.channel === 'kiotviet'
+          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
+          : rows;
+        
+        if (source.channel === 'kiotviet' && filteredRows.length < rows.length) {
+          console.log(`[kiotviet dedup] Filtered ${rows.length - filteredRows.length}/${rows.length} marketplace orders in batch at offset ${offset}`);
+        }
+        
+        const orders = filteredRows.map(row => ({
           tenant_id: tenantId,
           integration_id: integrationId,
           order_key: String(row[source.mapping.order_key]),
@@ -1209,6 +1241,13 @@ async function syncOrders(
           net_revenue: parseFloat(row[source.mapping.net_revenue] || row[source.mapping.gross_revenue] || '0'),
           currency: 'VND',
           payment_method: row[source.mapping.payment_method],
+          // Store SaleChannelId + OrderCode in raw_data for KiotViet traceability
+          ...(source.channel === 'kiotviet' ? {
+            raw_data: {
+              SaleChannelId: row[source.mapping.sale_channel_id],
+              OrderCode: row[source.mapping.order_code],
+            }
+          } : {}),
         }));
         
         const { error, count } = await supabase
@@ -1726,7 +1765,12 @@ async function syncPayments(
           break;
         }
 
-        const payments = rows.map(row => ({
+        // For KiotViet: filter out marketplace orders
+        const filteredRows = source.channel === 'kiotviet'
+          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
+          : rows;
+
+        const payments = filteredRows.map(row => ({
           tenant_id: tenantId,
           payment_key: `${source.channel}:${String(row[source.mapping.payment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
@@ -1874,7 +1918,12 @@ async function syncFulfillments(
           break;
         }
 
-        const fulfillments = rows.map(row => ({
+        // For KiotViet: filter out marketplace orders
+        const filteredRows = source.channel === 'kiotviet'
+          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
+          : rows;
+
+        const fulfillments = filteredRows.map(row => ({
           tenant_id: tenantId,
           fulfillment_key: `${source.channel}:${String(row[source.mapping.fulfillment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
