@@ -165,7 +165,16 @@ SNAPSHOT (thời điểm): INVENTORY, CASH_POSITION, CUSTOMER_COUNT
 2. NGUYÊN NHÂN: Nếu biến động > 10%, xác định kênh/sản phẩm gây ra
 3. CROSS-CHECK: Doanh thu tăng + margin giảm = chi phí tăng. Đơn tăng + AOV giảm = bán rẻ hơn
 4. ANOMALY: Số nào bất thường so với trung bình?
-5. Format tiền VND (triệu, tỷ) cho dễ đọc
+
+## FORMAT TIỀN VND — BẮT BUỘC
+Dữ liệu metric_value lưu ở đơn VỊ VND GỐC (đồng). Khi hiển thị:
+- Dưới 1,000,000 (1 triệu): hiển thị nguyên → "500,000 VND"
+- 1,000,000 ~ 999,999,999: chia 1,000,000 → "X triệu VND" (VD: 27,980,066 → "28 triệu VND")  
+- 1,000,000,000 ~ 999,999,999,999: chia 1,000,000,000 → "X tỷ VND" (VD: 27,980,066,895 → "28 tỷ VND")
+- Trên 1,000,000,000,000: chia 1,000,000,000,000 → "X nghìn tỷ VND"
+⚠️ CRITICAL: 27,980,066,895 = 28 TỶ VND, KHÔNG PHẢI 2,798 tỷ hay 27,980 tỷ!
+⚠️ CRITICAL: 285,061,919,460 = 285 TỶ VND, KHÔNG PHẢI 2,850 tỷ hay 285,061 tỷ!
+⚠️ Cách đếm: 1 tỷ = 1,000,000,000 (9 số 0). Đếm số chữ số trước khi format!
 
 ## QUY TẮC KINH DOANH (FDP/MDP)
 - Doanh thu LUÔN phải đi kèm COGS/margin
