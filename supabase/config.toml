@@ -1,1 +1,4 @@
 project_id = "ujteggwzllzbhbwrqsmk"
+
+[functions.build-knowledge-snapshots]
+verify_jwt = false
