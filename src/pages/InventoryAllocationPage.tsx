@@ -16,6 +16,7 @@ import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventor
 import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
+import { useFamilyCodes } from '@/hooks/inventory/useFamilyCodes';
 import { buildStoreMap } from '@/lib/inventory-store-map';
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +31,13 @@ export default function InventoryAllocationPage() {
   const { data: latestRun } = useLatestRebalanceRun();
   const { data: suggestions = [], isLoading } = useRebalanceSuggestions(latestRun?.id);
   const { data: stores = [] } = useInventoryStores();
+  const { data: familyCodes = [] } = useFamilyCodes();
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
+  const fcNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    familyCodes.forEach(fc => { map[fc.id] = fc.fc_name; });
+    return map;
+  }, [familyCodes]);
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
   const approveRebalance = useApproveRebalance();
@@ -192,7 +199,7 @@ export default function InventoryAllocationPage() {
           {/* All suggestions */}
           <TabsContent value="all">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
+              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
               <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
@@ -201,7 +208,7 @@ export default function InventoryAllocationPage() {
           {/* V1: Phủ nền — filter by reason starting with "V1:" */}
           <TabsContent value="v1">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
               <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
@@ -210,7 +217,7 @@ export default function InventoryAllocationPage() {
           {/* V2: Nhu cầu — filter by reason starting with "V2:" */}
           <TabsContent value="v2">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
               <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
@@ -219,7 +226,7 @@ export default function InventoryAllocationPage() {
           {/* Push from CW */}
           <TabsContent value="push">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
               <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" storeMap={storeMap} />
             )}
@@ -228,7 +235,7 @@ export default function InventoryAllocationPage() {
           {/* Lateral */}
           <TabsContent value="lateral">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} />
+              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
               <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" storeMap={storeMap} />
             )}
