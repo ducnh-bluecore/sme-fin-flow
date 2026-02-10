@@ -7,10 +7,9 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { getTierStyle } from '@/lib/inventory-store-map';
-import { useAvgUnitPrices } from '@/hooks/inventory/useAvgUnitPrices';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-const FALLBACK_UNIT_PRICE = 250000; // VND - fallback for SKUs without sales data
+const FALLBACK_UNIT_PRICE = 250000; // VND - fallback for SKUs without sales data (used in DB view)
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
 
 interface StoreMetrics {
@@ -34,7 +33,6 @@ interface StoreMetrics {
 
 function useStoreMetrics() {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
-  const { data: priceMap } = useAvgUnitPrices();
 
   const storesQuery = useQuery({
     queryKey: ['inv-store-directory-stores', tenantId],
@@ -49,10 +47,14 @@ function useStoreMetrics() {
     enabled: isReady,
   });
 
+  // Use pre-aggregated DB views instead of raw rows (12k+ demand, 34k+ positions)
   const demandQuery = useQuery({
-    queryKey: ['inv-store-directory-demand', tenantId],
+    queryKey: ['inv-store-directory-demand-agg', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_state_demand', 'store_id, sku, total_sold, sales_velocity, fc_id').limit(1000);
+      const { data, error } = await buildSelectQuery(
+        'v_inv_store_metrics',
+        'store_id, total_sold, avg_velocity, active_fcs'
+      ).limit(500);
       if (error) throw error;
       return data as any[];
     },
@@ -60,9 +62,25 @@ function useStoreMetrics() {
   });
 
   const positionsQuery = useQuery({
-    queryKey: ['inv-store-directory-positions', tenantId],
+    queryKey: ['inv-store-directory-positions-agg', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, on_hand, available, weeks_of_cover, fc_id').limit(1000);
+      const { data, error } = await buildSelectQuery(
+        'v_inv_store_position_metrics',
+        'store_id, total_on_hand, total_available, avg_woc'
+      ).limit(500);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: isReady,
+  });
+
+  const revenueQuery = useQuery({
+    queryKey: ['inv-store-directory-revenue', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery(
+        'v_inv_store_revenue',
+        'store_id, est_revenue, estimated_pct'
+      ).limit(500);
       if (error) throw error;
       return data as any[];
     },
@@ -71,46 +89,23 @@ function useStoreMetrics() {
 
   const metrics = useMemo(() => {
     if (!storesQuery.data) return [];
-    const prices = priceMap || new Map<string, number>();
 
-    // Group demand by store, computing revenue per SKU
-    const demandByStore = new Map<string, {
-      totalSold: number; velocitySum: number; velocityCount: number;
-      fcSet: Set<string>; revenue: number; fallbackQty: number;
-    }>();
-    for (const d of demandQuery.data || []) {
-      const entry = demandByStore.get(d.store_id) || {
-        totalSold: 0, velocitySum: 0, velocityCount: 0,
-        fcSet: new Set(), revenue: 0, fallbackQty: 0,
-      };
-      const sold = Number(d.total_sold) || 0;
-      const unitPrice = prices.get(d.sku);
-      entry.totalSold += sold;
-      entry.revenue += sold * (unitPrice ?? FALLBACK_UNIT_PRICE);
-      if (!unitPrice) entry.fallbackQty += sold;
-      entry.velocitySum += Number(d.sales_velocity) || 0;
-      entry.velocityCount++;
-      if (d.fc_id) entry.fcSet.add(d.fc_id);
-      demandByStore.set(d.store_id, entry);
-    }
+    const demandMap = new Map<string, any>();
+    for (const d of demandQuery.data || []) demandMap.set(d.store_id, d);
 
-    const posByStore = new Map<string, { onHand: number; available: number; wocSum: number; wocCount: number }>();
-    for (const p of positionsQuery.data || []) {
-      const entry = posByStore.get(p.store_id) || { onHand: 0, available: 0, wocSum: 0, wocCount: 0 };
-      entry.onHand += Number(p.on_hand) || 0;
-      entry.available += Number(p.available) || 0;
-      const woc = Number(p.weeks_of_cover) || 0;
-      if (woc < 999) { entry.wocSum += woc; entry.wocCount++; }
-      posByStore.set(p.store_id, entry);
-    }
+    const posMap = new Map<string, any>();
+    for (const p of positionsQuery.data || []) posMap.set(p.store_id, p);
+
+    const revMap = new Map<string, any>();
+    for (const r of revenueQuery.data || []) revMap.set(r.store_id, r);
 
     return storesQuery.data
       .filter((s: any) => s.location_type === 'store')
       .map((s: any): StoreMetrics => {
-        const demand = demandByStore.get(s.id);
-        const pos = posByStore.get(s.id);
-        const totalSold = demand?.totalSold || 0;
-        const estimatedPct = totalSold > 0 ? ((demand?.fallbackQty || 0) / totalSold) * 100 : 0;
+        const demand = demandMap.get(s.id);
+        const pos = posMap.get(s.id);
+        const rev = revMap.get(s.id);
+        const estPct = Number(rev?.estimated_pct) || 0;
         return {
           id: s.id,
           store_name: s.store_name,
@@ -119,22 +114,22 @@ function useStoreMetrics() {
           region: s.region || '-',
           location_type: s.location_type,
           capacity: Number(s.capacity) || 0,
-          total_sold: totalSold,
-          avg_velocity: demand ? (demand.velocitySum / (demand.velocityCount || 1)) : 0,
-          active_fcs: demand?.fcSet.size || 0,
-          total_on_hand: pos?.onHand || 0,
-          total_available: pos?.available || 0,
-          avg_woc: pos ? (pos.wocSum / (pos.wocCount || 1)) : 0,
-          est_revenue: demand?.revenue || 0,
-          has_real_prices: estimatedPct < 100,
-          estimated_pct: Math.round(estimatedPct),
+          total_sold: Number(demand?.total_sold) || 0,
+          avg_velocity: Number(demand?.avg_velocity) || 0,
+          active_fcs: Number(demand?.active_fcs) || 0,
+          total_on_hand: Number(pos?.total_on_hand) || 0,
+          total_available: Number(pos?.total_available) || 0,
+          avg_woc: Number(pos?.avg_woc) || 0,
+          est_revenue: Number(rev?.est_revenue) || 0,
+          has_real_prices: estPct < 100,
+          estimated_pct: Math.round(estPct),
         };
       });
-  }, [storesQuery.data, demandQuery.data, positionsQuery.data, priceMap]);
+  }, [storesQuery.data, demandQuery.data, positionsQuery.data, revenueQuery.data]);
 
   return {
     data: metrics,
-    isLoading: storesQuery.isLoading || demandQuery.isLoading || positionsQuery.isLoading,
+    isLoading: storesQuery.isLoading || demandQuery.isLoading || positionsQuery.isLoading || revenueQuery.isLoading,
   };
 }
 
