@@ -1,56 +1,72 @@
 
 
-# Them Region & Tier vao Cards + Table + Filter
+## Doanh thu thực thay vì x250k
 
-## Hien trang
+### Van de hien tai
+- `inv_state_demand` chi luu so luong (`total_sold`), khong co gia tien
+- Dang hardcode `250,000 VND` lam gia trung binh -> sai lech voi thuc te
+- Bang `cdp_order_items` co du lieu thuc: `unit_price`, `line_revenue`, `qty`, `sku`
 
-- `inv_stores` co: `region`, `tier`, `address` -- du data
-- `inv_rebalance_suggestions` chi luu `to_location` (UUID) va `to_location_name` -- **khong co** region/tier
-- Card view nhom theo FC, khong hien region
-- Table view nhom theo `from_location_name`, khong co cot region/tier
-- Khong co filter theo region
+### Giai phap: Tao summary view tinh AOV thuc tu don hang
 
-## Giai phap
+**Buoc 1: Tao database view `v_inv_store_revenue`**
 
-### 1. Enrich suggestions voi store metadata (client-side join)
+Tao mot summary view join `cdp_order_items` de tinh:
+- **Gia ban trung binh thuc (avg_unit_price)** theo SKU/FC
+- **Doanh thu thuc (actual_revenue)** = SUM(line_revenue) nhom theo store
+- **AOV (Average Order Value)** theo cua hang
 
-Dung hook `useInventoryStores` (da co) de lay danh sach stores voi region/tier/address. Tao utility map `storeId -> {region, tier, address}` va enrich suggestions truoc khi render.
+Logic: `cdp_order_items.sku` -> match voi `inv_state_demand.sku` -> group by `store_id`
 
-Khong can thay doi database -- chi join o frontend.
+Tuy nhien, `cdp_orders` khong co `store_id` (chi co `channel`). Vi vay phuong an thuc te la:
 
-### 2. Card View — Them region/tier badges + nhom theo Region
+**Phuong an A (kha thi ngay):** Tinh `avg_unit_price` tu toan bo `cdp_order_items` nhom theo SKU, roi nhan voi `total_sold` cua tung store. Chinh xac hon 250k vi dung gia ban that.
 
-**InventoryFCDecisionCards.tsx:**
-- Them filter dropdown "Khu vuc" (region) o tren danh sach cards
-- Trong moi card, hien cac stores dich kem region tag va tier badge
-- Them dong: "HCM (3 CH) • Mien Trung (2 CH)" ngay duoi dong "X units • Y transfers"
+**Phuong an B (can bo sung data):** Them `store_id` vao `cdp_orders` de co doanh thu thuc theo chi nhanh. Day la giai phap dai han nhung can thay doi data pipeline.
 
-### 3. Table View — Them cot Region/Tier + filter
+### De xuat: Phuong an A (thuc hien ngay)
 
-**RebalanceBoardTable.tsx:**
-- Them filter dropdown "Khu vuc" trong toolbar (ben canh Priority va Status)
-- Them 2 cot moi trong table: **Region** va **Tier** (sau cot "Den")
-- Hien tier dang badge mau (S=tim, A=xanh, B=vang, C=xam)
-- Region hien text nho
+**Buoc 1: Tao summary view**
 
-### 4. Detail Sheet — Hien region/tier
+```sql
+CREATE VIEW v_inv_avg_unit_price AS
+SELECT 
+  tenant_id,
+  sku,
+  AVG(unit_price) as avg_unit_price,
+  SUM(line_revenue) as total_revenue,
+  SUM(qty) as total_qty
+FROM cdp_order_items
+WHERE unit_price > 0 AND qty > 0
+GROUP BY tenant_id, sku;
+```
 
-**RebalanceDetailSheet.tsx:**
-- Them cot Region va Tier trong bang chi tiet phan bo
+**Buoc 2: Tao hook `useAvgUnitPrices`**
 
-## Files thay doi
+Query view tren de lay gia trung binh thuc theo SKU, tra ve mot Map `sku -> avg_unit_price`.
 
-| File | Thay doi |
-|------|---------|
-| `src/components/inventory/InventoryFCDecisionCards.tsx` | Them region filter, hien region/tier trong card, nhom store theo region |
-| `src/components/inventory/RebalanceBoardTable.tsx` | Them region filter dropdown, them 2 cot Region + Tier |
-| `src/components/inventory/RebalanceDetailSheet.tsx` | Them cot Region/Tier trong bang chi tiet |
-| `src/pages/InventoryAllocationPage.tsx` | Truyen stores data xuong cac component |
+**Buoc 3: Cap nhat `StoreDirectoryTab`**
 
-## Chi tiet ky thuat
+- Join `inv_state_demand` (co `sku` + `total_sold` theo store) voi `v_inv_avg_unit_price` (co `avg_unit_price` theo SKU)
+- Tinh `est_revenue = SUM(total_sold_per_sku * avg_unit_price_per_sku)` thay vi `total_sold * 250k`
+- Hien thi ca AOV thuc ben canh doanh thu
 
-- Import `useInventoryStores` o page level, tao `storeMap: Record<string, {region, tier, address}>`
-- Truyen `storeMap` xuong Cards, Table, DetailSheet qua props
-- Filter region: lay unique regions tu storeMap, render `<Select>` voi cac option
-- Tier badges: S = purple, A = blue, B = amber, C = gray
+**Buoc 4: Fallback**
+
+Neu SKU khong co trong `cdp_order_items` (hang moi chua ban online), van dung 250k lam fallback. Hien thi icon/tooltip de phan biet "doanh thu thuc" vs "uoc tinh".
+
+### Ket qua
+
+- Doanh thu sat thuc te hon, phan anh gia ban that cua tung san pham
+- Van hoat dong khi chua co data day du (fallback 250k)
+- Khong can thay doi schema `inv_state_demand` hay `inv_stores`
+
+### Phan ky thuat
+
+| Thanh phan | Thay doi |
+|---|---|
+| DB Migration | Tao view `v_inv_avg_unit_price` + RLS policy |
+| Hook moi | `src/hooks/inventory/useAvgUnitPrices.ts` |
+| Component | `StoreDirectoryTab.tsx` - thay logic tinh revenue |
+| Fallback | 250k cho SKU chua co data ban hang |
 
