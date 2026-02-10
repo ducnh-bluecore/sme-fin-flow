@@ -34,7 +34,7 @@ export default function InventoryAllocationPage() {
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
   const approveRebalance = useApproveRebalance();
-  const tenantId = useActiveTenantId();
+  const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
   const [isRecalcTier, setIsRecalcTier] = useState(false);
 
