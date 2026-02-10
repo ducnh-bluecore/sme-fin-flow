@@ -15,6 +15,7 @@ interface Props {
   onApprove: (ids: string[]) => void;
   onReject: (ids: string[]) => void;
   storeMap?: StoreMap;
+  fcNameMap?: Record<string, string>;
 }
 
 interface FCGroup {
@@ -49,7 +50,7 @@ function formatCurrency(value: number): string {
   return value.toFixed(0);
 }
 
-function groupByFC(suggestions: RebalanceSuggestion[]): FCGroup[] {
+function groupByFC(suggestions: RebalanceSuggestion[], fcNameMap: Record<string, string> = {}): FCGroup[] {
   const map = new Map<string, RebalanceSuggestion[]>();
   suggestions.forEach(s => {
     const key = s.fc_id;
@@ -63,9 +64,12 @@ function groupByFC(suggestions: RebalanceSuggestion[]): FCGroup[] {
     const highestPriority = priorities[0] || 'P3';
     const stockoutCount = items.filter(i => (i.to_weeks_cover || 0) < 0.5).length;
 
+    // Resolve name: suggestion fc_name > fcNameMap lookup > fcId fallback
+    const resolvedName = items.find(i => i.fc_name)?.fc_name || fcNameMap[fcId] || fcId;
+
     groups.push({
       fcId,
-      fcName: items.find(i => i.fc_name)?.fc_name || fcId,
+      fcName: resolvedName,
       highestPriority,
       suggestions: items,
       totalQty: items.reduce((s, i) => s + i.qty, 0),
@@ -95,7 +99,7 @@ function getRegionSummary(suggestions: RebalanceSuggestion[], storeMap: StoreMap
     .join(' • ');
 }
 
-export function InventoryFCDecisionCards({ suggestions, onApprove, onReject, storeMap = {} }: Props) {
+export function InventoryFCDecisionCards({ suggestions, onApprove, onReject, storeMap = {}, fcNameMap = {} }: Props) {
   const [selectedFC, setSelectedFC] = useState<FCGroup | null>(null);
   const [filterRegion, setFilterRegion] = useState<string>('all');
 
@@ -117,7 +121,7 @@ export function InventoryFCDecisionCards({ suggestions, onApprove, onReject, sto
     return pendingSuggestions.filter(s => storeMap[s.to_location]?.region === filterRegion);
   }, [pendingSuggestions, filterRegion, storeMap]);
 
-  const groups = groupByFC(filteredSuggestions);
+  const groups = groupByFC(filteredSuggestions, fcNameMap);
 
   if (groups.length === 0) {
     return (
