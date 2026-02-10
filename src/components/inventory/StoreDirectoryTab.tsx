@@ -2,13 +2,15 @@ import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Store, TrendingUp, Package, Clock, Layers, DollarSign } from 'lucide-react';
+import { Search, Store, TrendingUp, Package, Clock, Layers, DollarSign, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { getTierStyle } from '@/lib/inventory-store-map';
+import { useAvgUnitPrices } from '@/hooks/inventory/useAvgUnitPrices';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-const AVG_UNIT_PRICE = 250000; // VND - from constraint registry default
+const FALLBACK_UNIT_PRICE = 250000; // VND - fallback for SKUs without sales data
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
 
 interface StoreMetrics {
@@ -26,10 +28,13 @@ interface StoreMetrics {
   total_available: number;
   avg_woc: number;
   est_revenue: number;
+  has_real_prices: boolean; // true if revenue uses actual SKU prices
+  estimated_pct: number; // % of sold qty using fallback price
 }
 
 function useStoreMetrics() {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
+  const { data: priceMap } = useAvgUnitPrices();
 
   const storesQuery = useQuery({
     queryKey: ['inv-store-directory-stores', tenantId],
@@ -47,7 +52,7 @@ function useStoreMetrics() {
   const demandQuery = useQuery({
     queryKey: ['inv-store-directory-demand', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_state_demand', 'store_id, total_sold, sales_velocity, fc_id').limit(1000);
+      const { data, error } = await buildSelectQuery('inv_state_demand', 'store_id, sku, total_sold, sales_velocity, fc_id').limit(1000);
       if (error) throw error;
       return data as any[];
     },
@@ -66,11 +71,23 @@ function useStoreMetrics() {
 
   const metrics = useMemo(() => {
     if (!storesQuery.data) return [];
+    const prices = priceMap || new Map<string, number>();
 
-    const demandByStore = new Map<string, { totalSold: number; velocitySum: number; velocityCount: number; fcSet: Set<string> }>();
+    // Group demand by store, computing revenue per SKU
+    const demandByStore = new Map<string, {
+      totalSold: number; velocitySum: number; velocityCount: number;
+      fcSet: Set<string>; revenue: number; fallbackQty: number;
+    }>();
     for (const d of demandQuery.data || []) {
-      const entry = demandByStore.get(d.store_id) || { totalSold: 0, velocitySum: 0, velocityCount: 0, fcSet: new Set() };
-      entry.totalSold += Number(d.total_sold) || 0;
+      const entry = demandByStore.get(d.store_id) || {
+        totalSold: 0, velocitySum: 0, velocityCount: 0,
+        fcSet: new Set(), revenue: 0, fallbackQty: 0,
+      };
+      const sold = Number(d.total_sold) || 0;
+      const unitPrice = prices.get(d.sku);
+      entry.totalSold += sold;
+      entry.revenue += sold * (unitPrice ?? FALLBACK_UNIT_PRICE);
+      if (!unitPrice) entry.fallbackQty += sold;
       entry.velocitySum += Number(d.sales_velocity) || 0;
       entry.velocityCount++;
       if (d.fc_id) entry.fcSet.add(d.fc_id);
@@ -92,6 +109,8 @@ function useStoreMetrics() {
       .map((s: any): StoreMetrics => {
         const demand = demandByStore.get(s.id);
         const pos = posByStore.get(s.id);
+        const totalSold = demand?.totalSold || 0;
+        const estimatedPct = totalSold > 0 ? ((demand?.fallbackQty || 0) / totalSold) * 100 : 0;
         return {
           id: s.id,
           store_name: s.store_name,
@@ -100,16 +119,19 @@ function useStoreMetrics() {
           region: s.region || '-',
           location_type: s.location_type,
           capacity: Number(s.capacity) || 0,
-          total_sold: demand?.totalSold || 0,
+          total_sold: totalSold,
           avg_velocity: demand ? (demand.velocitySum / (demand.velocityCount || 1)) : 0,
           active_fcs: demand?.fcSet.size || 0,
           total_on_hand: pos?.onHand || 0,
           total_available: pos?.available || 0,
           avg_woc: pos ? (pos.wocSum / (pos.wocCount || 1)) : 0,
-          est_revenue: (demand?.totalSold || 0) * AVG_UNIT_PRICE,
+          est_revenue: demand?.revenue || 0,
+          has_real_prices: estimatedPct < 100,
+          estimated_pct: Math.round(estimatedPct),
         };
       });
-  }, [storesQuery.data, demandQuery.data, positionsQuery.data]);
+  }, [storesQuery.data, demandQuery.data, positionsQuery.data, priceMap]);
+
   return {
     data: metrics,
     isLoading: storesQuery.isLoading || demandQuery.isLoading || positionsQuery.isLoading,
@@ -180,7 +202,20 @@ function StoreCard({ store }: { store: StoreMetrics }) {
           <DollarSign className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <div className="flex-1">
             <div className="text-sm font-bold font-mono">{formatRevenue(store.est_revenue)}</div>
-            <div className="text-[10px] text-muted-foreground">Doanh thu ước tính</div>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span>Doanh thu {store.has_real_prices ? '' : 'ước tính'}</span>
+              {store.estimated_pct > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-amber-400 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs max-w-[200px]">
+                    {store.estimated_pct}% sản lượng dùng giá ước tính (250k). 
+                    Phần còn lại dùng giá bán thực từ đơn hàng.
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
 
