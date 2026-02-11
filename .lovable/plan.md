@@ -1,75 +1,102 @@
 
+# Persist SKU Stop Action + Outcome Tracking trong FDP
 
-## Plan: Fix Unit Economics Page Loading (3 Database Bottlenecks)
+## Tong quan
 
-### Van de hien tai
+Khi user click "NGUNG BAN NGAY" (hoac cac action khac) tren SKUStopAction, he thong se:
+1. **Ghi quyet dinh vao DB** (`decision_outcome_records`)
+2. **Hien thi Outcome Tracking ngay trong trang FDP** (Unit Economics) de theo doi ket qua
 
-Trang Unit Economics bi "treo" vi 3 query song song deu that bai:
+Hien tai, `onAcknowledge` chi `console.log` va luu trong React state (mat khi reload).
 
-| Query | Loi | Nguyen nhan |
-|-------|-----|-------------|
-| `get_fdp_period_summary` | PGRST203 (300) | 2 phien ban RPC trung ten (text vs date params) |
-| `v_channel_performance` | Timeout (500) | View scan toan bo 1.2M orders, khong co date filter |
-| `fdp_invoice_summary` | 404 | Bang khong ton tai |
+---
 
-### Giai phap
+## Thay doi chi tiet
 
-#### Buoc 1: Xoa RPC trung lap `get_fdp_period_summary`
+### 1. Ket noi SKUStopAction voi Database
 
-Hien co 2 overload:
-- `(uuid, text, text)` -- dang dung, giu lai
-- `(uuid, date, date)` -- thua, gay loi PGRST203
+**File: `src/pages/UnitEconomicsPage.tsx`**
+- Import `useRecordOutcome` tu `@/hooks/control-tower`
+- Thay `console.log` trong `onAcknowledge` bang mutation ghi vao `decision_outcome_records`:
+  - `decision_type`: `'FDP_SKU_STOP'`
+  - `decision_title`: Ten san pham + SKU
+  - `predicted_impact_amount`: `monthlyLoss` cua SKU
+  - `outcome_verdict`: `'pending_followup'`
+  - `followup_due_date`: +7 ngay (de kiem tra SKU da ngung chua)
+  - `metric_code`: `'sku_stop_action'`
+  - `context_snapshot`: Luu toan bo thong tin SKU (margin, locked cash, reasons)
 
-Xoa phien ban `(uuid, date, date)` de PostgREST tu dong chon dung.
+### 2. Tao component FDP Outcome Tracker
 
-#### Buoc 2: Thay `v_channel_performance` bang RPC co date filter
+**File moi: `src/components/dashboard/FDPOutcomeTracker.tsx`**
 
-View hien tai:
-```
-SELECT ... FROM cdp_orders GROUP BY tenant_id, channel
-```
-Scan 1.2M dong moi lan goi -- khong the chay duoi 30s.
+Component hien thi ngay trong trang Unit Economics, gom:
+- **Danh sach cac quyet dinh da thuc hien** (SKU da acknowledge)
+- **Trang thai**: Pending Follow-up / Resolved
+- **Nut "Do luong ket qua"**: Mo `OutcomeRecordingDialog` (reuse tu Control Tower)
+- **Thong ke nhanh**: So quyet dinh, ty le thanh cong, tong impact
 
-Tao RPC `get_channel_performance` nhan `p_tenant_id`, `p_start_date`, `p_end_date` de chi scan orders trong khoang thoi gian, tan dung index `idx_cdp_orders_tenant_order_at_channel`.
+Thiet ke: Card don gian, khong lam nhieu trang FDP. Chi hien khi co du lieu.
 
-Cap nhat frontend `useFDPAggregatedMetricsSSOT.ts` de goi RPC thay vi query view.
+### 3. Tich hop vao UnitEconomicsPage
 
-#### Buoc 3: Xu ly `fdp_invoice_summary` khong ton tai
+**File: `src/pages/UnitEconomicsPage.tsx`**
+- Them `FDPOutcomeTracker` component ben duoi SKUStopAction
+- Chi hien khi co pending decisions hoac recent outcomes
+- Su dung hook `usePendingFollowups` va `useOutcomeStats` (da co san)
 
-Frontend dang query bang `fdp_invoice_summary` nhung bang nay khong co. Cap nhat code de:
-- Bat loi 404 gracefully (khong throw)
-- Tra ve gia tri mac dinh (0) cho invoice metrics
+### 4. Cap nhat SKUStopAction dialog
 
-### Chi tiet ky thuat
+**File: `src/components/dashboard/SKUStopAction.tsx`**
+- Them prop `isSubmitting` de hien loading state khi ghi DB
+- Them toast xac nhan "Da ghi nhan quyet dinh - theo doi sau 7 ngay"
+- Sau khi acknowledge thanh cong, invalidate query `pending-followups`
 
-**SQL Migration:**
+---
+
+## Flow tong the
 
 ```text
--- 1. Xoa RPC trung lap
-DROP FUNCTION IF EXISTS get_fdp_period_summary(uuid, date, date);
-
--- 2. Tao RPC channel performance co date filter
-CREATE OR REPLACE FUNCTION get_channel_performance(
-  p_tenant_id UUID, p_start_date TEXT, p_end_date TEXT
-) RETURNS TABLE(...) AS $$
-  SELECT channel, count(*), sum(net_revenue), sum(cogs), ...
-  FROM cdp_orders 
-  WHERE tenant_id = p_tenant_id 
-    AND order_at >= p_start_date::timestamp
-    AND order_at < (p_end_date::date + 1)::timestamp
-  GROUP BY channel
-$$ LANGUAGE sql STABLE;
+User click "NGUNG BAN NGAY"
+  |
+  v
+Dialog xac nhan --> Click "Da ghi nhan, se xu ly"
+  |
+  v
+Ghi vao decision_outcome_records (decision_type = FDP_SKU_STOP)
+  + followup_due_date = +7 ngay
+  |
+  v
+FDPOutcomeTracker hien thi trong FDP page
+  - "SKU XYZ - Cho theo doi (con 5 ngay)"
+  |
+  v
+Sau 7 ngay, user click "Do luong"
+  --> Mo OutcomeRecordingDialog (reuse)
+  --> Ghi actual_impact, verdict
+  |
+  v
+Hien thi ket qua: Thanh cong / That bai / Can xem lai
 ```
 
-**Frontend changes:**
+---
 
-- `src/hooks/useFDPAggregatedMetricsSSOT.ts`:
-  - Thay `client.from('v_channel_performance')` bang `client.rpc('get_channel_performance', {...})`
-  - Bat loi `fdp_invoice_summary` gracefully (try/catch, default 0)
+## Phan ky thuat
 
-### Ket qua mong doi
+### Database
+- **Khong can migration moi** - bang `decision_outcome_records` da co du cac cot can thiet (`decision_type`, `predicted_impact_amount`, `followup_due_date`, `outcome_verdict`, `context_snapshot`)
 
-- Unit Economics page load trong 3-5 giay thay vi treo vo han
-- Tat ca metrics (AOV, CM, ROAS, LTV:CAC) hien thi dung
-- Khong con loi 500/404 trong console
+### Hooks su dung lai
+- `useRecordOutcome` tu `@/hooks/control-tower/useOutcomeRecording.ts` - ghi quyet dinh
+- `usePendingFollowups` tu `@/hooks/useDecisionOutcomes.ts` - lay danh sach can theo doi  
+- `useOutcomeStats` tu `@/hooks/useDecisionOutcomes.ts` - thong ke
 
+### Component reuse
+- `OutcomeRecordingDialog` tu `@/components/control-tower/common/` - dialog do luong ket qua
+
+### Files thay doi
+| File | Thay doi |
+|---|---|
+| `src/pages/UnitEconomicsPage.tsx` | Ket noi onAcknowledge voi DB, them FDPOutcomeTracker |
+| `src/components/dashboard/SKUStopAction.tsx` | Them loading state, callback async |
+| `src/components/dashboard/FDPOutcomeTracker.tsx` | **Moi** - hien thi outcome tracking trong FDP |
