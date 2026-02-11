@@ -1,55 +1,53 @@
 
 
-## Plan: Hiển thị tổng records thực tế trong DB + cải thiện Lịch sử Sync
+## Vấn đề: Không mở được FDP/MDP/CDP
 
-### Vấn đề hiện tại
+### Nguyên nhân gốc
 
-- Trang "Lịch sử Sync" chỉ hiển thị số records của **lần sync gần nhất** (thường chỉ 2 ngày lookback), không phải tổng records trong database
-- Ví dụ: UI hiển thị 539 customers, nhưng thực tế DB có **311,837** customers
-- Gây nhầm lẫn rằng "data bị xóa"
+Bảng `platform_modules` và `tenant_modules` trong database **hoàn toàn trống**. Hệ thống module access hoạt động như sau:
 
-### Dữ liệu thực tế trong DB
+1. `useModuleAccess` query bảng `tenant_modules` JOIN `platform_modules` để tìm module nào đã bật cho tenant
+2. Vì bảng rỗng, chỉ có module `data_warehouse` (hardcoded) được trả về
+3. Khi bấm vào FDP/MDP/CDP, `hasModule('fdp')` trả về `false` --> không navigate
 
-| Model | Tổng trong DB |
-|-------|--------------|
-| cdp_orders | 1,198,985 |
-| cdp_payments | 988,523 |
-| cdp_fulfillments | 329,650 |
-| cdp_customers | 311,837 |
-| cdp_order_items | 191,551 |
-| products | 35,821 |
-| cdp_refunds | 14,502 |
+### Giải pháp
 
-### Thay đổi
+Thêm dữ liệu vào 2 bảng:
 
-#### 1. Thêm Summary Card "Tổng records trong DB" vào DailySyncHistory
+**Bước 1: Tạo các module trong `platform_modules`**
 
-- Thêm 1 section phía trên lịch sử chạy, hiển thị tổng record thực tế cho mỗi model
-- Query trực tiếp count từ các bảng `cdp_*` và `products`
-- Hiển thị dạng grid cards với icon + số lượng
+Insert 4 module: `fdp`, `mdp`, `cdp`, `control_tower` (và `data_warehouse` nếu chưa có)
 
-#### 2. Cập nhật bảng chi tiết mỗi lần chạy
+**Bước 2: Kích hoạt module cho tenant E2E Test**
 
-- Thêm cột "Tổng trong DB" bên cạnh cột "Records" (số lần sync đó)
-- Giúp phân biệt rõ: "lần này sync 539" vs "tổng DB có 311,837"
-
-#### 3. Tạo hook `useModelTotalCounts`
-
-- Hook mới query count từ tất cả model tables
-- Sử dụng `useTenantQueryBuilder` để đúng schema
-- Cache 60s, không cần poll thường xuyên
+Insert records vào `tenant_modules` liên kết tenant `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee` với tất cả module, `is_enabled = true`
 
 ### Technical Details
 
-**Files sẽ thay đổi:**
-- `src/hooks/useModelTotalCounts.ts` (mới) -- hook query tổng record từ DB
-- `src/components/warehouse/DailySyncHistory.tsx` -- thêm section tổng records + cột "Tổng DB" trong bảng chi tiết
+**SQL Migration cần chạy:**
 
-**Hook `useModelTotalCounts`:**
-- Query parallel count cho: `cdp_customers`, `cdp_orders`, `cdp_order_items`, `cdp_refunds`, `cdp_payments`, `cdp_fulfillments`, `products`, `cdp_campaigns`, `cdp_ad_spend`
-- Return `Record<string, number>` mapping model name to count
+```text
+-- 1. Insert platform_modules
+INSERT INTO platform_modules (code, name, is_core, description)
+VALUES
+  ('data_warehouse', 'Data Warehouse', true, 'Core data infrastructure'),
+  ('fdp', 'Finance Data Platform', false, 'Financial analytics & reporting'),
+  ('mdp', 'Marketing Data Platform', false, 'Marketing performance & ROI'),
+  ('cdp', 'Customer Data Platform', false, 'Customer analytics & segmentation'),
+  ('control_tower', 'Control Tower', false, 'Alert & decision management')
+ON CONFLICT (code) DO NOTHING;
 
-**UI Changes:**
-- Grid 5 cột hiển thị icon + model name + total count (giống style hiện tại của SummaryCard)
-- Trong expanded run detail table, thêm cột "Tổng DB" hiển thị con số từ hook
+-- 2. Insert tenant_modules cho E2E tenant
+INSERT INTO tenant_modules (tenant_id, module_id, is_enabled)
+SELECT 
+  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  pm.id,
+  true
+FROM platform_modules pm
+ON CONFLICT DO NOTHING;
+```
+
+**Files thay đổi:** Không cần sửa code -- chỉ cần insert dữ liệu vào database.
+
+Sau khi chạy migration, reload trang Portal sẽ thấy FDP/MDP/CDP active và có thể bấm vào navigate bình thường.
 
