@@ -9,7 +9,7 @@ export function useAllocationRecommendations(runId?: string) {
     queryFn: async () => {
       let query = buildSelectQuery('inv_allocation_recommendations', '*');
       if (runId) query = query.eq('run_id', runId);
-      const { data, error } = await query.order('priority', { ascending: true }).limit(500);
+      const { data, error } = await query.order('priority', { ascending: true }).limit(5000);
       if (error) throw error;
       return (data || []) as unknown as any[];
     },
