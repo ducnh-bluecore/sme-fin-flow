@@ -83,7 +83,7 @@ export default function InventoryAllocationPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <InventoryHeroHeader suggestions={suggestions} />
+        <InventoryHeroHeader suggestions={suggestions} storeCapacityData={stores.map((s: any) => ({ store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0 }))} />
 
         {/* Action Bar */}
         <div className="flex items-center justify-between">

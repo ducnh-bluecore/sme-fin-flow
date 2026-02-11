@@ -1,9 +1,16 @@
-import { Package, AlertTriangle } from 'lucide-react';
+import { Package, AlertTriangle, Warehouse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
+interface StoreCapacityData {
+  store_name: string;
+  total_on_hand: number;
+  capacity: number;
+}
+
 interface Props {
   suggestions: RebalanceSuggestion[];
+  storeCapacityData?: StoreCapacityData[];
 }
 
 function formatCurrency(value: number): string {
@@ -13,11 +20,14 @@ function formatCurrency(value: number): string {
   return value.toFixed(0);
 }
 
-export function InventoryHeroHeader({ suggestions }: Props) {
+export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Props) {
   const p1Suggestions = suggestions.filter(s => s.priority === 'P1' && s.status === 'pending');
   const totalRevenueAtRisk = p1Suggestions.reduce((sum, s) => sum + (s.potential_revenue_gain || 0), 0);
   const uniqueStores = new Set(p1Suggestions.map(s => s.to_location)).size;
   const hasUrgency = p1Suggestions.length > 0;
+
+  const nearFullStores = storeCapacityData.filter(s => s.capacity > 0 && s.total_on_hand / s.capacity > 0.85);
+  const hasCapacityWarning = nearFullStores.length > 0;
 
   return (
     <div className={cn(
@@ -58,15 +68,23 @@ export function InventoryHeroHeader({ suggestions }: Props) {
           )}
         </div>
 
-        {hasUrgency && (
-          <div className="shrink-0 text-right">
-            <div className="flex items-center gap-1.5 text-red-400">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm font-semibold">{p1Suggestions.length} P1</span>
+        <div className="shrink-0 text-right space-y-1">
+          {hasUrgency && (
+            <div>
+              <div className="flex items-center gap-1.5 text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-sm font-semibold">{p1Suggestions.length} P1</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">cần xử lý gấp</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">cần xử lý gấp</p>
-          </div>
-        )}
+          )}
+          {hasCapacityWarning && (
+            <div className="flex items-center gap-1.5 text-amber-400">
+              <Warehouse className="h-4 w-4" />
+              <span className="text-sm font-semibold">{nearFullStores.length} store gần đầy</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
