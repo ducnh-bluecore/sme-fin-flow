@@ -104,41 +104,80 @@ async function handleAllocate(
   if (runError) throw runError;
 
   try {
+    // ── Parallel-paginated fetch (Supabase caps ~1000 rows per request) ──
+    async function fetchAll(table: string, selectCols: string, filters: Record<string, any> = {}): Promise<any[]> {
+      const PAGE_SIZE = 1000;
+      // First page to get total
+      let query = supabase.from(table).select(selectCols, { count: 'exact' }).eq("tenant_id", tenantId);
+      for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
+      const first = await query.range(0, PAGE_SIZE - 1);
+      if (first.error) throw first.error;
+      const firstData = first.data || [];
+      const total = first.count || firstData.length;
+      if (total <= PAGE_SIZE) return firstData;
+      
+      // Fetch remaining pages in parallel
+      const pages = Math.ceil(total / PAGE_SIZE);
+      const promises = [];
+      for (let i = 1; i < pages; i++) {
+        let q = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
+        for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+        promises.push(q.range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
+      }
+      const results = await Promise.all(promises);
+      let allData = [...firstData];
+      for (const r of results) {
+        if (r.error) throw r.error;
+        allData = allData.concat(r.data || []);
+      }
+      return allData;
+    }
+
     // ── Fetch all data in parallel ──
-    const LARGE_LIMIT = 50000;
-    const [storesRes, positionsRes, demandRes, fcsRes, constraintsRes, collectionsRes, sizeIntRes, skuRes] =
+    // Use RPC for heavy tables, fetchAll for small ones
+    const [storesRaw, posAgg, storeTotalsRaw, demand, fcs, constraints, collections, sizeIntegrity, skuMappings] =
       await Promise.all([
-        supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
-        supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
-        supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
-        supabase.from("inv_family_codes").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(LARGE_LIMIT),
-        supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
-        supabase.from("inv_collections").select("*").eq("tenant_id", tenantId).limit(500),
-        supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
-        supabase.from("inv_sku_fc_mapping").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+        fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
+        supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
+        supabase.rpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
+        fetchAll("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty"),
+        fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id", { is_active: true }),
+        fetchAll("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
+        fetchAll("inv_collections", "id,is_new_collection,air_date"),
+        fetchAll("inv_state_size_integrity", "fc_id,is_full_size_run"),
+        fetchAll("inv_sku_fc_mapping", "fc_id,sku"),
       ]);
 
-    const stores: StoreInfo[] = (storesRes.data || []).map((s: any) => ({
+    if (posAgg.error) throw posAgg.error;
+    if (storeTotalsRaw.error) throw storeTotalsRaw.error;
+
+    // Map aggregated positions to the format the engine expects
+    const positions = (posAgg.data || []).map((p: any) => ({
+      store_id: p.store_id,
+      fc_id: p.fc_id,
+      on_hand: Number(p.total_on_hand) || 0,
+      reserved: Number(p.total_reserved) || 0,
+      in_transit: Number(p.total_in_transit) || 0,
+      safety_stock: Number(p.total_safety_stock) || 0,
+      sku: null, // aggregated — no single SKU
+    }));
+
+    const stores: StoreInfo[] = storesRaw.map((s: any) => ({
       ...s,
       capacity: Number(s.capacity) || 0,
     }));
-    const positions = positionsRes.data || [];
-    const demand = demandRes.data || [];
-    const fcs = fcsRes.data || [];
-    const constraints = constraintsRes.data || [];
-    const collections = collectionsRes.data || [];
-    const sizeIntegrity = sizeIntRes.data || [];
-    const skuMappings = skuRes.data || [];
+
+    console.log(`[ALLOC DATA] stores: ${stores.length}, positions(agg): ${positions.length}, fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
 
     if (!stores.length || !positions.length) {
       await completeRun(supabase, run.id, 0, 0);
       return jsonResponse({ run_id: run.id, recommendations: 0, message: "No data" });
     }
 
-    // Build store total on-hand for capacity checks
+    // Build store total on-hand for capacity checks (from RPC)
     const storeTotalOnHand = new Map<string, number>();
-    for (const p of positions) {
-      storeTotalOnHand.set(p.store_id, (storeTotalOnHand.get(p.store_id) || 0) + (p.on_hand || 0));
+    for (const st of (storeTotalsRaw.data || [])) {
+      storeTotalOnHand.set(st.store_id, Number(st.total_on_hand) || 0);
     }
 
     const cm = buildConstraintMap(constraints);
@@ -148,8 +187,11 @@ async function handleAllocate(
     const centralStores = stores.filter((s) => s.location_type === "central_warehouse");
     const retailStores = stores.filter((s) => s.location_type !== "central_warehouse");
 
+    console.log(`[ALLOC STORES] central: ${centralStores.length} (${centralStores.map(s => s.id).join(',')}), retail: ${retailStores.length}`);
+
     // Track CW available stock (mutable during allocation)
     const cwStock = buildCWStock(positions, centralStores);
+    console.log(`[ALLOC CW] cwStock FC entries: ${cwStock.size}`);
 
     const allRecs: AllocationRec[] = [];
 
@@ -579,20 +621,52 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
   if (runError) throw runError;
 
   try {
-    const LARGE_LIMIT = 50000;
-    const [storesRes, positionsRes, demandRes, constraintsRes, sizeIntRes] = await Promise.all([
-      supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
-      supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
-      supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
-      supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
-      supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+    // Parallel-paginated fetch
+    async function fetchAllRebal(table: string, selectCols: string, filters: Record<string, any> = {}): Promise<any[]> {
+      const PAGE_SIZE = 1000;
+      let query = supabase.from(table).select(selectCols, { count: 'exact' }).eq("tenant_id", tenantId);
+      for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
+      const first = await query.range(0, PAGE_SIZE - 1);
+      if (first.error) throw first.error;
+      const firstData = first.data || [];
+      const total = first.count || firstData.length;
+      if (total <= PAGE_SIZE) return firstData;
+      const pages = Math.ceil(total / PAGE_SIZE);
+      const promises = [];
+      for (let i = 1; i < pages; i++) {
+        let q = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
+        for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+        promises.push(q.range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
+      }
+      const results = await Promise.all(promises);
+      let allData = [...firstData];
+      for (const r of results) {
+        if (r.error) throw r.error;
+        allData = allData.concat(r.data || []);
+      }
+      return allData;
+    }
+
+    const [storesRaw2, posAgg2, demand, constraints, sizeIntegrity] = await Promise.all([
+      fetchAllRebal("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
+      supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
+      fetchAllRebal("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity"),
+      fetchAllRebal("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
+      fetchAllRebal("inv_state_size_integrity", "fc_id,is_full_size_run"),
     ]);
 
-    const stores = storesRes.data || [];
-    const positions = positionsRes.data || [];
-    const demand = demandRes.data || [];
-    const constraints = constraintsRes.data || [];
-    const sizeIntegrity = sizeIntRes.data || [];
+    if (posAgg2.error) throw posAgg2.error;
+    const stores = storesRaw2;
+    const positions = (posAgg2.data || []).map((p: any) => ({
+      store_id: p.store_id,
+      fc_id: p.fc_id,
+      on_hand: Number(p.total_on_hand) || 0,
+      reserved: Number(p.total_reserved) || 0,
+      available: (Number(p.total_on_hand) || 0) - (Number(p.total_reserved) || 0),
+      safety_stock: Number(p.total_safety_stock) || 0,
+      fc_name: "",
+      weeks_of_cover: null,
+    }));
 
     const cm = buildConstraintMap(constraints);
     const demandMap = buildDemandMap(demand);
