@@ -52,6 +52,10 @@ import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useCachedSKUProfitability } from '@/hooks/useSKUProfitabilityCache';
 import UnitEconomicsDecisionCards from '@/components/unit-economics/UnitEconomicsDecisionCards';
+import FDPOutcomeTracker from '@/components/dashboard/FDPOutcomeTracker';
+import { useRecordOutcome } from '@/hooks/control-tower';
+import { toast } from 'sonner';
+import { addDays } from 'date-fns';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -60,6 +64,7 @@ export default function UnitEconomicsPage() {
   const { data: skuData } = useCachedSKUProfitability();
   const [showFormulas, setShowFormulas] = useState(false);
   const { t } = useLanguage();
+  const { mutate: recordOutcome, isPending: isRecordingOutcome } = useRecordOutcome();
 
   // FDP Principle #6: Identify SKUs that need STOP action using FDP_THRESHOLDS
   const stopSKUs = useMemo(() => {
@@ -164,11 +169,25 @@ export default function UnitEconomicsPage() {
         {stopSKUs.length > 0 && (
           <SKUStopAction 
             stopSKUs={stopSKUs}
+            isSubmitting={isRecordingOutcome}
             onAcknowledge={(sku, action) => {
-              console.log(`SKU ${sku} acknowledged with action: ${action}`);
+              const skuInfo = stopSKUs.find(s => s.sku === sku);
+              if (!skuInfo) return;
+              
+              recordOutcome({
+                decisionTitle: `${skuInfo.productName} (${sku})`,
+                decisionType: 'FDP_SKU_STOP',
+                predictedImpactAmount: skuInfo.monthlyLoss,
+                outcomeVerdict: 'pending_followup',
+                outcomeNotes: `Action: ${action} | Channel: ${skuInfo.channel} | Margin: ${skuInfo.marginPercent.toFixed(1)}% | Locked cash: ${skuInfo.lockedCash} | Reasons: ${skuInfo.reason.join('; ')}`,
+                followupDueDate: addDays(new Date(), 7).toISOString(),
+              });
             }}
           />
         )}
+
+        {/* FDP Outcome Tracker - theo dõi kết quả quyết định SKU */}
+        <FDPOutcomeTracker />
 
         {/* Decision Cards */}
         <UnitEconomicsDecisionCards 

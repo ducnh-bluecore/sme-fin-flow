@@ -50,6 +50,7 @@ interface StopSKU {
 interface SKUStopActionProps {
   stopSKUs: StopSKU[];
   onAcknowledge?: (sku: string, action: string) => void;
+  isSubmitting?: boolean;
 }
 
 const recommendationConfig = {
@@ -165,7 +166,7 @@ function SKUStopCard({ sku, onAction }: { sku: StopSKU; onAction: () => void }) 
   );
 }
 
-export default function SKUStopAction({ stopSKUs, onAcknowledge }: SKUStopActionProps) {
+export default function SKUStopAction({ stopSKUs, onAcknowledge, isSubmitting }: SKUStopActionProps) {
   const [selectedSKU, setSelectedSKU] = useState<StopSKU | null>(null);
   const [acknowledgedSKUs, setAcknowledgedSKUs] = useState<Set<string>>(new Set());
 
@@ -292,9 +293,14 @@ export default function SKUStopAction({ stopSKUs, onAcknowledge }: SKUStopAction
               variant="destructive"
               onClick={() => handleAcknowledge('acknowledged')}
               className="gap-2"
+              disabled={isSubmitting}
             >
-              <CheckCircle className="h-4 w-4" />
-              Đã ghi nhận, sẽ xử lý
+              {isSubmitting ? (
+                <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              {isSubmitting ? 'Đang ghi nhận...' : 'Đã ghi nhận, sẽ xử lý'}
             </Button>
           </DialogFooter>
         </DialogContent>
