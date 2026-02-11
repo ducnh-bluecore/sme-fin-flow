@@ -129,14 +129,12 @@ export function useFDPAggregatedMetricsSSOT() {
     queryFn: async (): Promise<AggregatedFDPMetricsSSOT | null> => {
       if (!tenantId) return null;
 
-      // Build channel query
-      let channelQuery = client
-        .from('v_channel_performance')
-        .select('channel, order_count, gross_revenue, net_revenue, total_fees, cogs, gross_margin');
-
-      if (shouldAddTenantFilter) {
-        channelQuery = channelQuery.eq('tenant_id', tenantId);
-      }
+      // Channel performance via RPC (replaces slow v_channel_performance view)
+      const channelRpcParams = {
+        p_tenant_id: tenantId,
+        p_start_date: startDateStr,
+        p_end_date: endDateStr,
+      };
 
       // Build SKU query
       let skuQuery = client
@@ -161,16 +159,7 @@ export function useFDPAggregatedMetricsSSOT() {
         marketingQuery = marketingQuery.eq('tenant_id', tenantId);
       }
 
-      // Build invoice summary query
-      let invoiceQuery = client
-        .from('fdp_invoice_summary' as any)
-        .select('total_amount, total_paid, outstanding_amount')
-        .gte('invoice_month', startDateStr)
-        .lte('invoice_month', endDateStr);
-
-      if (shouldAddTenantFilter) {
-        invoiceQuery = invoiceQuery.eq('tenant_id', tenantId);
-      }
+      // Invoice summary - table doesn't exist, skip gracefully
 
       // Call RPC for pre-aggregated metrics - NO CLIENT-SIDE AGGREGATION
       const [
@@ -178,7 +167,6 @@ export function useFDPAggregatedMetricsSSOT() {
         channelRes,
         skuRes,
         marketingRes,
-        invoiceRes,
       ] = await Promise.all([
         // Main summary from RPC
         client.rpc('get_fdp_period_summary', {
@@ -187,17 +175,14 @@ export function useFDPAggregatedMetricsSSOT() {
           p_end_date: endDateStr,
         }),
         
-        // Channel breakdown
-        channelQuery,
+        // Channel breakdown via RPC (replaces slow view)
+        client.rpc('get_channel_performance', channelRpcParams),
         
         // SKU breakdown (top 100)
         skuQuery,
         
         // Marketing expenses (for ROAS/CAC)
         marketingQuery,
-        
-        // Invoice summary
-        invoiceQuery,
       ]);
 
       // Check for RPC error first
@@ -209,7 +194,7 @@ export function useFDPAggregatedMetricsSSOT() {
       // Parse RPC response - it returns JSONB object directly (camelCase)
       const summary = (summaryRes.data ?? {}) as unknown as FDPPeriodSummaryResponse;
 
-      // Map v_channel_performance response to ChannelSummary format
+      // Map channel RPC response to ChannelSummary format
       interface ChannelPerformanceRow {
         channel?: string;
         order_count?: number;
@@ -223,7 +208,7 @@ export function useFDPAggregatedMetricsSSOT() {
       const channelSummary: ChannelSummary[] = channelRows.map(ch => ({
         channel: ch.channel || 'OTHER',
         order_count: ch.order_count || 0,
-        unique_customers: 0, // Not available in v_channel_performance
+        unique_customers: 0,
         total_revenue: ch.net_revenue || 0,
         total_cogs: ch.cogs || 0,
         total_platform_fee: ch.total_fees || 0,
@@ -235,7 +220,6 @@ export function useFDPAggregatedMetricsSSOT() {
       }));
       const skuSummary = (skuRes.data as unknown as SKUSummary[]) || [];
       const marketingExpenses = marketingRes.data || [];
-      const invoiceSummary = invoiceRes.data || [];
 
       // Extract values from RPC (already aggregated in DB, camelCase keys)
       const totalOrders = Number(summary.totalOrders ?? 0);
@@ -268,28 +252,11 @@ export function useFDPAggregatedMetricsSSOT() {
       const ltv = calculateLTV(avgOrderValue, avgOrdersPerCustomer, cmPercent).value;
       const ltvCacRatio = calculateLTVCACRatio(ltv, cac).value;
 
-      // Invoice metrics - small dataset, OK to sum here
-      interface InvoiceSummaryRow {
-        total_amount?: number;
-        total_paid?: number;
-        outstanding_amount?: number;
-      }
-      const invoiceRows = (invoiceSummary as unknown as InvoiceSummaryRow[]) || [];
-      const totalInvoiced = invoiceRows.reduce(
-        (sum, i) => sum + (Number(i.total_amount) || 0), 
-        0
-      );
-      const totalCollected = invoiceRows.reduce(
-        (sum, i) => sum + (Number(i.total_paid) || 0), 
-        0
-      );
-      const totalOutstanding = invoiceRows.reduce(
-        (sum, i) => sum + (Number(i.outstanding_amount) || 0), 
-        0
-      );
-      const collectionRate = totalInvoiced > 0 
-        ? (totalCollected / totalInvoiced) * 100 
-        : 0;
+      // Invoice metrics - table doesn't exist yet, default to 0
+      const totalInvoiced = 0;
+      const totalCollected = 0;
+      const totalOutstanding = 0;
+      const collectionRate = 0;
 
       // Health indicators
       const health = {
