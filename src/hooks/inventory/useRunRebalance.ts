@@ -46,7 +46,8 @@ export function useRunAllocate() {
       return response.data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['inv-allocation'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-recs'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-latest-run'] });
       const v1 = data.v1_count ?? 0;
       const v2 = data.v2_count ?? 0;
       toast.success(`Đã tạo ${data.total_recommendations} đề xuất (V1: ${v1}, V2: ${v2}, ${data.total_units} units)`);

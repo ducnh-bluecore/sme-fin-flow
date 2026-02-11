@@ -14,6 +14,7 @@ import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulati
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
+import { useAllocationRecommendations, useLatestAllocationRun } from '@/hooks/inventory/useAllocationRecommendations';
 import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
@@ -24,13 +25,53 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 import { useQueryClient } from '@tanstack/react-query';
+import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
 export default function InventoryAllocationPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
-  const { data: latestRun } = useLatestRebalanceRun();
-  const { data: suggestions = [], isLoading } = useRebalanceSuggestions(latestRun?.id);
+  const { data: latestRebalanceRun } = useLatestRebalanceRun();
+  const { data: rebalanceSuggestions = [] } = useRebalanceSuggestions(latestRebalanceRun?.id);
+  const { data: latestAllocRun } = useLatestAllocationRun();
+  const { data: allocRecs = [] } = useAllocationRecommendations(latestAllocRun?.id);
+
+  // Map allocation recommendations to RebalanceSuggestion format for unified display
+  const allocAsSuggestions: RebalanceSuggestion[] = useMemo(() => {
+    return allocRecs.map((r: any) => ({
+      id: r.id,
+      run_id: r.run_id,
+      transfer_type: 'push' as const,
+      fc_id: r.fc_id,
+      fc_name: r.fc_name || '',
+      from_location: '', // CW
+      from_location_name: 'Kho tổng',
+      from_location_type: 'central_warehouse',
+      to_location: r.store_id,
+      to_location_name: r.store_name || '',
+      to_location_type: 'retail',
+      qty: r.recommended_qty || 0,
+      reason: r.reason || '',
+      from_weeks_cover: 0,
+      to_weeks_cover: r.current_weeks_cover || 0,
+      balanced_weeks_cover: r.projected_weeks_cover || 0,
+      priority: r.priority || 'medium',
+      potential_revenue_gain: r.potential_revenue || 0,
+      logistics_cost_estimate: 0,
+      net_benefit: r.potential_revenue || 0,
+      status: r.status || 'pending',
+      approved_by: r.approved_by,
+      approved_at: r.approved_at,
+      created_at: r.created_at,
+    }));
+  }, [allocRecs]);
+
+  // Combined suggestions for "all" tab
+  const allSuggestions = useMemo(() => [...allocAsSuggestions, ...rebalanceSuggestions], [allocAsSuggestions, rebalanceSuggestions]);
+
+  // V1/V2 filtered from allocation recs
+  const v1Suggestions = useMemo(() => allocAsSuggestions.filter(s => s.reason?.startsWith('V1:')), [allocAsSuggestions]);
+  const v2Suggestions = useMemo(() => allocAsSuggestions.filter(s => s.reason?.startsWith('V2:')), [allocAsSuggestions]);
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
@@ -84,16 +125,16 @@ export default function InventoryAllocationPage() {
       </Helmet>
 
       <div className="space-y-6">
-        <InventoryHeroHeader suggestions={suggestions} storeCapacityData={stores.map((s: any) => ({ store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0 }))} />
+        <InventoryHeroHeader suggestions={allSuggestions} storeCapacityData={stores.map((s: any) => ({ store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0 }))} />
         <CapacityOptimizationCard stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, tier: s.tier || 'C', total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, utilization: s.capacity > 0 ? (s.total_on_hand || 0) / s.capacity : 0 }))} />
 
         {/* Action Bar */}
         <div className="flex items-center justify-between">
           <div>
-            {latestRun && (
+            {latestAllocRun && (
               <p className="text-xs text-muted-foreground">
-                Lần quét gần nhất: {new Date(latestRun.created_at).toLocaleString('vi-VN')}
-                {latestRun.status === 'completed' && ` • ${latestRun.total_suggestions} đề xuất`}
+                Allocation gần nhất: {new Date(latestAllocRun.created_at).toLocaleString('vi-VN')}
+                {latestAllocRun.status === 'completed' && ` • ${latestAllocRun.total_recommendations || allocRecs.length} đề xuất`}
               </p>
             )}
           </div>
@@ -154,23 +195,29 @@ export default function InventoryAllocationPage() {
           </div>
         </div>
 
-        <RebalanceSummaryCards suggestions={suggestions} />
+        <RebalanceSummaryCards suggestions={allSuggestions} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="all" className="gap-1.5">
               Tất cả
-              {suggestions.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{suggestions.length}</span>
+              {allSuggestions.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{allSuggestions.length}</span>
               )}
             </TabsTrigger>
             <TabsTrigger value="v1" className="gap-1.5">
               <Layers className="h-3.5 w-3.5" />
               V1: Phủ nền
+              {v1Suggestions.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{v1Suggestions.length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="v2" className="gap-1.5">
               <Target className="h-3.5 w-3.5" />
               V2: Nhu cầu
+              {v2Suggestions.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{v2Suggestions.length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="push" className="gap-1.5">
               <Package className="h-3.5 w-3.5" />
@@ -201,50 +248,50 @@ export default function InventoryAllocationPage() {
           {/* All suggestions */}
           <TabsContent value="all">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={allSuggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={allSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
-          {/* V1: Phủ nền — filter by reason starting with "V1:" */}
+          {/* V1: Phủ nền */}
           <TabsContent value="v1">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={v1Suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V1:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={v1Suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
-          {/* V2: Nhu cầu — filter by reason starting with "V2:" */}
+          {/* V2: Nhu cầu */}
           <TabsContent value="v2">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={v2Suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions.filter(s => s.reason?.startsWith('V2:'))} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={v2Suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* Push from CW */}
           <TabsContent value="push">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={rebalanceSuggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={rebalanceSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" storeMap={storeMap} />
             )}
           </TabsContent>
 
           {/* Lateral */}
           <TabsContent value="lateral">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={suggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={rebalanceSuggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={suggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={rebalanceSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" storeMap={storeMap} />
             )}
           </TabsContent>
 
           <TabsContent value="simulation">
-            <RebalanceSimulationTab suggestions={suggestions} />
+            <RebalanceSimulationTab suggestions={allSuggestions} />
           </TabsContent>
           <TabsContent value="audit">
             <RebalanceAuditLog />
