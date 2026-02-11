@@ -39323,6 +39323,25 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_inv_positions_agg: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          fc_id: string
+          sku_count: number
+          store_id: string
+          total_in_transit: number
+          total_on_hand: number
+          total_reserved: number
+          total_safety_stock: number
+        }[]
+      }
+      fn_inv_store_totals: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          store_id: string
+          total_on_hand: number
+        }[]
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
