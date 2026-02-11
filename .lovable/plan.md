@@ -1,71 +1,75 @@
 
 
-## Plan: Fix Finance Data Timeout trên Unit Economics Page
+## Plan: Fix Unit Economics Page Loading (3 Database Bottlenecks)
 
-### Vấn de
+### Van de hien tai
 
-Trang Unit Economics va cac module FDP khong hoat dong vi **query timeout**. Du lieu COGS da co san (94.4% order items da co gia von), nhung cac RPC va view bi timeout khi scan 1.2M orders + 191k order items.
+Trang Unit Economics bi "treo" vi 3 query song song deu that bai:
 
-### Loi console
+| Query | Loi | Nguyen nhan |
+|-------|-----|-------------|
+| `get_fdp_period_summary` | PGRST203 (300) | 2 phien ban RPC trung ten (text vs date params) |
+| `v_channel_performance` | Timeout (500) | View scan toan bo 1.2M orders, khong co date filter |
+| `fdp_invoice_summary` | 404 | Bang khong ton tai |
 
+### Giai phap
+
+#### Buoc 1: Xoa RPC trung lap `get_fdp_period_summary`
+
+Hien co 2 overload:
+- `(uuid, text, text)` -- dang dung, giu lai
+- `(uuid, date, date)` -- thua, gay loi PGRST203
+
+Xoa phien ban `(uuid, date, date)` de PostgREST tu dong chon dung.
+
+#### Buoc 2: Thay `v_channel_performance` bang RPC co date filter
+
+View hien tai:
 ```
-get_fdp_period_summary: "canceling statement due to statement timeout"
-get_sku_profitability_by_date_range: "canceling statement due to statement timeout"  
+SELECT ... FROM cdp_orders GROUP BY tenant_id, channel
 ```
+Scan 1.2M dong moi lan goi -- khong the chay duoi 30s.
 
-### Nguyen nhan goc
+Tao RPC `get_channel_performance` nhan `p_tenant_id`, `p_start_date`, `p_end_date` de chi scan orders trong khoang thoi gian, tan dung index `idx_cdp_orders_tenant_order_at_channel`.
 
-1. RPC `get_fdp_period_summary` - scan full 1.2M `cdp_orders` voi date filter nhung khong co composite index toi uu
-2. RPC `get_sku_profitability_by_date_range` - JOIN 3 bang lon (`cdp_order_items` x `cdp_orders` x `products`) voi cast `p.id::text = coi.product_id` lam mat index
-3. View `fdp_sku_summary` - aggregate toan bo 191k items voi JOIN khong co tenant filter
+Cap nhat frontend `useFDPAggregatedMetricsSSOT.ts` de goi RPC thay vi query view.
 
-### Giai phap: Toi uu hoa database (SQL migration)
+#### Buoc 3: Xu ly `fdp_invoice_summary` khong ton tai
 
-#### Buoc 1: Them index toi uu
-
-- Index tren `cdp_orders(tenant_id, order_at)` da co nhung can covering index cho cac cot aggregate
-- Index tren `cdp_order_items(tenant_id, sku)` de group nhanh hon
-
-#### Buoc 2: Rewrite RPC `get_sku_profitability_by_date_range`
-
-- Loai bo cast `p.id::text = coi.product_id` - dung truc tiep `coi.sku = p.sku` (match theo SKU thay vi product_id)
-- Them index support cho pattern nay
-
-#### Buoc 3: Tao materialized view thay the `fdp_sku_summary`
-
-- Chuyen tu view thuong sang materialized view de cache ket qua
-- Hoac rewrite thanh RPC co tenant filter + date range
-
-#### Buoc 4: Timeout setting
-
-- Tang statement timeout cho cac RPC nay hoac toi uu de chay duoi 10s
+Frontend dang query bang `fdp_invoice_summary` nhung bang nay khong co. Cap nhat code de:
+- Bat loi 404 gracefully (khong throw)
+- Tra ve gia tri mac dinh (0) cho invoice metrics
 
 ### Chi tiet ky thuat
 
-**SQL Migration se bao gom:**
+**SQL Migration:**
 
 ```text
--- 1. Index cho SKU lookup nhanh
-CREATE INDEX IF NOT EXISTS idx_cdp_order_items_tenant_sku 
-ON cdp_order_items(tenant_id, sku);
+-- 1. Xoa RPC trung lap
+DROP FUNCTION IF EXISTS get_fdp_period_summary(uuid, date, date);
 
--- 2. Index cho products SKU lookup  
-CREATE INDEX IF NOT EXISTS idx_products_tenant_sku 
-ON products(tenant_id, sku);
-
--- 3. Rewrite RPC get_sku_profitability_by_date_range
--- Dung coi.sku = p.sku thay vi p.id::text = coi.product_id
--- Tranh type cast lam mat index
-
--- 4. Tao materialized view cho fdp_sku_summary 
--- Hoac replace view voi tenant-aware version
+-- 2. Tao RPC channel performance co date filter
+CREATE OR REPLACE FUNCTION get_channel_performance(
+  p_tenant_id UUID, p_start_date TEXT, p_end_date TEXT
+) RETURNS TABLE(...) AS $$
+  SELECT channel, count(*), sum(net_revenue), sum(cogs), ...
+  FROM cdp_orders 
+  WHERE tenant_id = p_tenant_id 
+    AND order_at >= p_start_date::timestamp
+    AND order_at < (p_end_date::date + 1)::timestamp
+  GROUP BY channel
+$$ LANGUAGE sql STABLE;
 ```
 
-**Khong can thay doi code frontend** - chi can fix database layer de query khong con timeout.
+**Frontend changes:**
+
+- `src/hooks/useFDPAggregatedMetricsSSOT.ts`:
+  - Thay `client.from('v_channel_performance')` bang `client.rpc('get_channel_performance', {...})`
+  - Bat loi `fdp_invoice_summary` gracefully (try/catch, default 0)
 
 ### Ket qua mong doi
 
-- Unit Economics page load thanh cong voi data COGS thuc te
-- Query time giam tu timeout (>30s) xuong duoi 5s
-- Gross Profit, COGS%, Margin hien thi dung tu du lieu san co
+- Unit Economics page load trong 3-5 giay thay vi treo vo han
+- Tat ca metrics (AOV, CM, ROAS, LTV:CAC) hien thi dung
+- Khong con loi 500/404 trong console
 
