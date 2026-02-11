@@ -226,7 +226,7 @@ export default function SKUProfitabilityAnalysis() {
   const [filterChannel, setFilterChannel] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'profit' | 'margin' | 'revenue'>('profit');
-  const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null } | null>(null);
+  const [selectedSKU, setSelectedSKU] = useState<{ sku: string; productName: string | null; isProblematic?: boolean } | null>(null);
   const [showAllProblematic, setShowAllProblematic] = useState(false);
 
   // NOTE: Removed problematicNotInRange warning as both data sources 
@@ -650,9 +650,10 @@ export default function SKUProfitabilityAnalysis() {
                 <SKUCard
                   key={`${sku.sku}-${i}`}
                   sku={sku}
-                  onViewDetails={() =>
-                    setSelectedSKU({ sku: sku.sku, productName: sku.product_name })
-                  }
+                  onViewDetails={() => {
+                    const isFromProblematic = problematicAsAggregated.some(p => p.sku === sku.sku);
+                    setSelectedSKU({ sku: sku.sku, productName: sku.product_name, isProblematic: isFromProblematic || showAllProblematic });
+                  }}
                 />
               ))}
             </div>
@@ -673,7 +674,7 @@ export default function SKUProfitabilityAnalysis() {
         onOpenChange={(open) => !open && setSelectedSKU(null)}
         sku={selectedSKU?.sku || ''}
         productName={selectedSKU?.productName || null}
-        ignoreDateRange={showAllProblematic}
+        ignoreDateRange={showAllProblematic || !!selectedSKU?.isProblematic}
       />
     </div>
   );
