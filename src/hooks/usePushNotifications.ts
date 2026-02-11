@@ -84,7 +84,7 @@ export function useSubscribePush() {
         throw new Error('Failed to get VAPID key');
       }
 
-      const subscription = await registration.pushManager.subscribe({
+      const subscription = await (registration as any).pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidData.publicKey,
       });
@@ -141,7 +141,7 @@ export function useUnsubscribePush() {
 
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
+        const subscription = await (registration as any).pushManager.getSubscription();
         if (subscription) {
           await subscription.unsubscribe();
           const { error } = await buildUpdateQuery('push_subscriptions', { is_active: false })
