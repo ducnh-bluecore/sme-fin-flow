@@ -39534,10 +39534,23 @@ export type Database = {
           total_revenue: number
         }[]
       }
-      get_fdp_period_summary: {
-        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
-        Returns: Json
-      }
+      get_fdp_period_summary:
+        | {
+            Args: {
+              p_end_date: string
+              p_start_date: string
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end_date: string
+              p_start_date: string
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
       get_forecast_historical_stats: {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: {
