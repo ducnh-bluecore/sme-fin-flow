@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown, Store } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
+import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
 import { RebalanceBoardTable } from '@/components/inventory/RebalanceBoardTable';
 import { InventoryFCDecisionCards } from '@/components/inventory/InventoryFCDecisionCards';
@@ -84,6 +85,7 @@ export default function InventoryAllocationPage() {
 
       <div className="space-y-6">
         <InventoryHeroHeader suggestions={suggestions} storeCapacityData={stores.map((s: any) => ({ store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0 }))} />
+        <CapacityOptimizationCard stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, tier: s.tier || 'C', total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, utilization: s.capacity > 0 ? (s.total_on_hand || 0) / s.capacity : 0 }))} />
 
         {/* Action Bar */}
         <div className="flex items-center justify-between">

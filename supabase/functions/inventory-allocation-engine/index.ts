@@ -105,16 +105,17 @@ async function handleAllocate(
 
   try {
     // ── Fetch all data in parallel ──
+    const LARGE_LIMIT = 50000;
     const [storesRes, positionsRes, demandRes, fcsRes, constraintsRes, collectionsRes, sizeIntRes, skuRes] =
       await Promise.all([
-        supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true),
-        supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId),
-        supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId),
-        supabase.from("inv_family_codes").select("*").eq("tenant_id", tenantId).eq("is_active", true),
-        supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true),
-        supabase.from("inv_collections").select("*").eq("tenant_id", tenantId),
-        supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId),
-        supabase.from("inv_sku_fc_mapping").select("*").eq("tenant_id", tenantId),
+        supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
+        supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+        supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+        supabase.from("inv_family_codes").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(LARGE_LIMIT),
+        supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
+        supabase.from("inv_collections").select("*").eq("tenant_id", tenantId).limit(500),
+        supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+        supabase.from("inv_sku_fc_mapping").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
       ]);
 
     const stores: StoreInfo[] = (storesRes.data || []).map((s: any) => ({
@@ -256,19 +257,22 @@ function runV1(
   );
 
   // ── 5. For each FC in scope → allocate baseline ──
+  console.log(`[V1] scopeFcIds: ${scopeFcIds.length}, cwStock entries: ${cwStock.size}, retailStores: ${sortedRetail.length}, noBrokenSize: ${noBrokenSize}`);
+  let debugSkipNoFc = 0, debugSkipSizeInt = 0, debugSkipNoCw = 0, debugSkipNoShortage = 0, debugAllocated = 0;
+  
   for (const fcId of scopeFcIds) {
     const fc = fcs.find((f: any) => f.id === fcId);
-    if (!fc) continue;
+    if (!fc) { debugSkipNoFc++; continue; }
 
     // Check size integrity
     if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) {
-      // Log skip but don't allocate
+      debugSkipSizeInt++;
       continue;
     }
 
     // Available at CW
     let cwAvailable = cwStock.get(fcId) ?? 0;
-    if (cwAvailable <= 0) continue;
+    if (cwAvailable <= 0) { debugSkipNoCw++; continue; }
 
     // CW reserve floor
     const cwReserveMin = lookupRange(cwReservedRanges, cwTotalSkus);
@@ -293,7 +297,7 @@ function runV1(
       );
 
       const shortage = minQty - currentStock;
-      if (shortage <= 0) continue;
+      if (shortage <= 0) { debugSkipNoShortage++; continue; }
 
       let allocQty = Math.min(shortage, cwAvailable - effectiveCwReserve);
       if (allocQty <= 0) continue;
@@ -357,6 +361,7 @@ function runV1(
     }
   }
 
+  console.log(`[V1 Summary] recs: ${recs.length}, skipNoFc: ${debugSkipNoFc}, skipSizeInt: ${debugSkipSizeInt}, skipNoCw: ${debugSkipNoCw}, skipNoShortage: ${debugSkipNoShortage}`);
   return recs;
 }
 
@@ -574,12 +579,13 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
   if (runError) throw runError;
 
   try {
+    const LARGE_LIMIT = 50000;
     const [storesRes, positionsRes, demandRes, constraintsRes, sizeIntRes] = await Promise.all([
-      supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true),
-      supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId),
-      supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId),
-      supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true),
-      supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId),
+      supabase.from("inv_stores").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
+      supabase.from("inv_state_positions").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+      supabase.from("inv_state_demand").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
+      supabase.from("inv_constraint_registry").select("*").eq("tenant_id", tenantId).eq("is_active", true).limit(500),
+      supabase.from("inv_state_size_integrity").select("*").eq("tenant_id", tenantId).limit(LARGE_LIMIT),
     ]);
 
     const stores = storesRes.data || [];
