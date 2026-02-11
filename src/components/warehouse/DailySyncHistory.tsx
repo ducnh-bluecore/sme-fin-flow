@@ -38,10 +38,12 @@ import {
   Database,
   Timer,
   TrendingUp,
+  HardDrive,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useDailySyncRuns, useTriggerDailySync, type DailySyncRun } from '@/hooks/useDailySyncRuns';
+import { useModelTotalCounts, type ModelTotalCounts } from '@/hooks/useModelTotalCounts';
 import { toast } from 'sonner';
 
 const MODEL_ICONS: Record<string, string> = {
@@ -59,6 +61,7 @@ const MODEL_ICONS: Record<string, string> = {
 
 export function DailySyncHistory() {
   const { data: runs, isLoading, refetch } = useDailySyncRuns();
+  const { data: totalCounts, isLoading: countsLoading } = useModelTotalCounts();
   const triggerSync = useTriggerDailySync();
   const [expandedRun, setExpandedRun] = useState<string | null>(null);
 
@@ -81,8 +84,53 @@ export function DailySyncHistory() {
     ? Math.round((last7Runs.filter(r => r.status === 'completed').length / last7Runs.length) * 100)
     : 0;
 
+  // Total records across all models
+  const grandTotal = totalCounts
+    ? Object.values(totalCounts).reduce((s, c) => s + c, 0)
+    : 0;
+
   return (
     <div className="space-y-6">
+      {/* DB Total Records Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <HardDrive className="w-5 h-5" />
+            Tổng records trong Database
+            {countsLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Số liệu thực tế trong DB — không phải số lần sync gần nhất
+          </p>
+        </CardHeader>
+        <CardContent>
+          {countsLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : totalCounts ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                {Object.entries(totalCounts)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([model, count]) => (
+                    <div key={model} className="rounded-lg border bg-muted/30 p-3 text-center">
+                      <span className="text-lg">{MODEL_ICONS[model] || '📊'}</span>
+                      <p className="text-xs text-muted-foreground mt-1 capitalize">{model.replace('_', ' ')}</p>
+                      <p className="text-sm font-bold tabular-nums mt-0.5">{count.toLocaleString()}</p>
+                    </div>
+                  ))}
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t">
+                <Database className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Tổng cộng:</span>
+                <span className="text-sm font-bold">{grandTotal.toLocaleString()} records</span>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryCard
@@ -178,6 +226,7 @@ export function DailySyncHistory() {
                   run={run}
                   isExpanded={expandedRun === run.id}
                   onToggle={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
+                  totalCounts={totalCounts}
                 />
               ))}
             </div>
@@ -224,10 +273,12 @@ function RunRow({
   run,
   isExpanded,
   onToggle,
+  totalCounts,
 }: {
   run: DailySyncRun;
   isExpanded: boolean;
   onToggle: () => void;
+  totalCounts?: ModelTotalCounts;
 }) {
   const successRate = run.total_models > 0
     ? (run.succeeded_count / (run.succeeded_count + run.failed_count)) * 100
@@ -285,7 +336,7 @@ function RunRow({
                   {run.total_records_processed.toLocaleString()} rec
                 </span>
               </TooltipTrigger>
-              <TooltipContent>Records xử lý</TooltipContent>
+              <TooltipContent>Records xử lý lần này</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
@@ -329,7 +380,7 @@ function RunRow({
                   <span className="ml-1 font-medium">{run.total_duration_ms ? formatDuration(run.total_duration_ms) : '—'}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Tổng records:</span>
+                  <span className="text-muted-foreground">Records lần này:</span>
                   <span className="ml-1 font-medium">{run.total_records_processed.toLocaleString()}</span>
                 </div>
               </div>
@@ -347,7 +398,8 @@ function RunRow({
                     <TableRow className="bg-muted/30">
                       <TableHead>Model</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Records</TableHead>
+                      <TableHead className="text-right">Synced lần này</TableHead>
+                      <TableHead className="text-right">Tổng trong DB</TableHead>
                       <TableHead className="text-right">Thời gian</TableHead>
                       <TableHead>Lỗi</TableHead>
                     </TableRow>
@@ -372,6 +424,11 @@ function RunRow({
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">
                           {(result.processed || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-bold text-primary">
+                          {totalCounts?.[model] != null
+                            ? totalCounts[model].toLocaleString()
+                            : '—'}
                         </TableCell>
                         <TableCell className="text-right text-sm text-muted-foreground">
                           {formatDuration(result.duration_ms)}
