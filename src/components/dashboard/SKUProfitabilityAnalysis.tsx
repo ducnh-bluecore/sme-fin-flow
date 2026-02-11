@@ -297,8 +297,18 @@ export default function SKUProfitabilityAnalysis() {
   }, [data]);
 
   const filteredSKUs = useMemo(() => {
-    // Use all problematic SKUs when toggle is on, otherwise use date-filtered data
-    const sourceData = showAllProblematic ? problematicAsAggregated : aggregatedSKUs;
+    // When searching, merge both data sources to ensure searchable across all SKUs
+    let sourceData: AggregatedSKU[];
+    if (showAllProblematic) {
+      sourceData = problematicAsAggregated;
+    } else if (searchQuery) {
+      // Merge: aggregatedSKUs + problematic SKUs not already in aggregated
+      const existingSKUs = new Set(aggregatedSKUs.map(s => s.sku));
+      const extraProblematic = problematicAsAggregated.filter(p => !existingSKUs.has(p.sku));
+      sourceData = [...aggregatedSKUs, ...extraProblematic];
+    } else {
+      sourceData = aggregatedSKUs;
+    }
     
     return sourceData
       .filter(sku => {
