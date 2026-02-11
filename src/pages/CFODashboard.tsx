@@ -246,7 +246,29 @@ export default function CFODashboard() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                {/* Always-available metrics first */}
+                <FinancialSummaryCard 
+                  label="Net Revenue" 
+                  value={formatVNDCompact(snapshot?.netRevenue || 0)}
+                  variant="success"
+                  noData={!snapshot?.netRevenue}
+                />
+                <FinancialSummaryCard 
+                  label="Gross Profit" 
+                  value={formatVNDCompact(snapshot?.grossProfit || 0)}
+                  subtext={`GM ${(snapshot?.grossMarginPercent || 0).toFixed(1)}%`}
+                  noData={!snapshot?.grossProfit && !snapshot?.grossMarginPercent}
+                />
+                <FinancialSummaryCard 
+                  label="Total Orders" 
+                  value={(snapshot?.totalOrders || 0).toLocaleString()}
+                />
+                <FinancialSummaryCard 
+                  label="AOV" 
+                  value={formatVNDCompact(snapshot?.avgOrderValue || 0)}
+                />
+                {/* Cash & AR metrics - may not be connected */}
                 <FinancialSummaryCard 
                   label="Cash Today" 
                   value={formatVNDCompact(snapshot?.cashToday || 0)}
@@ -260,24 +282,15 @@ export default function CFODashboard() {
                   noData={!snapshot?.dataQuality?.hasCashData}
                 />
                 <FinancialSummaryCard 
-                  label="Cash 7-Day" 
-                  value={formatVNDCompact(cashNext7Days)}
-                  noData={!snapshot?.dataQuality?.hasCashData}
-                />
-                <FinancialSummaryCard 
                   label="Overdue AR" 
                   value={formatVNDCompact(snapshot?.overdueAR || 0)}
                   variant={snapshot?.overdueAR && snapshot.overdueAR > 0 ? 'warning' : 'default'}
                   noData={!snapshot?.dataQuality?.hasARData}
                 />
                 <FinancialSummaryCard 
-                  label="CM %" 
-                  value={`${(snapshot?.contributionMarginPercent || 0).toFixed(1)}%`}
-                  variant={snapshot?.contributionMarginPercent && snapshot.contributionMarginPercent < 20 ? 'warning' : 'success'}
-                />
-                <FinancialSummaryCard 
-                  label="CCC" 
-                  value={`${snapshot?.ccc || 0} days`}
+                  label="Inventory" 
+                  value={formatVNDCompact(snapshot?.totalInventoryValue || 0)}
+                  noData={!snapshot?.dataQuality?.hasInventoryData}
                 />
               </div>
             )}
