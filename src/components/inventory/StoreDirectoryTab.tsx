@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Store, TrendingUp, Package, Clock, Layers, DollarSign, Info } from 'lucide-react';
+import { Search, Store, TrendingUp, Package, Clock, Layers, DollarSign, Info, Pencil, Check, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { getTierStyle } from '@/lib/inventory-store-map';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useUpdateStoreCapacity } from '@/hooks/inventory/useUpdateStoreCapacity';
+import { Progress } from '@/components/ui/progress';
 
 const FALLBACK_UNIT_PRICE = 250000; // VND - fallback for SKUs without sales data (used in DB view)
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
@@ -162,8 +165,28 @@ function MetricItem({ icon: Icon, label, value, sub, className }: { icon: any; l
   );
 }
 
+function getCapacityColor(utilization: number): { bar: string; text: string; badge?: string } {
+  if (utilization > 0.95) return { bar: 'bg-red-500', text: 'text-red-400', badge: 'Quá tải' };
+  if (utilization > 0.85) return { bar: 'bg-amber-500', text: 'text-amber-400', badge: 'Gần đầy' };
+  if (utilization < 0.7) return { bar: 'bg-emerald-500', text: 'text-emerald-400' };
+  return { bar: 'bg-primary', text: 'text-muted-foreground' };
+}
+
 function StoreCard({ store }: { store: StoreMetrics }) {
   const accent = getTierAccent(store.tier);
+  const updateCapacity = useUpdateStoreCapacity();
+  const [editingCapacity, setEditingCapacity] = useState(false);
+  const [capacityValue, setCapacityValue] = useState(String(store.capacity));
+
+  const utilization = store.capacity > 0 ? store.total_on_hand / store.capacity : 0;
+  const capColor = getCapacityColor(utilization);
+
+  const handleSaveCapacity = () => {
+    const val = parseInt(capacityValue, 10);
+    if (!val || val <= 0) return;
+    updateCapacity.mutate({ storeId: store.id, capacity: val });
+    setEditingCapacity(false);
+  };
 
   return (
     <div className={cn(
@@ -190,6 +213,57 @@ function StoreCard({ store }: { store: StoreMetrics }) {
               <span className="text-xs text-muted-foreground">{store.region}</span>
             </div>
           </div>
+          {capColor.badge && (
+            <Badge variant="outline" className={cn("text-[10px] shrink-0 border-current", capColor.text)}>
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              {capColor.badge}
+            </Badge>
+          )}
+        </div>
+
+        {/* Capacity bar */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-muted-foreground">Sức chứa</span>
+            <div className="flex items-center gap-1.5">
+              {editingCapacity ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    value={capacityValue}
+                    onChange={e => setCapacityValue(e.target.value)}
+                    className="h-6 w-20 text-xs px-1.5"
+                    min={1}
+                    autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveCapacity(); if (e.key === 'Escape') setEditingCapacity(false); }}
+                  />
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleSaveCapacity}>
+                    <Check className="h-3 w-3 text-emerald-400" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingCapacity(false)}>
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <span className={cn("text-xs font-semibold font-mono", capColor.text)}>
+                    {store.total_on_hand.toLocaleString()} / {store.capacity > 0 ? store.capacity.toLocaleString() : '—'}
+                  </span>
+                  <button onClick={() => { setCapacityValue(String(store.capacity || 0)); setEditingCapacity(true); }} className="text-muted-foreground hover:text-foreground">
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          {store.capacity > 0 && (
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className={cn("h-full rounded-full transition-all", capColor.bar)}
+                style={{ width: `${Math.min(100, utilization * 100)}%` }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Revenue highlight */}

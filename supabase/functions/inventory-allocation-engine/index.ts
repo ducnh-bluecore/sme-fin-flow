@@ -23,6 +23,7 @@ interface StoreInfo {
   region: string;
   location_type: string;
   is_active: boolean;
+  capacity: number;
 }
 
 interface AllocationRec {
@@ -116,7 +117,10 @@ async function handleAllocate(
         supabase.from("inv_sku_fc_mapping").select("*").eq("tenant_id", tenantId),
       ]);
 
-    const stores: StoreInfo[] = storesRes.data || [];
+    const stores: StoreInfo[] = (storesRes.data || []).map((s: any) => ({
+      ...s,
+      capacity: Number(s.capacity) || 0,
+    }));
     const positions = positionsRes.data || [];
     const demand = demandRes.data || [];
     const fcs = fcsRes.data || [];
@@ -128,6 +132,12 @@ async function handleAllocate(
     if (!stores.length || !positions.length) {
       await completeRun(supabase, run.id, 0, 0);
       return jsonResponse({ run_id: run.id, recommendations: 0, message: "No data" });
+    }
+
+    // Build store total on-hand for capacity checks
+    const storeTotalOnHand = new Map<string, number>();
+    for (const p of positions) {
+      storeTotalOnHand.set(p.store_id, (storeTotalOnHand.get(p.store_id) || 0) + (p.on_hand || 0));
     }
 
     const cm = buildConstraintMap(constraints);
@@ -146,7 +156,7 @@ async function handleAllocate(
     if (runType === "V1" || runType === "both") {
       const v1Recs = runV1(
         tenantId, run.id, stores, retailStores, centralStores,
-        positions, fcs, collections, cm, sizeIntMap, cwStock, skuMappings, demandMap
+        positions, fcs, collections, cm, sizeIntMap, cwStock, skuMappings, demandMap, storeTotalOnHand
       );
       allRecs.push(...v1Recs);
     }
@@ -155,7 +165,7 @@ async function handleAllocate(
     if (runType === "V2" || runType === "both") {
       const v2Recs = runV2(
         tenantId, run.id, stores, retailStores, centralStores,
-        positions, demand, fcs, cm, sizeIntMap, cwStock, skuMappings, demandMap
+        positions, demand, fcs, cm, sizeIntMap, cwStock, skuMappings, demandMap, storeTotalOnHand
       );
       allRecs.push(...v2Recs);
     }
@@ -211,7 +221,8 @@ function runV1(
   sizeIntMap: Map<string, boolean>,
   cwStock: Map<string, number>,
   skuMappings: any[],
-  demandMap: Map<string, number>
+  demandMap: Map<string, number>,
+  storeTotalOnHand: Map<string, number>
 ): AllocationRec[] {
   const recs: AllocationRec[] = [];
 
@@ -284,7 +295,20 @@ function runV1(
       const shortage = minQty - currentStock;
       if (shortage <= 0) continue;
 
-      const allocQty = Math.min(shortage, cwAvailable - effectiveCwReserve);
+      let allocQty = Math.min(shortage, cwAvailable - effectiveCwReserve);
+      if (allocQty <= 0) continue;
+
+      // ── Capacity check ──
+      let capacityCapped = false;
+      if (store.capacity > 0) {
+        const currentTotalOnHand = storeTotalOnHand.get(store.id) || 0;
+        const remainingCapacity = store.capacity - currentTotalOnHand;
+        if (remainingCapacity <= 0) continue;
+        if (allocQty > remainingCapacity) {
+          allocQty = remainingCapacity;
+          capacityCapped = true;
+        }
+      }
       if (allocQty <= 0) continue;
 
       const velocity = getDemandVelocity(demandMap, store.id, fcId);
@@ -300,6 +324,8 @@ function runV1(
         cw_reserve_floor: effectiveCwReserve,
         is_core_hero: isCoreHero,
         size_integrity: true,
+        capacity_capped: capacityCapped,
+        store_capacity: store.capacity || null,
       };
 
       recs.push({
@@ -326,6 +352,8 @@ function runV1(
 
       cwAvailable -= allocQty;
       cwStock.set(fcId, cwAvailable);
+      // Update store on-hand tracker for capacity
+      storeTotalOnHand.set(store.id, (storeTotalOnHand.get(store.id) || 0) + allocQty);
     }
   }
 
@@ -349,7 +377,8 @@ function runV2(
   sizeIntMap: Map<string, boolean>,
   cwStock: Map<string, number>,
   skuMappings: any[],
-  demandMap: Map<string, number>
+  demandMap: Map<string, number>,
+  storeTotalOnHand: Map<string, number>
 ): AllocationRec[] {
   const recs: AllocationRec[] = [];
 
@@ -454,7 +483,20 @@ function runV2(
     if (cwAvailable <= effectiveCwReserve) continue;
 
     const maxAlloc = cwAvailable - effectiveCwReserve;
-    const allocQty = Math.min(entry.demandQty, maxAlloc);
+    let allocQty = Math.min(entry.demandQty, maxAlloc);
+    if (allocQty <= 0) continue;
+
+    // ── Capacity check ──
+    let capacityCapped = false;
+    if (entry.store.capacity > 0) {
+      const currentTotalOnHand = storeTotalOnHand.get(entry.store.id) || 0;
+      const remainingCapacity = entry.store.capacity - currentTotalOnHand;
+      if (remainingCapacity <= 0) continue;
+      if (allocQty > remainingCapacity) {
+        allocQty = remainingCapacity;
+        capacityCapped = true;
+      }
+    }
     if (allocQty <= 0) continue;
 
     const newCover =
@@ -472,6 +514,8 @@ function runV2(
       size_integrity: true,
       cover_after: newCover,
       min_cover_weeks: minCoverWeeks,
+      capacity_capped: capacityCapped,
+      store_capacity: entry.store.capacity || null,
     };
 
     const priorityLabel =
@@ -504,6 +548,7 @@ function runV2(
     });
 
     cwStock.set(entry.fcId, cwAvailable - allocQty);
+    storeTotalOnHand.set(entry.store.id, (storeTotalOnHand.get(entry.store.id) || 0) + allocQty);
   }
 
   return recs;
