@@ -39441,6 +39441,18 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_channel_performance: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          channel: string
+          cogs: number
+          gross_margin: number
+          gross_revenue: number
+          net_revenue: number
+          order_count: number
+          total_fees: number
+        }[]
+      }
       get_control_tower_summary: {
         Args: {
           p_end_date?: string
@@ -39534,23 +39546,10 @@ export type Database = {
           total_revenue: number
         }[]
       }
-      get_fdp_period_summary:
-        | {
-            Args: {
-              p_end_date: string
-              p_start_date: string
-              p_tenant_id: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_end_date: string
-              p_start_date: string
-              p_tenant_id: string
-            }
-            Returns: Json
-          }
+      get_fdp_period_summary: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: Json
+      }
       get_forecast_historical_stats: {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: {
