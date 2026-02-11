@@ -44,9 +44,26 @@ export function useRebalanceSuggestions(runId?: string, transferType?: 'push' | 
         query = query.eq('transfer_type', transferType);
       }
       
-      const { data, error } = await query.order('priority', { ascending: true }).order('net_benefit', { ascending: false }).limit(500);
-      if (error) throw error;
-      return (data || []) as unknown as RebalanceSuggestion[];
+    // Paginate to avoid 1000-row Supabase limit
+      const PAGE_SIZE = 1000;
+      let allData: any[] = [];
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const paginated = buildSelectQuery('inv_rebalance_suggestions', '*');
+        let pq = runId ? paginated.eq('run_id', runId) : paginated;
+        if (transferType) pq = pq.eq('transfer_type', transferType);
+        const { data, error } = await pq
+          .order('priority', { ascending: true })
+          .order('net_benefit', { ascending: false })
+          .range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+        const rows = data || [];
+        allData = allData.concat(rows);
+        hasMore = rows.length === PAGE_SIZE;
+        offset += PAGE_SIZE;
+      }
+      return allData as unknown as RebalanceSuggestion[];
     },
     enabled: isReady,
   });
