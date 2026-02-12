@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle, ArrowRight, TrendingDown, Factory, ShieldCheck, ShieldAlert, ShieldX, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +23,7 @@ export default function NetworkGapPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { data: fcList } = useQuery({
     queryKey: ['command-fc-names-gap', tenantId],
     queryFn: async () => {
@@ -229,19 +229,85 @@ export default function NetworkGapPage() {
                 <TableBody>
                   {filtered.slice(0, 100).map((row: any) => {
                     const needsProduction = (row.true_shortage_units || 0) > 0;
+                    const isExpanded = expandedId === row.id;
+                    const transferable = row.reallocatable_units || 0;
+                    const shortage = row.true_shortage_units || 0;
+                    const netGap = row.net_gap_units || 0;
+                    const coverPct = netGap > 0 ? Math.min(100, Math.round((transferable / netGap) * 100)) : 100;
                     return (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium text-sm">{fcMap.get(row.style_id) || row.style_id?.slice(0, 8)}</TableCell>
-                        <TableCell className="text-right text-orange-600">{(row.net_gap_units || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-medium">{formatVND(row.revenue_at_risk)}</TableCell>
-                        <TableCell className="text-right text-emerald-600">{(row.reallocatable_units || 0).toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-semibold text-red-600">{(row.true_shortage_units || 0).toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Badge variant={needsProduction ? 'destructive' : 'secondary'}>
-                            {needsProduction ? 'Needs Production' : 'Transfer Only'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
+                      <Fragment key={row.id}>
+                        <TableRow 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                        >
+                          <TableCell className="font-medium text-sm">{fcMap.get(row.style_id) || row.style_id?.slice(0, 8)}</TableCell>
+                          <TableCell className="text-right text-orange-600">{netGap.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-medium">{formatVND(row.revenue_at_risk)}</TableCell>
+                          <TableCell className="text-right text-emerald-600">{transferable.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-semibold text-red-600">{shortage.toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={needsProduction ? 'destructive' : 'secondary'}>
+                              {needsProduction ? 'Needs Production' : 'Transfer Only'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                        {isExpanded && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="bg-muted/30 px-6 py-4">
+                              <div className="space-y-4">
+                                {/* Decision Reasoning */}
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Decision Reasoning</p>
+                                  <div className="bg-background border rounded-lg p-3 space-y-2">
+                                    {needsProduction ? (
+                                      <>
+                                        <p className="text-sm">
+                                          <span className="font-medium text-foreground">Network gap of {netGap} units</span> detected. 
+                                          Transfer can cover <span className="text-emerald-600 font-medium">{transferable} units ({coverPct}%)</span>, 
+                                          leaving <span className="text-red-600 font-medium">{shortage} units</span> that require production.
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                          Revenue exposure: <span className="font-medium text-red-600">{formatVND(row.revenue_at_risk)}</span> if shortage is not resolved.
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <p className="text-sm">
+                                        <span className="font-medium text-foreground">Network gap of {netGap} units</span> fully covered by 
+                                        available transfer stock (<span className="text-emerald-600 font-medium">{transferable} units</span>). 
+                                        No production required.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Visual Waterfall */}
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Gap Waterfall</p>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <div className="bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded px-3 py-2 text-center">
+                                      <p className="text-muted-foreground">Net Gap</p>
+                                      <p className="text-lg font-bold text-orange-600">{netGap}</p>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <div className="bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded px-3 py-2 text-center">
+                                      <p className="text-muted-foreground">Transferable</p>
+                                      <p className="text-lg font-bold text-emerald-600">−{transferable}</p>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <div className={`rounded px-3 py-2 text-center border ${shortage > 0 ? 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800' : 'bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800'}`}>
+                                      <p className="text-muted-foreground">Shortage</p>
+                                      <p className={`text-lg font-bold ${shortage > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{shortage}</p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Meta */}
+                                <p className="text-xs text-muted-foreground">Analysis date: {row.as_of_date || '—'}</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </TableBody>
