@@ -54,7 +54,8 @@ export default function AssortmentPage() {
       if (error) throw error;
       const map = new Map<string, string>();
       for (const fc of (data || []) as any[]) {
-        map.set(fc.id, fc.fc_name || fc.fc_code || fc.id);
+        const key = String(fc.id);
+        map.set(key, fc.fc_name || fc.fc_code || key);
       }
       return map;
     },
@@ -72,7 +73,8 @@ export default function AssortmentPage() {
       if (error) throw error;
       const map = new Map<string, string>();
       for (const s of (data || []) as any[]) {
-        map.set(s.id, s.store_name || s.store_code || s.id);
+        const key = String(s.id);
+        map.set(key, s.store_name || s.store_code || key);
       }
       return map;
     },
