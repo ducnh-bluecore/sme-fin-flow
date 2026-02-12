@@ -647,13 +647,15 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
       return allData;
     }
 
-    const [storesRaw2, posAgg2, demand, constraints, sizeIntegrity] = await Promise.all([
+    const [storesRaw2, posAgg2, demand, constraints, sizeIntegrity, fcListRebal] = await Promise.all([
       fetchAllRebal("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
       supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
       fetchAllRebal("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity"),
       fetchAllRebal("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
       fetchAllRebal("inv_state_size_integrity", "fc_id,is_full_size_run"),
+      fetchAllRebal("inv_family_codes", "id,fc_code,fc_name", { is_active: true }),
     ]);
+    const fcNameLookup = new Map((fcListRebal || []).map((f: any) => [f.id, f.fc_name || f.fc_code || ""]));
 
     if (posAgg2.error) throw posAgg2.error;
     const stores = storesRaw2;
@@ -739,7 +741,7 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
             run_id: run.id,
             transfer_type: "push",
             fc_id: fcId,
-            fc_name: cwPos[0]?.fc_name || "",
+            fc_name: fcNameLookup.get(fcId) || cwPos[0]?.fc_name || "",
             from_location: cw.id,
             from_location_name: cw.store_name,
             from_location_type: cw.location_type,
@@ -823,7 +825,7 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
               run_id: run.id,
               transfer_type: "lateral",
               fc_id: fcId,
-              fc_name: "",
+              fc_name: fcNameLookup.get(fcId) || "",
               from_location: source.store.id,
               from_location_name: source.store.store_name,
               from_location_type: source.store.location_type,
