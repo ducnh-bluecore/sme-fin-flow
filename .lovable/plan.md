@@ -1,58 +1,106 @@
 
 
-# Fix Rui ro Tap trung: Timeout + Loc SP Phu
+# Nang cap What-If: Linh hoat Time Horizon + Cai thien UI/UX
 
-## 2 Van de
+## Muc tieu
 
-### 1. Timeout (loi 500)
-View `v_retail_concentration_risk` quet ~1.2M order items voi JOIN, vuot qua gioi han thoi gian cua PostgREST (8 giay). Ket qua: frontend hien "Khong the tai du lieu".
+Cho phep nguoi dung chon khung thoi gian phan tich What-If (1 thang, 3 thang, 6 thang, 12 thang, 24 thang) thay vi chi co 12 thang co dinh. Dong thoi cai thien UI/UX de trai nghiem muot hon.
 
-### 2. SP phu lot top Hero SKU
-Cac san pham nhu "Pink Wave Shopping Bag", "TET 2026 Shopping Bag", "Bao Li Xi OLV 2026" co `selling_price = 0` va `cost_price = 0` trong bang products. Day la qua tang/tui xach kem don, khong phai san pham kinh doanh chinh. Chung khong nen xuat hien trong phan tich Hero SKU va Danh muc.
+## Thay doi chinh
 
-## Giai phap
+### 1. Them Time Horizon Selector
 
-Chuyen tu **VIEW** sang **MATERIALIZED VIEW** va them dieu kien loc SP phu.
+Them mot thanh chon thoi gian ngay phia tren khu vuc slider tham so, dang button group (tuong tu tabs):
 
-### 1. Materialized View
-- DROP view cu
-- CREATE MATERIALIZED VIEW voi cung logic nhung chi chay 1 lan, ket qua luu san
-- Tao UNIQUE INDEX tren tenant_id de ho tro `REFRESH CONCURRENTLY`
-- Frontend truy van ngay lap tuc (khong timeout)
+| Gia tri | Nhan hien thi | Mo ta |
+|---------|--------------|-------|
+| 1 | 1 thang | Du bao thang tiep theo |
+| 3 | 3 thang | Du bao quy tiep theo |
+| 6 | 6 thang | Du bao nua nam |
+| 12 | 1 nam | Mac dinh, nhu hien tai |
+| 24 | 2 nam | Ke hoach dai han |
 
-### 2. Loc SP phu khoi Hero SKU va Category
-Trong CTE `sku_stats` va `category_stats`, them dieu kien:
+### 2. Cap nhat tinh toan dua tren Time Horizon
 
-```text
--- Loai bo SP co gia = 0 (qua tang, tui xach, li xi)
-WHERE ... AND (p.selling_price IS NULL OR p.selling_price > 0)
-```
+**WhatIfSimulationPanel.tsx:**
+- Them state `timeHorizon` (mac dinh = 12)
+- KPI cards: hien thi gia tri theo khung thoi gian da chon (base revenue * timeHorizon/12)
+- Save scenario: luu them `time_horizon` vao params
 
-Logic: Neu san pham co trong bang `products` va `selling_price = 0` --> loai. Neu khong match products (p.selling_price IS NULL) --> giu lai (de khong mat du lieu).
+**MonthlyProfitTrendChart.tsx:**
+- Nhan prop `timeHorizon` thay vi hardcode `MONTHS = ['T1'...'T12']`
+- timeHorizon = 1: hien thi 4 tuan (Tuan 1, Tuan 2, Tuan 3, Tuan 4)
+- timeHorizon = 3: hien thi 3 thang (T1, T2, T3)
+- timeHorizon = 6: hien thi 6 thang (T1...T6)
+- timeHorizon = 12: hien thi 12 thang (nhu hien tai)
+- timeHorizon = 24: hien thi 24 thang (T1...T24)
+- Summary cards: "EBITDA Du kien (nam)" -> "EBITDA Du kien (3 thang)" tuong ung
 
-### 3. Refresh Data
-Sau khi tao materialized view, chay `REFRESH MATERIALIZED VIEW` de co du lieu ngay.
+### 3. Cai thien UI/UX
 
-## Ky vong sau fix
+**Layout toi uu:**
+- Time Horizon selector: dat ngay duoi header, noi bat voi icon Clock
+- KPI cards: them label thoi gian (vd: "Doanh thu (3 thang toi)")
+- Compact slider area: gom "Doanh thu & Chi phi" va "Gia & San luong" vao 1 card khi man hinh nho
+- Chart: them label ky "Tu [thang/nam] den [thang/nam]" de nguoi dung biet dang xem giai doan nao
 
-| Metric | Truoc | Sau |
-|--------|-------|-----|
-| API call | Timeout 500 | Tra ve < 100ms |
-| Hero SKU top 5 | Pink Wave, TET Bag, Bao Li Xi... | Cac SP chinh co gia ban thuc |
-| Category | 07-Others chiem 18% (do SP phu) | % giam, phan bo chinh xac hon |
+**Visual cues:**
+- Badge hien thoi gian dang chon ben canh tieu de "Mo phong What-If"
+- Khi thay doi time horizon, KPI va chart cap nhat ngay (khong can bam nut)
 
 ## Chi tiet ky thuat
 
-### Migration SQL
+### Files thay doi
 
-1. `DROP VIEW IF EXISTS public.v_retail_concentration_risk`
-2. `CREATE MATERIALIZED VIEW public.v_retail_concentration_risk AS ...` voi:
-   - CTE `category_stats`: them `AND (p.selling_price IS NULL OR p.selling_price > 0)`
-   - CTE `sku_stats`: them `AND (p.selling_price IS NULL OR p.selling_price > 0)`
-   - Giu nguyen cac CTE khac (channel_stats, customer_stats, monthly_stats, seasonal_index)
-3. `CREATE UNIQUE INDEX ON v_retail_concentration_risk (tenant_id)`
-4. `REFRESH MATERIALIZED VIEW v_retail_concentration_risk`
+| File | Thay doi |
+|------|---------|
+| `src/components/whatif/WhatIfSimulationPanel.tsx` | Them `timeHorizon` state, Time Horizon selector UI, truyen prop xuong chart va KPI, cap nhat projected values theo time horizon |
+| `src/components/whatif/MonthlyProfitTrendChart.tsx` | Nhan prop `timeHorizon`, dynamic months/weeks generation, dynamic labels |
+| `src/hooks/useWhatIfScenarios.ts` | Them `timeHorizon` vao `WhatIfParams` interface |
 
-### Khong can thay doi code frontend
-Hook `useRetailConcentrationRisk.ts` va component `RetailConcentrationRisk.tsx` da truy van dung format, chi can data tra ve la hien thi.
+### Logic tinh toan theo Time Horizon
+
+```text
+Base values hien tai = snapshot cua 30 ngay gan nhat (~ 1 thang)
+
+Voi timeHorizon = N thang:
+  baseRevenue_period = baseRevenue_monthly * N
+  baseCogs_period = baseCogs_monthly * N
+  baseOpex_period = baseOpex_monthly * N
+  baseEbitda_period = baseEbitda_monthly * N
+
+Projected values van ap dung % thay doi tuong tu:
+  projectedRevenue = baseRevenue_period * revenueMultiplier
+  ...
+```
+
+### Time Horizon Selector UI
+
+Dung ToggleGroup (da co san tu Radix) de tao thanh chon:
+
+```text
+[1T]  [3T]  [6T]  [1N]  [2N]
+         ^ dang chon
+```
+
+Voi:
+- 1T = 1 thang
+- 3T = 3 thang (1 quy)
+- 6T = 6 thang
+- 1N = 1 nam (mac dinh)
+- 2N = 2 nam
+
+### Chart Dynamic Labels
+
+| timeHorizon | X-axis labels | Chart title |
+|------------|--------------|-------------|
+| 1 | Tuan 1, Tuan 2, Tuan 3, Tuan 4 | "Xu huong EBITDA theo tuan" |
+| 3 | T1, T2, T3 | "Xu huong EBITDA 3 thang toi" |
+| 6 | T1, T2, T3, T4, T5, T6 | "Xu huong EBITDA 6 thang toi" |
+| 12 | T1...T12 | "Xu huong EBITDA theo thang" (nhu hien tai) |
+| 24 | T1...T24 | "Xu huong EBITDA 2 nam" |
+
+### Khong thay doi Database
+
+Khong can migration. `time_horizon` duoc luu trong JSONB `params` cua `what_if_scenarios`, khong can them column.
 
