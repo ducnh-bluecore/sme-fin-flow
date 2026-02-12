@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ArrowRightLeft, ChevronDown, ChevronRight, Store, CheckCircle2, XCircle, FileDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ interface Props {
 export default function TransferSuggestionsCard({ transferByDest, detailRows, storeNames, fcNames, totalOpportunities }: Props) {
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   const [confirmAction, setConfirmAction] = useState<{ action: 'approved' | 'rejected'; ids: string[]; destId?: string } | null>(null);
   const approveTransfer = useApproveTransfer();
 
@@ -67,7 +69,7 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
             source_store_name: storeNames?.get(t.source_store_id),
             dest_store_id: t.dest_store_id,
             dest_store_name: storeNames?.get(t.dest_store_id),
-            transfer_qty: t.transfer_qty,
+            transfer_qty: editedQty[t.id] ?? t.transfer_qty,
             net_benefit: t.net_benefit,
             reason: t.reason,
             status: t.status,
@@ -206,7 +208,24 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                 <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
                                 <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
                                 <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
-                                <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
+                                <TableCell className="text-center">
+                                  {isPending ? (
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      className="w-16 h-7 text-center text-sm font-semibold mx-auto [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      value={editedQty[t.id] ?? t.transfer_qty}
+                                      onChange={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        if (!isNaN(val) && val > 0) {
+                                          setEditedQty(prev => ({ ...prev, [t.id]: val }));
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <span className="font-semibold text-sm">{t.transfer_qty}</span>
+                                  )}
+                                </TableCell>
                                 <TableCell className="text-right text-xs font-medium text-emerald-600">{formatVNDCompact(t.net_benefit)}</TableCell>
                                 <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
                                 <TableCell className="text-center">
