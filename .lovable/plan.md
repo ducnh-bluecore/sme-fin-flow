@@ -1,43 +1,88 @@
 
 
-## Sửa logic Purpose Badge: ưu tiên "Lẻ size" khi có core_size
+## Network Gap V2 — Revenue Coverage Engine
 
-### Nguyên nhân gốc
-Data trong `state_size_transfer_daily` KHÔNG có tag `broken_size`. Thay vào đó, tag `core_size` chính là dấu hiệu lẻ size (kho đích thiếu size core bán chạy). Nhưng logic hiện tại ưu tiên `stockout` trước `core_size`, nên 159/200 dòng đều hiện badge "Hết hàng" thay vì "Lẻ size".
+Redesign toan bo trang `/command/network-gap` thanh Decision Engine: COO mo len 5 giay hieu ngay "co can san xuat khong?"
 
-### Phân tích data thực tế
+### Data thuc te hien tai
+- 9 styles trong `kpi_network_gap`
+- Chi **2 styles** thuc su thieu hang (4 units, ₫1M revenue at risk)
+- **7 styles** la bug data (net_gap > 0 nhung shortage = 0) — can filter bo
+- 393 units co the dieu chuyen
+- Table **khong co** cot `days_to_stockout` — se tinh toan tu data hien co
 
-| Reason pattern | Số lượng | Badge hiện tại | Badge đúng |
-|---|---|---|---|
-| stockout + same_region + core_size | 117 | Het hang | **Le size** |
-| stockout + cross_region + core_size | 42 | Het hang | **Le size** |
-| stockout + same_region | 28 | Het hang | Het hang (dung) |
-| stockout + cross_region | 10 | Het hang | Het hang (dung) |
-| low_stock + same_region + core_size | 3 | Can bang kho | **Le size** |
+---
 
-### Thay doi
+### Thay doi cu the
 
-**File: `src/components/command/TransferSuggestionsCard.tsx`**
+#### 1. Decision Banner (BLOCK MOI — tren cung)
 
-Sua thu tu uu tien trong `getPurposeBadge()`:
+Them banner lon nhat trang, tu dong tinh toan va hien ket luan:
+
+- Neu `totalShortage` = 0 hoac transfer cover >= 95%:
+  **"Production NOT required — Transfer can cover all gaps"** (banner xanh)
+
+- Neu co shortage nhung it (< 50 units):
+  **"Minor shortage: X units / ₫Y revenue — monitor only"** (banner vang)
+
+- Neu shortage lon (>= 50 units):
+  **"Production REQUIRED — X styles, Y units, ₫Z at risk"** (banner do)
+
+Hien thi ro: so style can san xuat, so unit, revenue exposure.
+
+#### 2. KPI Bar — doi thu tu uu tien
+
+Thu tu moi (theo mental model COO):
+
+| Vi tri | KPI | Y nghia |
+|--------|-----|---------|
+| 1 | **Net Production Required** | So unit PHAI san xuat (loc bo bug rows) |
+| 2 | **Revenue at Risk** | Tien se mat neu khong hanh dong |
+| 3 | **Transfer Solvable** | So unit co the giai quyet bang dieu chuyen |
+| 4 | **Styles Affected** | So style dang co gap |
+
+#### 3. Transfer Solvability Bar (thay Coverage)
+
+- Rename "Coverage Analysis" thanh **"Transfer Solvability"**
+- Label: "Shortage solvable without production" thay vi "Network demand coverage"
+- Chi hien khi co shortage thuc su (shortage > 0)
+
+#### 4. Production Radar (BLOCK MOI)
+
+Card moi giua KPI va table:
 
 ```
-// Truoc (SAI):
-broken_size > stockout > core_size > ...
-
-// Sau (DUNG):
-core_size > stockout > high_velocity > low_stock/excess_source
+Production Radar
+-----------------
+Styles need production: 2
+Units required: 4
+Revenue exposure: ₫1M
 ```
 
-Cu the:
-- `core_size` trong reason -> **"Le size"** (badge tim) — bat ke co `stockout` hay khong
-- Chi `stockout` (khong co `core_size`) -> **"Het hang"** (badge do)
-- `low_stock` / `excess_source` (khong co `core_size`) -> **"Can bang kho"** (badge xanh)
+Kem nut "Review Production Candidates" navigate sang `/command/production`.
 
-### Ket qua mong doi
-- 162 dong co `core_size` se hien badge **"Le size"** (tim)
-- 38 dong chi co `stockout` se hien badge **"Het hang"** (do)
-- 3 dong `low_stock` + `core_size` se hien **"Le size"** (tim)
+#### 5. Table — loc data va chinh column
 
-Nguoi van hanh se thay ngay dong nao la xu ly le size, dong nao la bo sung het hang.
+- **Filter bo bug rows**: chi hien rows co `true_shortage_units > 0` HOAC `revenue_at_risk > 0`
+- **Doi thu tu cot**: Style | Net Gap | Revenue at Risk | Transferable | Shortage | Action
+- **Cot Action**: Badge "Needs Production" (do) hoac "Transfer Only" (xanh)
+- **Bo cot Severity** cu — thay bang Action badge co y nghia hon
+
+#### 6. Rename page
+
+- Title: **"Revenue Coverage Engine"**
+- Subtitle: "Identify supply risks before they become lost sales"
+
+---
+
+### Files thay doi
+
+| File | Thay doi |
+|------|---------|
+| `src/pages/command/NetworkGapPage.tsx` | Rewrite layout: Decision Banner, reorder KPIs, Production Radar, table filter/columns, rename |
+
+### Khong thay doi
+- Khong them cot `days_to_stockout` vao database (chua co data nguon de tinh)
+- Khong sua backend engine (bug net_gap se xu ly rieng)
+- Chi filter bug rows o frontend
 
