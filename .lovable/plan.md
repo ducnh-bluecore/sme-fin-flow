@@ -1,40 +1,43 @@
 
 
-## Hiển thị rõ mục đích điều chuyển ngay trên mỗi dòng
+## Sửa logic Purpose Badge: ưu tiên "Lẻ size" khi có core_size
 
-### Van de
-Cot "Reason" hien chi hien text ky thuat bi cat ngan (vd: "stockout + same_region + core_..."). Nguoi van hanh khong biet NGAY dong nay la de xu ly le size hay de bo sung stockout — phai click expand moi ro.
+### Nguyên nhân gốc
+Data trong `state_size_transfer_daily` KHÔNG có tag `broken_size`. Thay vào đó, tag `core_size` chính là dấu hiệu lẻ size (kho đích thiếu size core bán chạy). Nhưng logic hiện tại ưu tiên `stockout` trước `core_size`, nên 159/200 dòng đều hiện badge "Hết hàng" thay vì "Lẻ size".
 
-### Giai phap
-Thay cot "Reason" text bang **Purpose Badge** mau sac ro rang, hien thi ngay tren row (khong can expand):
+### Phân tích data thực tế
 
-- **Le size** (badge tim) — khi reason chua `broken_size` hoac `core_size`
-- **Het hang** (badge do) — khi reason chua `stockout`
-- **Can bang** (badge xanh) — khi reason chua `excess_source` hoac `low_stock`
-- **Toc do ban** (badge cam) — khi reason chua `high_velocity`
+| Reason pattern | Số lượng | Badge hiện tại | Badge đúng |
+|---|---|---|---|
+| stockout + same_region + core_size | 117 | Het hang | **Le size** |
+| stockout + cross_region + core_size | 42 | Het hang | **Le size** |
+| stockout + same_region | 28 | Het hang | Het hang (dung) |
+| stockout + cross_region | 10 | Het hang | Het hang (dung) |
+| low_stock + same_region + core_size | 3 | Can bang kho | **Le size** |
 
-Logic uu tien: chon tag quan trong nhat lam badge chinh (broken_size > stockout > core_size > high_velocity > excess_source).
+### Thay doi
 
-### Thay doi cu the
+**File: `src/components/command/TransferSuggestionsCard.tsx`**
 
-#### File: `src/components/command/TransferSuggestionsCard.tsx`
+Sua thu tu uu tien trong `getPurposeBadge()`:
 
-1. **Them helper `getPurposeBadge(reason)`** — phan tich reason string, tra ve label + mau:
-   - `broken_size` hoac `core_size` -> `{ label: "Xu ly le size", color: "purple" }`
-   - `stockout` -> `{ label: "Het hang", color: "red" }`
-   - `excess_source` / `low_stock` -> `{ label: "Can bang kho", color: "blue" }`
-   - `high_velocity` -> `{ label: "Ban nhanh", color: "orange" }`
-   - Fallback -> `{ label: "Toi uu", color: "gray" }`
+```
+// Truoc (SAI):
+broken_size > stockout > core_size > ...
 
-2. **Thay the cot "Reason" text** bang Purpose Badge mau sac — hien thi ngay tren row, khong can expand
+// Sau (DUNG):
+core_size > stockout > high_velocity > low_stock/excess_source
+```
 
-3. **Giu nguyen expand detail** — khi click van hien ly do day du nhu hien tai
+Cu the:
+- `core_size` trong reason -> **"Le size"** (badge tim) — bat ke co `stockout` hay khong
+- Chi `stockout` (khong co `core_size`) -> **"Het hang"** (badge do)
+- `low_stock` / `excess_source` (khong co `core_size`) -> **"Can bang kho"** (badge xanh)
 
-### Ket qua
-- Nguoi van hanh nhin 1 cai biet NGAY dong nay de "Xu ly le size" hay "Het hang"
-- Khong can click expand de hieu muc dich
-- Van giu detail panel cho nguoi muon xem them
+### Ket qua mong doi
+- 162 dong co `core_size` se hien badge **"Le size"** (tim)
+- 38 dong chi co `stockout` se hien badge **"Het hang"** (do)
+- 3 dong `low_stock` + `core_size` se hien **"Le size"** (tim)
 
-### Files thay doi
-- `src/components/command/TransferSuggestionsCard.tsx` — them `getPurposeBadge()`, thay cot Reason text bang badge mau
+Nguoi van hanh se thay ngay dong nao la xu ly le size, dong nao la bo sung het hang.
 
