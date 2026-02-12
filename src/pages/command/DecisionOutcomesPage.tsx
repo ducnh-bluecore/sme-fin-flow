@@ -47,7 +47,6 @@ export default function DecisionOutcomesPage() {
     enabled: !!tenantId && isReady,
   });
 
-  // Override Learning: fetch approvals with overrides
   const { data: approvals } = useQuery({
     queryKey: ['command-override-learning', tenantId],
     queryFn: async () => {
@@ -70,11 +69,11 @@ export default function DecisionOutcomesPage() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`Evaluated ${data.evaluated} decisions. Avg accuracy: ${data.avg_accuracy ? (Number(data.avg_accuracy) * 100).toFixed(1) + '%' : 'N/A'}`);
+      toast.success(`Đã đánh giá ${data.evaluated} quyết định. Độ chính xác TB: ${data.avg_accuracy ? (Number(data.avg_accuracy) * 100).toFixed(1) + '%' : 'N/A'}`);
       queryClient.invalidateQueries({ queryKey: ['command-outcomes'] });
       queryClient.invalidateQueries({ queryKey: ['command-outcomes-detail'] });
     },
-    onError: (err: any) => toast.error(`Evaluation failed: ${err.message}`),
+    onError: (err: any) => toast.error(`Đánh giá thất bại: ${err.message}`),
   });
 
   const pkgMap = new Map((packages || []).map((p: any) => [p.id, p]));
@@ -87,14 +86,13 @@ export default function DecisionOutcomesPage() {
   const totalPredictedRevenue = outcomes?.reduce((s: number, o: any) => s + ((o.predicted_impact as any)?.revenue_protected || 0), 0) || 0;
   const totalActualRevenue = outcomes?.reduce((s: number, o: any) => s + ((o.actual_impact as any)?.revenue_protected || 0), 0) || 0;
 
-  // Override Learning aggregation
   const overridePatterns = (() => {
     if (!approvals || approvals.length === 0) return [];
     const patternMap = new Map<string, { count: number; avgDelta: number; direction: string }>();
     approvals.forEach((a: any) => {
       const summary = a.override_summary as any;
       if (!summary) return;
-      const key = summary.reason || summary.type || 'manual_adjustment';
+      const key = summary.reason || summary.type || 'điều_chỉnh_thủ_công';
       const existing = patternMap.get(key) || { count: 0, avgDelta: 0, direction: 'mixed' };
       existing.count++;
       if (summary.qty_delta) {
@@ -112,80 +110,78 @@ export default function DecisionOutcomesPage() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Decision Outcomes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Predicted vs Actual — Build trust through transparency</p>
+          <h1 className="text-2xl font-bold text-foreground">Kết Quả Quyết Định</h1>
+          <p className="text-sm text-muted-foreground mt-1">Dự đoán vs Thực tế — Xây dựng niềm tin qua minh bạch</p>
         </div>
         <Button onClick={() => runEvaluator.mutate()} disabled={runEvaluator.isPending} size="sm">
           <RefreshCw className={`h-4 w-4 mr-2 ${runEvaluator.isPending ? 'animate-spin' : ''}`} />
-          {runEvaluator.isPending ? 'Evaluating...' : 'Run Evaluator'}
+          {runEvaluator.isPending ? 'Đang đánh giá...' : 'Chạy Đánh Giá'}
         </Button>
       </motion.div>
 
-      {/* Trust Score Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Trust Score</p>
+            <p className="text-xs text-muted-foreground">Độ Tin Cậy</p>
             <p className="text-3xl font-bold mt-1">{avgAccuracy !== null ? `${(avgAccuracy * 100).toFixed(1)}%` : '—'}</p>
-            <p className="text-xs text-muted-foreground">avg accuracy</p>
+            <p className="text-xs text-muted-foreground">trung bình</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Evaluated</p>
+            <p className="text-xs text-muted-foreground">Đã Đánh Giá</p>
             <p className="text-3xl font-bold mt-1">{outcomes?.length || 0}</p>
-            <p className="text-xs text-muted-foreground">decisions</p>
+            <p className="text-xs text-muted-foreground">quyết định</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">High Accuracy (≥85%)</p>
+            <p className="text-xs text-muted-foreground">Chính Xác Cao (≥85%)</p>
             <p className="text-3xl font-bold mt-1 text-emerald-600">{highAccuracy}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Revenue Captured</p>
+            <p className="text-xs text-muted-foreground">DT Thực Đạt</p>
             <p className="text-xl font-bold mt-1">{formatVND(totalActualRevenue)}</p>
-            <p className="text-xs text-muted-foreground">of {formatVND(totalPredictedRevenue)} predicted</p>
+            <p className="text-xs text-muted-foreground">trên {formatVND(totalPredictedRevenue)} dự kiến</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="replay" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="replay">Decision Replay</TabsTrigger>
-          <TabsTrigger value="overrides">Override Learning ({approvals?.length || 0})</TabsTrigger>
+          <TabsTrigger value="replay">Phát Lại Quyết Định</TabsTrigger>
+          <TabsTrigger value="overrides">Học Từ Điều Chỉnh ({approvals?.length || 0})</TabsTrigger>
         </TabsList>
 
-        {/* Decision Replay Tab */}
         <TabsContent value="replay">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" /> Predicted vs Actual
+                <BarChart3 className="h-4 w-4" /> Dự Đoán vs Thực Tế
               </CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading...</div>
+                <div className="text-center py-8 text-muted-foreground">Đang tải...</div>
               ) : !outcomes || outcomes.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Target className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                  <p className="text-sm">No outcome evaluations yet</p>
-                  <p className="text-xs mt-1">Outcomes are evaluated 14/30/60 days after decision execution</p>
+                  <p className="text-sm">Chưa có đánh giá kết quả</p>
+                  <p className="text-xs mt-1">Kết quả được đánh giá sau 14/30/60 ngày thực thi quyết định</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Evaluated</TableHead>
-                      <TableHead className="text-right">Predicted</TableHead>
-                      <TableHead className="text-right">Actual</TableHead>
-                      <TableHead className="text-center">Accuracy</TableHead>
-                      <TableHead>Verdict</TableHead>
+                      <TableHead>Gói</TableHead>
+                      <TableHead>Loại</TableHead>
+                      <TableHead>Ngày ĐG</TableHead>
+                      <TableHead className="text-right">Dự Đoán</TableHead>
+                      <TableHead className="text-right">Thực Tế</TableHead>
+                      <TableHead className="text-center">Chính Xác</TableHead>
+                      <TableHead>Kết Luận</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -194,7 +190,7 @@ export default function DecisionOutcomesPage() {
                       const predicted = (o.predicted_impact as any)?.revenue_protected || 0;
                       const actual = (o.actual_impact as any)?.revenue_protected || 0;
                       const acc = o.accuracy_score || 0;
-                      const verdict = acc >= 0.9 ? 'Excellent' : acc >= 0.75 ? 'Good' : acc >= 0.5 ? 'Fair' : 'Poor';
+                      const verdict = acc >= 0.9 ? 'Xuất sắc' : acc >= 0.75 ? 'Tốt' : acc >= 0.5 ? 'Trung bình' : 'Kém';
                       const verdictColor = acc >= 0.9 ? 'text-emerald-600' : acc >= 0.75 ? 'text-blue-600' : acc >= 0.5 ? 'text-orange-600' : 'text-red-600';
 
                       return (
@@ -218,14 +214,12 @@ export default function DecisionOutcomesPage() {
           </Card>
         </TabsContent>
 
-        {/* Override Learning Tab */}
         <TabsContent value="overrides" className="space-y-4">
-          {/* Pattern Summary */}
           {overridePatterns.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" /> Override Patterns
+                  <TrendingUp className="h-4 w-4" /> Mẫu Điều Chỉnh
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -243,8 +237,8 @@ export default function DecisionOutcomesPage() {
                         <div>
                           <p className="text-sm font-medium">{p.pattern}</p>
                           <p className="text-xs text-muted-foreground">
-                            Planners typically {p.direction === 'increase' ? 'increase' : p.direction === 'decrease' ? 'decrease' : 'adjust'} qty
-                            {p.avgDelta !== 0 && ` by avg ${Math.abs(p.avgDelta).toFixed(0)} units`}
+                            Planner thường {p.direction === 'increase' ? 'tăng' : p.direction === 'decrease' ? 'giảm' : 'điều chỉnh'} SL
+                            {p.avgDelta !== 0 && ` TB ${Math.abs(p.avgDelta).toFixed(0)} đơn vị`}
                           </p>
                         </div>
                       </div>
@@ -256,27 +250,26 @@ export default function DecisionOutcomesPage() {
             </Card>
           )}
 
-          {/* Raw Overrides Table */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Override History</CardTitle>
+              <CardTitle className="text-base">Lịch Sử Điều Chỉnh</CardTitle>
             </CardHeader>
             <CardContent>
               {!approvals || approvals.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                  <p className="text-sm">No overrides recorded</p>
-                  <p className="text-xs mt-1">When planners modify suggested quantities, patterns are learned here</p>
+                  <p className="text-sm">Chưa có điều chỉnh nào</p>
+                  <p className="text-xs mt-1">Khi planner sửa số lượng đề xuất, hệ thống sẽ học tại đây</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Decision</TableHead>
-                      <TableHead>Override</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Notes</TableHead>
+                      <TableHead>Gói</TableHead>
+                      <TableHead>Quyết Định</TableHead>
+                      <TableHead>Điều Chỉnh</TableHead>
+                      <TableHead>Ngày</TableHead>
+                      <TableHead>Ghi Chú</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -285,14 +278,14 @@ export default function DecisionOutcomesPage() {
                         <TableCell className="font-mono text-xs">{(a.package_id as string)?.slice(0, 8)}</TableCell>
                         <TableCell>
                           <Badge variant={a.decision === 'APPROVE' ? 'default' : a.decision === 'PARTIAL' ? 'secondary' : 'destructive'}>
-                            {a.decision}
+                            {a.decision === 'APPROVE' ? 'Duyệt' : a.decision === 'PARTIAL' ? 'Một Phần' : 'Từ Chối'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs">
                           {JSON.stringify(a.override_summary)?.slice(0, 60)}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {a.approved_at ? new Date(a.approved_at).toLocaleDateString() : '—'}
+                          {a.approved_at ? new Date(a.approved_at).toLocaleDateString('vi-VN') : '—'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{a.notes || '—'}</TableCell>
                       </TableRow>

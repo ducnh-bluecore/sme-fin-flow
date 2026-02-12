@@ -35,14 +35,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'overview', label: 'Command Center', icon: LayoutDashboard, path: '/command/overview' },
-  { id: 'allocation', label: 'Allocation', icon: ArrowRightLeft, path: '/command/allocation' },
-  { id: 'assortment', label: 'Assortment', icon: Layers3, path: '/command/assortment' },
-  { id: 'network-gap', label: 'Network Gap', icon: Network, path: '/command/network-gap' },
-  { id: 'production', label: 'Production', icon: Factory, path: '/command/production' },
-  { id: 'decisions', label: 'Decisions', icon: ListChecks, path: '/command/decisions' },
-  { id: 'outcomes', label: 'Outcomes', icon: Target, path: '/command/outcomes' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/command/settings' },
+  { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard, path: '/command/overview' },
+  { id: 'allocation', label: 'Phân Bổ', icon: ArrowRightLeft, path: '/command/allocation' },
+  { id: 'assortment', label: 'Cơ Cấu Size', icon: Layers3, path: '/command/assortment' },
+  { id: 'network-gap', label: 'Nguồn Cung', icon: Network, path: '/command/network-gap' },
+  { id: 'production', label: 'Sản Xuất', icon: Factory, path: '/command/production' },
+  { id: 'decisions', label: 'Quyết Định', icon: ListChecks, path: '/command/decisions' },
+  { id: 'outcomes', label: 'Kết Quả', icon: Target, path: '/command/outcomes' },
+  { id: 'settings', label: 'Cài Đặt', icon: Settings, path: '/command/settings' },
 ];
 
 export function BluecoreCommandLayout() {
@@ -127,7 +127,7 @@ export function BluecoreCommandLayout() {
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
         >
           <Home className="h-4 w-4 flex-shrink-0" />
-          {!collapsed && <span className="text-sm font-medium">Back to Portal</span>}
+          {!collapsed && <span className="text-sm font-medium">Về Trang Chính</span>}
         </motion.button>
       </div>
     </div>

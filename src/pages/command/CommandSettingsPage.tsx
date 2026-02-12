@@ -74,7 +74,7 @@ export default function CommandSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inv-constraints-settings'] });
-      toast.success('Constraint updated');
+      toast.success('Đã cập nhật ràng buộc');
     },
   });
 
@@ -86,7 +86,7 @@ export default function CommandSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sem-policies'] });
-      toast.success('Policy updated');
+      toast.success('Đã cập nhật chính sách');
     },
   });
 
@@ -99,16 +99,16 @@ export default function CommandSettingsPage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-foreground">Command Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Policies, constraints, criticality classes, and size curve profiles</p>
+        <h1 className="text-2xl font-bold text-foreground">Cài Đặt</h1>
+        <p className="text-sm text-muted-foreground mt-1">Chính sách, ràng buộc, phân loại SKU và biểu đồ size</p>
       </motion.div>
 
       <Tabs defaultValue="policies" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="policies">Allocation Policies</TabsTrigger>
-          <TabsTrigger value="constraints">Constraints</TabsTrigger>
-          <TabsTrigger value="criticality">SKU Criticality</TabsTrigger>
-          <TabsTrigger value="curves">Size Curves</TabsTrigger>
+          <TabsTrigger value="policies">Chính Sách Phân Bổ</TabsTrigger>
+          <TabsTrigger value="constraints">Ràng Buộc</TabsTrigger>
+          <TabsTrigger value="criticality">Phân Loại SKU</TabsTrigger>
+          <TabsTrigger value="curves">Biểu Đồ Size</TabsTrigger>
         </TabsList>
 
         {/* === Allocation Policies === */}
@@ -117,8 +117,8 @@ export default function CommandSettingsPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Shield className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No allocation policies configured</p>
-                <p className="text-xs mt-1">Policies define weights and constraints for BASE, DYNAMIC, SCARCITY, and REPAIR allocation</p>
+                <p className="text-sm">Chưa cấu hình chính sách phân bổ</p>
+                <p className="text-xs mt-1">Chính sách định nghĩa trọng số và ràng buộc cho các loại phân bổ BASE, DYNAMIC, SCARCITY, REPAIR</p>
               </CardContent>
             </Card>
           ) : (
@@ -132,7 +132,7 @@ export default function CommandSettingsPage() {
                         <div>
                           <p className="font-semibold text-sm">{p.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {p.effective_from} → {p.effective_to || 'ongoing'}
+                            {p.effective_from} → {p.effective_to || 'liên tục'}
                           </p>
                         </div>
                       </div>
@@ -150,7 +150,7 @@ export default function CommandSettingsPage() {
                           className="h-7 text-xs"
                           onClick={() => togglePolicy.mutate({ id: p.id, is_active: !p.is_active })}
                         >
-                          {p.is_active ? 'Disable' : 'Enable'}
+                          {p.is_active ? 'Tắt' : 'Bật'}
                         </Button>
                       </div>
                     </div>
@@ -167,7 +167,7 @@ export default function CommandSettingsPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Settings className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No constraints configured</p>
+                <p className="text-sm">Chưa cấu hình ràng buộc</p>
               </CardContent>
             </Card>
           ) : (
@@ -176,10 +176,10 @@ export default function CommandSettingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Value</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-center">Active</TableHead>
+                      <TableHead>Mã</TableHead>
+                      <TableHead>Giá Trị</TableHead>
+                      <TableHead>Mô Tả</TableHead>
+                      <TableHead className="text-center">Trạng Thái</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -195,7 +195,7 @@ export default function CommandSettingsPage() {
                             className="h-6 text-xs px-2"
                             onClick={() => toggleConstraint.mutate({ id: c.id, is_active: !c.is_active })}
                           >
-                            {c.is_active ? 'ON' : 'OFF'}
+                            {c.is_active ? 'BẬT' : 'TẮT'}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -213,8 +213,8 @@ export default function CommandSettingsPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <Tag className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No SKU criticality classifications</p>
-                <p className="text-xs mt-1">Define CORE, HERO, and LONGTAIL SKU classes for allocation priority</p>
+                <p className="text-sm">Chưa phân loại SKU</p>
+                <p className="text-xs mt-1">Phân loại CORE, HERO, LONGTAIL để ưu tiên phân bổ</p>
               </CardContent>
             </Card>
           ) : (
@@ -224,9 +224,9 @@ export default function CommandSettingsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>SKU</TableHead>
-                      <TableHead>Style</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Effective From</TableHead>
+                      <TableHead>Mẫu</TableHead>
+                      <TableHead>Phân Loại</TableHead>
+                      <TableHead>Hiệu Lực Từ</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -255,8 +255,8 @@ export default function CommandSettingsPage() {
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">No size curve profiles</p>
-                <p className="text-xs mt-1">Set ideal size ratios by category for assortment health monitoring</p>
+                <p className="text-sm">Chưa có biểu đồ size</p>
+                <p className="text-xs mt-1">Thiết lập tỷ lệ size lý tưởng theo danh mục để giám sát sức khỏe cơ cấu</p>
               </CardContent>
             </Card>
           ) : (
@@ -268,11 +268,11 @@ export default function CommandSettingsPage() {
                       <div>
                         <p className="font-semibold text-sm">{c.profile_name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {[c.category_id, c.brand_id, c.season_code].filter(Boolean).join(' · ') || 'All categories'}
+                          {[c.category_id, c.brand_id, c.season_code].filter(Boolean).join(' · ') || 'Tất cả danh mục'}
                         </p>
                       </div>
                       <Badge variant={c.is_current ? 'default' : 'outline'}>
-                        {c.is_current ? 'Active' : 'Inactive'}
+                        {c.is_current ? 'Đang dùng' : 'Không dùng'}
                       </Badge>
                     </div>
                     {c.size_ratios && Object.keys(c.size_ratios).length > 0 && (

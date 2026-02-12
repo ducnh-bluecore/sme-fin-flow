@@ -19,6 +19,13 @@ function formatVND(value: number | null | undefined): string {
 
 type StatusFilter = 'ALL' | 'PROPOSED' | 'APPROVED' | 'REJECTED';
 
+const statusLabels: Record<StatusFilter, string> = {
+  ALL: 'Tất Cả',
+  PROPOSED: 'Đề Xuất',
+  APPROVED: 'Đã Duyệt',
+  REJECTED: 'Từ Chối',
+};
+
 export default function ProductionCandidatesPage() {
   const { buildQuery, buildUpdateQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
@@ -45,7 +52,7 @@ export default function ProductionCandidatesPage() {
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['command-production'] });
-      toast.success(`Candidate ${status.toLowerCase()}`);
+      toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'}`);
     },
   });
 
@@ -69,39 +76,37 @@ export default function ProductionCandidatesPage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-foreground">Production Candidates</h1>
-        <p className="text-sm text-muted-foreground mt-1">Styles requiring additional production based on network gap analysis</p>
+        <h1 className="text-2xl font-bold text-foreground">Kế Hoạch Sản Xuất</h1>
+        <p className="text-sm text-muted-foreground mt-1">Mẫu cần sản xuất thêm dựa trên phân tích thiếu hụt mạng lưới</p>
       </motion.div>
 
-      {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Total Units Needed</p>
+            <p className="text-xs text-muted-foreground">Tổng SL Cần</p>
             <p className="text-2xl font-bold mt-1">{totalUnits.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Cash Required</p>
+            <p className="text-xs text-muted-foreground">Vốn Cần</p>
             <p className="text-2xl font-bold mt-1">{formatVND(totalCash)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Margin Projection</p>
+            <p className="text-xs text-muted-foreground">Biên Lợi Nhuận Dự Kiến</p>
             <p className="text-2xl font-bold mt-1 text-emerald-600">{formatVND(totalMargin)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
-            <p className="text-xs text-muted-foreground">Avg Payback</p>
-            <p className="text-2xl font-bold mt-1">{avgPayback.toFixed(0)} days</p>
+            <p className="text-xs text-muted-foreground">Hoàn Vốn TB</p>
+            <p className="text-2xl font-bold mt-1">{avgPayback.toFixed(0)} ngày</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter */}
       <div className="flex gap-2">
         {(['ALL', 'PROPOSED', 'APPROVED', 'REJECTED'] as StatusFilter[]).map(s => (
           <Button
@@ -110,21 +115,20 @@ export default function ProductionCandidatesPage() {
             variant={statusFilter === s ? 'default' : 'outline'}
             onClick={() => setStatusFilter(s)}
           >
-            {s} {s !== 'ALL' && `(${(candidates || []).filter((c: any) => c.status === s).length})`}
+            {statusLabels[s]} {s !== 'ALL' && `(${(candidates || []).filter((c: any) => c.status === s).length})`}
           </Button>
         ))}
       </div>
 
-      {/* Table */}
       {isLoading ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">Loading...</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-muted-foreground">Đang tải...</CardContent></Card>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
               <Factory className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No production candidates</p>
-              <p className="text-xs mt-1">Candidates are generated from Network Gap analysis</p>
+              <p className="text-sm">Không có mẫu cần sản xuất</p>
+              <p className="text-xs mt-1">Các đề xuất được tạo từ phân tích thiếu hụt mạng lưới</p>
             </div>
           </CardContent>
         </Card>
@@ -134,14 +138,14 @@ export default function ProductionCandidatesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Style</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Cash Required</TableHead>
-                  <TableHead className="text-right">Margin</TableHead>
-                  <TableHead className="text-center">Payback</TableHead>
-                  <TableHead className="text-center">Urgency</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Mẫu SP</TableHead>
+                  <TableHead className="text-right">SL</TableHead>
+                  <TableHead className="text-right">Vốn Cần</TableHead>
+                  <TableHead className="text-right">Biên LN</TableHead>
+                  <TableHead className="text-center">Hoàn Vốn</TableHead>
+                  <TableHead className="text-center">Ưu Tiên</TableHead>
+                  <TableHead>Trạng Thái</TableHead>
+                  <TableHead className="text-right">Thao Tác</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -156,7 +160,7 @@ export default function ProductionCandidatesPage() {
                       <TableCell className="text-right">{c.recommended_qty?.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{formatVND(c.cash_required)}</TableCell>
                       <TableCell className="text-right text-emerald-600">{formatVND(c.margin_projection)}</TableCell>
-                      <TableCell className="text-center">{c.payback_days || '—'}d</TableCell>
+                      <TableCell className="text-center">{c.payback_days || '—'} ngày</TableCell>
                       <TableCell className="text-center">
                         <span className={`font-bold ${urgencyColor(c.urgency_score || 0)}`}>
                           {c.urgency_score?.toFixed(0) || '—'}
@@ -167,7 +171,7 @@ export default function ProductionCandidatesPage() {
                           c.status === 'APPROVED' ? 'default' :
                           c.status === 'REJECTED' ? 'destructive' : 'secondary'
                         }>
-                          {c.status}
+                          {statusLabels[c.status as StatusFilter] || c.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
@@ -192,17 +196,17 @@ export default function ProductionCandidatesPage() {
                     {expandedId === c.id && c.size_breakdown && (
                       <TableRow key={`${c.id}-detail`}>
                         <TableCell colSpan={8} className="bg-muted/30 px-8 py-3">
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Size Breakdown</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Phân Bổ Theo Size</p>
                           <div className="flex flex-wrap gap-2">
                             {Object.entries(c.size_breakdown as Record<string, number>).map(([size, qty]) => (
                               <div key={size} className="bg-background border rounded px-3 py-1.5 text-xs">
                                 <span className="font-semibold">{size}</span>
-                                <span className="text-muted-foreground ml-2">{qty} units</span>
+                                <span className="text-muted-foreground ml-2">{qty} đơn vị</span>
                               </div>
                             ))}
                           </div>
                           {c.as_of_date && (
-                            <p className="text-xs text-muted-foreground mt-2">Generated: {c.as_of_date}</p>
+                            <p className="text-xs text-muted-foreground mt-2">Ngày tạo: {c.as_of_date}</p>
                           )}
                         </TableCell>
                       </TableRow>
