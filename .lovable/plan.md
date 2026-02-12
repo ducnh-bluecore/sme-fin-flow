@@ -1,96 +1,56 @@
 
-# Thêm Store Capacity (Sức chứa kho) vào Inventory Allocation Engine
 
-## Vấn đề hiện tại
+# Sửa logic chỉ số Inventory Allocation Dashboard
 
-- Bảng `inv_stores` đã có cột `capacity` (integer) với dữ liệu sẵn (2000-100000 units)
-- **Engine hoàn toàn bỏ qua capacity** khi phân bổ hàng -- có thể đẩy hàng vượt sức chứa
-- **UI không hiển thị và không cho chỉnh** capacity từng store
-- Không có cảnh báo khi store gần đầy hoặc quá tải
+## Vấn đề phát hiện
 
-## Thay đổi chi tiết
+| Chỉ số | Vấn đề | Mức nghiêm trọng |
+|---|---|---|
+| Stockout risk P1: "1454 store" | Đếm đề xuất, không phải store. Label sai hoàn toàn | Cao |
+| Revenue +759.8M | Cộng gross revenue, không trừ logistics. Không lọc status | Cao |
+| Hero vs Capacity contradictory | "42 store thiếu" + "44 store nhận thêm" gây bối rối | Trung bình |
+| Summary Cards | Không lọc pending-only, đếm cả approved/rejected | Trung bình |
+| Push tab | Tab "Từ kho tổng" trống vì filter sai nguồn dữ liệu | Cao |
 
-### 1. Hiển thị + chỉnh sửa Capacity trong Store Directory
+## Giải pháp
 
-**File: `src/components/inventory/StoreDirectoryTab.tsx`**
+### 1. RebalanceSummaryCards.tsx -- Sửa logic tính
 
-- Thêm metric "Sức chứa" vào StoreCard (hiển thị `total_on_hand / capacity` dạng progress bar)
-- Thêm badge cảnh báo khi sử dụng > 85% capacity (vàng) hoặc > 95% (đỏ)
-- Thêm nút "Chỉnh sửa" trên mỗi card, mở inline editor cho capacity
-- Khi lưu, gọi update trực tiếp vào `inv_stores.capacity`
+- **Stockout risk**: Đổi thành đếm **unique stores** có P1 pending: `new Set(p1Pending.map(s => s.to_location)).size`, label sửa thành "store có rủi ro hết hàng"
+- **Revenue**: Chỉ cộng từ **pending** suggestions, hiển thị **Net Benefit** = `potential_revenue_gain - logistics_cost_estimate`
+- **Push/Lateral units**: Chỉ đếm **pending** suggestions
+- Thêm sub-text: "X pending / Y total" để người dùng biết còn bao nhiêu chưa xử lý
 
-**File mới: `src/hooks/inventory/useUpdateStoreCapacity.ts`**
+### 2. InventoryHeroHeader.tsx -- Cải thiện messaging
 
-- Hook mutation để cập nhật `capacity` trong `inv_stores`
-- Invalidate query `inv-stores` và `inv-store-directory-stores` sau khi lưu
+- Giữ nguyên logic đếm unique stores từ P1 pending (đang đúng)
+- Thêm context: "thiếu hàng ở X family codes" thay vì chỉ nói "thiếu hàng"
+- Phía phải: hiển thị "X store / Y đề xuất P1" thay vì chỉ "1454 P1"
+- Revenue at risk chỉ tính từ pending P1
 
-### 2. Engine tôn trọng Capacity khi phân bổ
+### 3. CapacityOptimizationCard.tsx -- Phân biệt rõ 2 concept
 
-**File: `supabase/functions/inventory-allocation-engine/index.ts`**
+- "Còn chỗ nhận hàng" (utilization thấp) -- giữ nguyên
+- Bỏ nhầm lẫn với "thiếu hàng": thêm tooltip/text giải thích "Sức chứa kho còn trống, không phải thiếu SKU cụ thể"
+- Chỉ hiển thị khi có store gần đầy (>85%) -- phần "còn chỗ" chỉ hiện khi có store cần giảm tải, để suggest chuyển đi đâu
 
-- Thêm `capacity` vào `StoreInfo` interface
-- Trong V1 (`runV1`): Trước khi allocate, tính `remainingCapacity = store.capacity - currentTotalOnHand`. Nếu `allocQty > remainingCapacity`, giảm `allocQty` xuống `remainingCapacity`
-- Trong V2 (`runV2`): Tương tự, cap allocQty bởi remaining capacity
-- Thêm `capacity_check` vào `constraint_checks` để ghi lại quyết định
-- Nếu capacity = 0 hoặc null, engine bỏ qua check (backward compatible)
+### 4. InventoryAllocationPage.tsx -- Sửa tab Push
 
-### 3. Thêm "Tỷ lệ sử dụng" vào Summary + Cảnh báo
+- Tab "Từ kho tổng" hiện chỉ filter `rebalanceSuggestions` (lateral table) -- sai
+- Sửa thành hiển thị `allocAsSuggestions` (chính là push từ kho tổng)
+- Tab "Giữa các kho" giữ nguyên filter `rebalanceSuggestions.lateral`
 
-**File: `src/components/inventory/InventoryHeroHeader.tsx`**
+### 5. Allocation mapping -- Thêm logistics cost
 
-- Thêm chỉ số mới: "Stores gần đầy" (>85% capacity) vào hero header
-- Đếm số store có `total_on_hand / capacity > 0.85`
+- Trong mapping `allocAsSuggestions`, set `logistics_cost_estimate` từ config thay vì hardcode 0
+- `net_benefit = potential_revenue - logistics_cost` thay vì `= potential_revenue`
 
-### 4. Đề xuất tối ưu chứa hàng
-
-**File mới: `src/components/inventory/CapacityOptimizationCard.tsx`**
-
-- Hiển thị trong tab "Tất cả" hoặc hero section
-- Logic:
-  - Store A dư capacity + thiếu hàng bán chạy -> Ưu tiên push vào
-  - Store B gần đầy + có hàng chậm -> Đề xuất lateral ra ngoài
-  - Kho tổng gần đầy -> Ưu tiên push xuống store có chỗ
-- Hiển thị dạng card nhỏ gọn: "3 store có thể nhận thêm hàng", "2 store cần giảm tải"
-
----
-
-## Phan ky thuat
-
-### Database
-- **Không cần migration** -- cột `capacity` đã có trong `inv_stores`
-
-### Files thay đổi
+## Files thay đổi
 
 | File | Thay đổi |
 |---|---|
-| `src/components/inventory/StoreDirectoryTab.tsx` | Thêm capacity bar, badge, inline edit |
-| `src/hooks/inventory/useUpdateStoreCapacity.ts` | **Mới** - mutation update capacity |
-| `supabase/functions/inventory-allocation-engine/index.ts` | Thêm capacity check vào V1 + V2 |
-| `src/components/inventory/InventoryHeroHeader.tsx` | Thêm "Stores gần đầy" indicator |
-| `src/components/inventory/CapacityOptimizationCard.tsx` | **Mới** - đề xuất tối ưu sức chứa |
+| `src/components/inventory/RebalanceSummaryCards.tsx` | Sửa P1 count thành unique stores, filter pending-only, hiển thị net benefit |
+| `src/components/inventory/InventoryHeroHeader.tsx` | Sửa P1 badge hiển thị "X store / Y đề xuất", revenue chỉ từ pending |
+| `src/components/inventory/CapacityOptimizationCard.tsx` | Ẩn "còn chỗ" khi không có store quá tải, thêm giải thích |
+| `src/pages/InventoryAllocationPage.tsx` | Sửa tab Push dùng allocAsSuggestions, sửa logistics mapping |
 
-### Flow phân bổ mới
-
-```text
-Engine V1/V2: Tính allocQty cho store
-  |
-  v
-Check: currentTotalOnHand + allocQty > capacity?
-  |
-  ├── YES -> allocQty = capacity - currentTotalOnHand (cap lại)
-  |          Ghi constraint_checks.capacity_capped = true
-  |
-  └── NO  -> Giữ nguyên allocQty
-  |
-  v
-Tiếp tục flow hiện tại (size integrity, CW reserve, etc.)
-```
-
-### Capacity thresholds
-
-| Tỷ lệ sử dụng | Trạng thái | Màu |
-|---|---|---|
-| dưới 70% | Thoải mái | Xanh |
-| 70-85% | Bình thường | Không highlight |
-| 85-95% | Gần đầy | Vàng (warning) |
-| trên 95% | Quá tải | Đỏ (danger) |
