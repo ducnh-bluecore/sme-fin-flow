@@ -222,10 +222,16 @@ export default function InventoryAllocationPage() {
             <TabsTrigger value="push" className="gap-1.5">
               <Package className="h-3.5 w-3.5" />
               Từ kho tổng
+              {allocAsSuggestions.length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{allocAsSuggestions.length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="lateral" className="gap-1.5">
               <ArrowRightLeft className="h-3.5 w-3.5" />
               Giữa các kho
+              {rebalanceSuggestions.filter(s => s.transfer_type === 'lateral').length > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{rebalanceSuggestions.filter(s => s.transfer_type === 'lateral').length}</span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="simulation" className="gap-1.5">
               <BarChart3 className="h-3.5 w-3.5" />
