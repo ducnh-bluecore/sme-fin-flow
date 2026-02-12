@@ -27286,6 +27286,216 @@ export type Database = {
           },
         ]
       }
+      sem_allocation_policies: {
+        Row: {
+          constraints: Json | null
+          created_at: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          policy_type: string
+          tenant_id: string
+          updated_at: string | null
+          weights: Json | null
+        }
+        Insert: {
+          constraints?: Json | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          policy_type: string
+          tenant_id: string
+          updated_at?: string | null
+          weights?: Json | null
+        }
+        Update: {
+          constraints?: Json | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          policy_type?: string
+          tenant_id?: string
+          updated_at?: string | null
+          weights?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_allocation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_allocation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_allocation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_allocation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      sem_size_curve_profiles: {
+        Row: {
+          brand_id: string | null
+          category_id: string | null
+          created_at: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_current: boolean | null
+          profile_name: string
+          season_code: string | null
+          size_ratios: Json
+          tenant_id: string
+        }
+        Insert: {
+          brand_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_current?: boolean | null
+          profile_name: string
+          season_code?: string | null
+          size_ratios?: Json
+          tenant_id: string
+        }
+        Update: {
+          brand_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_current?: boolean | null
+          profile_name?: string
+          season_code?: string | null
+          size_ratios?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_size_curve_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_size_curve_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_size_curve_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_size_curve_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      sem_sku_criticality: {
+        Row: {
+          created_at: string | null
+          criticality_class: string
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_current: boolean | null
+          min_presence_rule: Json | null
+          sku_id: string
+          style_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          criticality_class?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_current?: boolean | null
+          min_presence_rule?: Json | null
+          sku_id: string
+          style_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          criticality_class?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_current?: boolean | null
+          min_presence_rule?: Json | null
+          sku_id?: string
+          style_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_sku_criticality_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_sku_criticality_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_sku_criticality_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_sku_criticality_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       settlement_allocations: {
         Row: {
           allocated_amount: number
