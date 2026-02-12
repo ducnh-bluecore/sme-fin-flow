@@ -93,8 +93,20 @@ Deno.serve(async (req) => {
     const storeHealthResults = computePerStoreSizeHealth(tenant_id, today, positions, skuMapping, retailStores);
     console.log(`[KPI Engine] Per-store Health computed: ${storeHealthResults.length}`);
 
+    // ── 10. Phase 3: Cash Lock ──
+    const cashLockResults = computeCashLock(tenant_id, today, positions, demand, skuMapping, priceMap, sizeHealthResults);
+    console.log(`[KPI Engine] Cash Lock computed: ${cashLockResults.length}`);
+
+    // ── 11. Phase 3: Margin Leak ──
+    const marginLeakResults = computeMarginLeak(tenant_id, today, sizeHealthResults, lostRevenueResults, markdownRiskResults, positions, priceMap, skuMapping);
+    console.log(`[KPI Engine] Margin Leak computed: ${marginLeakResults.length}`);
+
+    // ── 12. Phase 3: Evidence Packs ──
+    const evidencePackResults = buildEvidencePacks(tenant_id, today, sizeHealthResults, lostRevenueResults, markdownRiskResults, cashLockResults, marginLeakResults);
+    console.log(`[KPI Engine] Evidence Packs: ${evidencePackResults.length}`);
+
     // ── Upsert results ──
-    const results = { idi: 0, scs: 0, chi: 0, gap: 0, size_health: 0, lost_revenue: 0, markdown_risk: 0, size_transfers: 0, store_health: 0, errors: [] as string[] };
+    const results = { idi: 0, scs: 0, chi: 0, gap: 0, size_health: 0, lost_revenue: 0, markdown_risk: 0, size_transfers: 0, store_health: 0, cash_lock: 0, margin_leak: 0, evidence_packs: 0, errors: [] as string[] };
 
     // Delete old data for today first, then insert
     if (idiResults.length > 0) {
@@ -183,6 +195,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Phase 3: Cash Lock
+    if (cashLockResults.length > 0) {
+      await supabase.from("state_cash_lock_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
+      for (let i = 0; i < cashLockResults.length; i += 500) {
+        const { error } = await supabase.from("state_cash_lock_daily").insert(cashLockResults.slice(i, i + 500));
+        if (error) results.errors.push(`CashLock: ${error.message}`);
+        else results.cash_lock += Math.min(500, cashLockResults.length - i);
+      }
+    }
+
+    // Phase 3: Margin Leak
+    if (marginLeakResults.length > 0) {
+      await supabase.from("state_margin_leak_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
+      for (let i = 0; i < marginLeakResults.length; i += 500) {
+        const { error } = await supabase.from("state_margin_leak_daily").insert(marginLeakResults.slice(i, i + 500));
+        if (error) results.errors.push(`MarginLeak: ${error.message}`);
+        else results.margin_leak += Math.min(500, marginLeakResults.length - i);
+      }
+    }
+
+    // Phase 3: Evidence Packs
+    if (evidencePackResults.length > 0) {
+      await supabase.from("evidence_packs").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
+      for (let i = 0; i < evidencePackResults.length; i += 500) {
+        const { error } = await supabase.from("evidence_packs").insert(evidencePackResults.slice(i, i + 500));
+        if (error) results.errors.push(`EvidencePack: ${error.message}`);
+        else results.evidence_packs += Math.min(500, evidencePackResults.length - i);
+      }
+    }
+
     const summary = {
       success: results.errors.length === 0,
       date: today,
@@ -195,6 +237,9 @@ Deno.serve(async (req) => {
       markdown_risk_rows: results.markdown_risk,
       size_transfer_rows: results.size_transfers,
       store_health_rows: results.store_health,
+      cash_lock_rows: results.cash_lock,
+      margin_leak_rows: results.margin_leak,
+      evidence_pack_rows: results.evidence_packs,
       errors: results.errors.length > 0 ? results.errors : undefined,
     };
 
@@ -1060,6 +1105,254 @@ function computePerStoreSizeHealth(
       deviation_score: Math.round(deviationSum * 10000) / 10000,
       core_size_missing: coreMissing,
       shallow_depth_count: shallowCount,
+    });
+  }
+
+  return results;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SIZE INTELLIGENCE ENGINE — Phase 3: Cash Lock + Margin Leak + Evidence
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Cash Lock: How much cash is trapped in inventory due to broken size curves
+ * 
+ * Logic:
+ * - For each FC, calculate total inventory value
+ * - If curve is broken/risk → cash_locked = inventory_value * lock_pct
+ * - lock_pct depends on curve_state severity
+ * - expected_release_days from velocity
+ */
+function computeCashLock(
+  tenantId: string,
+  date: string,
+  positions: any[],
+  demand: any[],
+  skuMapping: any[],
+  priceMap: Map<string, number>,
+  sizeHealthResults: any[]
+): any[] {
+  // Build health map
+  const healthMap = new Map<string, any>();
+  for (const sh of sizeHealthResults) {
+    if (!sh.store_id) healthMap.set(sh.product_id, sh); // network-wide only
+  }
+
+  // FC -> total on_hand
+  const fcStock = new Map<string, number>();
+  for (const p of positions) {
+    if (!p.fc_id || (p.on_hand || 0) <= 0) continue;
+    fcStock.set(p.fc_id, (fcStock.get(p.fc_id) || 0) + (p.on_hand || 0));
+  }
+
+  // FC -> velocity
+  const fcVelocity = new Map<string, number>();
+  for (const d of demand) {
+    if (!d.fc_id) continue;
+    fcVelocity.set(d.fc_id, (fcVelocity.get(d.fc_id) || 0) + (d.avg_daily_sales || 0));
+  }
+
+  // FC -> avg price
+  const skuToFC = new Map<string, string>();
+  const fcSkus = new Map<string, string[]>();
+  for (const m of skuMapping) {
+    if (!m.fc_id || !m.sku) continue;
+    skuToFC.set(m.sku, m.fc_id);
+    if (!fcSkus.has(m.fc_id)) fcSkus.set(m.fc_id, []);
+    fcSkus.get(m.fc_id)!.push(m.sku);
+  }
+  const fcPrice = new Map<string, number>();
+  for (const [fcId, skus] of fcSkus) {
+    const prices = skus.map(s => priceMap.get(s)).filter(Boolean) as number[];
+    if (prices.length > 0) fcPrice.set(fcId, prices.reduce((s, v) => s + v, 0) / prices.length);
+  }
+
+  const results: any[] = [];
+
+  for (const [fcId, health] of healthMap) {
+    const stock = fcStock.get(fcId) || 0;
+    if (stock <= 0) continue;
+
+    const unitPrice = fcPrice.get(fcId) || DEFAULT_UNIT_PRICE;
+    const inventoryValue = stock * unitPrice;
+    const velocity = fcVelocity.get(fcId) || 0;
+
+    // Determine lock percentage based on curve state
+    let lockedPct = 0;
+    let driver = 'healthy';
+    const state = health.curve_state;
+    if (state === 'broken') { lockedPct = 0.7; driver = 'broken_size'; }
+    else if (state === 'risk') { lockedPct = 0.4; driver = 'broken_size'; }
+    else if (state === 'watch') { lockedPct = 0.15; driver = 'slow_moving'; }
+    else continue; // healthy = no lock
+
+    const cashLocked = Math.round(inventoryValue * lockedPct);
+    const releaseDays = velocity > 0 ? Math.min(180, Math.round(stock / velocity)) : 180;
+
+    results.push({
+      tenant_id: tenantId,
+      product_id: fcId,
+      as_of_date: date,
+      inventory_value: Math.round(inventoryValue),
+      cash_locked_value: cashLocked,
+      locked_pct: Math.round(lockedPct * 100),
+      expected_release_days: releaseDays,
+      lock_driver: driver,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Margin Leak: Track margin erosion from different drivers
+ * 
+ * Drivers:
+ * - size_break: lost revenue from broken size curves (from lostRevenue)
+ * - markdown_risk: projected margin loss from upcoming markdowns (typically 30-50% discount)
+ */
+function computeMarginLeak(
+  tenantId: string,
+  date: string,
+  sizeHealthResults: any[],
+  lostRevenueResults: any[],
+  markdownRiskResults: any[],
+  positions: any[],
+  priceMap: Map<string, number>,
+  skuMapping: any[]
+): any[] {
+  const results: any[] = [];
+
+  // Driver 1: Size break leak (from lost revenue - assume ~40% margin on lost sales)
+  const MARGIN_RATE = 0.4;
+  for (const lr of lostRevenueResults) {
+    if (lr.lost_revenue_est <= 0) continue;
+    results.push({
+      tenant_id: tenantId,
+      product_id: lr.product_id,
+      as_of_date: date,
+      margin_leak_value: Math.round(lr.lost_revenue_est * MARGIN_RATE),
+      leak_driver: 'size_break',
+      leak_detail: { lost_units: lr.lost_units_est, lost_revenue: lr.lost_revenue_est, driver: lr.driver },
+      cumulative_leak_30d: Math.round(lr.lost_revenue_est * MARGIN_RATE), // Single day snapshot
+    });
+  }
+
+  // Driver 2: Markdown risk leak (projected margin loss if markdown happens)
+  // Assume 35% average markdown discount on at-risk inventory
+  const MARKDOWN_DISCOUNT = 0.35;
+  const fcSkus = new Map<string, string[]>();
+  for (const m of skuMapping) {
+    if (!m.fc_id || !m.sku) continue;
+    if (!fcSkus.has(m.fc_id)) fcSkus.set(m.fc_id, []);
+    fcSkus.get(m.fc_id)!.push(m.sku);
+  }
+  const fcPrice = new Map<string, number>();
+  for (const [fcId, skus] of fcSkus) {
+    const prices = skus.map(s => priceMap.get(s)).filter(Boolean) as number[];
+    if (prices.length > 0) fcPrice.set(fcId, prices.reduce((s, v) => s + v, 0) / prices.length);
+  }
+  const fcStock = new Map<string, number>();
+  for (const p of positions) {
+    if (!p.fc_id || (p.on_hand || 0) <= 0) continue;
+    fcStock.set(p.fc_id, (fcStock.get(p.fc_id) || 0) + (p.on_hand || 0));
+  }
+
+  for (const md of markdownRiskResults) {
+    if (md.markdown_risk_score < 60) continue; // Only high+ risk
+    const stock = fcStock.get(md.product_id) || 0;
+    if (stock <= 0) continue;
+    const unitPrice = fcPrice.get(md.product_id) || DEFAULT_UNIT_PRICE;
+    const projectedLoss = Math.round(stock * unitPrice * MARKDOWN_DISCOUNT * (md.markdown_risk_score / 100));
+
+    results.push({
+      tenant_id: tenantId,
+      product_id: md.product_id,
+      as_of_date: date,
+      margin_leak_value: projectedLoss,
+      leak_driver: 'markdown_risk',
+      leak_detail: { risk_score: md.markdown_risk_score, eta_days: md.markdown_eta_days, stock, unit_price: unitPrice },
+      cumulative_leak_30d: projectedLoss,
+    });
+  }
+
+  return results;
+}
+
+/**
+ * Evidence Packs: Audit trail for decisions
+ * Creates a snapshot of all evidence for products with high risk
+ */
+function buildEvidencePacks(
+  tenantId: string,
+  date: string,
+  sizeHealthResults: any[],
+  lostRevenueResults: any[],
+  markdownRiskResults: any[],
+  cashLockResults: any[],
+  marginLeakResults: any[]
+): any[] {
+  // Only build packs for broken/risk products
+  const healthMap = new Map<string, any>();
+  for (const sh of sizeHealthResults) {
+    if (!sh.store_id && (sh.curve_state === 'broken' || sh.curve_state === 'risk')) {
+      healthMap.set(sh.product_id, sh);
+    }
+  }
+
+  const lrMap = new Map<string, any>();
+  for (const lr of lostRevenueResults) lrMap.set(lr.product_id, lr);
+  const mdMap = new Map<string, any>();
+  for (const md of markdownRiskResults) mdMap.set(md.product_id, md);
+  const clMap = new Map<string, any>();
+  for (const cl of cashLockResults) clMap.set(cl.product_id, cl);
+  const mlMap = new Map<string, any[]>();
+  for (const ml of marginLeakResults) {
+    if (!mlMap.has(ml.product_id)) mlMap.set(ml.product_id, []);
+    mlMap.get(ml.product_id)!.push(ml);
+  }
+
+  const results: any[] = [];
+
+  for (const [fcId, health] of healthMap) {
+    const lr = lrMap.get(fcId);
+    const md = mdMap.get(fcId);
+    const cl = clMap.get(fcId);
+    const mls = mlMap.get(fcId) || [];
+    const totalMarginLeak = mls.reduce((s: number, m: any) => s + m.margin_leak_value, 0);
+
+    const severity = health.curve_state === 'broken' && (md?.markdown_risk_score || 0) >= 60 ? 'critical' :
+                     health.curve_state === 'broken' ? 'high' : 'medium';
+
+    const summaryParts: string[] = [];
+    summaryParts.push(`Health: ${health.size_health_score.toFixed(0)} (${health.curve_state})`);
+    if (lr) summaryParts.push(`Lost Rev: ${lr.lost_revenue_est}`);
+    if (cl) summaryParts.push(`Cash Locked: ${cl.cash_locked_value}`);
+    if (md) summaryParts.push(`MD Risk: ${md.markdown_risk_score}, ETA: ${md.markdown_eta_days}d`);
+    if (totalMarginLeak > 0) summaryParts.push(`Margin Leak: ${totalMarginLeak}`);
+
+    const sourceTables = ['state_size_health_daily'];
+    if (lr) sourceTables.push('state_lost_revenue_daily');
+    if (md) sourceTables.push('state_markdown_risk_daily');
+    if (cl) sourceTables.push('state_cash_lock_daily');
+    if (mls.length > 0) sourceTables.push('state_margin_leak_daily');
+
+    results.push({
+      tenant_id: tenantId,
+      product_id: fcId,
+      as_of_date: date,
+      evidence_type: 'size_intelligence',
+      severity,
+      summary: summaryParts.join(' | '),
+      data_snapshot: {
+        health: { score: health.size_health_score, state: health.curve_state, core_missing: health.core_size_missing, deviation: health.deviation_score },
+        lost_revenue: lr ? { units: lr.lost_units_est, revenue: lr.lost_revenue_est, driver: lr.driver } : null,
+        markdown_risk: md ? { score: md.markdown_risk_score, eta_days: md.markdown_eta_days, reason: md.reason } : null,
+        cash_lock: cl ? { value: cl.cash_locked_value, pct: cl.locked_pct, release_days: cl.expected_release_days } : null,
+        margin_leak: mls.length > 0 ? { total: totalMarginLeak, drivers: mls.map((m: any) => ({ driver: m.leak_driver, value: m.margin_leak_value })) } : null,
+      },
+      source_tables: sourceTables,
     });
   }
 

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight } from 'lucide-react';
+import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight, Lock, Flame, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
@@ -19,10 +21,15 @@ export default function AssortmentPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'health' | 'lost_revenue' | 'markdown'>('lost_revenue');
+  const [sortBy, setSortBy] = useState<'health' | 'lost_revenue' | 'markdown' | 'cash_lock'>('lost_revenue');
+  const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
 
   // Size Intelligence data
-  const { summary: siSummary, healthMap, lostRevenueMap, markdownRiskMap, isLoading: siLoading, lostRevenue, sizeTransfers } = useSizeIntelligence();
+  const {
+    summary: siSummary, healthMap, lostRevenueMap, markdownRiskMap,
+    cashLockMap, marginLeakMap, evidencePackMap,
+    isLoading: siLoading, lostRevenue, sizeTransfers
+  } = useSizeIntelligence();
 
   // CHI data (existing)
   const { data: chiRows } = useQuery({
@@ -82,20 +89,13 @@ export default function AssortmentPage() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`Engine: ${data.size_health_rows} Health, ${data.size_transfer_rows} Transfers, ${data.store_health_rows} Store Health`);
-      queryClient.invalidateQueries({ queryKey: ['size-health'] });
-      queryClient.invalidateQueries({ queryKey: ['store-size-health'] });
-      queryClient.invalidateQueries({ queryKey: ['lost-revenue'] });
-      queryClient.invalidateQueries({ queryKey: ['markdown-risk'] });
-      queryClient.invalidateQueries({ queryKey: ['size-transfers'] });
-      queryClient.invalidateQueries({ queryKey: ['command-chi-detail'] });
+      toast.success(`Engine: ${data.size_health_rows} Health, ${data.cash_lock_rows || 0} Cash Lock, ${data.margin_leak_rows || 0} Margin Leak, ${data.evidence_pack_rows || 0} Evidence`);
+      ['size-health', 'store-size-health', 'lost-revenue', 'markdown-risk', 'size-transfers', 'cash-lock', 'margin-leak', 'evidence-packs', 'command-chi-detail'].forEach(k =>
+        queryClient.invalidateQueries({ queryKey: [k] })
+      );
     },
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
-
-  const avgCHI = chiRows && chiRows.length > 0
-    ? chiRows.reduce((s: number, r: any) => s + (r.curve_health_index || 0), 0) / chiRows.length
-    : null;
 
   // Build unified style list from healthMap
   const allStyles = [...healthMap.keys()];
@@ -103,29 +103,27 @@ export default function AssortmentPage() {
   // Filter & sort
   let filtered = allStyles;
   if (statusFilter !== 'all') {
-    filtered = filtered.filter(fcId => {
-      const h = healthMap.get(fcId);
-      return h?.curve_state === statusFilter;
-    });
+    filtered = filtered.filter(fcId => healthMap.get(fcId)?.curve_state === statusFilter);
   }
   if (search) {
     const q = search.toLowerCase();
-    filtered = filtered.filter(fcId =>
-      (fcNames?.get(fcId) || fcId).toLowerCase().includes(q)
-    );
+    filtered = filtered.filter(fcId => (fcNames?.get(fcId) || fcId).toLowerCase().includes(q));
   }
 
-  // Sort
   if (sortBy === 'lost_revenue') {
     filtered = [...filtered].sort((a, b) => (lostRevenueMap.get(b)?.lost_revenue_est || 0) - (lostRevenueMap.get(a)?.lost_revenue_est || 0));
   } else if (sortBy === 'health') {
     filtered = [...filtered].sort((a, b) => (healthMap.get(a)?.size_health_score || 100) - (healthMap.get(b)?.size_health_score || 100));
   } else if (sortBy === 'markdown') {
     filtered = [...filtered].sort((a, b) => (markdownRiskMap.get(b)?.markdown_risk_score || 0) - (markdownRiskMap.get(a)?.markdown_risk_score || 0));
+  } else if (sortBy === 'cash_lock') {
+    filtered = [...filtered].sort((a, b) => (cashLockMap.get(b)?.cash_locked_value || 0) - (cashLockMap.get(a)?.cash_locked_value || 0));
   }
 
-  // Top lost revenue styles for Revenue Risk Feed
   const topLostRevStyles = (lostRevenue.data || []).slice(0, 5);
+
+  // Evidence drawer data
+  const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
 
   return (
     <div className="space-y-6">
@@ -141,13 +139,13 @@ export default function AssortmentPage() {
       </motion.div>
 
       {/* ── Hero KPIs ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className={siSummary.avgHealthScore !== null && siSummary.avgHealthScore < 60 ? 'border-l-4 border-l-destructive' : ''}>
-          <CardContent className="pt-5 pb-4">
+          <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Activity className="h-3 w-3" /> Network Size Health
+              <Activity className="h-3 w-3" /> Size Health
             </div>
-            <p className={`text-2xl font-bold ${
+            <p className={`text-xl font-bold ${
               siSummary.avgHealthScore === null ? '' :
               siSummary.avgHealthScore >= 80 ? 'text-emerald-600' :
               siSummary.avgHealthScore >= 60 ? 'text-amber-600' : 'text-destructive'
@@ -158,47 +156,71 @@ export default function AssortmentPage() {
         </Card>
 
         <Card className={siSummary.totalLostRevenue > 0 ? 'border-l-4 border-l-destructive' : ''}>
-          <CardContent className="pt-5 pb-4">
+          <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <DollarSign className="h-3 w-3" /> Lost Revenue
             </div>
-            <p className="text-2xl font-bold text-destructive">
+            <p className="text-xl font-bold text-destructive">
               {siSummary.totalLostRevenue > 0 ? formatVNDCompact(siSummary.totalLostRevenue) : '—'}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-5 pb-4">
+          <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <ShieldAlert className="h-3 w-3" /> Broken Styles
+              <ShieldAlert className="h-3 w-3" /> Broken
             </div>
-            <p className="text-2xl font-bold text-destructive">{siSummary.brokenCount}</p>
+            <p className="text-xl font-bold text-destructive">{siSummary.brokenCount}</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="pt-5 pb-4">
+          <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <TrendingDown className="h-3 w-3" /> Markdown Risk
+              <TrendingDown className="h-3 w-3" /> MD Risk
             </div>
-            <p className="text-2xl font-bold text-destructive">
+            <p className="text-xl font-bold text-destructive">
               {siSummary.highMarkdownRiskCount}
               {siSummary.criticalMarkdownCount > 0 && (
-                <span className="text-sm font-normal ml-1">({siSummary.criticalMarkdownCount} critical)</span>
+                <span className="text-sm font-normal ml-1">({siSummary.criticalMarkdownCount} crit)</span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        <Card className={siSummary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
-          <CardContent className="pt-5 pb-4">
+        {/* Phase 3: Cash Lock */}
+        <Card className={siSummary.totalCashLocked > 0 ? 'border-l-4 border-l-orange-500' : ''}>
+          <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <ArrowRightLeft className="h-3 w-3" /> Transfer Opportunities
+              <Lock className="h-3 w-3" /> Cash Locked
             </div>
-            <p className="text-2xl font-bold text-amber-600">{siSummary.transferOpportunities}</p>
+            <p className="text-xl font-bold text-orange-600">
+              {siSummary.totalCashLocked > 0 ? formatVNDCompact(siSummary.totalCashLocked) : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Phase 3: Margin Leak */}
+        <Card className={siSummary.totalMarginLeak > 0 ? 'border-l-4 border-l-red-500' : ''}>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Flame className="h-3 w-3" /> Margin Leak
+            </div>
+            <p className="text-xl font-bold text-red-600">
+              {siSummary.totalMarginLeak > 0 ? formatVNDCompact(siSummary.totalMarginLeak) : '—'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={siSummary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <ArrowRightLeft className="h-3 w-3" /> Transfers
+            </div>
+            <p className="text-xl font-bold text-amber-600">{siSummary.transferOpportunities}</p>
             {siSummary.totalTransferNetBenefit > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">Net benefit: {formatVNDCompact(siSummary.totalTransferNetBenefit)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{formatVNDCompact(siSummary.totalTransferNetBenefit)}</p>
             )}
           </CardContent>
         </Card>
@@ -216,19 +238,25 @@ export default function AssortmentPage() {
             {topLostRevStyles.map((lr) => {
               const health = healthMap.get(lr.product_id);
               const md = markdownRiskMap.get(lr.product_id);
+              const cl = cashLockMap.get(lr.product_id);
+              const ml = marginLeakMap.get(lr.product_id) || 0;
               const name = fcNames?.get(lr.product_id) || lr.product_id;
+              const hasEvidence = evidencePackMap.has(lr.product_id);
               return (
-                <div key={lr.id} className="border-l-2 border-l-destructive rounded-r-md p-3 bg-destructive/5">
+                <div key={lr.id} className="border-l-2 border-l-destructive rounded-r-md p-3 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors" onClick={() => hasEvidence && setEvidenceProductId(lr.product_id)}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{name}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Lost: <span className="font-semibold text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
                         {' · '}{lr.lost_units_est} units · Driver: {lr.driver}
-                        {health?.core_size_missing && ' · Core size missing'}
+                        {health?.core_size_missing && ' · Core missing'}
+                        {cl && <> · <Lock className="h-3 w-3 inline" /> {formatVNDCompact(cl.cash_locked_value)}</>}
+                        {ml > 0 && <> · <Flame className="h-3 w-3 inline" /> {formatVNDCompact(ml)}</>}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {hasEvidence && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
                       {health && (
                         <Badge variant={health.curve_state === 'broken' ? 'destructive' : 'secondary'} className="text-xs">
                           {health.curve_state} ({health.size_health_score.toFixed(0)})
@@ -334,6 +362,7 @@ export default function AssortmentPage() {
                   <SelectItem value="lost_revenue">By Lost Revenue</SelectItem>
                   <SelectItem value="health">By Health Score</SelectItem>
                   <SelectItem value="markdown">By MD Risk</SelectItem>
+                  <SelectItem value="cash_lock">By Cash Lock</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -356,11 +385,12 @@ export default function AssortmentPage() {
                     <TableHead>Style</TableHead>
                     <TableHead className="text-center">Health</TableHead>
                     <TableHead>State</TableHead>
-                    <TableHead className="text-center">Core Missing</TableHead>
-                    <TableHead className="text-right">Lost Revenue</TableHead>
-                    <TableHead>Driver</TableHead>
+                    <TableHead className="text-right">Lost Rev</TableHead>
+                    <TableHead className="text-right">Cash Lock</TableHead>
+                    <TableHead className="text-right">Margin Leak</TableHead>
                     <TableHead className="text-center">MD Risk</TableHead>
-                    <TableHead className="text-center">MD ETA</TableHead>
+                    <TableHead className="text-center">ETA</TableHead>
+                    <TableHead className="text-center">Evidence</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -368,10 +398,13 @@ export default function AssortmentPage() {
                     const h = healthMap.get(fcId)!;
                     const lr = lostRevenueMap.get(fcId);
                     const md = markdownRiskMap.get(fcId);
+                    const cl = cashLockMap.get(fcId);
+                    const ml = marginLeakMap.get(fcId) || 0;
                     const name = fcNames?.get(fcId) || fcId;
+                    const hasEvidence = evidencePackMap.has(fcId);
 
                     return (
-                      <TableRow key={fcId}>
+                      <TableRow key={fcId} className={hasEvidence ? 'cursor-pointer hover:bg-muted/50' : ''} onClick={() => hasEvidence && setEvidenceProductId(fcId)}>
                         <TableCell className="text-xs font-medium max-w-[200px] truncate">{name}</TableCell>
                         <TableCell className="text-center">
                           <span className={`font-semibold text-sm ${
@@ -390,20 +423,14 @@ export default function AssortmentPage() {
                             {h.curve_state}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-center">
-                          {h.core_size_missing ? (
-                            <Badge variant="destructive" className="text-xs">Yes</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                        <TableCell className="text-right text-xs font-medium">
+                          {lr ? <span className="text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span> : '—'}
                         </TableCell>
                         <TableCell className="text-right text-xs font-medium">
-                          {lr ? (
-                            <span className="text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
-                          ) : '—'}
+                          {cl ? <span className="text-orange-600">{formatVNDCompact(cl.cash_locked_value)}</span> : '—'}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {lr?.driver || '—'}
+                        <TableCell className="text-right text-xs font-medium">
+                          {ml > 0 ? <span className="text-red-600">{formatVNDCompact(ml)}</span> : '—'}
                         </TableCell>
                         <TableCell className="text-center">
                           {md ? (
@@ -419,6 +446,9 @@ export default function AssortmentPage() {
                         <TableCell className="text-center text-xs">
                           {md?.markdown_eta_days ? `${md.markdown_eta_days}d` : '—'}
                         </TableCell>
+                        <TableCell className="text-center">
+                          {hasEvidence ? <FileText className="h-3.5 w-3.5 mx-auto text-muted-foreground" /> : '—'}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -431,6 +461,158 @@ export default function AssortmentPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Evidence Pack Drawer ── */}
+      <Sheet open={!!evidenceProductId} onOpenChange={(open) => !open && setEvidenceProductId(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Evidence Pack
+            </SheetTitle>
+            <SheetDescription>
+              {evidenceProductId && (fcNames?.get(evidenceProductId) || evidenceProductId)}
+            </SheetDescription>
+          </SheetHeader>
+          
+          {evidencePack ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant={
+                  evidencePack.severity === 'critical' ? 'destructive' :
+                  evidencePack.severity === 'high' ? 'secondary' : 'default'
+                } className="capitalize">{evidencePack.severity}</Badge>
+                <span className="text-xs text-muted-foreground">{evidencePack.as_of_date}</span>
+              </div>
+
+              <Separator />
+
+              {/* Health */}
+              {evidencePack.data_snapshot?.health && (
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Size Health</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2 rounded bg-muted/50">
+                      <span className="text-muted-foreground">Score</span>
+                      <p className="font-bold text-lg">{evidencePack.data_snapshot.health.score?.toFixed(0)}</p>
+                    </div>
+                    <div className="p-2 rounded bg-muted/50">
+                      <span className="text-muted-foreground">State</span>
+                      <p className="font-bold text-lg capitalize">{evidencePack.data_snapshot.health.state}</p>
+                    </div>
+                    <div className="p-2 rounded bg-muted/50">
+                      <span className="text-muted-foreground">Core Missing</span>
+                      <p className="font-semibold">{evidencePack.data_snapshot.health.core_missing ? 'Yes ⚠️' : 'No'}</p>
+                    </div>
+                    <div className="p-2 rounded bg-muted/50">
+                      <span className="text-muted-foreground">Deviation</span>
+                      <p className="font-semibold">{evidencePack.data_snapshot.health.deviation?.toFixed(3)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Lost Revenue */}
+              {evidencePack.data_snapshot?.lost_revenue && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Lost Revenue</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded bg-destructive/5">
+                        <span className="text-muted-foreground">Revenue Lost</span>
+                        <p className="font-bold text-destructive">{formatVNDCompact(evidencePack.data_snapshot.lost_revenue.revenue)}</p>
+                      </div>
+                      <div className="p-2 rounded bg-destructive/5">
+                        <span className="text-muted-foreground">Units Lost</span>
+                        <p className="font-bold">{evidencePack.data_snapshot.lost_revenue.units}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Driver: {evidencePack.data_snapshot.lost_revenue.driver}</p>
+                  </div>
+                </>
+              )}
+
+              {/* Cash Lock */}
+              {evidencePack.data_snapshot?.cash_lock && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> Cash Lock</h4>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="p-2 rounded bg-orange-500/5">
+                        <span className="text-muted-foreground">Locked</span>
+                        <p className="font-bold text-orange-600">{formatVNDCompact(evidencePack.data_snapshot.cash_lock.value)}</p>
+                      </div>
+                      <div className="p-2 rounded bg-orange-500/5">
+                        <span className="text-muted-foreground">Lock %</span>
+                        <p className="font-bold">{evidencePack.data_snapshot.cash_lock.pct}%</p>
+                      </div>
+                      <div className="p-2 rounded bg-orange-500/5">
+                        <span className="text-muted-foreground">Release</span>
+                        <p className="font-bold">{evidencePack.data_snapshot.cash_lock.release_days}d</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Markdown Risk */}
+              {evidencePack.data_snapshot?.markdown_risk && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5" /> Markdown Risk</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded bg-muted/50">
+                        <span className="text-muted-foreground">Risk Score</span>
+                        <p className="font-bold">{evidencePack.data_snapshot.markdown_risk.score}</p>
+                      </div>
+                      <div className="p-2 rounded bg-muted/50">
+                        <span className="text-muted-foreground">ETA</span>
+                        <p className="font-bold">{evidencePack.data_snapshot.markdown_risk.eta_days}d</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Reason: {evidencePack.data_snapshot.markdown_risk.reason}</p>
+                  </div>
+                </>
+              )}
+
+              {/* Margin Leak */}
+              {evidencePack.data_snapshot?.margin_leak && (
+                <>
+                  <Separator />
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Flame className="h-3.5 w-3.5" /> Margin Leak</h4>
+                    <div className="p-2 rounded bg-red-500/5 text-xs">
+                      <span className="text-muted-foreground">Total Margin Leak</span>
+                      <p className="font-bold text-red-600">{formatVNDCompact(evidencePack.data_snapshot.margin_leak.total)}</p>
+                    </div>
+                    {evidencePack.data_snapshot.margin_leak.drivers?.map((d: any, i: number) => (
+                      <div key={i} className="flex justify-between text-xs px-2">
+                        <span className="text-muted-foreground capitalize">{d.driver.replace('_', ' ')}</span>
+                        <span className="font-medium">{formatVNDCompact(d.value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <Separator />
+              <div className="text-xs text-muted-foreground">
+                <p className="font-semibold mb-1">Source Tables</p>
+                <div className="flex flex-wrap gap-1">
+                  {evidencePack.source_tables?.map((t: string) => (
+                    <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">No evidence pack available</div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

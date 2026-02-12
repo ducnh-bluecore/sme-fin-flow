@@ -49,6 +49,39 @@ export interface SizeTransferRow {
   reason: string;
 }
 
+export interface CashLockRow {
+  id: string;
+  product_id: string;
+  as_of_date: string;
+  inventory_value: number;
+  cash_locked_value: number;
+  locked_pct: number;
+  expected_release_days: number | null;
+  lock_driver: string;
+}
+
+export interface MarginLeakRow {
+  id: string;
+  product_id: string;
+  as_of_date: string;
+  margin_leak_value: number;
+  leak_driver: string;
+  leak_detail: any;
+  cumulative_leak_30d: number;
+}
+
+export interface EvidencePackRow {
+  id: string;
+  product_id: string;
+  as_of_date: string;
+  evidence_type: string;
+  severity: string;
+  summary: string;
+  data_snapshot: any;
+  source_tables: string[];
+  created_at: string;
+}
+
 export function useSizeIntelligence() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
@@ -56,7 +89,7 @@ export function useSizeIntelligence() {
     queryKey: ['size-health', tenantId],
     queryFn: async () => {
       const { data, error } = await buildQuery('state_size_health_daily' as any)
-        .is('store_id', null) // Network-wide only
+        .is('store_id', null)
         .order('as_of_date', { ascending: false })
         .limit(2000);
       if (error) throw error;
@@ -69,7 +102,7 @@ export function useSizeIntelligence() {
     queryKey: ['store-size-health', tenantId],
     queryFn: async () => {
       const { data, error } = await buildQuery('state_size_health_daily' as any)
-        .not('store_id', 'is', null) // Per-store only
+        .not('store_id', 'is', null)
         .order('size_health_score', { ascending: true })
         .limit(2000);
       if (error) throw error;
@@ -114,11 +147,49 @@ export function useSizeIntelligence() {
     enabled: !!tenantId && isReady,
   });
 
+  const cashLock = useQuery({
+    queryKey: ['cash-lock', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('state_cash_lock_daily' as any)
+        .order('cash_locked_value', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data || []) as unknown as CashLockRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  const marginLeak = useQuery({
+    queryKey: ['margin-leak', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('state_margin_leak_daily' as any)
+        .order('margin_leak_value', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data || []) as unknown as MarginLeakRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  const evidencePacks = useQuery({
+    queryKey: ['evidence-packs', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('evidence_packs' as any)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return (data || []) as unknown as EvidencePackRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
   // Aggregated summary
   const healthRows = sizeHealth.data || [];
   const lostRows = lostRevenue.data || [];
   const riskRows = markdownRisk.data || [];
   const transferRows = sizeTransfers.data || [];
+  const cashLockRows = cashLock.data || [];
+  const marginLeakRows = marginLeak.data || [];
 
   const summary = {
     avgHealthScore: healthRows.length > 0
@@ -134,6 +205,14 @@ export function useSizeIntelligence() {
     criticalMarkdownCount: riskRows.filter(r => r.markdown_risk_score >= 80).length,
     transferOpportunities: transferRows.length,
     totalTransferNetBenefit: transferRows.reduce((s, r) => s + r.net_benefit, 0),
+    // Phase 3
+    totalCashLocked: cashLockRows.reduce((s, r) => s + r.cash_locked_value, 0),
+    totalInventoryValue: cashLockRows.reduce((s, r) => s + r.inventory_value, 0),
+    totalMarginLeak: marginLeakRows.reduce((s, r) => s + r.margin_leak_value, 0),
+    marginLeakBySizeBreak: marginLeakRows.filter(r => r.leak_driver === 'size_break').reduce((s, r) => s + r.margin_leak_value, 0),
+    marginLeakByMarkdown: marginLeakRows.filter(r => r.leak_driver === 'markdown_risk').reduce((s, r) => s + r.margin_leak_value, 0),
+    evidencePackCount: (evidencePacks.data || []).length,
+    criticalEvidenceCount: (evidencePacks.data || []).filter(r => r.severity === 'critical').length,
   };
 
   // Maps for quick lookup by product_id
@@ -146,16 +225,33 @@ export function useSizeIntelligence() {
   const markdownRiskMap = new Map<string, MarkdownRiskRow>();
   for (const r of riskRows) markdownRiskMap.set(r.product_id, r);
 
+  const cashLockMap = new Map<string, CashLockRow>();
+  for (const r of cashLockRows) cashLockMap.set(r.product_id, r);
+
+  const marginLeakMap = new Map<string, number>();
+  for (const r of marginLeakRows) {
+    marginLeakMap.set(r.product_id, (marginLeakMap.get(r.product_id) || 0) + r.margin_leak_value);
+  }
+
+  const evidencePackMap = new Map<string, EvidencePackRow>();
+  for (const r of (evidencePacks.data || [])) evidencePackMap.set(r.product_id, r);
+
   return {
     sizeHealth,
     storeHealth,
     lostRevenue,
     markdownRisk,
     sizeTransfers,
+    cashLock,
+    marginLeak,
+    evidencePacks,
     summary,
     healthMap,
     lostRevenueMap,
     markdownRiskMap,
-    isLoading: sizeHealth.isLoading || lostRevenue.isLoading || markdownRisk.isLoading || sizeTransfers.isLoading,
+    cashLockMap,
+    marginLeakMap,
+    evidencePackMap,
+    isLoading: sizeHealth.isLoading || lostRevenue.isLoading || markdownRisk.isLoading || sizeTransfers.isLoading || cashLock.isLoading || marginLeak.isLoading,
   };
 }
