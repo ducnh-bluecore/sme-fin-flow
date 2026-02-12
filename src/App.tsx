@@ -198,6 +198,17 @@ const DataSourcesOverviewPage = lazy(() => import("./pages/onboarding/DataSource
 // Docs Download page
 import { ControlTowerLayout } from "@/components/layout/ControlTowerLayout";
 import { MDPLayout } from "@/components/layout/MDPLayout";
+import { BluecoreCommandLayout } from "@/components/layout/BluecoreCommandLayout";
+
+// Command pages
+import CommandOverviewPage from "./pages/command/CommandOverviewPage";
+import CommandAllocationPage from "./pages/command/CommandAllocationPage";
+import AssortmentPage from "./pages/command/AssortmentPage";
+import NetworkGapPage from "./pages/command/NetworkGapPage";
+import ProductionCandidatesPage from "./pages/command/ProductionCandidatesPage";
+import DecisionQueuePage from "./pages/command/DecisionQueuePage";
+import DecisionOutcomesPage from "./pages/command/DecisionOutcomesPage";
+import CommandSettingsPage from "./pages/command/CommandSettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -527,6 +538,25 @@ const AppRoutes = () => {
         
       </Route>
 
+      {/* Bluecore Command Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <BluecoreCommandLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/command" element={<Navigate to="/command/overview" replace />} />
+        <Route path="/command/overview" element={<CommandOverviewPage />} />
+        <Route path="/command/allocation" element={<CommandAllocationPage />} />
+        <Route path="/command/assortment" element={<AssortmentPage />} />
+        <Route path="/command/network-gap" element={<NetworkGapPage />} />
+        <Route path="/command/production" element={<ProductionCandidatesPage />} />
+        <Route path="/command/decisions" element={<DecisionQueuePage />} />
+        <Route path="/command/outcomes" element={<DecisionOutcomesPage />} />
+        <Route path="/command/settings" element={<CommandSettingsPage />} />
+      </Route>
+
       {/* MDP Routes - Independent system like Control Tower */}
       <Route
         element={
@@ -636,7 +666,7 @@ const AppRoutes = () => {
         <Route path="/risk-dashboard" element={<RiskDashboardPage />} />
         <Route path="/decision-center" element={<DecisionCenterPage />} />
         <Route path="/inventory-aging" element={<InventoryAgingPage />} />
-        <Route path="/inventory-allocation" element={<InventoryAllocationPage />} />
+        <Route path="/inventory-allocation" element={<Navigate to="/command/allocation" replace />} />
         <Route path="/promotion-roi" element={<PromotionROIPage />} />
         <Route path="/supplier-payments" element={<SupplierPaymentsPage />} />
         <Route path="/cash-flow-direct" element={<CashFlowDirectPage />} />

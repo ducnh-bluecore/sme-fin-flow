@@ -14,6 +14,7 @@ import {
   Loader2,
   Lock,
   Presentation,
+  Crosshair,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -391,6 +392,25 @@ export default function PortalPage() {
       metrics: [
         { label: 'Customer Equity', value: formatVND(cdpEquity?.totalEquity12M) },
         { label: 'At Risk', value: formatVND(cdpEquity?.atRiskValue) },
+      ]
+    },
+    {
+      id: 'command',
+      code: 'command',
+      name: 'Bluecore Command',
+      shortName: 'CMD',
+      tagline: 'Capital at the Right Place',
+      description: language === 'vi'
+        ? 'Inventory Intelligence — đảm bảo capital nằm đúng SKU, đúng store, đúng thời điểm.'
+        : 'Inventory Intelligence — ensure capital is at the right SKU, right store, right time.',
+      icon: Crosshair,
+      color: 'hsl(24, 90%, 50%)',
+      bgColor: 'hsl(24, 90%, 95%)',
+      borderColor: 'hsl(24, 90%, 80%)',
+      path: '/command',
+      metrics: [
+        { label: 'Distortion', value: '—' },
+        { label: 'Protected', value: '—' },
       ]
     },
   ];

@@ -12119,6 +12119,379 @@ export type Database = {
           },
         ]
       }
+      dec_decision_approvals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          decision: string | null
+          id: string
+          notes: string | null
+          override_summary: Json | null
+          package_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          decision?: string | null
+          id?: string
+          notes?: string | null
+          override_summary?: Json | null
+          package_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          decision?: string | null
+          id?: string
+          notes?: string | null
+          override_summary?: Json | null
+          package_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dec_decision_approvals_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "dec_decision_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      dec_decision_outcomes: {
+        Row: {
+          accuracy_score: number | null
+          actual_impact: Json | null
+          created_at: string | null
+          evaluation_date: string | null
+          id: string
+          notes: string | null
+          package_id: string | null
+          predicted_impact: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          accuracy_score?: number | null
+          actual_impact?: Json | null
+          created_at?: string | null
+          evaluation_date?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          predicted_impact?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          accuracy_score?: number | null
+          actual_impact?: Json | null
+          created_at?: string | null
+          evaluation_date?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string | null
+          predicted_impact?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dec_decision_outcomes_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "dec_decision_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_outcomes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      dec_decision_package_lines: {
+        Row: {
+          created_at: string | null
+          exceptions: Json | null
+          fc_id: string | null
+          from_location_id: string | null
+          id: string
+          line_impact: Json | null
+          package_id: string | null
+          qty_approved: number | null
+          qty_suggested: number | null
+          reason_code: string | null
+          sku_id: string | null
+          tenant_id: string
+          to_location_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exceptions?: Json | null
+          fc_id?: string | null
+          from_location_id?: string | null
+          id?: string
+          line_impact?: Json | null
+          package_id?: string | null
+          qty_approved?: number | null
+          qty_suggested?: number | null
+          reason_code?: string | null
+          sku_id?: string | null
+          tenant_id: string
+          to_location_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exceptions?: Json | null
+          fc_id?: string | null
+          from_location_id?: string | null
+          id?: string
+          line_impact?: Json | null
+          package_id?: string | null
+          qty_approved?: number | null
+          qty_suggested?: number | null
+          reason_code?: string | null
+          sku_id?: string | null
+          tenant_id?: string
+          to_location_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dec_decision_package_lines_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "dec_decision_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_package_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_package_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_package_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_package_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      dec_decision_packages: {
+        Row: {
+          as_of_date: string | null
+          confidence: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          impact_summary: Json | null
+          package_type: string
+          risk_level: string | null
+          scope_summary: Json | null
+          status: string | null
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          impact_summary?: Json | null
+          package_type: string
+          risk_level?: string | null
+          scope_summary?: Json | null
+          status?: string | null
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          impact_summary?: Json | null
+          package_type?: string
+          risk_level?: string | null
+          scope_summary?: Json | null
+          status?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dec_decision_packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_decision_packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_decision_packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      dec_production_candidates: {
+        Row: {
+          as_of_date: string | null
+          cash_required: number | null
+          created_at: string | null
+          id: string
+          margin_projection: number | null
+          payback_days: number | null
+          recommended_qty: number | null
+          size_breakdown: Json | null
+          status: string | null
+          style_id: string
+          tenant_id: string
+          urgency_score: number | null
+        }
+        Insert: {
+          as_of_date?: string | null
+          cash_required?: number | null
+          created_at?: string | null
+          id?: string
+          margin_projection?: number | null
+          payback_days?: number | null
+          recommended_qty?: number | null
+          size_breakdown?: Json | null
+          status?: string | null
+          style_id: string
+          tenant_id: string
+          urgency_score?: number | null
+        }
+        Update: {
+          as_of_date?: string | null
+          cash_required?: number | null
+          created_at?: string | null
+          id?: string
+          margin_projection?: number | null
+          payback_days?: number | null
+          recommended_qty?: number | null
+          size_breakdown?: Json | null
+          status?: string | null
+          style_id?: string
+          tenant_id?: string
+          urgency_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dec_production_candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dec_production_candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_production_candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "dec_production_candidates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       decision_analyses: {
         Row: {
           ai_insights: string | null
@@ -20285,6 +20658,65 @@ export type Database = {
           },
         ]
       }
+      kpi_curve_health: {
+        Row: {
+          as_of_date: string
+          created_at: string | null
+          curve_health_index: number | null
+          id: string
+          markdown_risk_band: string | null
+          style_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string | null
+          curve_health_index?: number | null
+          id?: string
+          markdown_risk_band?: string | null
+          style_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string | null
+          curve_health_index?: number | null
+          id?: string
+          markdown_risk_band?: string | null
+          style_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_curve_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_curve_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_curve_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_curve_health_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       kpi_definition_templates: {
         Row: {
           category: string
@@ -20483,6 +20915,207 @@ export type Database = {
           },
           {
             foreignKeyName: "kpi_facts_daily_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      kpi_inventory_distortion: {
+        Row: {
+          as_of_date: string
+          created_at: string | null
+          distortion_score: number | null
+          fc_id: string
+          id: string
+          locked_cash_estimate: number | null
+          overstock_locations: Json | null
+          tenant_id: string
+          understock_locations: Json | null
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string | null
+          distortion_score?: number | null
+          fc_id: string
+          id?: string
+          locked_cash_estimate?: number | null
+          overstock_locations?: Json | null
+          tenant_id: string
+          understock_locations?: Json | null
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string | null
+          distortion_score?: number | null
+          fc_id?: string
+          id?: string
+          locked_cash_estimate?: number | null
+          overstock_locations?: Json | null
+          tenant_id?: string
+          understock_locations?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_inventory_distortion_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_inventory_distortion_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_inventory_distortion_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_inventory_distortion_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      kpi_network_gap: {
+        Row: {
+          as_of_date: string
+          created_at: string | null
+          id: string
+          net_gap_units: number | null
+          reallocatable_units: number | null
+          revenue_at_risk: number | null
+          style_id: string
+          tenant_id: string
+          true_shortage_units: number | null
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string | null
+          id?: string
+          net_gap_units?: number | null
+          reallocatable_units?: number | null
+          revenue_at_risk?: number | null
+          style_id: string
+          tenant_id: string
+          true_shortage_units?: number | null
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string | null
+          id?: string
+          net_gap_units?: number | null
+          reallocatable_units?: number | null
+          revenue_at_risk?: number | null
+          style_id?: string
+          tenant_id?: string
+          true_shortage_units?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_network_gap_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_network_gap_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_network_gap_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_network_gap_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      kpi_size_completeness: {
+        Row: {
+          as_of_date: string
+          created_at: string | null
+          id: string
+          missing_sizes: Json | null
+          size_completeness_score: number | null
+          sizes_present: number | null
+          sizes_total: number | null
+          status: string | null
+          store_id: string
+          style_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string | null
+          id?: string
+          missing_sizes?: Json | null
+          size_completeness_score?: number | null
+          sizes_present?: number | null
+          sizes_total?: number | null
+          status?: string | null
+          store_id: string
+          style_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string | null
+          id?: string
+          missing_sizes?: Json | null
+          size_completeness_score?: number | null
+          sizes_present?: number | null
+          sizes_total?: number | null
+          status?: string | null
+          store_id?: string
+          style_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_size_completeness_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kpi_size_completeness_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_size_completeness_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "kpi_size_completeness_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
