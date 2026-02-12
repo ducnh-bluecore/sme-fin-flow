@@ -28344,6 +28344,8 @@ export type Database = {
       }
       state_size_transfer_daily: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           as_of_date: string
           created_at: string
           dest_on_hand: number
@@ -28358,11 +28360,14 @@ export type Database = {
           size_code: string
           source_on_hand: number
           source_store_id: string
+          status: string | null
           tenant_id: string
           transfer_qty: number
           transfer_score: number
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           as_of_date?: string
           created_at?: string
           dest_on_hand?: number
@@ -28377,11 +28382,14 @@ export type Database = {
           size_code: string
           source_on_hand?: number
           source_store_id: string
+          status?: string | null
           tenant_id: string
           transfer_qty?: number
           transfer_score?: number
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           as_of_date?: string
           created_at?: string
           dest_on_hand?: number
@@ -28396,6 +28404,7 @@ export type Database = {
           size_code?: string
           source_on_hand?: number
           source_store_id?: string
+          status?: string | null
           tenant_id?: string
           transfer_qty?: number
           transfer_score?: number

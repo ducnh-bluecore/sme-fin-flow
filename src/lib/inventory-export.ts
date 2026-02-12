@@ -34,7 +34,6 @@ export function exportRebalanceToExcel(
   });
 
   const ws1 = XLSX.utils.json_to_sheet(rows);
-  // Auto-width columns
   const colWidths = Object.keys(rows[0] || {}).map(key => ({
     wch: Math.max(key.length + 2, ...rows.map(r => String((r as any)[key] ?? '').length + 2))
   }));
@@ -58,7 +57,70 @@ export function exportRebalanceToExcel(
   ws2['!cols'] = [{ wch: 22 }, { wch: 20 }];
   XLSX.utils.book_append_sheet(wb, ws2, 'Tóm tắt');
 
-  // Download
   const dateStr = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `dieu-chuyen-hang-${dateStr}.xlsx`);
+}
+
+// ── Size Transfer Export (Phase 3.2) ──
+
+export interface SizeTransferRow {
+  id: string;
+  product_id: string;
+  product_name?: string;
+  size_code: string;
+  source_store_id: string;
+  source_store_name?: string;
+  dest_store_id: string;
+  dest_store_name?: string;
+  transfer_qty: number;
+  net_benefit: number;
+  reason: string;
+  status?: string;
+  approved_at?: string;
+}
+
+export function exportSizeTransferToExcel(
+  transfers: SizeTransferRow[],
+  approverName?: string
+) {
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Phiếu điều chuyển
+  const rows = transfers.map((t, i) => ({
+    'STT': i + 1,
+    'Tên SP': t.product_name || t.product_id,
+    'Size': t.size_code,
+    'Kho nguồn': t.source_store_name || t.source_store_id,
+    'Kho đích': t.dest_store_name || t.dest_store_id,
+    'SL': t.transfer_qty,
+    'Net Benefit': t.net_benefit,
+    'Reason': t.reason || '',
+    'Ngày duyệt': t.approved_at ? new Date(t.approved_at).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN'),
+  }));
+
+  const ws1 = XLSX.utils.json_to_sheet(rows);
+  if (rows.length > 0) {
+    const colWidths = Object.keys(rows[0]).map(key => ({
+      wch: Math.max(key.length + 2, ...rows.map(r => String((r as any)[key] ?? '').length + 2))
+    }));
+    ws1['!cols'] = colWidths;
+  }
+  XLSX.utils.book_append_sheet(wb, ws1, 'Phiếu điều chuyển');
+
+  // Sheet 2: Tóm tắt
+  const totalQty = transfers.reduce((sum, t) => sum + t.transfer_qty, 0);
+  const totalBenefit = transfers.reduce((sum, t) => sum + t.net_benefit, 0);
+  const summaryData = [
+    ['Tổng số dòng', transfers.length],
+    ['Tổng SL chuyển', totalQty],
+    ['Tổng Net Benefit', totalBenefit],
+    ['Ngày xuất', new Date().toLocaleString('vi-VN')],
+    ['Người duyệt', approverName || '—'],
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(summaryData);
+  ws2['!cols'] = [{ wch: 22 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Tóm tắt');
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `size-transfer-${dateStr}.xlsx`);
 }
