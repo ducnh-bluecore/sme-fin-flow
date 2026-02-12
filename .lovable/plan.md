@@ -1,88 +1,48 @@
 
 
-## Network Gap V2 — Revenue Coverage Engine
+## Hiển thị tồn kho size đầy đủ tại kho đích
 
-Redesign toan bo trang `/command/network-gap` thanh Decision Engine: COO mo len 5 giay hieu ngay "co can san xuat khong?"
+### Vấn đề hiện tại
+Phần "Tồn kho size tại kho đích" chỉ hiển thị những size **đang được đề xuất chuyển**, không phải toàn bộ size sản phẩm tại cửa hàng. Vì vậy không chứng minh được lý do chuyển hàng: cửa hàng đã có sẵn S, XL nhưng thiếu M, nên cần chuyển M vào để chống lẻ size.
 
-### Data thuc te hien tai
-- 9 styles trong `kpi_network_gap`
-- Chi **2 styles** thuc su thieu hang (4 units, ₫1M revenue at risk)
-- **7 styles** la bug data (net_gap > 0 nhung shortage = 0) — can filter bo
-- 393 units co the dieu chuyen
-- Table **khong co** cot `days_to_stockout` — se tinh toan tu data hien co
+### Giải pháp
+Query trực tiếp bảng `inv_state_positions` để lấy **tất cả SKU** của sản phẩm (theo `fc_id`) tại cửa hàng đích (`store_id`), rồi tách size từ mã SKU.
 
----
+### Thay đổi cụ thể
 
-### Thay doi cu the
+#### 1. Tạo hook mới: `useDestinationSizeInventory`
+- Input: danh sách `{ product_id, dest_store_id }` (lấy từ transfer suggestions đang expand)
+- Query `inv_state_positions` WHERE `fc_id = product_id` AND `store_id = dest_store_id`
+- Parse size từ SKU suffix (ví dụ: `222011792M` -> size `M`)
+- Return: `Map<product_id, { size, on_hand }[]>`
 
-#### 1. Decision Banner (BLOCK MOI — tren cung)
+#### 2. Cập nhật `TransferSuggestionsCard.tsx`
+- Gọi hook mới khi expand một group (kho đích)
+- Thay thế logic hiện tại (chỉ dùng sibling rows) bằng data thật từ `inv_state_positions`
+- Hiển thị:
+  - Size **có hàng**: badge xanh, ghi rõ số lượng (ví dụ: `S: 3`, `XL: 2`)
+  - Size **đang chuyển vào**: badge highlight, ghi "← đang chuyển X đv"
+  - Size **hết hàng** (0 units, không nằm trong đề xuất): badge đỏ, ghi `0`
+- Thêm dòng tóm tắt: "Cửa hàng có 4/6 size, thiếu M — chuyển để hoàn thiện size run"
 
-Them banner lon nhat trang, tu dong tinh toan va hien ket luan:
+#### 3. Logic tách size từ SKU
+Dựa trên pattern dữ liệu thực: SKU suffix là size code (S, M, L, XL, FS...). Sử dụng regex match cuối chuỗi SKU.
 
-- Neu `totalShortage` = 0 hoac transfer cover >= 95%:
-  **"Production NOT required — Transfer can cover all gaps"** (banner xanh)
+### Files thay đổi
 
-- Neu co shortage nhung it (< 50 units):
-  **"Minor shortage: X units / ₫Y revenue — monitor only"** (banner vang)
-
-- Neu shortage lon (>= 50 units):
-  **"Production REQUIRED — X styles, Y units, ₫Z at risk"** (banner do)
-
-Hien thi ro: so style can san xuat, so unit, revenue exposure.
-
-#### 2. KPI Bar — doi thu tu uu tien
-
-Thu tu moi (theo mental model COO):
-
-| Vi tri | KPI | Y nghia |
-|--------|-----|---------|
-| 1 | **Net Production Required** | So unit PHAI san xuat (loc bo bug rows) |
-| 2 | **Revenue at Risk** | Tien se mat neu khong hanh dong |
-| 3 | **Transfer Solvable** | So unit co the giai quyet bang dieu chuyen |
-| 4 | **Styles Affected** | So style dang co gap |
-
-#### 3. Transfer Solvability Bar (thay Coverage)
-
-- Rename "Coverage Analysis" thanh **"Transfer Solvability"**
-- Label: "Shortage solvable without production" thay vi "Network demand coverage"
-- Chi hien khi co shortage thuc su (shortage > 0)
-
-#### 4. Production Radar (BLOCK MOI)
-
-Card moi giua KPI va table:
-
-```
-Production Radar
------------------
-Styles need production: 2
-Units required: 4
-Revenue exposure: ₫1M
-```
-
-Kem nut "Review Production Candidates" navigate sang `/command/production`.
-
-#### 5. Table — loc data va chinh column
-
-- **Filter bo bug rows**: chi hien rows co `true_shortage_units > 0` HOAC `revenue_at_risk > 0`
-- **Doi thu tu cot**: Style | Net Gap | Revenue at Risk | Transferable | Shortage | Action
-- **Cot Action**: Badge "Needs Production" (do) hoac "Transfer Only" (xanh)
-- **Bo cot Severity** cu — thay bang Action badge co y nghia hon
-
-#### 6. Rename page
-
-- Title: **"Revenue Coverage Engine"**
-- Subtitle: "Identify supply risks before they become lost sales"
-
----
-
-### Files thay doi
-
-| File | Thay doi |
+| File | Thay đổi |
 |------|---------|
-| `src/pages/command/NetworkGapPage.tsx` | Rewrite layout: Decision Banner, reorder KPIs, Production Radar, table filter/columns, rename |
+| `src/hooks/inventory/useDestinationSizeInventory.ts` | Hook mới, query `inv_state_positions` |
+| `src/components/command/TransferSuggestionsCard.tsx` | Dùng hook mới, hiển thị full size curve + tóm tắt lý do |
 
-### Khong thay doi
-- Khong them cot `days_to_stockout` vao database (chua co data nguon de tinh)
-- Khong sua backend engine (bug net_gap se xu ly rieng)
-- Chi filter bug rows o frontend
+### Kết quả mong đợi
 
+Khi expand một dòng transfer (ví dụ: chuyển size M vào cửa hàng X):
+
+```
+Tồn kho size tại kho đích
+[S: 3] [M: 0 ← đang chuyển 2đv] [L: 2] [XL: 1]
+Cửa hàng có 3/4 size · Thiếu M — chuyển để hoàn thiện size run
+```
+
+Giúp người duyệt thấy ngay: cửa hàng đã có S, L, XL nhưng thiếu M, chuyển vào là hợp lý.
