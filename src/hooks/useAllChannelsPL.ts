@@ -53,16 +53,32 @@ function normalizeChannel(ch: string | null): string {
 
 function buildChannelResult(channelMap: Map<string, { totalRevenue: number; totalCogs: number; totalFees: number; orderCount: number; contributionMargin: number }>, dataSource: 'view' | 'fallback'): AllChannelsPLData {
   let grandTotalRevenue = 0;
-  channelMap.forEach(ch => { grandTotalRevenue += ch.totalRevenue; });
+  let grandTotalCogs = 0;
+  let grandTotalRevenueWithCogs = 0;
+  channelMap.forEach(ch => { 
+    grandTotalRevenue += ch.totalRevenue;
+    if (ch.totalCogs > 0) {
+      grandTotalCogs += ch.totalCogs;
+      grandTotalRevenueWithCogs += ch.totalRevenue;
+    }
+  });
+  // Overall COGS ratio from channels that have COGS data
+  const overallCogsRatio = grandTotalRevenueWithCogs > 0 ? grandTotalCogs / grandTotalRevenueWithCogs : 0;
 
   const channelData: ChannelPLSummaryItem[] = Array.from(channelMap.entries()).map(([channelName, ch]) => {
-    const grossProfit = ch.totalRevenue - ch.totalCogs;
-    const operatingProfit = ch.contributionMargin || (grossProfit - ch.totalFees);
+    // If channel has no COGS but others do, estimate using overall ratio
+    let effectiveCogs = ch.totalCogs;
+    if (ch.totalCogs <= 0 && ch.totalRevenue > 0 && overallCogsRatio > 0) {
+      effectiveCogs = ch.totalRevenue * overallCogsRatio;
+    }
+    const grossProfit = ch.totalRevenue - effectiveCogs;
+    // Always use calculated grossProfit, not GROSS_MARGIN metric (which only covers partial orders)
+    const operatingProfit = grossProfit - ch.totalFees;
     return {
       channel: channelName,
       totalRevenue: ch.totalRevenue,
       totalFees: ch.totalFees,
-      totalCogs: ch.totalCogs,
+      totalCogs: effectiveCogs,
       grossProfit,
       operatingProfit,
       orderCount: ch.orderCount,
