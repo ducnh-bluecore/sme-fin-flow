@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.inventory-allocation-engine]
 verify_jwt = false
+
+[functions.inventory-kpi-engine]
+verify_jwt = false
+
+[functions.inventory-decision-packager]
+verify_jwt = false
+
+[functions.inventory-outcome-evaluator]
+verify_jwt = false
