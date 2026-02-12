@@ -37,47 +37,57 @@ interface LookupKey {
 export function useDestinationSizeInventory(lookups: LookupKey[]) {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
 
-  // Deduplicate lookups
-  const uniqueKeys = Array.from(
-    new Map(lookups.map(k => [`${k.product_id}__${k.dest_store_id}`, k])).values()
-  );
+  // Group by dest_store_id to batch queries (1 query per store instead of 1 per product)
+  const storeGroups = new Map<string, Set<string>>();
+  for (const { product_id, dest_store_id } of lookups) {
+    if (!storeGroups.has(dest_store_id)) storeGroups.set(dest_store_id, new Set());
+    storeGroups.get(dest_store_id)!.add(product_id);
+  }
+
+  const storeIds = Array.from(storeGroups.keys()).sort();
 
   return useQuery({
-    queryKey: ['dest-size-inventory', tenantId, uniqueKeys.map(k => `${k.product_id}:${k.dest_store_id}`)],
+    queryKey: ['dest-size-inventory', tenantId, storeIds],
     queryFn: async () => {
       const result = new Map<string, DestSizeEntry[]>();
-      if (uniqueKeys.length === 0) return result;
+      if (storeGroups.size === 0) return result;
 
-      // Query all at once using OR conditions via multiple queries in parallel
-      const queries = uniqueKeys.map(async ({ product_id, dest_store_id }) => {
-        const { data, error } = await buildSelectQuery('inv_state_positions', 'sku, on_hand')
-          .eq('fc_id', product_id)
-          .eq('store_id', dest_store_id);
+      // 1 query per destination store (batch all product_ids with .in())
+      const queries = Array.from(storeGroups.entries()).map(async ([storeId, productIds]) => {
+        const ids = Array.from(productIds);
+        const { data, error } = await buildSelectQuery('inv_state_positions', 'fc_id, sku, on_hand')
+          .eq('store_id', storeId)
+          .in('fc_id', ids);
 
         if (error) {
           console.error('Error fetching dest size inventory:', error);
           return;
         }
 
-        const sizeMap = new Map<string, number>();
+        // Group results by fc_id (product_id)
+        const byProduct = new Map<string, Map<string, number>>();
         ((data || []) as any[]).forEach(row => {
           const size = extractSizeFromSku(row.sku || '');
-          if (size) {
-            sizeMap.set(size, (sizeMap.get(size) || 0) + (row.on_hand || 0));
-          }
+          if (!size) return;
+          const fcId = row.fc_id as string;
+          if (!byProduct.has(fcId)) byProduct.set(fcId, new Map());
+          const sizeMap = byProduct.get(fcId)!;
+          sizeMap.set(size, (sizeMap.get(size) || 0) + (row.on_hand || 0));
         });
 
-        const entries: DestSizeEntry[] = Array.from(sizeMap.entries())
-          .map(([size, on_hand]) => ({ size, on_hand }))
-          .sort((a, b) => sizeSort(a.size, b.size));
-
-        result.set(`${product_id}__${dest_store_id}`, entries);
+        for (const pid of ids) {
+          const sizeMap = byProduct.get(pid) || new Map();
+          const entries: DestSizeEntry[] = Array.from(sizeMap.entries())
+            .map(([size, on_hand]) => ({ size, on_hand }))
+            .sort((a, b) => sizeSort(a.size, b.size));
+          result.set(`${pid}__${storeId}`, entries);
+        }
       });
 
       await Promise.all(queries);
       return result;
     },
-    enabled: isReady && uniqueKeys.length > 0,
+    enabled: isReady && storeGroups.size > 0,
     staleTime: 60_000,
   });
 }
