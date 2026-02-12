@@ -1,66 +1,54 @@
 
 
-## Phase 3.2: Smart Transfer — Approve + Export Excel
+## Thêm chi tiết lý do khi click vào từng dòng sản phẩm
 
-### Muc tieu
-Khi CEO/CFO bam "Approve" tren Smart Transfer Suggestions, he thong:
-1. Cap nhat trang thai cac dong duoc duyet trong DB
-2. Tu dong download file Excel "Phieu dieu chuyen" de import vao WMS/ERP tao lenh dieu chuyen
+### Vấn đề
+Hiện tại cột "Reason" chỉ hiển thị text bị cắt ngắn (ví dụ: "stockout + same_region + core_..."). Người vận hành không hiểu TẠI SAO phải chuyển dòng này, thiếu ngữ cảnh về tồn kho nguồn/đích và tốc độ bán.
 
-### Thay doi ky thuat
+### Giải pháp
+Thêm **expandable detail row** khi click vào từng dòng sản phẩm, hiển thị đầy đủ thông tin để người vận hành hiểu quyết định:
 
-#### 1. Database Migration
-Them 3 cot vao `state_size_transfer_daily`:
-- `status` (text, default 'pending') — pending / approved / rejected
-- `approved_by` (uuid, nullable)
-- `approved_at` (timestamptz, nullable)
+1. **Lý do đầy đủ** (reason không bị cắt)
+2. **Tồn kho nguồn** (source_on_hand) -- "Kho nguồn đang có X units"
+3. **Tồn kho đích** (dest_on_hand) -- "Kho đích chỉ còn Y units"
+4. **Tốc độ bán tại đích** (dest_velocity) -- "Bán Z units/ngày"
+5. **Revenue tiềm năng** vs **Chi phí vận chuyển** -- cho thấy Net Benefit có ý nghĩa
+6. **Kết luận hành động** -- dịch reason thành câu tiếng Việt dễ hiểu cho Ops
 
-#### 2. Export function: `exportSizeTransferToExcel`
-Them function moi trong `src/lib/inventory-export.ts`, tao file Excel 2 sheet:
-- **Sheet "Phieu dieu chuyen"**: STT, Ten SP, Size, Kho nguon, Kho dich, SL, Net Benefit, Reason, Ngay duyet
-- **Sheet "Tom tat"**: Tong dong, tong SL, tong net benefit, ngay xuat, nguoi duyet
+### Chi tiết kỹ thuật
 
-Tai su dung pattern tu `exportRebalanceToExcel` da co san, dung thu vien `xlsx`.
+#### 1. Cập nhật query `useSizeIntelligence.ts`
+Hiện tại query đã select `*` nên data đã có đủ các cột `source_on_hand`, `dest_on_hand`, `dest_velocity`, `estimated_revenue_gain`, `estimated_transfer_cost`. Không cần thay đổi query.
 
-#### 3. Hook moi: `useApproveTransfer.ts`
-- Mutation nhan `transferIds[]` + action ('approved' | 'rejected')
-- Khi approve: update status trong DB
-- Goi callback `onApproved` de trigger Excel export
-- Invalidate queries lien quan
+#### 2. Cập nhật `TransferSuggestionsCard.tsx`
+- Thêm state `expandedRowId` để track dòng đang mở chi tiết
+- Khi click vào row (không phải checkbox/button), toggle hiển thị detail panel phía dưới
+- Detail panel hiển thị dạng grid 2x3:
 
-#### 4. Component moi: `TransferSuggestionsCard.tsx`
-Tach logic Smart Transfer tu `AssortmentPage.tsx` ra component rieng:
-- Props: transferByDest, detailRows, storeNames, fcNames
-- Them nut "Duyet & Xuat Excel" tren moi store group header
-- Them nut "Duyet tat ca & Xuat Excel" o card header
-- Khi bam Approve:
-  1. Confirm dialog (xac nhan so luong)
-  2. Update DB status = approved
-  3. Auto download Excel file
-- Row da approved: highlight xanh + badge "Da duyet"
-- Row da rejected: mo di + badge "Tu choi"
-
-#### 5. Refactor `AssortmentPage.tsx`
-- Thay the inline Smart Transfer Suggestions bang `<TransferSuggestionsCard />`
-- Giu nguyen cac phan khac (Hero KPIs, Tabs, Evidence)
-
-### Flow nguoi dung
-
-```text
-CEO xem Smart Transfer Suggestions
-  → Expand store group → Xem chi tiet
-  → Bam "Duyet & Xuat Excel"
-  → Confirm dialog hien tong SL + net benefit
-  → Bam "Xac nhan"
-  → DB cap nhat status = approved
-  → Browser tu dong download file Excel
-  → CEO gui file Excel cho team Ops import WMS
+```
++---------------------------+---------------------------+
+| Kho nguồn: 15 units       | Kho đích: 0 units         |
+| (dư hàng)                 | (hết hàng - stockout)     |
++---------------------------+---------------------------+
+| Tốc độ bán đích: 2/ngày  | Chuyển: 3 units           |
++---------------------------+---------------------------+
+| Revenue dự kiến: 3tr      | Chi phí VC: 200k          |
++---------------------------+---------------------------+
+| Lý do: stockout + same_region + core_size              |
++--------------------------------------------------------+
 ```
 
-### Files thay doi
-- `supabase/migrations/` — them cot status, approved_by, approved_at
-- `src/lib/inventory-export.ts` — them `exportSizeTransferToExcel()`
-- `src/hooks/inventory/useApproveTransfer.ts` — hook moi
-- `src/components/command/TransferSuggestionsCard.tsx` — component moi
-- `src/pages/command/AssortmentPage.tsx` — thay the inline code bang component
+- Thêm helper function `translateReason(reason)` để dịch reason tags thành tiếng Việt:
+  - `stockout` -> "Kho đích đã hết hàng size này"
+  - `same_region` -> "Cùng khu vực, chi phí vận chuyển thấp"
+  - `cross_region` -> "Khác khu vực, ưu tiên vì net benefit cao"
+  - `core_size` -> "Size core (bán chạy), cần bổ sung gấp"
+  - v.v.
 
+#### 3. Visual
+- Row được click: highlight nhẹ với border-left primary
+- Detail panel: background muted, border-top dashed
+- Icon cursor-pointer trên row để báo hiệu có thể click
+
+### Files thay đổi
+- `src/components/command/TransferSuggestionsCard.tsx` -- thêm expandable detail row + translateReason helper
