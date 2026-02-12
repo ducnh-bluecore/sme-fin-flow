@@ -1,73 +1,58 @@
 
-# Fix View v_retail_concentration_risk: Hien Thi Ten San Pham & Danh Muc
 
-## Van de
+# Fix Rui ro Tap trung: Timeout + Loc SP Phu
 
-2 loi tren tab "Rui ro tap trung":
+## 2 Van de
 
-1. **"Chua phan loai: 100%"** - Tat ca san pham deu hien khong co danh muc
-2. **"SKU-35361151"** thay vi ten that "Pink Wave Shopping Bag"
+### 1. Timeout (loi 500)
+View `v_retail_concentration_risk` quet ~1.2M order items voi JOIN, vuot qua gioi han thoi gian cua PostgREST (8 giay). Ket qua: frontend hien "Khong the tai du lieu".
 
-## Nguyen nhan goc
-
-View `v_retail_concentration_risk` JOIN sai:
-```
-LEFT JOIN products p ON (oi.product_id = p.id::text)
-```
-- `cdp_order_items.product_id` chua KiotViet numeric ID (vd: `35361151`)
-- `products.id` la UUID (vd: `75015089-03c6-4d09-9ac4-6af44a32cfa2`)
-- Ket qua: JOIN luon fail --> fallback "SKU-..." va category = NULL
-
-**Du lieu thuc te da co:**
-
-| product_id | sku | product_name (oi) | name (products) | category |
-|-----------|-----|-------------------|----------------|----------|
-| 35361151 | BAG00015M | Pink Wave Shopping Bag | Pink Wave Shopping Bag | 07-Others |
-| 1005241401 | BAG00016M | TET 2026 Shopping Bag | TET 2026 Shopping Bag | 07-Others |
-| 1005668746 | SP020638 | Bao Li Xi OLV 2026 | Bao Li Xi OLV 2026 | 07-Others |
-| 1002327349 | SER00206 | (null) | Lieu trinh Tiem Botox | Medical |
+### 2. SP phu lot top Hero SKU
+Cac san pham nhu "Pink Wave Shopping Bag", "TET 2026 Shopping Bag", "Bao Li Xi OLV 2026" co `selling_price = 0` va `cost_price = 0` trong bang products. Day la qua tang/tui xach kem don, khong phai san pham kinh doanh chinh. Chung khong nen xuat hien trong phan tich Hero SKU va Danh muc.
 
 ## Giai phap
 
-Tao migration SQL de **thay doi view**, sua 2 CTE:
+Chuyen tu **VIEW** sang **MATERIALIZED VIEW** va them dieu kien loc SP phu.
 
-### 1. CTE `category_stats`: Join products qua SKU de lay category
+### 1. Materialized View
+- DROP view cu
+- CREATE MATERIALIZED VIEW voi cung logic nhung chi chay 1 lan, ket qua luu san
+- Tao UNIQUE INDEX tren tenant_id de ho tro `REFRESH CONCURRENTLY`
+- Frontend truy van ngay lap tuc (khong timeout)
 
-```sql
--- Cu (sai):
-COALESCE(oi.category, 'Chua phan loai')
--- oi.category luon NULL
+### 2. Loc SP phu khoi Hero SKU va Category
+Trong CTE `sku_stats` va `category_stats`, them dieu kien:
 
--- Moi:
-COALESCE(p.category, oi.category, 'Chua phan loai')
--- Join products via sku --> lay category that
+```text
+-- Loai bo SP co gia = 0 (qua tang, tui xach, li xi)
+WHERE ... AND (p.selling_price IS NULL OR p.selling_price > 0)
 ```
 
-### 2. CTE `sku_stats`: Join products qua SKU, uu tien product_name
+Logic: Neu san pham co trong bang `products` va `selling_price = 0` --> loai. Neu khong match products (p.selling_price IS NULL) --> giu lai (de khong mat du lieu).
 
-```sql
--- Cu (sai):
-LEFT JOIN products p ON (oi.product_id = p.id::text)
-COALESCE(p.name, 'SKU-' || left(oi.product_id, 8))
+### 3. Refresh Data
+Sau khi tao materialized view, chay `REFRESH MATERIALIZED VIEW` de co du lieu ngay.
 
--- Moi:
-LEFT JOIN products p ON (oi.sku = p.sku AND oi.tenant_id = p.tenant_id)
-COALESCE(p.name, oi.product_name, oi.sku, 'SKU-' || left(oi.product_id, 8))
-```
+## Ky vong sau fix
 
-### Ky vong sau fix
+| Metric | Truoc | Sau |
+|--------|-------|-----|
+| API call | Timeout 500 | Tra ve < 100ms |
+| Hero SKU top 5 | Pink Wave, TET Bag, Bao Li Xi... | Cac SP chinh co gia ban thuc |
+| Category | 07-Others chiem 18% (do SP phu) | % giam, phan bo chinh xac hon |
 
-| Card | Truoc | Sau |
-|------|-------|-----|
-| Tap trung Danh muc | "Chua phan loai: 100%" | "07-Others: XX%", "Medical: YY%", ... |
-| Tap trung Hero SKU | SKU-35361151 | Pink Wave Shopping Bag |
-| | SKU-10052414 | TET 2026 Shopping Bag |
-| | SKU-10056687 | Bao Li Xi OLV 2026 |
-| | SKU-35361275 | Pink Wave Shopping Bag (S) |
-| | SKU-10023273 | Lieu trinh Tiem Botox Allergan |
+## Chi tiet ky thuat
 
-## Files thay doi
+### Migration SQL
 
-| File | Thay doi |
-|------|---------|
-| Migration SQL | DROP + CREATE view `v_retail_concentration_risk` voi JOIN qua SKU thay vi product_id |
+1. `DROP VIEW IF EXISTS public.v_retail_concentration_risk`
+2. `CREATE MATERIALIZED VIEW public.v_retail_concentration_risk AS ...` voi:
+   - CTE `category_stats`: them `AND (p.selling_price IS NULL OR p.selling_price > 0)`
+   - CTE `sku_stats`: them `AND (p.selling_price IS NULL OR p.selling_price > 0)`
+   - Giu nguyen cac CTE khac (channel_stats, customer_stats, monthly_stats, seasonal_index)
+3. `CREATE UNIQUE INDEX ON v_retail_concentration_risk (tenant_id)`
+4. `REFRESH MATERIALIZED VIEW v_retail_concentration_risk`
+
+### Khong can thay doi code frontend
+Hook `useRetailConcentrationRisk.ts` va component `RetailConcentrationRisk.tsx` da truy van dung format, chi can data tra ve la hien thi.
+
