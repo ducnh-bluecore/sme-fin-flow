@@ -1,7 +1,8 @@
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, Megaphone, TrendingUp, Target } from 'lucide-react';
+import { DollarSign, Megaphone, TrendingUp, Target, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface EngineMetric {
   label: string;
@@ -9,6 +10,8 @@ interface EngineMetric {
   subtext: string;
   icon: React.ReactNode;
   status: 'good' | 'warning' | 'danger';
+  noData?: boolean;
+  noDataReason?: string;
 }
 
 export function MoneyEngineCards() {
@@ -24,6 +27,10 @@ export function MoneyEngineCards() {
 
   if (!snapshot) return null;
 
+  const dq = snapshot.dataQuality;
+  const hasMarginData = dq.hasExpenseData || snapshot.grossMarginPercent > 0;
+  const hasMarketingData = snapshot.totalMarketingSpend > 0;
+
   const adsRatio = snapshot.netRevenue > 0 
     ? (snapshot.totalMarketingSpend / snapshot.netRevenue) * 100 
     : 0;
@@ -31,31 +38,39 @@ export function MoneyEngineCards() {
   const metrics: EngineMetric[] = [
     {
       label: 'Blended Margin',
-      value: `${snapshot.grossMarginPercent.toFixed(1)}%`,
+      value: hasMarginData ? `${snapshot.grossMarginPercent.toFixed(1)}%` : 'N/A',
       subtext: 'Gross Margin tổng hợp',
       icon: <DollarSign className="h-4 w-4" />,
-      status: snapshot.grossMarginPercent > 30 ? 'good' : snapshot.grossMarginPercent > 15 ? 'warning' : 'danger',
+      status: !hasMarginData ? 'warning' : snapshot.grossMarginPercent > 30 ? 'good' : snapshot.grossMarginPercent > 15 ? 'warning' : 'danger',
+      noData: !hasMarginData,
+      noDataReason: 'Chưa có dữ liệu COGS/Chi phí',
     },
     {
       label: 'Ads / Revenue',
-      value: `${adsRatio.toFixed(1)}%`,
+      value: hasMarketingData ? `${adsRatio.toFixed(1)}%` : 'N/A',
       subtext: 'Chi phí marketing / Doanh thu',
       icon: <Megaphone className="h-4 w-4" />,
-      status: adsRatio < 15 ? 'good' : adsRatio < 30 ? 'warning' : 'danger',
+      status: !hasMarketingData ? 'warning' : adsRatio < 15 ? 'good' : adsRatio < 30 ? 'warning' : 'danger',
+      noData: !hasMarketingData,
+      noDataReason: 'Chưa có dữ liệu chi phí marketing',
     },
     {
       label: 'CM after Ads',
-      value: `${snapshot.contributionMarginPercent.toFixed(1)}%`,
+      value: hasMarginData ? `${snapshot.contributionMarginPercent.toFixed(1)}%` : 'N/A',
       subtext: 'Contribution Margin sau ads',
       icon: <TrendingUp className="h-4 w-4" />,
-      status: snapshot.contributionMarginPercent > 15 ? 'good' : snapshot.contributionMarginPercent > 5 ? 'warning' : 'danger',
+      status: !hasMarginData ? 'warning' : snapshot.contributionMarginPercent > 15 ? 'good' : snapshot.contributionMarginPercent > 5 ? 'warning' : 'danger',
+      noData: !hasMarginData,
+      noDataReason: 'Chưa có dữ liệu COGS/Chi phí',
     },
     {
       label: 'ROAS',
-      value: snapshot.marketingRoas > 0 ? `${snapshot.marketingRoas.toFixed(1)}x` : 'N/A',
+      value: hasMarketingData && snapshot.marketingRoas > 0 ? `${snapshot.marketingRoas.toFixed(1)}x` : 'N/A',
       subtext: '1đ ads → Xđ revenue',
       icon: <Target className="h-4 w-4" />,
-      status: snapshot.marketingRoas >= 4 ? 'good' : snapshot.marketingRoas >= 2 ? 'warning' : 'danger',
+      status: !hasMarketingData ? 'warning' : snapshot.marketingRoas >= 4 ? 'good' : snapshot.marketingRoas >= 2 ? 'warning' : 'danger',
+      noData: !hasMarketingData || snapshot.marketingRoas === 0,
+      noDataReason: 'Chưa có dữ liệu marketing/ads',
     },
   ];
 
@@ -86,8 +101,18 @@ export function MoneyEngineCards() {
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-muted-foreground">{m.icon}</span>
                 <span className="text-xs font-medium text-muted-foreground">{m.label}</span>
+                {m.noData && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px]">
+                      <p className="text-xs">{m.noDataReason}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
-              <div className={`text-2xl font-bold tabular-nums ${valueStyles[m.status]}`}>
+              <div className={`text-2xl font-bold tabular-nums ${m.noData ? 'text-muted-foreground' : valueStyles[m.status]}`}>
                 {m.value}
               </div>
               <div className="text-[10px] text-muted-foreground mt-0.5">{m.subtext}</div>
