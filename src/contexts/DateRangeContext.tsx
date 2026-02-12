@@ -51,6 +51,10 @@ const DATE_SENSITIVE_QUERY_KEYS = [
   'kpi-data',
   'central-financial-metrics', // SSOT hook
   'central-metrics-cache',
+  'finance-truth-snapshot', // Main dashboard SSOT
+  'retail-health-score',
+  'inventory-aging',
+  'all-channels-pl',
 ];
 
 export function DateRangeProvider({ children }: { children: ReactNode }) {

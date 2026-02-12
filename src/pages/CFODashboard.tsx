@@ -1,10 +1,12 @@
+import { useState, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useDateRange } from '@/contexts/DateRangeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRealtimeDashboard } from '@/hooks/useRealtimeDashboard';
+import { useRefreshFinanceSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
 
 // Retail Command Center Components
@@ -14,7 +16,6 @@ import { ChannelWarChart } from '@/components/dashboard/ChannelWarChart';
 import { InventoryRiskPanel } from '@/components/dashboard/InventoryRiskPanel';
 import { CashVelocityPanel } from '@/components/dashboard/CashVelocityPanel';
 import { RetailDecisionFeed } from '@/components/dashboard/RetailDecisionFeed';
-import { useMemo } from 'react';
 
 // ═══════════════════════════════════════════════════════════════════
 // BLUECORE RETAIL COMMAND CENTER v1
@@ -33,10 +34,14 @@ function SectionErrorFallback() {
 export default function CFODashboard() {
   const { dateRange, setDateRange, refreshAllData } = useDateRange();
   const { t } = useLanguage();
+  const refreshSnapshot = useRefreshFinanceSnapshot();
 
   useRealtimeDashboard();
 
-  const handleRefresh = useMemo(() => () => refreshAllData(), [refreshAllData]);
+  const handleRefresh = useMemo(() => () => {
+    refreshAllData();
+    refreshSnapshot.mutate();
+  }, [refreshAllData, refreshSnapshot]);
 
   return (
     <>
@@ -58,9 +63,9 @@ export default function CFODashboard() {
           </div>
           <div className="flex items-center gap-3">
             <QuickDateSelector value={dateRange} onChange={setDateRange} />
-            <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Refresh
+            <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2" disabled={refreshSnapshot.isPending}>
+              {refreshSnapshot.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {refreshSnapshot.isPending ? 'Đang tính...' : 'Refresh'}
             </Button>
           </div>
         </header>
