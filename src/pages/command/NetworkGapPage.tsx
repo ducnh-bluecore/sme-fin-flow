@@ -23,6 +23,25 @@ export default function NetworkGapPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
+  // Fetch family code names for mapping
+  const { data: fcList } = useQuery({
+    queryKey: ['command-fc-names-gap', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_family_codes' as any)
+        .select('id,fc_name,fc_code')
+        .eq('is_active', true)
+        .limit(5000);
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  const fcMap = new Map<string, string>();
+  for (const fc of fcList || []) {
+    fcMap.set(fc.id, fc.fc_name || fc.fc_code || fc.id);
+  }
+
   const { data: gapRows, isLoading } = useQuery({
     queryKey: ['command-network-gap-detail', tenantId],
     queryFn: async () => {
@@ -43,7 +62,10 @@ export default function NetworkGapPage() {
   let filtered = gapRows || [];
   if (search) {
     const q = search.toLowerCase();
-    filtered = filtered.filter((r: any) => (r.style_id || '').toLowerCase().includes(q));
+    filtered = filtered.filter((r: any) => {
+      const name = fcMap.get(r.style_id) || r.style_id || '';
+      return name.toLowerCase().includes(q);
+    });
   }
 
   return (
@@ -159,7 +181,7 @@ export default function NetworkGapPage() {
                     const severity = row.true_shortage_units > 100 ? 'CRITICAL' : row.true_shortage_units > 20 ? 'HIGH' : 'MEDIUM';
                     return (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-xs">{row.style_id}</TableCell>
+                        <TableCell className="font-medium text-sm">{fcMap.get(row.style_id) || row.style_id?.slice(0, 8)}</TableCell>
                         <TableCell className="text-right text-emerald-600">{(row.reallocatable_units || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right font-semibold text-red-600">{(row.true_shortage_units || 0).toLocaleString()}</TableCell>
                         <TableCell className="text-right text-orange-600">{(row.net_gap_units || 0).toLocaleString()}</TableCell>
