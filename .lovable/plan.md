@@ -149,8 +149,17 @@ Modify `inventory-kpi-engine/index.ts`:
 
 ### Sequence
 
-1. Create 3 database tables (migration)
-2. Update Edge Function with new computations
-3. Deploy and run engine to populate data
-4. Build upgraded UI
+1. ✅ Create 3 database tables (migration) — Phase 1
+2. ✅ Update Edge Function with Size Health, Lost Revenue, Markdown Risk — Phase 1
+3. ✅ Deploy and run engine to populate data — Phase 1
+4. ✅ Build upgraded UI — Phase 1
+5. ✅ Create state_size_transfer_daily table — Phase 2
+6. ✅ Add Smart Transfer Engine + Per-store Health to edge function — Phase 2
+7. ✅ Update hook and UI with Transfer Opportunities — Phase 2
+
+### Phase 2 Results
+- **200** Size Transfer opportunities detected
+- **18,155** Per-store Health records computed
+- Smart Transfer prioritizes same-region transfers, core sizes, and stockout urgency
+- Net benefit calculation: estimated_revenue_gain - transfer_cost
 

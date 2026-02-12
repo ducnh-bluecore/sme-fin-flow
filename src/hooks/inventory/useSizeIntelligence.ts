@@ -31,6 +31,24 @@ export interface MarkdownRiskRow {
   reason: string;
 }
 
+export interface SizeTransferRow {
+  id: string;
+  product_id: string;
+  size_code: string;
+  source_store_id: string;
+  dest_store_id: string;
+  as_of_date: string;
+  transfer_qty: number;
+  transfer_score: number;
+  source_on_hand: number;
+  dest_on_hand: number;
+  dest_velocity: number;
+  estimated_revenue_gain: number;
+  estimated_transfer_cost: number;
+  net_benefit: number;
+  reason: string;
+}
+
 export function useSizeIntelligence() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
@@ -38,7 +56,21 @@ export function useSizeIntelligence() {
     queryKey: ['size-health', tenantId],
     queryFn: async () => {
       const { data, error } = await buildQuery('state_size_health_daily' as any)
+        .is('store_id', null) // Network-wide only
         .order('as_of_date', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (data || []) as unknown as SizeHealthRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  const storeHealth = useQuery({
+    queryKey: ['store-size-health', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('state_size_health_daily' as any)
+        .not('store_id', 'is', null) // Per-store only
+        .order('size_health_score', { ascending: true })
         .limit(2000);
       if (error) throw error;
       return (data || []) as unknown as SizeHealthRow[];
@@ -70,10 +102,23 @@ export function useSizeIntelligence() {
     enabled: !!tenantId && isReady,
   });
 
+  const sizeTransfers = useQuery({
+    queryKey: ['size-transfers', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('state_size_transfer_daily' as any)
+        .order('transfer_score', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return (data || []) as unknown as SizeTransferRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
   // Aggregated summary
   const healthRows = sizeHealth.data || [];
   const lostRows = lostRevenue.data || [];
   const riskRows = markdownRisk.data || [];
+  const transferRows = sizeTransfers.data || [];
 
   const summary = {
     avgHealthScore: healthRows.length > 0
@@ -87,6 +132,8 @@ export function useSizeIntelligence() {
     totalLostUnits: lostRows.reduce((s, r) => s + r.lost_units_est, 0),
     highMarkdownRiskCount: riskRows.filter(r => r.markdown_risk_score >= 60).length,
     criticalMarkdownCount: riskRows.filter(r => r.markdown_risk_score >= 80).length,
+    transferOpportunities: transferRows.length,
+    totalTransferNetBenefit: transferRows.reduce((s, r) => s + r.net_benefit, 0),
   };
 
   // Maps for quick lookup by product_id
@@ -101,12 +148,14 @@ export function useSizeIntelligence() {
 
   return {
     sizeHealth,
+    storeHealth,
     lostRevenue,
     markdownRisk,
+    sizeTransfers,
     summary,
     healthMap,
     lostRevenueMap,
     markdownRiskMap,
-    isLoading: sizeHealth.isLoading || lostRevenue.isLoading || markdownRisk.isLoading,
+    isLoading: sizeHealth.isLoading || lostRevenue.isLoading || markdownRisk.isLoading || sizeTransfers.isLoading,
   };
 }

@@ -28214,6 +28214,66 @@ export type Database = {
         }
         Relationships: []
       }
+      state_size_transfer_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          dest_on_hand: number
+          dest_store_id: string
+          dest_velocity: number
+          estimated_revenue_gain: number
+          estimated_transfer_cost: number
+          id: string
+          net_benefit: number
+          product_id: string
+          reason: string | null
+          size_code: string
+          source_on_hand: number
+          source_store_id: string
+          tenant_id: string
+          transfer_qty: number
+          transfer_score: number
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          dest_on_hand?: number
+          dest_store_id: string
+          dest_velocity?: number
+          estimated_revenue_gain?: number
+          estimated_transfer_cost?: number
+          id?: string
+          net_benefit?: number
+          product_id: string
+          reason?: string | null
+          size_code: string
+          source_on_hand?: number
+          source_store_id: string
+          tenant_id: string
+          transfer_qty?: number
+          transfer_score?: number
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          dest_on_hand?: number
+          dest_store_id?: string
+          dest_velocity?: number
+          estimated_revenue_gain?: number
+          estimated_transfer_cost?: number
+          id?: string
+          net_benefit?: number
+          product_id?: string
+          reason?: string | null
+          size_code?: string
+          source_on_hand?: number
+          source_store_id?: string
+          tenant_id?: string
+          transfer_qty?: number
+          transfer_score?: number
+        }
+        Relationships: []
+      }
       store_daily_metrics: {
         Row: {
           avg_transaction_value: number | null

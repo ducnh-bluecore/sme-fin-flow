@@ -85,8 +85,16 @@ Deno.serve(async (req) => {
     const markdownRiskResults = computeMarkdownRisk(tenant_id, today, sizeHealthResults, demand, positions, skuMapping);
     console.log(`[KPI Engine] Markdown Risk computed: ${markdownRiskResults.length}`);
 
+    // ── 8. SIZE INTELLIGENCE Phase 2: Smart Transfer ──
+    const sizeTransferResults = computeSizeTransfers(tenant_id, today, positions, demand, skuMapping, retailStores, priceMap);
+    console.log(`[KPI Engine] Size Transfers computed: ${sizeTransferResults.length}`);
+
+    // ── 9. SIZE INTELLIGENCE Phase 2: Per-store Size Health ──
+    const storeHealthResults = computePerStoreSizeHealth(tenant_id, today, positions, skuMapping, retailStores);
+    console.log(`[KPI Engine] Per-store Health computed: ${storeHealthResults.length}`);
+
     // ── Upsert results ──
-    const results = { idi: 0, scs: 0, chi: 0, gap: 0, size_health: 0, lost_revenue: 0, markdown_risk: 0, errors: [] as string[] };
+    const results = { idi: 0, scs: 0, chi: 0, gap: 0, size_health: 0, lost_revenue: 0, markdown_risk: 0, size_transfers: 0, store_health: 0, errors: [] as string[] };
 
     // Delete old data for today first, then insert
     if (idiResults.length > 0) {
@@ -153,6 +161,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Phase 2: Size Transfers
+    if (sizeTransferResults.length > 0) {
+      await supabase.from("state_size_transfer_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
+      for (let i = 0; i < sizeTransferResults.length; i += 500) {
+        const { error } = await supabase.from("state_size_transfer_daily").insert(sizeTransferResults.slice(i, i + 500));
+        if (error) results.errors.push(`SizeTransfer: ${error.message}`);
+        else results.size_transfers += Math.min(500, sizeTransferResults.length - i);
+      }
+    }
+
+    // Phase 2: Per-store Health (append to existing size_health table)
+    if (storeHealthResults.length > 0) {
+      // Delete only store-level entries (store_id IS NOT NULL) for today
+      await supabase.from("state_size_health_daily").delete()
+        .eq("tenant_id", tenant_id).eq("as_of_date", today).not("store_id", "is", null);
+      for (let i = 0; i < storeHealthResults.length; i += 500) {
+        const { error } = await supabase.from("state_size_health_daily").insert(storeHealthResults.slice(i, i + 500));
+        if (error) results.errors.push(`StoreHealth: ${error.message}`);
+        else results.store_health += Math.min(500, storeHealthResults.length - i);
+      }
+    }
+
     const summary = {
       success: results.errors.length === 0,
       date: today,
@@ -163,6 +193,8 @@ Deno.serve(async (req) => {
       size_health_rows: results.size_health,
       lost_revenue_rows: results.lost_revenue,
       markdown_risk_rows: results.markdown_risk,
+      size_transfer_rows: results.size_transfers,
+      store_health_rows: results.store_health,
       errors: results.errors.length > 0 ? results.errors : undefined,
     };
 
@@ -740,6 +772,294 @@ function computeMarkdownRisk(
       markdown_risk_score: riskScore,
       markdown_eta_days: etaDays,
       reason: reasons.join(" + "),
+    });
+  }
+
+  return results;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SIZE INTELLIGENCE ENGINE — Phase 2: Smart Transfer
+// ══════════════════════════════════════════════════════════════
+
+const TRANSFER_COST_SAME_REGION = 15000; // VND per unit same region
+const TRANSFER_COST_CROSS_REGION = 35000; // VND per unit cross region
+
+/**
+ * Engine #4: Smart Size-aware Transfer Logic
+ * 
+ * Detects transfer opportunities when:
+ * - Store A has excess of a size (high DOC, low velocity)
+ * - Store B has stockout/low stock of same size (high velocity)
+ * 
+ * Priority: transfer_score = (stockout_risk * margin) - transfer_cost - demand_uncertainty
+ * Prefers same-region transfers for lower cost.
+ */
+function computeSizeTransfers(
+  tenantId: string,
+  date: string,
+  positions: any[],
+  demand: any[],
+  skuMapping: any[],
+  retailStores: any[],
+  priceMap: Map<string, number>
+): any[] {
+  const retailIds = new Set(retailStores.map((s: any) => s.id));
+  const storeRegion = new Map<string, string>();
+  for (const s of retailStores) {
+    storeRegion.set(s.id, s.region || 'unknown');
+  }
+
+  // Build sku -> (fc, size)
+  const skuToFC = new Map<string, { fcId: string; size: string }>();
+  const fcSizes = new Map<string, Set<string>>();
+  const fcSkus = new Map<string, string[]>();
+  for (const m of skuMapping) {
+    if (!m.fc_id || !m.size) continue;
+    if (!fcSizes.has(m.fc_id)) fcSizes.set(m.fc_id, new Set());
+    fcSizes.get(m.fc_id)!.add(m.size);
+    if (m.sku) {
+      skuToFC.set(m.sku, { fcId: m.fc_id, size: m.size });
+      if (!fcSkus.has(m.fc_id)) fcSkus.set(m.fc_id, []);
+      fcSkus.get(m.fc_id)!.push(m.sku);
+    }
+  }
+
+  // Only multi-size FCs
+  const multiSizeFCs = new Set<string>();
+  for (const [fcId, sizes] of fcSizes) {
+    if (sizes.size >= 2) multiSizeFCs.add(fcId);
+  }
+
+  // Build per-store per-fc per-size stock
+  // key: `storeId:fcId:size` -> on_hand
+  const storeFcSizeStock = new Map<string, number>();
+  for (const p of positions) {
+    if (!retailIds.has(p.store_id)) continue;
+    if ((p.on_hand || 0) <= 0) continue;
+    if (!p.sku || !skuToFC.has(p.sku)) continue;
+    const info = skuToFC.get(p.sku)!;
+    if (!multiSizeFCs.has(info.fcId)) continue;
+    const key = `${p.store_id}:${info.fcId}:${info.size}`;
+    storeFcSizeStock.set(key, (storeFcSizeStock.get(key) || 0) + (p.on_hand || 0));
+  }
+
+  // Per-store per-fc velocity
+  const storeFcVelocity = new Map<string, number>();
+  for (const d of demand) {
+    if (!retailIds.has(d.store_id) || !d.fc_id) continue;
+    const key = `${d.store_id}:${d.fc_id}`;
+    storeFcVelocity.set(key, (storeFcVelocity.get(key) || 0) + (d.avg_daily_sales || 0));
+  }
+
+  // FC avg price
+  const fcPrice = new Map<string, number>();
+  for (const [fcId, skus] of fcSkus) {
+    const prices = skus.map(s => priceMap.get(s)).filter(Boolean) as number[];
+    if (prices.length > 0) {
+      fcPrice.set(fcId, prices.reduce((s, v) => s + v, 0) / prices.length);
+    }
+  }
+
+  const results: any[] = [];
+
+  // For each multi-size FC, find transfer opportunities per size
+  for (const fcId of multiSizeFCs) {
+    const sizes = fcSizes.get(fcId)!;
+    const unitPrice = fcPrice.get(fcId) || DEFAULT_UNIT_PRICE;
+
+    for (const size of sizes) {
+      // Collect per-store data for this fc+size
+      const storeData: { storeId: string; onHand: number; velocity: number; doc: number }[] = [];
+
+      for (const store of retailStores) {
+        const stockKey = `${store.id}:${fcId}:${size}`;
+        const velKey = `${store.id}:${fcId}`;
+        const onHand = storeFcSizeStock.get(stockKey) || 0;
+        const velocity = (storeFcVelocity.get(velKey) || 0) / sizes.size; // Approximate per-size velocity
+        const doc = velocity > 0 ? onHand / velocity : (onHand > 0 ? 999 : 0);
+
+        storeData.push({ storeId: store.id, onHand, velocity, doc });
+      }
+
+      // Find sources (excess: DOC > 60 days AND on_hand > 3) and destinations (needing: on_hand <= 1 AND velocity > 0)
+      const sources = storeData.filter(s => s.doc > 60 && s.onHand > 3);
+      const dests = storeData.filter(s => s.onHand <= 1 && s.velocity > 0);
+
+      if (sources.length === 0 || dests.length === 0) continue;
+
+      // Sort destinations by velocity desc (highest demand first)
+      dests.sort((a, b) => b.velocity - a.velocity);
+
+      for (const dest of dests) {
+        // Find best source (prefer same region, then highest excess)
+        const destRegion = storeRegion.get(dest.storeId);
+        const sortedSources = [...sources].sort((a, b) => {
+          const aRegion = storeRegion.get(a.storeId);
+          const bRegion = storeRegion.get(b.storeId);
+          // Same region first
+          if (aRegion === destRegion && bRegion !== destRegion) return -1;
+          if (bRegion === destRegion && aRegion !== destRegion) return 1;
+          // Then by excess (higher DOC first)
+          return b.doc - a.doc;
+        });
+
+        const source = sortedSources[0];
+        if (!source || source.storeId === dest.storeId) continue;
+
+        // Calculate transfer qty: enough for ~14 days of dest demand, max 50% of source stock
+        const transferQty = Math.min(
+          Math.max(1, Math.ceil(dest.velocity * 14)),
+          Math.floor(source.onHand * 0.5)
+        );
+        if (transferQty <= 0) continue;
+
+        const sameRegion = storeRegion.get(source.storeId) === destRegion;
+        const transferCost = transferQty * (sameRegion ? TRANSFER_COST_SAME_REGION : TRANSFER_COST_CROSS_REGION);
+        const revenueGain = transferQty * unitPrice;
+        const netBenefit = revenueGain - transferCost;
+
+        if (netBenefit <= 0) continue;
+
+        // Transfer score: higher = more urgent
+        const stockoutUrgency = dest.onHand === 0 ? 2 : 1;
+        const coreSizeBonus = CORE_SIZES.has(size) ? 1.5 : 1.0;
+        const transferScore = Math.round(
+          (stockoutUrgency * coreSizeBonus * revenueGain - transferCost) / 1000
+        );
+
+        const reason = [
+          dest.onHand === 0 ? 'stockout' : 'low_stock',
+          sameRegion ? 'same_region' : 'cross_region',
+          CORE_SIZES.has(size) ? 'core_size' : null,
+        ].filter(Boolean).join(' + ');
+
+        results.push({
+          tenant_id: tenantId,
+          product_id: fcId,
+          size_code: size,
+          source_store_id: source.storeId,
+          dest_store_id: dest.storeId,
+          as_of_date: date,
+          transfer_qty: transferQty,
+          transfer_score: transferScore,
+          source_on_hand: source.onHand,
+          dest_on_hand: dest.onHand,
+          dest_velocity: Math.round(dest.velocity * 100) / 100,
+          estimated_revenue_gain: Math.round(revenueGain),
+          estimated_transfer_cost: Math.round(transferCost),
+          net_benefit: Math.round(netBenefit),
+          reason,
+        });
+
+        // Remove this source from pool for next dest
+        const idx = sources.indexOf(source);
+        if (idx >= 0) {
+          source.onHand -= transferQty;
+          if (source.onHand <= 3) sources.splice(idx, 1);
+        }
+      }
+    }
+  }
+
+  // Sort by transfer_score desc, limit to top 200
+  results.sort((a, b) => b.transfer_score - a.transfer_score);
+  return results.slice(0, 200);
+}
+
+/**
+ * Per-store Size Health Score
+ * Same logic as network-wide but computed per store
+ */
+function computePerStoreSizeHealth(
+  tenantId: string,
+  date: string,
+  positions: any[],
+  skuMapping: any[],
+  retailStores: any[]
+): any[] {
+  const retailIds = new Set(retailStores.map((s: any) => s.id));
+
+  const fcSizes = new Map<string, Set<string>>();
+  const skuToFC = new Map<string, { fcId: string; size: string }>();
+  for (const m of skuMapping) {
+    if (!m.fc_id || !m.size) continue;
+    if (!fcSizes.has(m.fc_id)) fcSizes.set(m.fc_id, new Set());
+    fcSizes.get(m.fc_id)!.add(m.size);
+    if (m.sku) skuToFC.set(m.sku, { fcId: m.fc_id, size: m.size });
+  }
+
+  const multiSizeFCs = new Set<string>();
+  for (const [fcId, sizes] of fcSizes) {
+    if (sizes.size >= 2) multiSizeFCs.add(fcId);
+  }
+
+  // Per store-fc-size stock
+  const storeFcSizeStock = new Map<string, Map<string, number>>(); // `storeId:fcId` -> Map<size, qty>
+  for (const p of positions) {
+    if (!retailIds.has(p.store_id) || (p.on_hand || 0) <= 0) continue;
+    if (!p.sku || !skuToFC.has(p.sku)) continue;
+    const info = skuToFC.get(p.sku)!;
+    if (!multiSizeFCs.has(info.fcId)) continue;
+    const key = `${p.store_id}:${info.fcId}`;
+    if (!storeFcSizeStock.has(key)) storeFcSizeStock.set(key, new Map());
+    const sizeMap = storeFcSizeStock.get(key)!;
+    sizeMap.set(info.size, (sizeMap.get(info.size) || 0) + (p.on_hand || 0));
+  }
+
+  const results: any[] = [];
+
+  for (const [key, sizeStock] of storeFcSizeStock) {
+    const [storeId, fcId] = key.split(':');
+    const expectedSizes = fcSizes.get(fcId);
+    if (!expectedSizes || expectedSizes.size < 2) continue;
+
+    const totalOnHand = [...sizeStock.values()].reduce((s, v) => s + v, 0);
+    if (totalOnHand <= 0) continue;
+
+    const expectedRatio = 1 / expectedSizes.size;
+    let deviationSum = 0;
+    for (const size of expectedSizes) {
+      const actualQty = sizeStock.get(size) || 0;
+      const actualRatio = actualQty / totalOnHand;
+      const deviation = Math.abs(expectedRatio - actualRatio);
+      const weight = CORE_SIZES.has(size) ? 1.5 : 1.0;
+      deviationSum += deviation * weight;
+    }
+    const deviationPenalty = Math.min(40, deviationSum * 20);
+
+    let coreMissing = false;
+    for (const cs of CORE_SIZES) {
+      if (expectedSizes.has(cs) && (!sizeStock.has(cs) || sizeStock.get(cs)! <= 0)) {
+        coreMissing = true;
+        break;
+      }
+    }
+    const corePenalty = coreMissing ? 30 : 0;
+
+    let shallowCount = 0;
+    for (const size of expectedSizes) {
+      const qty = sizeStock.get(size) || 0;
+      if (qty > 0 && qty < 2) shallowCount++;
+    }
+    const shallowPenalty = shallowCount * 5;
+
+    const score = Math.max(0, Math.min(100, 100 - deviationPenalty - corePenalty - shallowPenalty));
+    let curveState = "healthy";
+    if (score < 40) curveState = "broken";
+    else if (score < 60) curveState = "risk";
+    else if (score < 80) curveState = "watch";
+
+    results.push({
+      tenant_id: tenantId,
+      product_id: fcId,
+      store_id: storeId,
+      as_of_date: date,
+      size_health_score: Math.round(score * 100) / 100,
+      curve_state: curveState,
+      deviation_score: Math.round(deviationSum * 10000) / 10000,
+      core_size_missing: coreMissing,
+      shallow_depth_count: shallowCount,
     });
   }
 
