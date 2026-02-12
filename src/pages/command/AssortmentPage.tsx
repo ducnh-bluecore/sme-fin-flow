@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock } from 'lucide-react';
+import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export default function AssortmentPage() {
   const [sortBy, setSortBy] = useState<'health' | 'lost_revenue' | 'markdown'>('lost_revenue');
 
   // Size Intelligence data
-  const { summary: siSummary, healthMap, lostRevenueMap, markdownRiskMap, isLoading: siLoading, lostRevenue } = useSizeIntelligence();
+  const { summary: siSummary, healthMap, lostRevenueMap, markdownRiskMap, isLoading: siLoading, lostRevenue, sizeTransfers } = useSizeIntelligence();
 
   // CHI data (existing)
   const { data: chiRows } = useQuery({
@@ -55,6 +55,24 @@ export default function AssortmentPage() {
     enabled: !!tenantId && isReady,
   });
 
+  // Fetch store names for transfer display
+  const { data: storeNames } = useQuery({
+    queryKey: ['command-store-names', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_stores' as any)
+        .select('id,store_name,store_code')
+        .eq('is_active', true)
+        .limit(500);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const s of (data || []) as any[]) {
+        map.set(String(s.id), s.store_name || s.store_code || String(s.id));
+      }
+      return map;
+    },
+    enabled: !!tenantId && isReady,
+  });
+
   const runKpiEngine = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('inventory-kpi-engine', {
@@ -64,10 +82,12 @@ export default function AssortmentPage() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success(`Engine completed: ${data.size_health_rows} Health, ${data.lost_revenue_rows} LostRev, ${data.markdown_risk_rows} MDRisk`);
+      toast.success(`Engine: ${data.size_health_rows} Health, ${data.size_transfer_rows} Transfers, ${data.store_health_rows} Store Health`);
       queryClient.invalidateQueries({ queryKey: ['size-health'] });
+      queryClient.invalidateQueries({ queryKey: ['store-size-health'] });
       queryClient.invalidateQueries({ queryKey: ['lost-revenue'] });
       queryClient.invalidateQueries({ queryKey: ['markdown-risk'] });
+      queryClient.invalidateQueries({ queryKey: ['size-transfers'] });
       queryClient.invalidateQueries({ queryKey: ['command-chi-detail'] });
     },
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
@@ -171,14 +191,15 @@ export default function AssortmentPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={siSummary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
           <CardContent className="pt-5 pb-4">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Activity className="h-3 w-3" /> Avg Curve Health
+              <ArrowRightLeft className="h-3 w-3" /> Transfer Opportunities
             </div>
-            <p className="text-2xl font-bold">
-              {avgCHI !== null ? `${(avgCHI * 100).toFixed(0)}%` : '—'}
-            </p>
+            <p className="text-2xl font-bold text-amber-600">{siSummary.transferOpportunities}</p>
+            {siSummary.totalTransferNetBenefit > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">Net benefit: {formatVNDCompact(siSummary.totalTransferNetBenefit)}</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -223,6 +244,60 @@ export default function AssortmentPage() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Smart Transfer Opportunities ── */}
+      {(sizeTransfers.data || []).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
+              <Badge variant="secondary" className="text-xs ml-auto">{(sizeTransfers.data || []).length} opportunities</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Style</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>From → To</TableHead>
+                    <TableHead className="text-center">Qty</TableHead>
+                    <TableHead className="text-right">Net Benefit</TableHead>
+                    <TableHead>Reason</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(sizeTransfers.data || []).slice(0, 30).map((t) => {
+                    const name = fcNames?.get(t.product_id) || t.product_id;
+                    const srcName = storeNames?.get(t.source_store_id) || t.source_store_id.slice(0, 8);
+                    const dstName = storeNames?.get(t.dest_store_id) || t.dest_store_id.slice(0, 8);
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
+                        <TableCell className="text-xs">
+                          <span className="text-muted-foreground">{srcName}</span>
+                          <ArrowRight className="h-3 w-3 inline mx-1" />
+                          <span className="font-medium">{dstName}</span>
+                        </TableCell>
+                        <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
+                        <TableCell className="text-right text-xs font-medium text-emerald-600">
+                          {formatVNDCompact(t.net_benefit)}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{t.reason}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {(sizeTransfers.data || []).length > 30 && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">Showing 30 of {(sizeTransfers.data || []).length}</p>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
