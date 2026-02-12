@@ -4,11 +4,12 @@ import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useInventoryAging } from '@/hooks/useInventoryAging';
 import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
 import { useRetailHealthScore } from '@/hooks/useRetailHealthScore';
+import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Brain, AlertTriangle, TrendingDown, Package, Megaphone, Clock,
-  Calculator, Store, LineChart, Database,
+  Calculator, Store, LineChart, Database, Layers3,
 } from 'lucide-react';
 import { formatVNDCompact } from '@/lib/formatters';
 
@@ -25,6 +26,7 @@ export function RetailDecisionFeed() {
   const { summary, agingBuckets, isLoading: inventoryLoading } = useInventoryAging();
   const { data: channelData, isLoading: channelLoading } = useAllChannelsPL();
   const { data: healthScore } = useRetailHealthScore();
+  const { summary: siSummary, lostRevenue, isLoading: siLoading } = useSizeIntelligence();
 
   const decisions = useMemo((): NarrativeDecision[] => {
     const items: NarrativeDecision[] = [];
@@ -131,6 +133,26 @@ export function RetailDecisionFeed() {
       });
     }
 
+    // 7. Size Intelligence: Broken curves with revenue at risk
+    if (siSummary.brokenCount > 0 && siSummary.totalLostRevenue > 0) {
+      items.push({
+        id: 'size-curve-broken',
+        icon: <Layers3 className="h-4 w-4" />,
+        narrative: `${siSummary.brokenCount} style có size curve gãy — ước tính mất ${formatVNDCompact(siSummary.totalLostRevenue)} doanh thu. Cần transfer hoặc reorder core sizes.`,
+        severity: siSummary.totalLostRevenue > 50_000_000 ? 'critical' : 'warning',
+      });
+    }
+
+    // 8. Size Intelligence: High markdown risk
+    if (siSummary.highMarkdownRiskCount > 0) {
+      items.push({
+        id: 'size-markdown-risk',
+        icon: <TrendingDown className="h-4 w-4" />,
+        narrative: `${siSummary.highMarkdownRiskCount} style có nguy cơ markdown cao do size curve stress + tồn kho già${siSummary.criticalMarkdownCount > 0 ? ` (${siSummary.criticalMarkdownCount} critical)` : ''}.`,
+        severity: siSummary.criticalMarkdownCount > 0 ? 'critical' : 'warning',
+      });
+    }
+
     // Sort: critical first, then warning
     items.sort((a, b) => {
       const order = { critical: 0, warning: 1, info: 2 };
@@ -138,9 +160,9 @@ export function RetailDecisionFeed() {
     });
 
     return items.slice(0, 7);
-  }, [snapshot, summary, agingBuckets, channelData, healthScore]);
+  }, [snapshot, summary, agingBuckets, channelData, healthScore, siSummary]);
 
-  const isLoading = snapshotLoading || inventoryLoading || channelLoading;
+  const isLoading = snapshotLoading || inventoryLoading || channelLoading || siLoading;
 
   const severityStyles = {
     critical: 'border-l-destructive bg-destructive/5',

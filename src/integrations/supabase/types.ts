@@ -28106,6 +28106,114 @@ export type Database = {
           },
         ]
       }
+      state_lost_revenue_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          driver: string
+          id: string
+          lost_revenue_est: number
+          lost_units_est: number
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          driver?: string
+          id?: string
+          lost_revenue_est?: number
+          lost_units_est?: number
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          driver?: string
+          id?: string
+          lost_revenue_est?: number
+          lost_units_est?: number
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      state_markdown_risk_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          id: string
+          markdown_eta_days: number | null
+          markdown_risk_score: number
+          product_id: string
+          reason: string | null
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          id?: string
+          markdown_eta_days?: number | null
+          markdown_risk_score?: number
+          product_id: string
+          reason?: string | null
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          id?: string
+          markdown_eta_days?: number | null
+          markdown_risk_score?: number
+          product_id?: string
+          reason?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      state_size_health_daily: {
+        Row: {
+          as_of_date: string
+          core_size_missing: boolean
+          created_at: string
+          curve_state: string
+          deviation_score: number
+          id: string
+          product_id: string
+          shallow_depth_count: number
+          size_health_score: number
+          store_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string
+          core_size_missing?: boolean
+          created_at?: string
+          curve_state?: string
+          deviation_score?: number
+          id?: string
+          product_id: string
+          shallow_depth_count?: number
+          size_health_score?: number
+          store_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          core_size_missing?: boolean
+          created_at?: string
+          curve_state?: string
+          deviation_score?: number
+          id?: string
+          product_id?: string
+          shallow_depth_count?: number
+          size_health_score?: number
+          store_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       store_daily_metrics: {
         Row: {
           avg_transaction_value: number | null
