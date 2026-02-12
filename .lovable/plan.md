@@ -1,74 +1,96 @@
 
 
-# Fix Dashboard Không Có Data - 4 Vấn Đề Cốt Lõi
+# Fix DSO: Bán lẻ thì đơn hàng = hóa đơn
 
-## Tổng quan vấn đề
+## Vấn đề
 
-Dashboard Retail Command Center đang hiển thị sai vì 4 nguyên nhân kỹ thuật khác nhau. Cần fix từng vấn đề để dashboard phản ánh đúng thực tế dữ liệu hiện có.
+Hiện tại `compute_central_metrics_snapshot` tính AR/DSO từ bảng `invoices` (trống). Nhưng trong hệ thống bán lẻ/e-commerce:
+- **Đơn hàng = Invoice** (khách đặt hàng = phát sinh công nợ)
+- **AR = đơn hàng đang vận chuyển/chờ sàn thanh toán** (tiền chưa về)
+- **DSO = thời gian trung bình từ đặt hàng đến nhận tiền**
 
-## Vấn đề 1: Channel War bị timeout
+## Dữ liệu thực có trong DB
 
-**Nguyên nhân**: `useAllChannelsPL` query `v_channel_pl_summary` với date range `all_time`, view tính toán nặng kết hợp RLS gây timeout.
+| Metric | Giá trị (90 ngày gần nhất) |
+|--------|---------------------------|
+| Revenue | 104.6 ty VND |
+| Daily Revenue | 1.16 ty/ngay |
+| Retail AR (don dang van chuyen) | 16.59 ty VND |
+| Completed orders | 98,905 |
+| In-transit orders | status 2, 3, SHIPPED, READY_TO_SHIP, etc. |
 
-**Giải pháp**: Thêm fallback khi query timeout -- sử dụng `kpi_facts_daily` (nguồn data chính cho 2025+) với GROUP BY channel thay vì view nặng. Đồng thời giới hạn query với `.limit(1000)` và catch error để hiển thị thông báo "Đang tải lâu, thử thu hẹp khoảng thời gian".
+## Gia tri ky vong sau fix
 
-**File thay đổi**: `src/hooks/useAllChannelsPL.ts` -- thêm timeout handling + fallback query
+| Metric | Gia tri | Nguon | Badge |
+|--------|---------|-------|-------|
+| DSO | ~14 ngay | cdp_orders in-transit | **Tu data that** |
+| DIO | 365 ngay (capped) | inventory / annual COGS | Tam tinh (COGS 4.2% coverage) |
+| DPO | 0 ngay | bills table (trong) | Tam tinh (chua co AP) |
+| CCC | ~379 ngay | DSO + DIO - DPO | Tam tinh |
+| Retail AR | 16.59 ty | cdp_orders in-transit | Tu data that |
+| Locked Cash - Platform | 16.59 ty | = Retail AR | Moi |
 
-## Vấn đề 2: Inventory Risk dùng sai nguồn data
+DSO = 14 ngay hoan toan hop ly cho e-commerce (Shopee/TikTok hold tien 7-14 ngay sau delivery).
 
-**Nguyên nhân**: `InventoryRiskPanel` chỉ query bảng `inventory_items` (trống), trong khi `central_metrics_snapshots` CÓ data inventory (37.7 tỷ VND).
+## Thay doi can lam
 
-**Giải pháp**: Khi `inventory_items` trống, fallback sang hiển thị dữ liệu inventory từ `useFinanceTruthSnapshot` (totalInventoryValue, slowMovingInventory). Panel sẽ hiện summary từ snapshot thay vì "Chưa có dữ liệu".
+### 1. Migration: Update `compute_central_metrics_snapshot`
 
-**File thay đổi**: `src/components/dashboard/InventoryRiskPanel.tsx` -- thêm fallback render từ snapshot data
+Thay doi phan tinh AR/DSO (lines 104-114 trong function hien tai):
 
-## Vấn đề 3: Health Score và Money Engine thiếu "no data" indicator
+```text
+CU:   AR tu invoices WHERE status IN ('sent','overdue','partial')  --> 0 (invoices trong)
+MOI:  AR tu cdp_orders WHERE status la in-transit/pending settlement
+      - Status in-transit: '2', '3', 'SHIPPED', 'shipped', 'confirmed', 'packed', 
+        'READY_TO_SHIP', 'PROCESSED', 'TO_CONFIRM_RECEIVE'
+      - AR = SUM(net_revenue) cua cac don nay
+      - DSO = AR / daily_revenue (cap at 365)
+```
 
-**Nguyên nhân**: Metrics gross_margin, ROAS, CAC = 0 vì chưa tích hợp COGS/Expenses, nhưng UI hiện "0.0%" mà không phân biệt "chưa có data" vs "thực sự = 0".
+Giu nguyen:
+- DIO tinh tu inventory/annual_cogs (khong doi)
+- DPO tinh tu bills (khong doi, = 0 khi bills trong)
+- CCC = DSO + DIO - DPO
 
-**Giải pháp**: 
-- Sử dụng `dataQuality` flags từ snapshot (đã có sẵn: `hasCashData`, `hasExpenseData`, etc.)
-- Khi flag = false, hiện badge "Chưa có dữ liệu" hoặc "N/A" thay vì "0.0%"
-- Health Score Hero: hiện tooltip giải thích metrics nào chưa có data source
+Them:
+- Column `locked_cash_platform` vao `central_metrics_snapshots` = Retail AR (tien san giu)
+- Update locked cash total = inventory + ads + ops + platform
 
-**File thay đổi**: 
-- `src/components/dashboard/MoneyEngineCards.tsx` -- thêm no-data indicator khi snapshot flags cho biết thiếu source
-- `src/components/dashboard/RetailHealthHero.tsx` -- thêm data quality note
+### 2. Update `CashVelocityPanel.tsx`
 
-## Vấn đề 4: Decision Feed hiện "khỏe" trong khi Health Score = CRITICAL
+- Hien thi DSO voi gia tri that (~14 ngay), KHONG co badge "tam tinh"
+- DIO: giu badge "tam tinh" (COGS coverage thap)
+- DPO: badge "tam tinh (chua co AP)"
+- Them dong "Platform Hold" trong Locked Cash breakdown (16.59 ty)
+- CCC: hien thi gia tri that, note "DIO va DPO la tam tinh"
 
-**Nguyên nhân**: Decision Feed phụ thuộc 3 data source (channel, inventory, snapshot), cả 3 đều bị vấn đề ở trên -> không trigger bất kỳ decision nào.
+### 3. Update `RetailHealthHero.tsx`
 
-**Giải pháp**:
-- Thêm decision khi data quality thấp: "Thiếu dữ liệu COGS/Chi phí -- margin chưa tính được"
-- Thêm decision từ `alert_instances` (đang có 8+ alerts active trong DB)
-- Khi Health Score = CRITICAL mà Decision Feed trống -> hiện warning "Health Score CRITICAL nhưng thiếu data để phân tích chi tiết"
+- Inventory Days: hien thi 365 + badge "tam tinh"
+- Cac metrics khac giu nguyen logic hien tai
 
-**File thay đổi**: `src/components/dashboard/RetailDecisionFeed.tsx` -- thêm data-gap decisions + pull from alert_instances
+### 4. Update `useRetailHealthScore.ts`
 
-## Vấn đề 5 (minor): Skeleton ref warning
+- DIO status: khi COGS coverage thap, danh WARNING thay vi CRITICAL cho DIO = 365
 
-**Nguyên nhân**: `RetailDecisionFeed` truyền ref cho `Skeleton` component (function component)
+## Tong ket files
 
-**Giải pháp**: Bỏ ref hoặc wrap Skeleton trong div
+| File | Thay doi |
+|------|---------|
+| Migration SQL | Update `compute_central_metrics_snapshot`: AR tu cdp_orders, them `locked_cash_platform` |
+| `src/components/dashboard/CashVelocityPanel.tsx` | Hien thi DSO that, DIO/DPO tam tinh, them Platform Hold |
+| `src/components/dashboard/RetailHealthHero.tsx` | Badge "tam tinh" cho DIO |
+| `src/hooks/useRetailHealthScore.ts` | Adjust DIO status khi COGS coverage thap |
 
-**File thay đổi**: `src/components/dashboard/RetailDecisionFeed.tsx`
+## Kiem tra sau fix
 
-## Tóm tắt files cần thay đổi
-
-| File | Thay đổi |
-|---|---|
-| `src/hooks/useAllChannelsPL.ts` | Timeout handling + fallback query |
-| `src/components/dashboard/InventoryRiskPanel.tsx` | Fallback sang snapshot data khi inventory_items trống |
-| `src/components/dashboard/MoneyEngineCards.tsx` | No-data indicators dùng dataQuality flags |
-| `src/components/dashboard/RetailHealthHero.tsx` | Data quality note khi metrics thiếu source |
-| `src/components/dashboard/RetailDecisionFeed.tsx` | Thêm data-gap decisions + alert_instances + fix Skeleton ref |
-
-## Thứ tự ưu tiên
-
-1. Fix Channel War timeout (nhiều sections phụ thuộc)
-2. Fix Decision Feed (đang hiện thông tin SAI -- nói "khỏe" khi thực sự CRITICAL)
-3. Inventory fallback (có data sẵn trong snapshot)
-4. No-data indicators (UX improvement)
-5. Skeleton ref warning (minor)
+| # | Kiem tra | Ky vong |
+|---|---------|---------|
+| 1 | DSO hien thi | ~14 ngay, khong co badge tam tinh |
+| 2 | DIO hien thi | 365 ngay + badge "tam tinh" |
+| 3 | DPO hien thi | 0 ngay + badge "tam tinh" |
+| 4 | CCC hien thi | ~379 ngay + note |
+| 5 | Locked Cash - Platform | 16.59 ty VND (moi) |
+| 6 | Health Score | WARNING (khong CRITICAL) vi co data that cho DSO |
+| 7 | Recompute snapshot | Goi compute function tra ve gia tri moi |
 
