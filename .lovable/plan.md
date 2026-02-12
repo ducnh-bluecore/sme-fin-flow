@@ -1,71 +1,73 @@
 
-
-# Populate Risk Scores tu Du Lieu KPI & Cash Flow
+# Fix View v_retail_concentration_risk: Hien Thi Ten San Pham & Danh Muc
 
 ## Van de
 
-Bang `risk_scores` hoan toan trong (0 records), nen view `v_risk_radar_summary` tra ve rong --> Risk Dashboard hien "Chua co du lieu risk scores" va Overall Risk Score = 0.
+2 loi tren tab "Rui ro tap trung":
 
-## Du lieu da co
+1. **"Chua phan loai: 100%"** - Tat ca san pham deu hien khong co danh muc
+2. **"SKU-35361151"** thay vi ten that "Pink Wave Shopping Bag"
 
-- **8,254 KPI facts** (L3): NET_REVENUE, ORDER_COUNT, AOV, COGS, GROSS_MARGIN, AD_SPEND, ROAS, AD_IMPRESSIONS
-- **14 cash flow records** (Jan 2025 - Feb 2026): closing_cash_balance avg ~78.7 ty, net_cash_operating avg ~10.8 ty
+## Nguyen nhan goc
+
+View `v_retail_concentration_risk` JOIN sai:
+```
+LEFT JOIN products p ON (oi.product_id = p.id::text)
+```
+- `cdp_order_items.product_id` chua KiotViet numeric ID (vd: `35361151`)
+- `products.id` la UUID (vd: `75015089-03c6-4d09-9ac4-6af44a32cfa2`)
+- Ket qua: JOIN luon fail --> fallback "SKU-..." va category = NULL
+
+**Du lieu thuc te da co:**
+
+| product_id | sku | product_name (oi) | name (products) | category |
+|-----------|-----|-------------------|----------------|----------|
+| 35361151 | BAG00015M | Pink Wave Shopping Bag | Pink Wave Shopping Bag | 07-Others |
+| 1005241401 | BAG00016M | TET 2026 Shopping Bag | TET 2026 Shopping Bag | 07-Others |
+| 1005668746 | SP020638 | Bao Li Xi OLV 2026 | Bao Li Xi OLV 2026 | 07-Others |
+| 1002327349 | SER00206 | (null) | Lieu trinh Tiem Botox | Medical |
 
 ## Giai phap
 
-Tao migration SQL de tinh va insert risk scores dua tren du lieu thuc:
+Tao migration SQL de **thay doi view**, sua 2 CTE:
 
-### Logic tinh diem (0-100, cao = an toan)
+### 1. CTE `category_stats`: Join products qua SKU de lay category
 
-| Category | Cach tinh | Nguon |
-|----------|----------|-------|
-| **Liquidity** | Dua tren cash runway (closing_cash / monthly_burn) va net_cash_operating trend | cash_flow_direct |
-| **Credit** | Dua tren ty le thanh toan (payment coverage), AOV stability | kpi_facts_daily (AOV, ORDER_COUNT) |
-| **Market** | Dua tren revenue trend (thang nay vs thang truoc), ROAS | kpi_facts_daily (NET_REVENUE, ROAS) |
-| **Operational** | Dua tren COGS ratio, gross margin health | kpi_facts_daily (COGS, GROSS_MARGIN) |
-| **Overall** | Weighted average: Liquidity 30%, Market 25%, Operational 25%, Credit 20% |
+```sql
+-- Cu (sai):
+COALESCE(oi.category, 'Chua phan loai')
+-- oi.category luon NULL
 
-### Chi tiet tinh toan
+-- Moi:
+COALESCE(p.category, oi.category, 'Chua phan loai')
+-- Join products via sku --> lay category that
+```
 
-**Liquidity Score:**
-- Cash runway >= 12 thang: 85-95 diem
-- Cash runway 6-12 thang: 60-84 diem
-- Cash runway 3-6 thang: 40-59 diem
-- Cash runway < 3 thang: 10-39 diem
+### 2. CTE `sku_stats`: Join products qua SKU, uu tien product_name
 
-**Market Score:**
-- Revenue growth > 10%: 80-95
-- Revenue stable (0-10%): 60-79
-- Revenue giam < -10%: 30-59
-- ROAS > 3: +10 bonus, ROAS < 2: -10 penalty
+```sql
+-- Cu (sai):
+LEFT JOIN products p ON (oi.product_id = p.id::text)
+COALESCE(p.name, 'SKU-' || left(oi.product_id, 8))
 
-**Operational Score:**
-- Gross margin > 30%: 80-95
-- Gross margin 20-30%: 60-79
-- Gross margin 10-20%: 40-59
-- COGS/Revenue < 55%: +5 bonus
+-- Moi:
+LEFT JOIN products p ON (oi.sku = p.sku AND oi.tenant_id = p.tenant_id)
+COALESCE(p.name, oi.product_name, oi.sku, 'SKU-' || left(oi.product_id, 8))
+```
 
-**Credit Score:**
-- Payment coverage > 90%: 80-95
-- AOV stable (low variance): +10 bonus
-- High order count consistency: +5 bonus
+### Ky vong sau fix
 
-### Output
-
-INSERT 1 record vao `risk_scores` voi `score_date = CURRENT_DATE` va `calculation_details` chua toan bo logic + so lieu goc de audit.
-
-## Ky vong sau fix
-
-| Metric | Truoc | Sau |
-|--------|-------|-----|
-| Risk scores records | 0 | 1 |
-| Overall Risk Score | 0 | 60-80 (tinh tu du lieu thuc) |
-| Risk Profile tab | "Chua co du lieu" | 4 categories voi scores |
-| Radar chart | Trong | Hien 4 truc risk |
+| Card | Truoc | Sau |
+|------|-------|-----|
+| Tap trung Danh muc | "Chua phan loai: 100%" | "07-Others: XX%", "Medical: YY%", ... |
+| Tap trung Hero SKU | SKU-35361151 | Pink Wave Shopping Bag |
+| | SKU-10052414 | TET 2026 Shopping Bag |
+| | SKU-10056687 | Bao Li Xi OLV 2026 |
+| | SKU-35361275 | Pink Wave Shopping Bag (S) |
+| | SKU-10023273 | Lieu trinh Tiem Botox Allergan |
 
 ## Files thay doi
 
 | File | Thay doi |
 |------|---------|
-| Migration SQL | Tinh risk scores tu kpi_facts_daily + cash_flow_direct, insert vao risk_scores |
-
+| Migration SQL | DROP + CREATE view `v_retail_concentration_risk` voi JOIN qua SKU thay vi product_id |
