@@ -54,7 +54,7 @@ export default function DecisionQueuePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['command-packages'] });
-      toast.success('Package approved');
+      toast.success('Đã duyệt gói quyết định');
     },
   });
 
@@ -66,7 +66,7 @@ export default function DecisionQueuePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['command-packages'] });
-      toast.success('Package rejected');
+      toast.success('Đã từ chối gói quyết định');
     },
   });
 
@@ -79,8 +79,8 @@ export default function DecisionQueuePage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold text-foreground">Decision Queue</h1>
-        <p className="text-sm text-muted-foreground mt-1">Review and approve inventory decision packages</p>
+        <h1 className="text-2xl font-bold text-foreground">Hàng Đợi Quyết Định</h1>
+        <p className="text-sm text-muted-foreground mt-1">Xem xét và phê duyệt các gói quyết định tồn kho</p>
       </motion.div>
 
       {(!packages || packages.length === 0) ? (
@@ -88,8 +88,8 @@ export default function DecisionQueuePage() {
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
               <ListChecks className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No decision packages</p>
-              <p className="text-xs mt-1">Packages are created by the Decision Packager from allocation recommendations</p>
+              <p className="text-sm">Không có gói quyết định nào</p>
+              <p className="text-xs mt-1">Các gói được tạo từ engine phân bổ tồn kho</p>
             </div>
           </CardContent>
         </Card>
@@ -98,7 +98,6 @@ export default function DecisionQueuePage() {
           {packages.map((pkg: any) => (
             <Card key={pkg.id} className="overflow-hidden">
               <CardContent className="p-0">
-                {/* Level 1: Package View */}
                 <div 
                   className="p-4 cursor-pointer hover:bg-muted/30 transition-colors"
                   onClick={() => setExpandedPkg(expandedPkg === pkg.id ? null : pkg.id)}
@@ -111,20 +110,20 @@ export default function DecisionQueuePage() {
                       </Badge>
                       <div>
                         <p className="text-sm font-semibold">
-                          {(pkg.scope_summary as any)?.description || `${pkg.package_type} Package`}
+                          {(pkg.scope_summary as any)?.description || `Gói ${pkg.package_type}`}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {(pkg.scope_summary as any)?.units?.toLocaleString() || '—'} units · {(pkg.scope_summary as any)?.skus || '—'} SKUs
+                          {(pkg.scope_summary as any)?.units?.toLocaleString() || '—'} đơn vị · {(pkg.scope_summary as any)?.skus || '—'} SKU
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right mr-4">
                         <p className="text-sm font-semibold">{formatVND((pkg.impact_summary as any)?.revenue_protected)}</p>
-                        <p className="text-xs text-muted-foreground">revenue protected</p>
+                        <p className="text-xs text-muted-foreground">doanh thu bảo vệ</p>
                       </div>
                       <Badge variant={pkg.status === 'APPROVED' ? 'default' : pkg.status === 'REJECTED' ? 'destructive' : 'secondary'}>
-                        {pkg.status}
+                        {pkg.status === 'APPROVED' ? 'Đã Duyệt' : pkg.status === 'REJECTED' ? 'Từ Chối' : pkg.status === 'PROPOSED' ? 'Đề Xuất' : pkg.status}
                       </Badge>
                       {pkg.status === 'PROPOSED' && (
                         <div className="flex gap-1">
@@ -134,7 +133,7 @@ export default function DecisionQueuePage() {
                             className="h-7 text-emerald-600"
                             onClick={(e) => { e.stopPropagation(); approveMutation.mutate(pkg.id); }}
                           >
-                            <Check className="h-3 w-3 mr-1" /> Approve
+                            <Check className="h-3 w-3 mr-1" /> Duyệt
                           </Button>
                           <Button 
                             size="sm" 
@@ -142,7 +141,7 @@ export default function DecisionQueuePage() {
                             className="h-7 text-destructive"
                             onClick={(e) => { e.stopPropagation(); rejectMutation.mutate(pkg.id); }}
                           >
-                            <X className="h-3 w-3 mr-1" /> Reject
+                            <X className="h-3 w-3 mr-1" /> Từ Chối
                           </Button>
                         </div>
                       )}
@@ -150,7 +149,6 @@ export default function DecisionQueuePage() {
                   </div>
                 </div>
 
-                {/* Level 3: SKU Lines */}
                 {expandedPkg === pkg.id && packageLines && packageLines.length > 0 && (
                   <div className="border-t px-4 py-3 bg-muted/20">
                     <div className="overflow-x-auto">
@@ -158,12 +156,12 @@ export default function DecisionQueuePage() {
                         <thead>
                           <tr className="text-muted-foreground">
                             <th className="text-left py-1 pr-3">SKU</th>
-                            <th className="text-left py-1 pr-3">FC</th>
-                            <th className="text-left py-1 pr-3">From</th>
-                            <th className="text-left py-1 pr-3">To</th>
-                            <th className="text-right py-1 pr-3">Suggested</th>
-                            <th className="text-right py-1 pr-3">Approved</th>
-                            <th className="text-left py-1">Reason</th>
+                            <th className="text-left py-1 pr-3">Mẫu</th>
+                            <th className="text-left py-1 pr-3">Từ</th>
+                            <th className="text-left py-1 pr-3">Đến</th>
+                            <th className="text-right py-1 pr-3">Đề Xuất</th>
+                            <th className="text-right py-1 pr-3">Đã Duyệt</th>
+                            <th className="text-left py-1">Lý Do</th>
                           </tr>
                         </thead>
                         <tbody>

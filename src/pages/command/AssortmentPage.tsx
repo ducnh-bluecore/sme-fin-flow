@@ -121,12 +121,12 @@ export default function AssortmentPage() {
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Size Intelligence</h1>
-          <p className="text-sm text-muted-foreground mt-1">Revenue Protection Engine — Detect curve breaks before markdown</p>
+          <h1 className="text-2xl font-bold text-foreground">Phân Tích Cơ Cấu Size</h1>
+          <p className="text-sm text-muted-foreground mt-1">Bảo vệ doanh thu — Phát hiện lệch size trước khi phải giảm giá</p>
         </div>
         <Button onClick={() => runKpiEngine.mutate()} disabled={runKpiEngine.isPending} size="sm">
           <RefreshCw className={`h-4 w-4 mr-2 ${runKpiEngine.isPending ? 'animate-spin' : ''}`} />
-          {runKpiEngine.isPending ? 'Computing...' : 'Run Engine'}
+          {runKpiEngine.isPending ? 'Đang tính...' : 'Chạy Engine'}
         </Button>
       </motion.div>
 
@@ -135,7 +135,7 @@ export default function AssortmentPage() {
         <Card className={summary.avgHealthScore !== null && summary.avgHealthScore < 60 ? 'border-l-4 border-l-destructive' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Activity className="h-3 w-3" /> Size Health
+              <Activity className="h-3 w-3" /> Sức Khỏe Size
             </div>
             <p className={`text-xl font-bold ${
               summary.avgHealthScore === null ? '' :
@@ -144,14 +144,14 @@ export default function AssortmentPage() {
             }`}>
               {summary.avgHealthScore !== null ? `${Number(summary.avgHealthScore).toFixed(0)}` : '—'}
             </p>
-            {summary.totalProducts > 0 && <p className="text-[10px] text-muted-foreground">{summary.totalProducts} styles</p>}
+            {summary.totalProducts > 0 && <p className="text-[10px] text-muted-foreground">{summary.totalProducts} mẫu</p>}
           </CardContent>
         </Card>
 
         <Card className={summary.totalLostRevenue > 0 ? 'border-l-4 border-l-destructive' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <DollarSign className="h-3 w-3" /> Lost Revenue
+              <DollarSign className="h-3 w-3" /> DT Mất
             </div>
             <p className="text-xl font-bold text-destructive">
               {summary.totalLostRevenue > 0 ? formatVNDCompact(summary.totalLostRevenue) : '—'}
@@ -162,7 +162,7 @@ export default function AssortmentPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <ShieldAlert className="h-3 w-3" /> Broken
+              <ShieldAlert className="h-3 w-3" /> Lẻ Size
             </div>
             <p className="text-xl font-bold text-destructive">{summary.brokenCount}</p>
           </CardContent>
@@ -171,7 +171,7 @@ export default function AssortmentPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <TrendingDown className="h-3 w-3" /> MD Risk
+              <TrendingDown className="h-3 w-3" /> Rủi Ro Giảm Giá
             </div>
             <p className="text-xl font-bold text-destructive">
               {summary.highMarkdownRiskCount}
@@ -185,7 +185,7 @@ export default function AssortmentPage() {
         <Card className={summary.totalCashLocked > 0 ? 'border-l-4 border-l-orange-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Lock className="h-3 w-3" /> Cash Locked
+              <Lock className="h-3 w-3" /> Vốn Khóa
             </div>
             <p className="text-xl font-bold text-orange-600">
               {summary.totalCashLocked > 0 ? formatVNDCompact(summary.totalCashLocked) : '—'}
@@ -196,7 +196,7 @@ export default function AssortmentPage() {
         <Card className={summary.totalMarginLeak > 0 ? 'border-l-4 border-l-red-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Flame className="h-3 w-3" /> Margin Leak
+              <Flame className="h-3 w-3" /> Rò Biên LN
             </div>
             <p className="text-xl font-bold text-red-600">
               {summary.totalMarginLeak > 0 ? formatVNDCompact(summary.totalMarginLeak) : '—'}
@@ -207,7 +207,7 @@ export default function AssortmentPage() {
         <Card className={summary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <ArrowRightLeft className="h-3 w-3" /> Transfers
+              <ArrowRightLeft className="h-3 w-3" /> Điều Chuyển
             </div>
             <p className="text-xl font-bold text-amber-600">{summary.transferOpportunities}</p>
             {summary.totalTransferNetBenefit > 0 && (
@@ -221,14 +221,14 @@ export default function AssortmentPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview" className="gap-1.5">
-            <Activity className="h-3.5 w-3.5" /> Overview
+            <Activity className="h-3.5 w-3.5" /> Tổng Quan
           </TabsTrigger>
           <TabsTrigger value="actions" className="gap-1.5">
-            <ShieldAlert className="h-3.5 w-3.5" /> Actions
+            <ShieldAlert className="h-3.5 w-3.5" /> Hành Động
             {actionCount > 0 && <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">{actionCount}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="audit" className="gap-1.5">
-            <Eye className="h-3.5 w-3.5" /> Audit
+            <Eye className="h-3.5 w-3.5" /> Theo Dõi
             {auditCount > 0 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">{auditCount}</Badge>}
           </TabsTrigger>
         </TabsList>
@@ -240,7 +240,7 @@ export default function AssortmentPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-destructive" /> Revenue at Risk — Top Styles
+                  <DollarSign className="h-4 w-4 text-destructive" /> Doanh Thu Rủi Ro — Top Mẫu
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -257,9 +257,9 @@ export default function AssortmentPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Lost: <span className="font-semibold text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
-                            {' · '}{lr.lost_units_est} units · Driver: {lr.driver}
-                            {health?.core_size_missing && ' · Core missing'}
+                            Mất: <span className="font-semibold text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
+                            {' · '}{lr.lost_units_est} đv · Nguyên nhân: {lr.driver}
+                            {health?.core_size_missing && ' · Thiếu size chính'}
                             {cl && <> · <Lock className="h-3 w-3 inline" /> {formatVNDCompact(cl.cash_locked_value)}</>}
                             {ml > 0 && <> · <Flame className="h-3 w-3 inline" /> {formatVNDCompact(ml)}</>}
                           </p>
@@ -330,7 +330,7 @@ export default function AssortmentPage() {
           <SheetHeader className="pb-4">
             <SheetTitle className="text-lg flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Evidence Pack
+              Hồ Sơ Bằng Chứng
             </SheetTitle>
             <SheetDescription>
               {evidenceProductId && (fcNames?.get(evidenceProductId) || evidenceProductId)}
@@ -351,22 +351,22 @@ export default function AssortmentPage() {
 
               {evidencePack.data_snapshot?.health && (
                 <div className="space-y-1">
-                  <h4 className="text-sm font-semibold flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Size Health</h4>
+                  <h4 className="text-sm font-semibold flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Sức Khỏe Size</h4>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded bg-muted/50">
-                      <span className="text-muted-foreground">Score</span>
+                      <span className="text-muted-foreground">Điểm</span>
                       <p className="font-bold text-lg">{evidencePack.data_snapshot.health.score?.toFixed(0)}</p>
                     </div>
                     <div className="p-2 rounded bg-muted/50">
-                      <span className="text-muted-foreground">State</span>
+                      <span className="text-muted-foreground">Trạng Thái</span>
                       <p className="font-bold text-lg capitalize">{evidencePack.data_snapshot.health.state}</p>
                     </div>
                     <div className="p-2 rounded bg-muted/50">
-                      <span className="text-muted-foreground">Core Missing</span>
-                      <p className="font-semibold">{evidencePack.data_snapshot.health.core_missing ? 'Yes ⚠️' : 'No'}</p>
+                      <span className="text-muted-foreground">Thiếu Size Chính</span>
+                      <p className="font-semibold">{evidencePack.data_snapshot.health.core_missing ? 'Có ⚠️' : 'Không'}</p>
                     </div>
                     <div className="p-2 rounded bg-muted/50">
-                      <span className="text-muted-foreground">Deviation</span>
+                      <span className="text-muted-foreground">Độ Lệch</span>
                       <p className="font-semibold">{evidencePack.data_snapshot.health.deviation?.toFixed(3)}</p>
                     </div>
                   </div>
@@ -377,18 +377,18 @@ export default function AssortmentPage() {
                 <>
                   <Separator />
                   <div className="space-y-1">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Lost Revenue</h4>
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Doanh Thu Mất</h4>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="p-2 rounded bg-destructive/5">
-                        <span className="text-muted-foreground">Revenue Lost</span>
+                        <span className="text-muted-foreground">DT Mất</span>
                         <p className="font-bold text-destructive">{formatVNDCompact(evidencePack.data_snapshot.lost_revenue.revenue)}</p>
                       </div>
                       <div className="p-2 rounded bg-destructive/5">
-                        <span className="text-muted-foreground">Units Lost</span>
+                        <span className="text-muted-foreground">SL Mất</span>
                         <p className="font-bold">{evidencePack.data_snapshot.lost_revenue.units}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">Driver: {evidencePack.data_snapshot.lost_revenue.driver}</p>
+                    <p className="text-xs text-muted-foreground">Nguyên nhân: {evidencePack.data_snapshot.lost_revenue.driver}</p>
                   </div>
                 </>
               )}
@@ -397,18 +397,18 @@ export default function AssortmentPage() {
                 <>
                   <Separator />
                   <div className="space-y-1">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> Cash Lock</h4>
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> Vốn Bị Khóa</h4>
                     <div className="grid grid-cols-3 gap-2 text-xs">
                       <div className="p-2 rounded bg-orange-500/5">
-                        <span className="text-muted-foreground">Locked</span>
+                        <span className="text-muted-foreground">Bị Khóa</span>
                         <p className="font-bold text-orange-600">{formatVNDCompact(evidencePack.data_snapshot.cash_lock.value)}</p>
                       </div>
                       <div className="p-2 rounded bg-orange-500/5">
-                        <span className="text-muted-foreground">Lock %</span>
+                        <span className="text-muted-foreground">Tỷ Lệ</span>
                         <p className="font-bold">{evidencePack.data_snapshot.cash_lock.pct}%</p>
                       </div>
                       <div className="p-2 rounded bg-orange-500/5">
-                        <span className="text-muted-foreground">Release</span>
+                        <span className="text-muted-foreground">Giải Phóng</span>
                         <p className="font-bold">{evidencePack.data_snapshot.cash_lock.release_days}d</p>
                       </div>
                     </div>
@@ -420,10 +420,10 @@ export default function AssortmentPage() {
                 <>
                   <Separator />
                   <div className="space-y-1">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5" /> Markdown Risk</h4>
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5" /> Rủi Ro Giảm Giá</h4>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="p-2 rounded bg-muted/50">
-                        <span className="text-muted-foreground">Risk Score</span>
+                        <span className="text-muted-foreground">Điểm Rủi Ro</span>
                         <p className="font-bold">{evidencePack.data_snapshot.markdown_risk.score}</p>
                       </div>
                       <div className="p-2 rounded bg-muted/50">
@@ -431,7 +431,7 @@ export default function AssortmentPage() {
                         <p className="font-bold">{evidencePack.data_snapshot.markdown_risk.eta_days}d</p>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">Reason: {evidencePack.data_snapshot.markdown_risk.reason}</p>
+                    <p className="text-xs text-muted-foreground">Lý do: {evidencePack.data_snapshot.markdown_risk.reason}</p>
                   </div>
                 </>
               )}
@@ -440,9 +440,9 @@ export default function AssortmentPage() {
                 <>
                   <Separator />
                   <div className="space-y-1">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Flame className="h-3.5 w-3.5" /> Margin Leak</h4>
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5"><Flame className="h-3.5 w-3.5" /> Rò Rỉ Biên LN</h4>
                     <div className="p-2 rounded bg-red-500/5 text-xs">
-                      <span className="text-muted-foreground">Total Margin Leak</span>
+                      <span className="text-muted-foreground">Tổng Rò Rỉ</span>
                       <p className="font-bold text-red-600">{formatVNDCompact(evidencePack.data_snapshot.margin_leak.total)}</p>
                     </div>
                     {evidencePack.data_snapshot.margin_leak.drivers?.map((d: any, i: number) => (
@@ -457,7 +457,7 @@ export default function AssortmentPage() {
 
               <Separator />
               <div className="text-xs text-muted-foreground">
-                <p className="font-semibold mb-1">Source Tables</p>
+                <p className="font-semibold mb-1">Bảng Nguồn</p>
                 <div className="flex flex-wrap gap-1">
                   {evidencePack.source_tables?.map((t: string) => (
                     <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>
@@ -466,7 +466,7 @@ export default function AssortmentPage() {
               </div>
             </div>
           ) : (
-            <div className="text-center py-8 text-muted-foreground text-sm">No evidence pack available</div>
+            <div className="text-center py-8 text-muted-foreground text-sm">Không có hồ sơ bằng chứng</div>
           )}
         </SheetContent>
       </Sheet>

@@ -69,28 +69,28 @@ export default function CommandOverviewPage() {
 
   const kpiCards = [
     { 
-      label: 'Units in Network', 
+      label: 'Tồn Kho Mạng Lưới', 
       value: invStats?.totalUnits?.toLocaleString() || '0', 
       icon: Package,
       color: 'text-blue-600',
       bgColor: 'bg-blue-500/10',
     },
     { 
-      label: 'Locked Cash', 
+      label: 'Vốn Bị Khóa', 
       value: formatVND(invStats?.lockedCash || distortionData?.totalLockedCash), 
       icon: DollarSign,
       color: 'text-orange-600',
       bgColor: 'bg-orange-500/10',
     },
     { 
-      label: 'Distortion Index', 
+      label: 'Chỉ Số Lệch Chuẩn', 
       value: distortionData?.avgScore ? distortionData.avgScore.toFixed(2) : '—',
       icon: AlertTriangle,
       color: 'text-red-600',
       bgColor: 'bg-red-500/10',
     },
     { 
-      label: 'Pending Decisions', 
+      label: 'Chờ Quyết Định', 
       value: String(pendingPackages?.length || 0),
       icon: Clock,
       color: 'text-emerald-600',
@@ -110,9 +110,9 @@ export default function CommandOverviewPage() {
           <Crosshair className="h-8 w-8 text-orange-600" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Command Center</h1>
+          <h1 className="text-2xl font-bold text-foreground">Trung Tâm Điều Hành</h1>
           <p className="text-sm text-muted-foreground">
-            Capital at the Right Place — Inventory Intelligence Overview
+            Vốn đúng chỗ — Tổng quan vận hành tồn kho
           </p>
         </div>
       </motion.div>
@@ -147,9 +147,9 @@ export default function CommandOverviewPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Pending Decision Packages</CardTitle>
+            <CardTitle className="text-base">Gói Quyết Định Chờ Duyệt</CardTitle>
             <Button variant="ghost" size="sm" onClick={() => navigate('/command/decisions')}>
-              View All <ArrowRight className="ml-1 h-4 w-4" />
+              Xem Tất Cả <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
@@ -157,8 +157,8 @@ export default function CommandOverviewPage() {
           {(!pendingPackages || pendingPackages.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground">
               <ListChecksIcon className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No pending decision packages</p>
-              <p className="text-xs mt-1">Run allocation engine to generate packages</p>
+              <p className="text-sm">Không có gói quyết định nào</p>
+              <p className="text-xs mt-1">Chạy engine phân bổ để tạo gói quyết định</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -177,7 +177,7 @@ export default function CommandOverviewPage() {
                         {(pkg.scope_summary as any)?.description || pkg.package_type}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {(pkg.scope_summary as any)?.units?.toLocaleString() || '—'} units · {(pkg.scope_summary as any)?.skus || '—'} SKUs
+                        {(pkg.scope_summary as any)?.units?.toLocaleString() || '—'} đơn vị · {(pkg.scope_summary as any)?.skus || '—'} SKU
                       </p>
                     </div>
                   </div>
@@ -185,7 +185,7 @@ export default function CommandOverviewPage() {
                     <p className="text-sm font-semibold text-foreground">
                       {formatVND((pkg.impact_summary as any)?.revenue_protected)}
                     </p>
-                    <p className="text-xs text-muted-foreground">protected</p>
+                    <p className="text-xs text-muted-foreground">bảo vệ được</p>
                   </div>
                 </div>
               ))}
