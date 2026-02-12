@@ -19,6 +19,8 @@ import { TrendingUp, TrendingDown, Calendar, Target } from 'lucide-react';
 import { formatVNDCompact } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
 
+import type { TimeHorizon } from '@/hooks/useWhatIfScenarios';
+
 interface MonthlyProfitTrendChartProps {
   baseValues: {
     revenue: number;
@@ -37,9 +39,33 @@ interface MonthlyProfitTrendChartProps {
     ebitdaChange: number;
   };
   controlMode: 'simple' | 'retail';
+  timeHorizon?: TimeHorizon;
 }
 
-const MONTHS = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'];
+function generateLabels(timeHorizon: TimeHorizon): string[] {
+  if (timeHorizon === 1) return ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'];
+  return Array.from({ length: timeHorizon }, (_, i) => `T${i + 1}`);
+}
+
+function getChartTitle(timeHorizon: TimeHorizon): string {
+  switch (timeHorizon) {
+    case 1: return 'Xu hướng EBITDA theo tuần';
+    case 3: return 'Xu hướng EBITDA 3 tháng tới';
+    case 6: return 'Xu hướng EBITDA 6 tháng tới';
+    case 12: return 'Xu hướng EBITDA theo tháng';
+    case 24: return 'Xu hướng EBITDA 2 năm';
+  }
+}
+
+function getPeriodLabel(timeHorizon: TimeHorizon): string {
+  switch (timeHorizon) {
+    case 1: return '1 tháng';
+    case 3: return '3 tháng';
+    case 6: return '6 tháng';
+    case 12: return 'năm';
+    case 24: return '2 năm';
+  }
+}
 
 const tooltipStyle = { 
   background: 'hsl(var(--card))', 
@@ -51,13 +77,19 @@ function MonthlyProfitTrendChartComponent({
   baseValues,
   projectedValues,
   controlMode,
+  timeHorizon = 12,
 }: MonthlyProfitTrendChartProps) {
+  const labels = useMemo(() => generateLabels(timeHorizon), [timeHorizon]);
+  const chartTitle = useMemo(() => getChartTitle(timeHorizon), [timeHorizon]);
+  const periodLabel = useMemo(() => getPeriodLabel(timeHorizon), [timeHorizon]);
+  const periodCount = labels.length; // number of data points (4 weeks or N months)
   // Generate monthly trend data with gradual growth/decline
   const monthlyTrendData = useMemo(() => {
-    const months = MONTHS.map((month, index) => {
+    const months = labels.map((label, index) => {
       // Calculate gradual transition from base to projected over the year
       // Use a growth curve that accelerates mid-year
-      const progressFactor = index / 11; // 0 to 1 over the year
+      const lastIndex = periodCount - 1;
+      const progressFactor = lastIndex > 0 ? index / lastIndex : 1;
       
       // Apply an S-curve for more realistic growth pattern
       const sCurve = (x: number) => {
@@ -67,31 +99,31 @@ function MonthlyProfitTrendChartComponent({
       
       const growthProgress = sCurve(progressFactor);
       
-      // Base monthly values (divided by 12 for monthly approximation)
-      const baseMonthlyRevenue = baseValues.revenue / 12;
-      const baseMonthlyEbitda = baseValues.ebitda / 12;
-      const baseMonthlyGrossProfit = (baseValues.revenue - baseValues.cogs) / 12;
+      // Base per-period values
+      const basePeriodRevenue = baseValues.revenue / periodCount;
+      const basePeriodEbitda = baseValues.ebitda / periodCount;
+      const basePeriodGrossProfit = (baseValues.revenue - baseValues.cogs) / periodCount;
       
-      // Projected monthly values
-      const projectedMonthlyRevenue = projectedValues.revenue / 12;
-      const projectedMonthlyEbitda = projectedValues.ebitda / 12;
-      const projectedMonthlyGrossProfit = (projectedValues.revenue - projectedValues.cogs) / 12;
+      // Projected per-period values
+      const projectedPeriodRevenue = projectedValues.revenue / periodCount;
+      const projectedPeriodEbitda = projectedValues.ebitda / periodCount;
+      const projectedPeriodGrossProfit = (projectedValues.revenue - projectedValues.cogs) / periodCount;
       
       // Interpolated values based on growth progress
-      const currentRevenue = baseMonthlyRevenue + (projectedMonthlyRevenue - baseMonthlyRevenue) * growthProgress;
-      const currentEbitda = baseMonthlyEbitda + (projectedMonthlyEbitda - baseMonthlyEbitda) * growthProgress;
-      const currentGrossProfit = baseMonthlyGrossProfit + (projectedMonthlyGrossProfit - baseMonthlyGrossProfit) * growthProgress;
+      const currentRevenue = basePeriodRevenue + (projectedPeriodRevenue - basePeriodRevenue) * growthProgress;
+      const currentEbitda = basePeriodEbitda + (projectedPeriodEbitda - basePeriodEbitda) * growthProgress;
+      const currentGrossProfit = basePeriodGrossProfit + (projectedPeriodGrossProfit - basePeriodGrossProfit) * growthProgress;
       
-      // Add some seasonal variance for realism
-      const seasonalFactor = 1 + 0.08 * Math.sin((index + 3) * Math.PI / 6); // Peak around Q2-Q3
+      // Add some seasonal variance for realism (skip for weekly view)
+      const seasonalFactor = timeHorizon === 1 ? 1 : 1 + 0.08 * Math.sin((index + 3) * Math.PI / 6);
       
       return {
-        month,
+        month: label,
         monthIndex: index + 1,
         // Base scenario (no changes applied)
-        baseRevenue: baseMonthlyRevenue * seasonalFactor,
-        baseEbitda: baseMonthlyEbitda * seasonalFactor,
-        baseGrossProfit: baseMonthlyGrossProfit * seasonalFactor,
+        baseRevenue: basePeriodRevenue * seasonalFactor,
+        baseEbitda: basePeriodEbitda * seasonalFactor,
+        baseGrossProfit: basePeriodGrossProfit * seasonalFactor,
         // Projected scenario (with what-if changes)
         projectedRevenue: currentRevenue * seasonalFactor,
         projectedEbitda: currentEbitda * seasonalFactor,
@@ -113,11 +145,11 @@ function MonthlyProfitTrendChartComponent({
     });
     
     return months;
-  }, [baseValues, projectedValues]);
+  }, [baseValues, projectedValues, labels, periodCount, timeHorizon]);
 
   // Summary statistics
   const summary = useMemo(() => {
-    const lastMonth = monthlyTrendData[11];
+    const lastMonth = monthlyTrendData[monthlyTrendData.length - 1];
     const totalBaseEbitda = monthlyTrendData.reduce((sum, m) => sum + m.baseEbitda, 0);
     const totalProjectedEbitda = monthlyTrendData.reduce((sum, m) => sum + m.projectedEbitda, 0);
     const ebitdaDiff = totalProjectedEbitda - totalBaseEbitda;
@@ -161,7 +193,7 @@ function MonthlyProfitTrendChartComponent({
     name === 'baseEbitda' ? 'Kịch bản cơ sở' : 'Kịch bản What-If'
   ], []);
 
-  const trendLabelFormatter = useCallback((label: string) => `Tháng ${label}`, []);
+  const trendLabelFormatter = useCallback((label: string) => timeHorizon === 1 ? label : `Tháng ${label}`, [timeHorizon]);
 
   const trendLegendFormatter = useCallback(
     (value: string) => value === 'baseEbitda' ? 'Kịch bản cơ sở' : 'Kịch bản What-If',
@@ -193,7 +225,7 @@ function MonthlyProfitTrendChartComponent({
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1">
                 <Target className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">EBITDA Dự kiến (năm)</span>
+                <span className="text-xs text-muted-foreground">EBITDA Dự kiến ({periodLabel})</span>
               </div>
               <p className="text-lg font-bold">{formatVNDCompact(summary.totalProjectedEbitda)}</p>
               <Badge 
@@ -291,7 +323,7 @@ function MonthlyProfitTrendChartComponent({
         <CardHeader className="pb-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
-            Xu hướng EBITDA theo tháng
+            {chartTitle}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -391,11 +423,11 @@ function MonthlyProfitTrendChartComponent({
           {/* End of year comparison */}
           <div className="mt-4 p-3 bg-muted/50 rounded-lg grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs text-muted-foreground mb-1">EBITDA cuối năm (Cơ sở)</p>
+              <p className="text-xs text-muted-foreground mb-1">EBITDA cuối kỳ (Cơ sở)</p>
               <p className="font-semibold">{formatVNDCompact(summary.totalBaseEbitda)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground mb-1">EBITDA cuối năm (What-If)</p>
+              <p className="text-xs text-muted-foreground mb-1">EBITDA cuối kỳ (What-If)</p>
               <p className={cn(
                 'font-semibold',
                 isPositiveChange ? 'text-success' : 'text-destructive'
