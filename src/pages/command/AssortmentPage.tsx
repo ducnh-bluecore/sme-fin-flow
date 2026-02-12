@@ -43,6 +43,42 @@ export default function AssortmentPage() {
     enabled: !!tenantId && isReady,
   });
 
+  // Fetch FC names for display
+  const { data: fcNames } = useQuery({
+    queryKey: ['command-fc-names', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_family_codes' as any)
+        .select('id,fc_name,fc_code')
+        .eq('is_active', true)
+        .limit(5000);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const fc of (data || []) as any[]) {
+        map.set(fc.id, fc.fc_name || fc.fc_code || fc.id);
+      }
+      return map;
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  // Fetch store names for display
+  const { data: storeNames } = useQuery({
+    queryKey: ['command-store-names', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_stores' as any)
+        .select('id,store_name,store_code')
+        .eq('is_active', true)
+        .limit(500);
+      if (error) throw error;
+      const map = new Map<string, string>();
+      for (const s of (data || []) as any[]) {
+        map.set(s.id, s.store_name || s.store_code || s.id);
+      }
+      return map;
+    },
+    enabled: !!tenantId && isReady,
+  });
+
   const runKpiEngine = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('inventory-kpi-engine', {
@@ -82,8 +118,8 @@ export default function AssortmentPage() {
   if (search) {
     const q = search.toLowerCase();
     filtered = filtered.filter((r: any) => 
-      (r.style_id || '').toLowerCase().includes(q) || 
-      (r.store_id || '').toLowerCase().includes(q)
+      (fcNames?.get(r.style_id) || r.style_id || '').toLowerCase().includes(q) || 
+      (storeNames?.get(r.store_id) || r.store_id || '').toLowerCase().includes(q)
     );
   }
   if (sortBy === 'scs') {
@@ -217,8 +253,8 @@ export default function AssortmentPage() {
                     const chi = chiMap.get(row.style_id);
                     return (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-xs">{row.style_id}</TableCell>
-                        <TableCell className="font-mono text-xs">{(row.store_id as string)?.slice(0, 8)}</TableCell>
+                        <TableCell className="text-xs font-medium">{fcNames?.get(row.style_id) || row.style_id}</TableCell>
+                        <TableCell className="text-xs">{storeNames?.get(row.store_id) || (row.store_id as string)?.slice(0, 8)}</TableCell>
                         <TableCell className="text-center">{row.sizes_present}/{row.sizes_total}</TableCell>
                         <TableCell className="text-center font-semibold">
                           {row.size_completeness_score ? `${(row.size_completeness_score * 100).toFixed(0)}%` : '—'}

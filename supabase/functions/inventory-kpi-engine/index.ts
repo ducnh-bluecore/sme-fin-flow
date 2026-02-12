@@ -32,9 +32,9 @@ Deno.serve(async (req) => {
 
     // ── Fetch data ──
     const [posResult, demandResult, fcMappingResult, storesResult] = await Promise.all([
-      fetchAll(supabase, "inv_state_positions", "id,store_id,fc_id,sku,on_hand,reserved,in_transit,safety_stock,weeks_of_cover,unit_cost", tenant_id),
+      fetchAll(supabase, "inv_state_positions", "id,store_id,fc_id,sku,on_hand,reserved,in_transit,safety_stock,weeks_of_cover", tenant_id),
       fetchAll(supabase, "inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity", tenant_id),
-      fetchAll(supabase, "inv_sku_fc_mapping", "fc_id,sku,size_code,style_id", tenant_id),
+      fetchAll(supabase, "inv_sku_fc_mapping", "fc_id,sku,size", tenant_id),
       fetchAll(supabase, "inv_stores", "id,store_name,store_code,tier,region,location_type,is_active", tenant_id),
     ]);
 
@@ -196,21 +196,14 @@ function computeIDI(tenantId: string, date: string, positions: any[], demand: an
 function computeSCS(tenantId: string, date: string, positions: any[], skuMapping: any[], retailStores: any[]) {
   const retailIds = new Set(retailStores.map((s: any) => s.id));
 
-  // Build style → expected sizes
+  // Build fc_id (as style) → expected sizes
   const styleSizes = new Map<string, Set<string>>();
   const skuToStyle = new Map<string, { styleId: string; sizeCode: string }>();
   for (const m of skuMapping) {
-    if (!m.style_id || !m.size_code) continue;
-    if (!styleSizes.has(m.style_id)) styleSizes.set(m.style_id, new Set());
-    styleSizes.get(m.style_id)!.add(m.size_code);
-    // Map both sku and fc_id for matching
-    if (m.sku) skuToStyle.set(m.sku, { styleId: m.style_id, sizeCode: m.size_code });
-  }
-
-  // Also build fc_id → style_id mapping for positions that use fc_id
-  const fcToStyle = new Map<string, string>();
-  for (const m of skuMapping) {
-    if (m.style_id && m.fc_id) fcToStyle.set(m.fc_id, m.style_id);
+    if (!m.fc_id || !m.size) continue;
+    if (!styleSizes.has(m.fc_id)) styleSizes.set(m.fc_id, new Set());
+    styleSizes.get(m.fc_id)!.add(m.size);
+    if (m.sku) skuToStyle.set(m.sku, { styleId: m.fc_id, sizeCode: m.size });
   }
 
   // Group positions by store-style and track which sizes have stock
@@ -226,8 +219,12 @@ function computeSCS(tenantId: string, date: string, positions: any[], skuMapping
       const info = skuToStyle.get(p.sku)!;
       styleId = info.styleId;
       sizeCode = info.sizeCode;
-    } else if (p.fc_id && fcToStyle.has(p.fc_id)) {
-      styleId = fcToStyle.get(p.fc_id);
+    } else if (p.fc_id) {
+      // Use fc_id directly as style — but we need a size match
+      styleId = p.fc_id;
+      // Try to find size from sku mapping for this fc_id
+      const sizes = styleSizes.get(p.fc_id);
+      if (sizes && sizes.size === 1) sizeCode = [...sizes][0];
     }
 
     if (!styleId || !sizeCode) continue;
@@ -297,31 +294,26 @@ function computeCHI(tenantId: string, date: string, scsResults: any[]) {
   return results;
 }
 
-// ── Network Gap: demand - available stock per style ──
+// ── Network Gap: demand - available stock per FC (style) ──
 function computeNetworkGap(tenantId: string, date: string, positions: any[], demand: any[], skuMapping: any[], retailStores: any[]) {
   const retailIds = new Set(retailStores.map((s: any) => s.id));
 
-  // FC → style mapping
-  const fcToStyle = new Map<string, string>();
-  for (const m of skuMapping) {
-    if (m.style_id && m.fc_id) fcToStyle.set(m.fc_id, m.style_id);
-  }
+  // Use fc_id directly as style unit
+  const validFcIds = new Set(skuMapping.map((m: any) => m.fc_id).filter(Boolean));
 
-  // Aggregate stock by style (all locations)
+  // Aggregate stock by fc_id (all locations)
   const styleStock = new Map<string, number>();
   for (const p of positions) {
-    const style = fcToStyle.get(p.fc_id);
-    if (!style) continue;
-    styleStock.set(style, (styleStock.get(style) || 0) + (p.on_hand || 0));
+    if (!p.fc_id) continue;
+    styleStock.set(p.fc_id, (styleStock.get(p.fc_id) || 0) + (p.on_hand || 0));
   }
 
-  // Aggregate demand by style (retail only, 28-day projection)
+  // Aggregate demand by fc_id (retail only, 28-day projection)
   const styleDemand = new Map<string, number>();
   for (const d of demand) {
     if (!retailIds.has(d.store_id)) continue;
-    const style = fcToStyle.get(d.fc_id);
-    if (!style) continue;
-    styleDemand.set(style, (styleDemand.get(style) || 0) + (d.avg_daily_sales || 0) * 28);
+    if (!d.fc_id) continue;
+    styleDemand.set(d.fc_id, (styleDemand.get(d.fc_id) || 0) + (d.avg_daily_sales || 0) * 28);
   }
 
   const results: any[] = [];
@@ -332,11 +324,10 @@ function computeNetworkGap(tenantId: string, date: string, positions: any[], dem
     const totalDemand28d = styleDemand.get(styleId) || 0;
     if (totalDemand28d <= 0 && totalStock <= 0) continue;
 
-    // Reallocatable = stock that could be moved (assume 70% of total is reallocatable)
     const reallocatable = Math.floor(totalStock * 0.7);
     const trueShortage = Math.max(0, Math.ceil(totalDemand28d) - totalStock);
     const netGap = Math.max(0, Math.ceil(totalDemand28d) - reallocatable);
-    const revenueAtRisk = trueShortage * 250000; // avg unit price
+    const revenueAtRisk = trueShortage * 250000;
 
     if (trueShortage <= 0 && netGap <= 0) continue;
 
