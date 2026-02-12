@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Layers3, AlertTriangle, RefreshCw, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, Lock, Flame, FileText, ChevronDown, ChevronRight, Store } from 'lucide-react';
+import { Layers3, AlertTriangle, RefreshCw, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, Lock, Flame, FileText, ChevronDown, ChevronRight, Store, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -23,6 +24,7 @@ export default function AssortmentPage() {
   const queryClient = useQueryClient();
   const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState('overview');
 
   // DB-aggregated summaries (no 1000-row limit)
   const { summary: dbSummary, transferByDest, isLoading: summaryLoading } = useSizeIntelligenceSummary();
@@ -91,7 +93,11 @@ export default function AssortmentPage() {
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
 
-  // (Filtering/sorting now handled by Action Groups via server-side RPC)
+  // Split groups for tabs
+  const actionGroups = useMemo(() => healthGroups.filter(g => g.curve_state === 'broken' || g.curve_state === 'risk'), [healthGroups]);
+  const auditGroups = useMemo(() => healthGroups.filter(g => g.curve_state === 'watch' || g.curve_state === 'healthy'), [healthGroups]);
+  const actionCount = actionGroups.reduce((s, g) => s + g.style_count, 0);
+  const auditCount = auditGroups.reduce((s, g) => s + g.style_count, 0);
 
   const topLostRevStyles = (lostRevenue.data || []).slice(0, 5);
 
@@ -130,7 +136,7 @@ export default function AssortmentPage() {
         </Button>
       </motion.div>
 
-      {/* ── Hero KPIs (from DB views - accurate) ── */}
+      {/* ── Hero KPIs (from DB views - accurate) — always visible ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <Card className={summary.avgHealthScore !== null && summary.avgHealthScore < 60 ? 'border-l-4 border-l-destructive' : ''}>
           <CardContent className="pt-4 pb-3">
@@ -217,154 +223,164 @@ export default function AssortmentPage() {
         </Card>
       </div>
 
-      {/* ── Revenue Risk Feed ── */}
-      {topLostRevStyles.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-destructive" /> Revenue at Risk — Top Styles
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {topLostRevStyles.map((lr) => {
-              const health = healthMap.get(lr.product_id);
-              const md = markdownRiskMap.get(lr.product_id);
-              const cl = cashLockMap.get(lr.product_id);
-              const ml = marginLeakMap.get(lr.product_id) || 0;
-              const name = fcNames?.get(lr.product_id) || lr.product_id;
-              const hasEvidence = evidencePackMap.has(lr.product_id);
-              return (
-                <div key={lr.id} className="border-l-2 border-l-destructive rounded-r-md p-3 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors" onClick={() => hasEvidence && setEvidenceProductId(lr.product_id)}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Lost: <span className="font-semibold text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
-                        {' · '}{lr.lost_units_est} units · Driver: {lr.driver}
-                        {health?.core_size_missing && ' · Core missing'}
-                        {cl && <> · <Lock className="h-3 w-3 inline" /> {formatVNDCompact(cl.cash_locked_value)}</>}
-                        {ml > 0 && <> · <Flame className="h-3 w-3 inline" /> {formatVNDCompact(ml)}</>}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {hasEvidence && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
-                      {health && (
-                        <Badge variant={health.curve_state === 'broken' ? 'destructive' : 'secondary'} className="text-xs">
-                          {health.curve_state} ({health.size_health_score.toFixed(0)})
-                        </Badge>
-                      )}
-                      {md && md.markdown_eta_days && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" /> {md.markdown_eta_days}d
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+      {/* ── 3-Tab Layout ── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="overview" className="gap-1.5">
+            <Activity className="h-3.5 w-3.5" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="actions" className="gap-1.5">
+            <ShieldAlert className="h-3.5 w-3.5" /> Actions
+            {actionCount > 0 && <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">{actionCount}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-1.5">
+            <Eye className="h-3.5 w-3.5" /> Audit
+            {auditCount > 0 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">{auditCount}</Badge>}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* ── Smart Transfer — Grouped by Destination ── */}
-      {transferByDest.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
-              <Badge variant="secondary" className="text-xs ml-auto">{summary.transferOpportunities} opportunities</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {transferByDest.map((group: any) => {
-              const destName = storeNames?.get(group.dest_store_id) || group.dest_store_id?.slice(0, 12);
-              const isOpen = expandedDest.has(group.dest_store_id);
-              const detailRows = transfersByDest.get(group.dest_store_id) || [];
-
-              return (
-                <Collapsible key={group.dest_store_id} open={isOpen} onOpenChange={() => toggleDest(group.dest_store_id)}>
-                  <CollapsibleTrigger className="w-full">
-                    <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                        <Store className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-sm">{destName}</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs">
-                        <span className="text-muted-foreground">
-                          <strong>{group.transfer_count}</strong> transfers
-                        </span>
-                        <span className="text-muted-foreground">
-                          <strong>{group.total_qty?.toLocaleString()}</strong> units
-                        </span>
-                        <span className="text-muted-foreground">
-                          {group.unique_products} styles
-                        </span>
-                        <span className="font-semibold text-emerald-600">
-                          +{formatVNDCompact(group.total_net_benefit || 0)}
-                        </span>
+        {/* ── Tab 1: Overview ── */}
+        <TabsContent value="overview" className="space-y-4 mt-4">
+          {/* Revenue Risk Feed */}
+          {topLostRevStyles.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-destructive" /> Revenue at Risk — Top Styles
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {topLostRevStyles.map((lr) => {
+                  const health = healthMap.get(lr.product_id);
+                  const md = markdownRiskMap.get(lr.product_id);
+                  const cl = cashLockMap.get(lr.product_id);
+                  const ml = marginLeakMap.get(lr.product_id) || 0;
+                  const name = fcNames?.get(lr.product_id) || lr.product_id;
+                  const hasEvidence = evidencePackMap.has(lr.product_id);
+                  return (
+                    <div key={lr.id} className="border-l-2 border-l-destructive rounded-r-md p-3 bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors" onClick={() => hasEvidence && setEvidenceProductId(lr.product_id)}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Lost: <span className="font-semibold text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span>
+                            {' · '}{lr.lost_units_est} units · Driver: {lr.driver}
+                            {health?.core_size_missing && ' · Core missing'}
+                            {cl && <> · <Lock className="h-3 w-3 inline" /> {formatVNDCompact(cl.cash_locked_value)}</>}
+                            {ml > 0 && <> · <Flame className="h-3 w-3 inline" /> {formatVNDCompact(ml)}</>}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {hasEvidence && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+                          {health && (
+                            <Badge variant={health.curve_state === 'broken' ? 'destructive' : 'secondary'} className="text-xs">
+                              {health.curve_state} ({health.size_health_score.toFixed(0)})
+                            </Badge>
+                          )}
+                          {md && md.markdown_eta_days && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" /> {md.markdown_eta_days}d
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    {detailRows.length > 0 ? (
-                      <div className="ml-7 mt-1 border rounded-md overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-xs">Style</TableHead>
-                              <TableHead className="text-xs">Size</TableHead>
-                              <TableHead className="text-xs">From</TableHead>
-                              <TableHead className="text-xs text-center">Qty</TableHead>
-                              <TableHead className="text-xs text-right">Net Benefit</TableHead>
-                              <TableHead className="text-xs">Reason</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {detailRows.map((t: any) => {
-                              const name = fcNames?.get(t.product_id) || t.product_id;
-                              const srcName = storeNames?.get(t.source_store_id) || t.source_store_id?.slice(0, 8);
-                              return (
-                                <TableRow key={t.id}>
-                                  <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
-                                  <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
-                                  <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
-                                  <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
-                                  <TableCell className="text-right text-xs font-medium text-emerald-600">
-                                    {formatVNDCompact(t.net_benefit)}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Smart Transfer Suggestions */}
+          {transferByDest.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
+                  <Badge variant="secondary" className="text-xs ml-auto">{summary.transferOpportunities} opportunities</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {transferByDest.map((group: any) => {
+                  const destName = storeNames?.get(group.dest_store_id) || group.dest_store_id?.slice(0, 12);
+                  const isOpen = expandedDest.has(group.dest_store_id);
+                  const detailRows = transfersByDest.get(group.dest_store_id) || [];
+
+                  return (
+                    <Collapsible key={group.dest_store_id} open={isOpen} onOpenChange={() => toggleDest(group.dest_store_id)}>
+                      <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                          <div className="flex items-center gap-3">
+                            {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                            <Store className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-sm">{destName}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="text-muted-foreground">
+                              <strong>{group.transfer_count}</strong> transfers
+                            </span>
+                            <span className="text-muted-foreground">
+                              <strong>{group.total_qty?.toLocaleString()}</strong> units
+                            </span>
+                            <span className="text-muted-foreground">
+                              {group.unique_products} styles
+                            </span>
+                            <span className="font-semibold text-emerald-600">
+                              +{formatVNDCompact(group.total_net_benefit || 0)}
+                            </span>
+                          </div>
+                        </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        {detailRows.length > 0 ? (
+                          <div className="ml-7 mt-1 border rounded-md overflow-hidden">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Style</TableHead>
+                                  <TableHead className="text-xs">Size</TableHead>
+                                  <TableHead className="text-xs">From</TableHead>
+                                  <TableHead className="text-xs text-center">Qty</TableHead>
+                                  <TableHead className="text-xs text-right">Net Benefit</TableHead>
+                                  <TableHead className="text-xs">Reason</TableHead>
                                 </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    ) : (
-                      <p className="ml-7 mt-2 text-xs text-muted-foreground">Click "Run Engine" để load chi tiết</p>
-                    )}
-                  </CollapsibleContent>
-                </Collapsible>
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+                              </TableHeader>
+                              <TableBody>
+                                {detailRows.map((t: any) => {
+                                  const name = fcNames?.get(t.product_id) || t.product_id;
+                                  const srcName = storeNames?.get(t.source_store_id) || t.source_store_id?.slice(0, 8);
+                                  return (
+                                    <TableRow key={t.id}>
+                                      <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
+                                      <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
+                                      <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
+                                      <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
+                                      <TableCell className="text-right text-xs font-medium text-emerald-600">
+                                        {formatVNDCompact(t.net_benefit)}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <p className="ml-7 mt-2 text-xs text-muted-foreground">Click "Run Engine" để load chi tiết</p>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      {/* ── Size Health Action Groups ── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Layers3 className="h-4 w-4" /> Size Health by State
-            {summary.totalProducts > 0 && (
-              <Badge variant="outline" className="text-xs ml-1">{summary.totalProducts} styles</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* ── Tab 2: Actions (Broken + Risk) ── */}
+        <TabsContent value="actions" className="space-y-4 mt-4">
           <SizeHealthActionGroups
-            groups={healthGroups}
+            groups={actionGroups}
             isLoading={groupsLoading || summaryLoading}
             detailCache={detailCache}
             loadingStates={loadingStates}
@@ -372,8 +388,21 @@ export default function AssortmentPage() {
             onViewEvidence={(productId) => evidencePackMap.has(productId) && setEvidenceProductId(productId)}
             pageSize={PAGE_SIZE}
           />
-        </CardContent>
-      </Card>
+        </TabsContent>
+
+        {/* ── Tab 3: Audit (Watch + Healthy) ── */}
+        <TabsContent value="audit" className="space-y-4 mt-4">
+          <SizeHealthActionGroups
+            groups={auditGroups}
+            isLoading={groupsLoading || summaryLoading}
+            detailCache={detailCache}
+            loadingStates={loadingStates}
+            onExpandGroup={loadGroupDetails}
+            onViewEvidence={(productId) => evidencePackMap.has(productId) && setEvidenceProductId(productId)}
+            pageSize={PAGE_SIZE}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* ── Evidence Pack Drawer ── */}
       <Sheet open={!!evidenceProductId} onOpenChange={(open) => !open && setEvidenceProductId(null)}>
