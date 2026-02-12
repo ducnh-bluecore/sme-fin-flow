@@ -2,6 +2,7 @@ import { useRetailHealthScore, type HealthStatus } from '@/hooks/useRetailHealth
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Activity, ShieldCheck, AlertTriangle, XOctagon, Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -75,20 +76,29 @@ export function RetailHealthHero() {
 
           {/* 5 Hero Metrics */}
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-5 gap-4">
-            {Object.values(score.metrics).map((metric) => (
-              <div key={metric.label} className="text-center">
-                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
-                  {metric.label}
+            {Object.entries(score.metrics).map(([key, metric]) => {
+              // DIO is provisional when COGS coverage is low
+              const isProvisional = key === 'inventoryDays' && snapshot?.grossMarginPercent !== undefined && snapshot.grossMarginPercent > 95 && snapshot.grossProfit > 0;
+              return (
+                <div key={metric.label} className="text-center">
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                    {metric.label}
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${metricStatusDot[metric.status]}`} />
+                    <span className="text-lg font-semibold tabular-nums text-foreground">
+                      {typeof metric.value === 'number' ? metric.value.toFixed(1) : metric.value}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{metric.unit}</span>
+                  </div>
+                  {isProvisional && (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[9px] px-1 py-0 h-3.5 mt-0.5">
+                      Tạm tính
+                    </Badge>
+                  )}
                 </div>
-                <div className="flex items-center justify-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${metricStatusDot[metric.status]}`} />
-                  <span className="text-lg font-semibold tabular-nums text-foreground">
-                    {typeof metric.value === 'number' ? metric.value.toFixed(1) : metric.value}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{metric.unit}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
