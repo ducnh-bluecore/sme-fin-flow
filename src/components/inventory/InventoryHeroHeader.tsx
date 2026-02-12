@@ -24,6 +24,7 @@ export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Pro
   const p1Suggestions = suggestions.filter(s => s.priority === 'P1' && s.status === 'pending');
   const totalRevenueAtRisk = p1Suggestions.reduce((sum, s) => sum + (s.potential_revenue_gain || 0), 0);
   const uniqueStores = new Set(p1Suggestions.map(s => s.to_location)).size;
+  const uniqueFCs = new Set(p1Suggestions.map(s => s.fc_id)).size;
   const hasUrgency = p1Suggestions.length > 0;
 
   const nearFullStores = storeCapacityData.filter(s => s.capacity > 0 && s.total_on_hand / s.capacity > 0.85);
@@ -53,7 +54,7 @@ export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Pro
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
               </span>
               <p className="text-sm text-red-400 font-medium">
-                {uniqueStores} stores đang thiếu hàng, ước tính mất {formatCurrency(totalRevenueAtRisk)}đ nếu không xử lý trong 48h
+                {uniqueStores} store thiếu hàng ở {uniqueFCs} family codes, ước tính mất {formatCurrency(totalRevenueAtRisk)}đ nếu không xử lý trong 48h
               </p>
             </div>
           ) : (
@@ -73,7 +74,7 @@ export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Pro
             <div>
               <div className="flex items-center gap-1.5 text-red-400">
                 <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm font-semibold">{p1Suggestions.length} P1</span>
+                <span className="text-sm font-semibold">{uniqueStores} store / {p1Suggestions.length} đề xuất P1</span>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">cần xử lý gấp</p>
             </div>

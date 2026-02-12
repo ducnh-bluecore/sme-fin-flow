@@ -57,8 +57,8 @@ export default function InventoryAllocationPage() {
       balanced_weeks_cover: r.projected_weeks_cover || 0,
       priority: r.priority || 'medium',
       potential_revenue_gain: r.potential_revenue || 0,
-      logistics_cost_estimate: 0,
-      net_benefit: r.potential_revenue || 0,
+      logistics_cost_estimate: r.logistics_cost_estimate || 0,
+      net_benefit: (r.potential_revenue || 0) - (r.logistics_cost_estimate || 0),
       status: r.status || 'pending',
       approved_by: r.approved_by,
       approved_at: r.approved_at,
@@ -272,12 +272,12 @@ export default function InventoryAllocationPage() {
             )}
           </TabsContent>
 
-          {/* Push from CW */}
+          {/* Push from CW — uses allocAsSuggestions (allocation recommendations) */}
           <TabsContent value="push">
             {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={rebalanceSuggestions.filter(s => s.transfer_type === 'push')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
+              <InventoryFCDecisionCards suggestions={allocAsSuggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
             ) : (
-              <RebalanceBoardTable suggestions={rebalanceSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="push" storeMap={storeMap} />
+              <RebalanceBoardTable suggestions={allocAsSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
             )}
           </TabsContent>
 
