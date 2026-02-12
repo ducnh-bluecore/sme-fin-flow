@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { ArrowRightLeft, ChevronDown, ChevronRight, Store, CheckCircle2, XCircle, FileDown } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { ArrowRightLeft, ChevronDown, ChevronRight, Store, CheckCircle2, XCircle, FileDown, Package, TrendingUp, Truck, DollarSign, Info } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,8 +32,26 @@ interface Props {
   totalOpportunities: number;
 }
 
+const reasonTranslations: Record<string, string> = {
+  stockout: 'Kho đích đã hết hàng size này',
+  same_region: 'Cùng khu vực, chi phí vận chuyển thấp',
+  cross_region: 'Khác khu vực, ưu tiên vì net benefit cao',
+  core_size: 'Size core (bán chạy), cần bổ sung gấp',
+  low_stock: 'Kho đích sắp hết hàng',
+  excess_source: 'Kho nguồn dư nhiều hàng',
+  high_velocity: 'Tốc độ bán tại đích cao',
+  broken_size: 'Lẻ size, cần bổ sung để hoàn thiện size run',
+};
+
+function translateReason(reason: string): string[] {
+  if (!reason) return [];
+  const tags = reason.split(/[\s+,]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+  return tags.map(tag => reasonTranslations[tag] || tag);
+}
+
 export default function TransferSuggestionsCard({ transferByDest, detailRows, storeNames, fcNames, totalOpportunities }: Props) {
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   const [confirmAction, setConfirmAction] = useState<{ action: 'approved' | 'rejected'; ids: string[]; destId?: string } | null>(null);
@@ -195,8 +213,17 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                             const isApproved = t.status === 'approved';
                             const isRejected = t.status === 'rejected';
                             const isPending = !isApproved && !isRejected;
+                            const isExpanded = expandedRowId === t.id;
                             return (
-                              <TableRow key={t.id} className={isApproved ? 'bg-emerald-500/5' : isRejected ? 'opacity-50' : ''}>
+                              <React.Fragment key={t.id}>
+                              <TableRow
+                                className={`cursor-pointer ${isExpanded ? 'border-l-2 border-l-primary bg-muted/30' : ''} ${isApproved ? 'bg-emerald-500/5' : isRejected ? 'opacity-50' : ''}`}
+                                onClick={(e) => {
+                                  const target = e.target as HTMLElement;
+                                  if (target.closest('input, button, [role="checkbox"]')) return;
+                                  setExpandedRowId(prev => prev === t.id ? null : t.id);
+                                }}
+                              >
                                 <TableCell className="w-8">
                                   {isPending && (
                                     <Checkbox
@@ -243,6 +270,77 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                   )}
                                 </TableCell>
                               </TableRow>
+                              {isExpanded && (
+                                <TableRow className="bg-muted/40 border-t border-dashed border-l-2 border-l-primary">
+                                  <TableCell colSpan={8} className="p-0">
+                                    <div className="px-4 py-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                                      <div className="flex items-start gap-2">
+                                        <Package className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Kho nguồn</p>
+                                          <p className="font-semibold">{t.source_on_hand ?? '—'} units</p>
+                                          <p className="text-muted-foreground text-[10px]">{(t.source_on_hand ?? 0) > (editedQty[t.id] ?? t.transfer_qty) ? 'Dư hàng' : 'Vừa đủ chuyển'}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <Package className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Kho đích</p>
+                                          <p className="font-semibold">{t.dest_on_hand ?? '—'} units</p>
+                                          <p className="text-muted-foreground text-[10px]">{(t.dest_on_hand ?? 0) === 0 ? 'Hết hàng — stockout' : `Còn ${t.dest_on_hand} units`}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <TrendingUp className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Tốc độ bán đích</p>
+                                          <p className="font-semibold">{t.dest_velocity ?? '—'} units/ngày</p>
+                                          <p className="text-muted-foreground text-[10px]">
+                                            {t.dest_velocity > 0 && t.dest_on_hand != null
+                                              ? `Hết hàng trong ~${Math.ceil((t.dest_on_hand || 0) / t.dest_velocity)} ngày`
+                                              : ''}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <DollarSign className="h-3.5 w-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Revenue dự kiến</p>
+                                          <p className="font-semibold text-emerald-600">{formatVNDCompact(t.estimated_revenue_gain ?? 0)}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <Truck className="h-3.5 w-3.5 text-orange-500 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Chi phí vận chuyển</p>
+                                          <p className="font-semibold text-orange-500">{formatVNDCompact(t.estimated_transfer_cost ?? 0)}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-2">
+                                        <DollarSign className="h-3.5 w-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                                        <div>
+                                          <p className="text-muted-foreground">Net Benefit</p>
+                                          <p className="font-bold text-emerald-600">{formatVNDCompact(t.net_benefit ?? 0)}</p>
+                                        </div>
+                                      </div>
+                                      <div className="col-span-2 md:col-span-3 border-t border-dashed pt-2 mt-1">
+                                        <div className="flex items-start gap-2">
+                                          <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                                          <div>
+                                            <p className="text-muted-foreground mb-1">Lý do chi tiết</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {translateReason(t.reason || '').map((text, i) => (
+                                                <Badge key={i} variant="secondary" className="text-[10px] font-normal">{text}</Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              </React.Fragment>
                             );
                           })}
                         </TableBody>
