@@ -34164,6 +34164,17 @@ export type Database = {
           },
         ]
       }
+      v_cash_lock_summary: {
+        Row: {
+          affected_products: number | null
+          as_of_date: string | null
+          avg_locked_pct: number | null
+          tenant_id: string | null
+          total_cash_locked: number | null
+          total_inventory_value: number | null
+        }
+        Relationships: []
+      }
       v_category_pl_summary: {
         Row: {
           category: string | null
@@ -38208,6 +38219,37 @@ export type Database = {
         }
         Relationships: []
       }
+      v_lost_revenue_summary: {
+        Row: {
+          affected_products: number | null
+          as_of_date: string | null
+          tenant_id: string | null
+          total_lost_revenue: number | null
+          total_lost_units: number | null
+        }
+        Relationships: []
+      }
+      v_margin_leak_summary: {
+        Row: {
+          affected_products: number | null
+          as_of_date: string | null
+          leak_by_markdown: number | null
+          leak_by_size_break: number | null
+          tenant_id: string | null
+          total_margin_leak: number | null
+        }
+        Relationships: []
+      }
+      v_markdown_risk_summary: {
+        Row: {
+          as_of_date: string | null
+          critical_count: number | null
+          high_risk_count: number | null
+          tenant_id: string | null
+          total_products: number | null
+        }
+        Relationships: []
+      }
       v_mdp_campaign_attribution: {
         Row: {
           attributed_customers: number | null
@@ -39386,6 +39428,20 @@ export type Database = {
           },
         ]
       }
+      v_size_intelligence_summary: {
+        Row: {
+          as_of_date: string | null
+          avg_health_score: number | null
+          broken_count: number | null
+          core_missing_count: number | null
+          healthy_count: number | null
+          risk_count: number | null
+          tenant_id: string | null
+          total_products: number | null
+          watch_count: number | null
+        }
+        Relationships: []
+      }
       v_top_products_30d: {
         Row: {
           category: string | null
@@ -39427,6 +39483,21 @@ export type Database = {
             referencedColumns: ["tenant_id"]
           },
         ]
+      }
+      v_transfer_by_destination: {
+        Row: {
+          as_of_date: string | null
+          dest_store_id: string | null
+          source_count: number | null
+          tenant_id: string | null
+          total_net_benefit: number | null
+          total_qty: number | null
+          total_revenue_gain: number | null
+          total_transfer_cost: number | null
+          transfer_count: number | null
+          unique_products: number | null
+        }
+        Relationships: []
       }
       v_upcoming_payment_alerts: {
         Row: {

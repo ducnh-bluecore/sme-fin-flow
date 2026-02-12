@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight, Lock, Flame, FileText } from 'lucide-react';
+import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight, Lock, Flame, FileText, ChevronDown, ChevronRight, Store } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
+import { useSizeIntelligenceSummary } from '@/hooks/inventory/useSizeIntelligenceSummary';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatVNDCompact } from '@/lib/formatters';
@@ -23,28 +25,19 @@ export default function AssortmentPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'health' | 'lost_revenue' | 'markdown' | 'cash_lock'>('lost_revenue');
   const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
+  const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
 
-  // Size Intelligence data
+  // DB-aggregated summaries (no 1000-row limit)
+  const { summary: dbSummary, transferByDest, isLoading: summaryLoading } = useSizeIntelligenceSummary();
+
+  // Detail-level data (for detail table & evidence - still limited but OK for drill-down)
   const {
-    summary: siSummary, healthMap, lostRevenueMap, markdownRiskMap,
+    healthMap, lostRevenueMap, markdownRiskMap,
     cashLockMap, marginLeakMap, evidencePackMap,
     isLoading: siLoading, lostRevenue, sizeTransfers
   } = useSizeIntelligence();
 
-  // CHI data (existing)
-  const { data: chiRows } = useQuery({
-    queryKey: ['command-chi-detail', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('kpi_curve_health' as any)
-        .order('as_of_date', { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data || []) as any[];
-    },
-    enabled: !!tenantId && isReady,
-  });
-
-  // Fetch FC names for display
+  // FC names
   const { data: fcNames } = useQuery({
     queryKey: ['command-fc-names', tenantId],
     queryFn: async () => {
@@ -62,7 +55,7 @@ export default function AssortmentPage() {
     enabled: !!tenantId && isReady,
   });
 
-  // Fetch store names for transfer display
+  // Store names
   const { data: storeNames } = useQuery({
     queryKey: ['command-store-names', tenantId],
     queryFn: async () => {
@@ -90,17 +83,16 @@ export default function AssortmentPage() {
     },
     onSuccess: (data) => {
       toast.success(`Engine: ${data.size_health_rows} Health, ${data.cash_lock_rows || 0} Cash Lock, ${data.margin_leak_rows || 0} Margin Leak, ${data.evidence_pack_rows || 0} Evidence`);
-      ['size-health', 'store-size-health', 'lost-revenue', 'markdown-risk', 'size-transfers', 'cash-lock', 'margin-leak', 'evidence-packs', 'command-chi-detail'].forEach(k =>
+      ['si-health-summary', 'si-lost-rev-summary', 'si-md-risk-summary', 'si-transfer-by-dest', 'si-cash-lock-summary', 'si-margin-leak-summary',
+       'size-health', 'store-size-health', 'lost-revenue', 'markdown-risk', 'size-transfers', 'cash-lock', 'margin-leak', 'evidence-packs'].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
 
-  // Build unified style list from healthMap
+  // Build detail list from healthMap (capped by query limit for drill-down)
   const allStyles = [...healthMap.keys()];
-
-  // Filter & sort
   let filtered = allStyles;
   if (statusFilter !== 'all') {
     filtered = filtered.filter(fcId => healthMap.get(fcId)?.curve_state === statusFilter);
@@ -109,7 +101,6 @@ export default function AssortmentPage() {
     const q = search.toLowerCase();
     filtered = filtered.filter(fcId => (fcNames?.get(fcId) || fcId).toLowerCase().includes(q));
   }
-
   if (sortBy === 'lost_revenue') {
     filtered = [...filtered].sort((a, b) => (lostRevenueMap.get(b)?.lost_revenue_est || 0) - (lostRevenueMap.get(a)?.lost_revenue_est || 0));
   } else if (sortBy === 'health') {
@@ -121,6 +112,25 @@ export default function AssortmentPage() {
   }
 
   const topLostRevStyles = (lostRevenue.data || []).slice(0, 5);
+
+  // Group transfers by dest for detail expansion
+  const transfersByDest = new Map<string, typeof sizeTransfers.data>();
+  for (const t of (sizeTransfers.data || []) as any[]) {
+    const key = t.dest_store_id;
+    if (!transfersByDest.has(key)) transfersByDest.set(key, []);
+    transfersByDest.get(key)!.push(t);
+  }
+
+  const toggleDest = (destId: string) => {
+    setExpandedDest(prev => {
+      const next = new Set(prev);
+      next.has(destId) ? next.delete(destId) : next.add(destId);
+      return next;
+    });
+  };
+
+  // Use DB summary for hero KPIs (accurate, no 1000-row limit)
+  const summary = dbSummary;
 
   // Evidence drawer data
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
@@ -138,30 +148,31 @@ export default function AssortmentPage() {
         </Button>
       </motion.div>
 
-      {/* ── Hero KPIs ── */}
+      {/* ── Hero KPIs (from DB views - accurate) ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <Card className={siSummary.avgHealthScore !== null && siSummary.avgHealthScore < 60 ? 'border-l-4 border-l-destructive' : ''}>
+        <Card className={summary.avgHealthScore !== null && summary.avgHealthScore < 60 ? 'border-l-4 border-l-destructive' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <Activity className="h-3 w-3" /> Size Health
             </div>
             <p className={`text-xl font-bold ${
-              siSummary.avgHealthScore === null ? '' :
-              siSummary.avgHealthScore >= 80 ? 'text-emerald-600' :
-              siSummary.avgHealthScore >= 60 ? 'text-amber-600' : 'text-destructive'
+              summary.avgHealthScore === null ? '' :
+              summary.avgHealthScore >= 80 ? 'text-emerald-600' :
+              summary.avgHealthScore >= 60 ? 'text-amber-600' : 'text-destructive'
             }`}>
-              {siSummary.avgHealthScore !== null ? `${siSummary.avgHealthScore.toFixed(0)}` : '—'}
+              {summary.avgHealthScore !== null ? `${Number(summary.avgHealthScore).toFixed(0)}` : '—'}
             </p>
+            {summary.totalProducts > 0 && <p className="text-[10px] text-muted-foreground">{summary.totalProducts} styles</p>}
           </CardContent>
         </Card>
 
-        <Card className={siSummary.totalLostRevenue > 0 ? 'border-l-4 border-l-destructive' : ''}>
+        <Card className={summary.totalLostRevenue > 0 ? 'border-l-4 border-l-destructive' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <DollarSign className="h-3 w-3" /> Lost Revenue
             </div>
             <p className="text-xl font-bold text-destructive">
-              {siSummary.totalLostRevenue > 0 ? formatVNDCompact(siSummary.totalLostRevenue) : '—'}
+              {summary.totalLostRevenue > 0 ? formatVNDCompact(summary.totalLostRevenue) : '—'}
             </p>
           </CardContent>
         </Card>
@@ -171,7 +182,7 @@ export default function AssortmentPage() {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <ShieldAlert className="h-3 w-3" /> Broken
             </div>
-            <p className="text-xl font-bold text-destructive">{siSummary.brokenCount}</p>
+            <p className="text-xl font-bold text-destructive">{summary.brokenCount}</p>
           </CardContent>
         </Card>
 
@@ -181,46 +192,44 @@ export default function AssortmentPage() {
               <TrendingDown className="h-3 w-3" /> MD Risk
             </div>
             <p className="text-xl font-bold text-destructive">
-              {siSummary.highMarkdownRiskCount}
-              {siSummary.criticalMarkdownCount > 0 && (
-                <span className="text-sm font-normal ml-1">({siSummary.criticalMarkdownCount} crit)</span>
+              {summary.highMarkdownRiskCount}
+              {summary.criticalMarkdownCount > 0 && (
+                <span className="text-sm font-normal ml-1">({summary.criticalMarkdownCount} crit)</span>
               )}
             </p>
           </CardContent>
         </Card>
 
-        {/* Phase 3: Cash Lock */}
-        <Card className={siSummary.totalCashLocked > 0 ? 'border-l-4 border-l-orange-500' : ''}>
+        <Card className={summary.totalCashLocked > 0 ? 'border-l-4 border-l-orange-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <Lock className="h-3 w-3" /> Cash Locked
             </div>
             <p className="text-xl font-bold text-orange-600">
-              {siSummary.totalCashLocked > 0 ? formatVNDCompact(siSummary.totalCashLocked) : '—'}
+              {summary.totalCashLocked > 0 ? formatVNDCompact(summary.totalCashLocked) : '—'}
             </p>
           </CardContent>
         </Card>
 
-        {/* Phase 3: Margin Leak */}
-        <Card className={siSummary.totalMarginLeak > 0 ? 'border-l-4 border-l-red-500' : ''}>
+        <Card className={summary.totalMarginLeak > 0 ? 'border-l-4 border-l-red-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <Flame className="h-3 w-3" /> Margin Leak
             </div>
             <p className="text-xl font-bold text-red-600">
-              {siSummary.totalMarginLeak > 0 ? formatVNDCompact(siSummary.totalMarginLeak) : '—'}
+              {summary.totalMarginLeak > 0 ? formatVNDCompact(summary.totalMarginLeak) : '—'}
             </p>
           </CardContent>
         </Card>
 
-        <Card className={siSummary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
+        <Card className={summary.transferOpportunities > 0 ? 'border-l-4 border-l-amber-500' : ''}>
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
               <ArrowRightLeft className="h-3 w-3" /> Transfers
             </div>
-            <p className="text-xl font-bold text-amber-600">{siSummary.transferOpportunities}</p>
-            {siSummary.totalTransferNetBenefit > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">{formatVNDCompact(siSummary.totalTransferNetBenefit)}</p>
+            <p className="text-xl font-bold text-amber-600">{summary.transferOpportunities}</p>
+            {summary.totalTransferNetBenefit > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">{formatVNDCompact(summary.totalTransferNetBenefit)}</p>
             )}
           </CardContent>
         </Card>
@@ -276,66 +285,100 @@ export default function AssortmentPage() {
         </Card>
       )}
 
-      {/* ── Smart Transfer Opportunities ── */}
-      {(sizeTransfers.data || []).length > 0 && (
+      {/* ── Smart Transfer — Grouped by Destination ── */}
+      {transferByDest.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
-              <Badge variant="secondary" className="text-xs ml-auto">{(sizeTransfers.data || []).length} opportunities</Badge>
+              <Badge variant="secondary" className="text-xs ml-auto">{summary.transferOpportunities} opportunities</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Style</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>From → To</TableHead>
-                    <TableHead className="text-center">Qty</TableHead>
-                    <TableHead className="text-right">Net Benefit</TableHead>
-                    <TableHead>Reason</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(sizeTransfers.data || []).slice(0, 30).map((t) => {
-                    const name = fcNames?.get(t.product_id) || t.product_id;
-                    const srcName = storeNames?.get(t.source_store_id) || t.source_store_id.slice(0, 8);
-                    const dstName = storeNames?.get(t.dest_store_id) || t.dest_store_id.slice(0, 8);
-                    return (
-                      <TableRow key={t.id}>
-                        <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
-                        <TableCell className="text-xs">
-                          <span className="text-muted-foreground">{srcName}</span>
-                          <ArrowRight className="h-3 w-3 inline mx-1" />
-                          <span className="font-medium">{dstName}</span>
-                        </TableCell>
-                        <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
-                        <TableCell className="text-right text-xs font-medium text-emerald-600">
-                          {formatVNDCompact(t.net_benefit)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{t.reason}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {(sizeTransfers.data || []).length > 30 && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">Showing 30 of {(sizeTransfers.data || []).length}</p>
-              )}
-            </div>
+          <CardContent className="space-y-2">
+            {transferByDest.map((group: any) => {
+              const destName = storeNames?.get(group.dest_store_id) || group.dest_store_id?.slice(0, 12);
+              const isOpen = expandedDest.has(group.dest_store_id);
+              const detailRows = transfersByDest.get(group.dest_store_id) || [];
+
+              return (
+                <Collapsible key={group.dest_store_id} open={isOpen} onOpenChange={() => toggleDest(group.dest_store_id)}>
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3">
+                        {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                        <Store className="h-4 w-4 text-primary" />
+                        <span className="font-medium text-sm">{destName}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="text-muted-foreground">
+                          <strong>{group.transfer_count}</strong> transfers
+                        </span>
+                        <span className="text-muted-foreground">
+                          <strong>{group.total_qty?.toLocaleString()}</strong> units
+                        </span>
+                        <span className="text-muted-foreground">
+                          {group.unique_products} styles
+                        </span>
+                        <span className="font-semibold text-emerald-600">
+                          +{formatVNDCompact(group.total_net_benefit || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {detailRows.length > 0 ? (
+                      <div className="ml-7 mt-1 border rounded-md overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Style</TableHead>
+                              <TableHead className="text-xs">Size</TableHead>
+                              <TableHead className="text-xs">From</TableHead>
+                              <TableHead className="text-xs text-center">Qty</TableHead>
+                              <TableHead className="text-xs text-right">Net Benefit</TableHead>
+                              <TableHead className="text-xs">Reason</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {detailRows.map((t: any) => {
+                              const name = fcNames?.get(t.product_id) || t.product_id;
+                              const srcName = storeNames?.get(t.source_store_id) || t.source_store_id?.slice(0, 8);
+                              return (
+                                <TableRow key={t.id}>
+                                  <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
+                                  <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
+                                  <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
+                                  <TableCell className="text-right text-xs font-medium text-emerald-600">
+                                    {formatVNDCompact(t.net_benefit)}
+                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="ml-7 mt-2 text-xs text-muted-foreground">Click "Run Engine" để load chi tiết</p>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
           </CardContent>
         </Card>
       )}
 
-      {/* ── Enhanced Detail Table ── */}
+      {/* ── Size Health Details ── */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Layers3 className="h-4 w-4" /> Size Health Details
+              {summary.totalProducts > 0 && (
+                <Badge variant="outline" className="text-xs ml-1">{summary.totalProducts} total (showing top {Math.min(filtered.length, 100)})</Badge>
+              )}
             </CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -348,10 +391,10 @@ export default function AssortmentPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
-                  <SelectItem value="broken">Broken</SelectItem>
-                  <SelectItem value="risk">Risk</SelectItem>
-                  <SelectItem value="watch">Watch</SelectItem>
-                  <SelectItem value="healthy">Healthy</SelectItem>
+                  <SelectItem value="broken">Broken ({summary.brokenCount})</SelectItem>
+                  <SelectItem value="risk">Risk ({summary.riskCount})</SelectItem>
+                  <SelectItem value="watch">Watch ({summary.watchCount})</SelectItem>
+                  <SelectItem value="healthy">Healthy ({summary.healthyCount})</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
@@ -369,7 +412,7 @@ export default function AssortmentPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {siLoading ? (
+          {(siLoading || summaryLoading) ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -455,7 +498,9 @@ export default function AssortmentPage() {
                 </TableBody>
               </Table>
               {filtered.length > 100 && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">Showing 100 of {filtered.length} rows</p>
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  Showing top 100 of {filtered.length} loaded styles (total: {summary.totalProducts})
+                </p>
               )}
             </div>
           )}
@@ -487,7 +532,6 @@ export default function AssortmentPage() {
 
               <Separator />
 
-              {/* Health */}
               {evidencePack.data_snapshot?.health && (
                 <div className="space-y-1">
                   <h4 className="text-sm font-semibold flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Size Health</h4>
@@ -512,7 +556,6 @@ export default function AssortmentPage() {
                 </div>
               )}
 
-              {/* Lost Revenue */}
               {evidencePack.data_snapshot?.lost_revenue && (
                 <>
                   <Separator />
@@ -533,7 +576,6 @@ export default function AssortmentPage() {
                 </>
               )}
 
-              {/* Cash Lock */}
               {evidencePack.data_snapshot?.cash_lock && (
                 <>
                   <Separator />
@@ -557,7 +599,6 @@ export default function AssortmentPage() {
                 </>
               )}
 
-              {/* Markdown Risk */}
               {evidencePack.data_snapshot?.markdown_risk && (
                 <>
                   <Separator />
@@ -578,7 +619,6 @@ export default function AssortmentPage() {
                 </>
               )}
 
-              {/* Margin Leak */}
               {evidencePack.data_snapshot?.margin_leak && (
                 <>
                   <Separator />
