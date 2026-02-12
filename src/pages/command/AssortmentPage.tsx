@@ -4,11 +4,10 @@ import { Layers3, AlertTriangle, RefreshCw, ShieldAlert, TrendingDown, DollarSig
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import TransferSuggestionsCard from '@/components/command/TransferSuggestionsCard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
@@ -23,7 +22,7 @@ export default function AssortmentPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
-  const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
+  
   const [activeTab, setActiveTab] = useState('overview');
 
   // DB-aggregated summaries (no 1000-row limit)
@@ -102,20 +101,15 @@ export default function AssortmentPage() {
   const topLostRevStyles = (lostRevenue.data || []).slice(0, 5);
 
   // Group transfers by dest for detail expansion
-  const transfersByDest = new Map<string, typeof sizeTransfers.data>();
-  for (const t of (sizeTransfers.data || []) as any[]) {
-    const key = t.dest_store_id;
-    if (!transfersByDest.has(key)) transfersByDest.set(key, []);
-    transfersByDest.get(key)!.push(t);
-  }
-
-  const toggleDest = (destId: string) => {
-    setExpandedDest(prev => {
-      const next = new Set(prev);
-      next.has(destId) ? next.delete(destId) : next.add(destId);
-      return next;
-    });
-  };
+  const transfersByDest = useMemo(() => {
+    const map = new Map<string, any[]>();
+    for (const t of (sizeTransfers.data || []) as any[]) {
+      const key = t.dest_store_id;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return map;
+  }, [sizeTransfers.data]);
 
   // Use DB summary for hero KPIs (accurate, no 1000-row limit)
   const summary = dbSummary;
@@ -293,87 +287,13 @@ export default function AssortmentPage() {
 
           {/* Smart Transfer Suggestions */}
           {transferByDest.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
-                  <Badge variant="secondary" className="text-xs ml-auto">{summary.transferOpportunities} opportunities</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {transferByDest.map((group: any) => {
-                  const destName = storeNames?.get(group.dest_store_id) || group.dest_store_id?.slice(0, 12);
-                  const isOpen = expandedDest.has(group.dest_store_id);
-                  const detailRows = transfersByDest.get(group.dest_store_id) || [];
-
-                  return (
-                    <Collapsible key={group.dest_store_id} open={isOpen} onOpenChange={() => toggleDest(group.dest_store_id)}>
-                      <CollapsibleTrigger className="w-full">
-                        <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
-                          <div className="flex items-center gap-3">
-                            {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                            <Store className="h-4 w-4 text-primary" />
-                            <span className="font-medium text-sm">{destName}</span>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs">
-                            <span className="text-muted-foreground">
-                              <strong>{group.transfer_count}</strong> transfers
-                            </span>
-                            <span className="text-muted-foreground">
-                              <strong>{group.total_qty?.toLocaleString()}</strong> units
-                            </span>
-                            <span className="text-muted-foreground">
-                              {group.unique_products} styles
-                            </span>
-                            <span className="font-semibold text-emerald-600">
-                              +{formatVNDCompact(group.total_net_benefit || 0)}
-                            </span>
-                          </div>
-                        </div>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        {detailRows.length > 0 ? (
-                          <div className="ml-7 mt-1 border rounded-md overflow-hidden">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="text-xs">Style</TableHead>
-                                  <TableHead className="text-xs">Size</TableHead>
-                                  <TableHead className="text-xs">From</TableHead>
-                                  <TableHead className="text-xs text-center">Qty</TableHead>
-                                  <TableHead className="text-xs text-right">Net Benefit</TableHead>
-                                  <TableHead className="text-xs">Reason</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {detailRows.map((t: any) => {
-                                  const name = fcNames?.get(t.product_id) || t.product_id;
-                                  const srcName = storeNames?.get(t.source_store_id) || t.source_store_id?.slice(0, 8);
-                                  return (
-                                    <TableRow key={t.id}>
-                                      <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
-                                      <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
-                                      <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
-                                      <TableCell className="text-center font-semibold text-sm">{t.transfer_qty}</TableCell>
-                                      <TableCell className="text-right text-xs font-medium text-emerald-600">
-                                        {formatVNDCompact(t.net_benefit)}
-                                      </TableCell>
-                                      <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        ) : (
-                          <p className="ml-7 mt-2 text-xs text-muted-foreground">Click "Run Engine" để load chi tiết</p>
-                        )}
-                      </CollapsibleContent>
-                    </Collapsible>
-                  );
-                })}
-              </CardContent>
-            </Card>
+            <TransferSuggestionsCard
+              transferByDest={transferByDest}
+              detailRows={transfersByDest}
+              storeNames={storeNames}
+              fcNames={fcNames}
+              totalOpportunities={summary.transferOpportunities}
+            />
           )}
         </TabsContent>
 
