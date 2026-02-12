@@ -1,96 +1,66 @@
 
+# Fix Channel War + Inventory Data
 
-# Fix DSO: Bán lẻ thì đơn hàng = hóa đơn
+## Nguyen nhan
 
-## Vấn đề
+### 1. Channel War: "Chua co du lieu channel"
+- View `v_channel_pl_summary` timeout (error 57014) --> fallback sang `kpi_facts_daily`
+- Fallback dung `.gte('date', ...)` nhung column that la `grain_date` --> query tra ve 0 rows
+- Du lieu co san: kpi_facts_daily co data channel (KIOTVIET, SHOPEE, TIKTOK, LAZADA, TIKI, SHOPEE_ADS)
+- Fallback cung doc `row.gross_revenue` nhung table nay dung `metric_code` + `metric_value` (pivot format)
 
-Hiện tại `compute_central_metrics_snapshot` tính AR/DSO từ bảng `invoices` (trống). Nhưng trong hệ thống bán lẻ/e-commerce:
-- **Đơn hàng = Invoice** (khách đặt hàng = phát sinh công nợ)
-- **AR = đơn hàng đang vận chuyển/chờ sàn thanh toán** (tiền chưa về)
-- **DSO = thời gian trung bình từ đặt hàng đến nhận tiền**
-
-## Dữ liệu thực có trong DB
-
-| Metric | Giá trị (90 ngày gần nhất) |
-|--------|---------------------------|
-| Revenue | 104.6 ty VND |
-| Daily Revenue | 1.16 ty/ngay |
-| Retail AR (don dang van chuyen) | 16.59 ty VND |
-| Completed orders | 98,905 |
-| In-transit orders | status 2, 3, SHIPPED, READY_TO_SHIP, etc. |
+### 2. Inventory: "Chua co du lieu ton kho"
+- Snapshot moi nhat (Feb 12) co `total_inventory_value = 0`
+- Function `compute_central_metrics_snapshot` tinh inventory tu `products.current_stock` nhung products chi co 1 record voi stock = 5
+- Du lieu ton kho that nam trong `inv_state_positions` (34,293 rows, 293K units)
+- Gia tri thuc: 178.3 ty VND (join inv_state_positions voi products.cost_price)
 
 ## Gia tri ky vong sau fix
 
-| Metric | Gia tri | Nguon | Badge |
-|--------|---------|-------|-------|
-| DSO | ~14 ngay | cdp_orders in-transit | **Tu data that** |
-| DIO | 365 ngay (capped) | inventory / annual COGS | Tam tinh (COGS 4.2% coverage) |
-| DPO | 0 ngay | bills table (trong) | Tam tinh (chua co AP) |
-| CCC | ~379 ngay | DSO + DIO - DPO | Tam tinh |
-| Retail AR | 16.59 ty | cdp_orders in-transit | Tu data that |
-| Locked Cash - Platform | 16.59 ty | = Retail AR | Moi |
+### Channel War
+| Channel | Revenue | Orders |
+|---------|---------|--------|
+| KIOTVIET | ~297 ty | ~268K |
+| SHOPEE | ~31 ty | ~57K |
+| TIKTOK | ~3.5 ty | ~6K |
+| LAZADA | ~1.3 ty | ~1.9K |
+| SHOPEE_ADS | filter out (no revenue) |
 
-DSO = 14 ngay hoan toan hop ly cho e-commerce (Shopee/TikTok hold tien 7-14 ngay sau delivery).
+### Inventory
+| Metric | Gia tri |
+|--------|---------|
+| Total Inventory Value | 178.3 ty VND |
+| Total SKU positions | 34,293 |
+| DIO | tinh tu inventory 178.3ty / annual COGS |
 
-## Thay doi can lam
+## Thay doi
 
-### 1. Migration: Update `compute_central_metrics_snapshot`
+### Fix 1: `src/hooks/useAllChannelsPL.ts` - Fallback pivot logic
+- Doi `'date'` thanh `'grain_date'` (line 185-186)
+- Thay logic doc flat columns bang pivot logic: group by `dimension_value` (channel), switch on `metric_code` (NET_REVENUE, ORDER_COUNT, COGS, GROSS_MARGIN)
+- Filter out channels khong co revenue (SHOPEE_ADS)
+- Tinh AOV = Revenue / Orders (khong sum daily AOV)
 
-Thay doi phan tinh AR/DSO (lines 104-114 trong function hien tai):
+### Fix 2: SQL Migration - Update `compute_central_metrics_snapshot` inventory source
+- Thay `products.current_stock * products.cost_price` bang `inv_state_positions JOIN products` 
+- Query: `SELECT COALESCE(SUM(isp.on_hand * p.cost_price), 0) FROM inv_state_positions isp JOIN products p ON p.sku = isp.sku WHERE isp.on_hand > 0`
+- Cung update DIO tinh tu inventory value moi
 
-```text
-CU:   AR tu invoices WHERE status IN ('sent','overdue','partial')  --> 0 (invoices trong)
-MOI:  AR tu cdp_orders WHERE status la in-transit/pending settlement
-      - Status in-transit: '2', '3', 'SHIPPED', 'shipped', 'confirmed', 'packed', 
-        'READY_TO_SHIP', 'PROCESSED', 'TO_CONFIRM_RECEIVE'
-      - AR = SUM(net_revenue) cua cac don nay
-      - DSO = AR / daily_revenue (cap at 365)
-```
+### Fix 3: `src/components/dashboard/InventoryRiskPanel.tsx` - Fallback toi inv_state_positions
+- Khi snapshot co inventory = 0, query truc tiep `inv_state_positions` JOIN `products` de hien thi gia tri
+- Hoac: sau khi fix migration, chi can bam Refresh la snapshot se co gia tri dung
 
-Giu nguyen:
-- DIO tinh tu inventory/annual_cogs (khong doi)
-- DPO tinh tu bills (khong doi, = 0 khi bills trong)
-- CCC = DSO + DIO - DPO
-
-Them:
-- Column `locked_cash_platform` vao `central_metrics_snapshots` = Retail AR (tien san giu)
-- Update locked cash total = inventory + ads + ops + platform
-
-### 2. Update `CashVelocityPanel.tsx`
-
-- Hien thi DSO voi gia tri that (~14 ngay), KHONG co badge "tam tinh"
-- DIO: giu badge "tam tinh" (COGS coverage thap)
-- DPO: badge "tam tinh (chua co AP)"
-- Them dong "Platform Hold" trong Locked Cash breakdown (16.59 ty)
-- CCC: hien thi gia tri that, note "DIO va DPO la tam tinh"
-
-### 3. Update `RetailHealthHero.tsx`
-
-- Inventory Days: hien thi 365 + badge "tam tinh"
-- Cac metrics khac giu nguyen logic hien tai
-
-### 4. Update `useRetailHealthScore.ts`
-
-- DIO status: khi COGS coverage thap, danh WARNING thay vi CRITICAL cho DIO = 365
-
-## Tong ket files
+## Files thay doi
 
 | File | Thay doi |
 |------|---------|
-| Migration SQL | Update `compute_central_metrics_snapshot`: AR tu cdp_orders, them `locked_cash_platform` |
-| `src/components/dashboard/CashVelocityPanel.tsx` | Hien thi DSO that, DIO/DPO tam tinh, them Platform Hold |
-| `src/components/dashboard/RetailHealthHero.tsx` | Badge "tam tinh" cho DIO |
-| `src/hooks/useRetailHealthScore.ts` | Adjust DIO status khi COGS coverage thap |
+| `src/hooks/useAllChannelsPL.ts` | Fix fallback: `grain_date` + pivot logic |
+| Migration SQL | Update `compute_central_metrics_snapshot`: inventory tu `inv_state_positions` |
 
 ## Kiem tra sau fix
-
-| # | Kiem tra | Ky vong |
-|---|---------|---------|
-| 1 | DSO hien thi | ~14 ngay, khong co badge tam tinh |
-| 2 | DIO hien thi | 365 ngay + badge "tam tinh" |
-| 3 | DPO hien thi | 0 ngay + badge "tam tinh" |
-| 4 | CCC hien thi | ~379 ngay + note |
-| 5 | Locked Cash - Platform | 16.59 ty VND (moi) |
-| 6 | Health Score | WARNING (khong CRITICAL) vi co data that cho DSO |
-| 7 | Recompute snapshot | Goi compute function tra ve gia tri moi |
-
+| # | Test | Ky vong |
+|---|------|---------|
+| 1 | Channel War hien thi | 4-5 channels voi bars, KIOTVIET lon nhat |
+| 2 | SHOPEE_ADS filtered | Khong hien thi rieng |
+| 3 | Inventory value | 178.3 ty VND sau Refresh |
+| 4 | DIO | Tinh tu 178.3ty / annual COGS |
