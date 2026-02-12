@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ArrowRightLeft, ChevronDown, ChevronRight, Store, CheckCircle2, XCircle, FileDown, Package, TrendingUp, Truck, DollarSign, Info } from 'lucide-react';
+import { useDestinationSizeInventory } from '@/hooks/inventory/useDestinationSizeInventory';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,25 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   const [confirmAction, setConfirmAction] = useState<{ action: 'approved' | 'rejected'; ids: string[]; destId?: string } | null>(null);
   const approveTransfer = useApproveTransfer();
+
+  // Build lookups for destination size inventory based on expanded rows
+  const sizeLookups = useMemo(() => {
+    const lookups: { product_id: string; dest_store_id: string }[] = [];
+    for (const destId of expandedDest) {
+      const rows = detailRows.get(destId) || [];
+      const seen = new Set<string>();
+      for (const r of rows) {
+        const key = `${r.product_id}__${destId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          lookups.push({ product_id: r.product_id, dest_store_id: destId });
+        }
+      }
+    }
+    return lookups;
+  }, [expandedDest, detailRows]);
+
+  const { data: destSizeMap } = useDestinationSizeInventory(sizeLookups);
 
   const toggleDest = (destId: string) => {
     setExpandedDest(prev => {
@@ -338,39 +358,79 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                           <p className="font-bold text-emerald-600">{formatVNDCompact(t.net_benefit ?? 0)}</p>
                                         </div>
                                       </div>
-                                     {/* Size breakdown at destination */}
+                                      {/* Size breakdown at destination - full inventory from inv_state_positions */}
                                       <div className="col-span-2 md:col-span-3 border-t border-dashed pt-2 mt-1">
                                         <div className="flex items-start gap-2">
                                           <Store className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
-                                          <div>
+                                          <div className="w-full">
                                             <p className="text-muted-foreground mb-1">Tồn kho size tại kho đích</p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                              {(() => {
-                                                const siblingRows = rows.filter((r: any) => r.product_id === t.product_id);
-                                                const sizeMap = new Map<string, number>();
-                                                siblingRows.forEach((r: any) => sizeMap.set(r.size_code, r.dest_on_hand ?? 0));
-                                                const sizes = Array.from(sizeMap.entries()).sort((a, b) => {
-                                                  const order = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL'];
-                                                  const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]);
-                                                  return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-                                                });
-                                                return sizes.map(([size, qty]) => (
-                                                  <Badge
-                                                    key={size}
-                                                    variant="outline"
-                                                    className={`text-[10px] font-medium ${
-                                                      size === t.size_code
-                                                        ? 'border-primary bg-primary/10 text-primary'
-                                                        : qty === 0
-                                                        ? 'border-destructive/50 bg-destructive/10 text-destructive'
-                                                        : 'border-border'
-                                                    }`}
-                                                  >
-                                                    {size}: {qty} {size === t.size_code && '← đang chuyển'}
-                                                  </Badge>
-                                                ));
-                                              })()}
-                                            </div>
+                                            {(() => {
+                                              const lookupKey = `${t.product_id}__${t.dest_store_id}`;
+                                              const sizeEntries = destSizeMap?.get(lookupKey) || [];
+                                              
+                                              // Also collect transfer suggestions for this product to this dest
+                                              const transfersForProduct = rows.filter((r: any) => r.product_id === t.product_id);
+                                              const transferMap = new Map<string, number>();
+                                              transfersForProduct.forEach((r: any) => {
+                                                transferMap.set(r.size_code, editedQty[r.id] ?? r.transfer_qty);
+                                              });
+
+                                              // Merge: real inventory + transfer sizes that may have 0 in inv
+                                              const allSizes = new Map<string, number>();
+                                              sizeEntries.forEach(e => allSizes.set(e.size, e.on_hand));
+                                              // Ensure transfer sizes appear even if not in inv_state_positions
+                                              transferMap.forEach((_, size) => {
+                                                if (!allSizes.has(size)) allSizes.set(size, 0);
+                                              });
+
+                                              const sizeOrder = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','FS'];
+                                              const sorted = Array.from(allSizes.entries()).sort((a, b) => {
+                                                const ia = sizeOrder.indexOf(a[0]), ib = sizeOrder.indexOf(b[0]);
+                                                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+                                              });
+
+                                              const totalSizes = sorted.length;
+                                              const sizesWithStock = sorted.filter(([, qty]) => qty > 0).length;
+                                              const missingSizes = sorted.filter(([size, qty]) => qty === 0 && transferMap.has(size)).map(([s]) => s);
+
+                                              if (sizeEntries.length === 0) {
+                                                return <p className="text-muted-foreground text-[10px] italic">Đang tải dữ liệu size...</p>;
+                                              }
+
+                                              return (
+                                                <>
+                                                  <div className="flex flex-wrap gap-1.5">
+                                                    {sorted.map(([size, qty]) => {
+                                                      const isTransferring = transferMap.has(size);
+                                                      const transferQty = transferMap.get(size) || 0;
+                                                      const isCurrentSize = size === t.size_code;
+                                                      return (
+                                                        <Badge
+                                                          key={size}
+                                                          variant="outline"
+                                                          className={`text-[10px] font-medium ${
+                                                            isCurrentSize
+                                                              ? 'border-primary bg-primary/10 text-primary font-bold'
+                                                              : qty === 0
+                                                              ? 'border-destructive/50 bg-destructive/10 text-destructive'
+                                                              : 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400'
+                                                          }`}
+                                                        >
+                                                          {size}: {qty}
+                                                          {isTransferring && ` ← chuyển ${transferQty}đv`}
+                                                        </Badge>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                                                    Cửa hàng có {sizesWithStock}/{totalSizes} size
+                                                    {missingSizes.length > 0 && (
+                                                      <> · Thiếu <strong>{missingSizes.join(', ')}</strong> — chuyển để hoàn thiện size run</>
+                                                    )}
+                                                  </p>
+                                                </>
+                                              );
+                                            })()}
                                           </div>
                                         </div>
                                       </div>
