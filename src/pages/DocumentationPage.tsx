@@ -27,6 +27,7 @@ import {
   Home,
   Download
 } from 'lucide-react';
+import { printFDPDocumentationAsPDF } from '@/lib/fdp-pdf-export';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -113,16 +114,11 @@ export default function DocumentationPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const link = document.createElement('a');
-                      link.href = '/docs/SYSTEM_FEATURES_DOCUMENTATION.md';
-                      link.download = 'SYSTEM_FEATURES_DOCUMENTATION.md';
-                      link.click();
-                    }}
+                    onClick={() => printFDPDocumentationAsPDF()}
                     className="h-9 px-3 ml-2"
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    Tải tài liệu
+                    Tải PDF
                   </Button>
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10">
