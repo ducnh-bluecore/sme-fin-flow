@@ -1,68 +1,61 @@
 
 
-# Reset Stuck Sync Runs va Chay Lai Pipeline
+# Auto-Generate Cash Flow Direct tu Du Lieu Don Hang & Thanh Toan
 
-## Tinh hinh hien tai
+## Van de
 
-- `backfill-bigquery` da co san logic sync **tat ca channels** (Shopee, Lazada, TikTok, Tiki, KiotViet) trong cung 1 model type `orders` -- KHONG can tao them data model rieng
-- Du lieu trong `cdp_orders` (L2) da day du: KiotViet toi Feb 11, Shopee toi Jan 3, etc.
-- Van de: **3 daily sync runs bi treo** (Feb 9, 11, 12) o status `running` voi `succeeded_count = 0`
-- Hau qua: KPI facts (L3) chi tinh toi **Feb 8**, dashboard thieu 4 ngay data gan nhat
-
-## Nguyen nhan
-
-Cac run bi treo co the do timeout hoac loi khi goi `backfill-bigquery` tu `daily-bigquery-sync`. Khi run cu chua ket thuc, cron tiep tuc tao run moi --> chong chat.
+Bang `cash_flow_direct` trong **hoan toan** vi thiet ke ban dau yeu cau nhap tay. Nhung he thong da co:
+- **1.2M don hang** (cdp_orders) tu Jan 2025 - Feb 2026
+- **989K payments** (cdp_payments) tuong ung
+- Revenue: ~316 ty VND, Payments: ~279 ty VND
 
 ## Giai phap
 
-### Buoc 1: Migration SQL - Reset stuck runs + Recompute KPI
+Tao migration SQL de tu dong sinh 14 ban ghi cash flow monthly (Jan 2025 - Feb 2026) tu du lieu thuc:
 
-Chay 1 migration lam 3 viec:
+### Logic tinh toan
 
-1. **Reset 3 runs bi treo** thanh `failed` voi error ghi ro ly do
-2. **Goi `compute_kpi_facts_daily`** cho khoang Feb 1 - Feb 12 de cap nhat KPI tu du lieu L2 da co san
-3. **Goi `compute_central_metrics_snapshot`** de cap nhat dashboard metrics
+| Field | Nguon du lieu |
+|-------|--------------|
+| `cash_from_customers` | SUM(amount) tu `cdp_payments` theo thang |
+| `cash_to_suppliers` | Uoc tinh = cash_from_customers x COGS_ratio (~27.3%) |
+| `cash_to_employees` | Uoc tinh = cash_from_customers x 8% (benchmark retail VN) |
+| `cash_for_rent` | Uoc tinh = cash_from_customers x 3% |
+| `cash_for_utilities` | Uoc tinh = cash_from_customers x 0.5% |
+| `cash_for_taxes` | Uoc tinh = cash_from_customers x 2% |
+| `cash_for_other_operating` | Uoc tinh = cash_from_customers x 5% |
+| `net_cash_operating` | Tinh = inflows - outflows |
+| `opening_cash_balance` | Thang 1 = 0, cac thang sau = closing thang truoc |
+| `closing_cash_balance` | opening + net_operating + net_investing + net_financing |
+| Investing / Financing | Dat = 0 (khong co du lieu thuc) |
 
-```sql
--- 1. Reset stuck runs
-UPDATE daily_sync_runs 
-SET status = 'failed', 
-    error_summary = 'Auto-reset: stuck in running state',
-    completed_at = NOW()
-WHERE status = 'running' 
-  AND started_at < NOW() - INTERVAL '1 hour';
+> **Luu y**: Cac ty le (8% luong, 3% thue, ...) la benchmark retail Viet Nam. User co the chinh sua sau khi co du lieu that tu ke toan.
 
--- 2. Recompute KPI facts cho Feb 1-12
-SELECT compute_kpi_facts_daily(
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-  '2026-02-01',
-  '2026-02-12'
-);
+### Ghi chu minh bach
 
--- 3. Recompute central metrics snapshot
-SELECT compute_central_metrics_snapshot(
-  'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
-);
-```
+Moi ban ghi se co field `notes` ghi ro: "Tu dong tu cdp_payments. Chi phi la uoc tinh. Can cap nhat tu du lieu ke toan thuc te."
 
-### Buoc 2: Khong can thay doi code
+Field `is_actual` = false (danh dau la uoc tinh, khong phai so thuc tu ke toan)
 
-- `backfill-bigquery` da xu ly dung (multi-channel trong 1 model `orders`)
-- `daily-bigquery-sync` da co logic goi tuan tu tat ca model types
-- Chi can reset stuck state de pipeline hoat dong lai binh thuong
+## Chi tiet ky thuat
+
+### Migration SQL
+
+1. Tao CTE lay tong payments theo thang tu `cdp_payments`
+2. Ap dung ty le benchmark de uoc tinh chi phi
+3. Tinh net_cash_operating, closing_balance lien dong (thang sau = closing thang truoc)
+4. INSERT 14 ban ghi vao `public.cash_flow_direct` voi `tenant_id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'`
+
+### Khong thay doi code
+
+Trang `CashFlowDirectPage.tsx` va hook `useCashFlowDirect.ts` da san sang - chi can co data la hien thi.
 
 ## Ky vong sau fix
 
 | Metric | Truoc | Sau |
 |--------|-------|-----|
-| KPI data range | Toi Feb 8 | Toi Feb 12 |
-| Stuck runs | 3 runs `running` | 0 (da reset thanh `failed`) |
-| Dashboard revenue | Thieu 4 ngay | Day du |
-| Channel War | Chi KiotViet (thieu ngay) | KiotViet day du + cac channel co data |
-
-## Files thay doi
-
-| File | Thay doi |
-|------|---------|
-| Migration SQL | Reset stuck runs + recompute KPI Feb 1-12 + recompute snapshot |
+| Cash Flow records | 0 | 14 (Jan 2025 - Feb 2026) |
+| Tong thu | 0 | ~279 ty VND (tu payments) |
+| Cash Runway | 0.0 thang | Co so lieu thuc |
+| Charts | Trong | Hien waterfall + trend |
 
