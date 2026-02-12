@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useInventoryAging } from '@/hooks/useInventoryAging';
 import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
+import { useRetailHealthScore } from '@/hooks/useRetailHealthScore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Brain, AlertTriangle, TrendingDown, Package, Megaphone, Clock,
-  BarChart3, Calculator, Store, LineChart, ArrowRight,
+  Calculator, Store, LineChart, Database,
 } from 'lucide-react';
 import { formatVNDCompact } from '@/lib/formatters';
 
@@ -24,9 +24,31 @@ export function RetailDecisionFeed() {
   const { data: snapshot, isLoading: snapshotLoading } = useFinanceTruthSnapshot();
   const { summary, agingBuckets, isLoading: inventoryLoading } = useInventoryAging();
   const { data: channelData, isLoading: channelLoading } = useAllChannelsPL();
+  const { data: healthScore } = useRetailHealthScore();
 
   const decisions = useMemo((): NarrativeDecision[] => {
     const items: NarrativeDecision[] = [];
+
+    // 0. Data quality gaps — surface missing data sources
+    if (snapshot) {
+      const dq = snapshot.dataQuality;
+      if (!dq.hasExpenseData) {
+        items.push({
+          id: 'data-gap-expenses',
+          icon: <Database className="h-4 w-4" />,
+          narrative: 'Thiếu dữ liệu COGS/Chi phí — Gross Margin và CM chưa tính được chính xác. Cần import dữ liệu chi phí.',
+          severity: 'warning',
+        });
+      }
+      if (!dq.hasCashData) {
+        items.push({
+          id: 'data-gap-cash',
+          icon: <Database className="h-4 w-4" />,
+          narrative: 'Chưa có dữ liệu ngân hàng/cash — Cash Runway và CCC chưa phản ánh thực tế.',
+          severity: 'warning',
+        });
+      }
+    }
 
     // 1. Channel margin collapse
     if (channelData?.channels) {
@@ -53,9 +75,20 @@ export function RetailDecisionFeed() {
           severity: slowPercent > 40 ? 'critical' : 'warning',
         });
       }
+    } else if (snapshot && snapshot.totalInventoryValue > 0 && snapshot.slowMovingInventory > 0) {
+      // Fallback from snapshot
+      const pct = (snapshot.slowMovingInventory / snapshot.totalInventoryValue) * 100;
+      if (pct > 25) {
+        items.push({
+          id: 'inventory-trap-snapshot',
+          icon: <Package className="h-4 w-4" />,
+          narrative: `${formatVNDCompact(snapshot.slowMovingInventory)} tồn kho chậm luân chuyển, chiếm ${pct.toFixed(0)}% tổng giá trị kho ${formatVNDCompact(snapshot.totalInventoryValue)}`,
+          severity: pct > 40 ? 'critical' : 'warning',
+        });
+      }
     }
 
-    // 3. Marketing overspend per channel (using ROAS proxy)
+    // 3. Marketing overspend
     if (snapshot && snapshot.marketingRoas > 0 && snapshot.marketingRoas < 2) {
       items.push({
         id: 'marketing-roas',
@@ -88,14 +121,24 @@ export function RetailDecisionFeed() {
       }
     }
 
+    // 6. Health Score CRITICAL but no specific decisions found
+    if (healthScore?.overall === 'CRITICAL' && items.filter(i => i.severity === 'critical').length === 0) {
+      items.push({
+        id: 'health-critical-no-detail',
+        icon: <AlertTriangle className="h-4 w-4" />,
+        narrative: 'Health Score CRITICAL — thiếu dữ liệu chi tiết để phân tích nguyên nhân cụ thể. Cần bổ sung COGS, chi phí, và dữ liệu cash.',
+        severity: 'critical',
+      });
+    }
+
     // Sort: critical first, then warning
     items.sort((a, b) => {
       const order = { critical: 0, warning: 1, info: 2 };
       return order[a.severity] - order[b.severity];
     });
 
-    return items.slice(0, 5);
-  }, [snapshot, summary, agingBuckets, channelData]);
+    return items.slice(0, 7);
+  }, [snapshot, summary, agingBuckets, channelData, healthScore]);
 
   const isLoading = snapshotLoading || inventoryLoading || channelLoading;
 
@@ -122,7 +165,9 @@ export function RetailDecisionFeed() {
       <CardContent className="space-y-4">
         {isLoading ? (
           <div className="space-y-2">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14" />)}
+            {[...Array(3)].map((_, i) => (
+              <div key={i}><Skeleton className="h-14" /></div>
+            ))}
           </div>
         ) : decisions.length === 0 ? (
           <div className="py-4 text-center text-sm text-muted-foreground">
@@ -150,18 +195,18 @@ export function RetailDecisionFeed() {
             Quick Actions
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" className="justify-start gap-1.5 text-xs" onClick={() => navigate('/inventory-allocation')}>
+            <button onClick={() => navigate('/inventory-allocation')} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors justify-start">
               <Package className="h-3 w-3" /> Inventory
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start gap-1.5 text-xs" onClick={() => navigate('/unit-economics')}>
+            </button>
+            <button onClick={() => navigate('/unit-economics')} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors justify-start">
               <Calculator className="h-3 w-3" /> Unit Economics
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start gap-1.5 text-xs" onClick={() => navigate('/channel-pl')}>
+            </button>
+            <button onClick={() => navigate('/channel-pl')} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors justify-start">
               <Store className="h-3 w-3" /> Channel P&L
-            </Button>
-            <Button variant="outline" size="sm" className="justify-start gap-1.5 text-xs" onClick={() => navigate('/mdp')}>
+            </button>
+            <button onClick={() => navigate('/mdp')} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border hover:bg-muted transition-colors justify-start">
               <LineChart className="h-3 w-3" /> Marketing
-            </Button>
+            </button>
           </div>
         </div>
       </CardContent>

@@ -1,7 +1,9 @@
 import { useRetailHealthScore, type HealthStatus } from '@/hooks/useRetailHealthScore';
+import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Activity, ShieldCheck, AlertTriangle, XOctagon } from 'lucide-react';
+import { Activity, ShieldCheck, AlertTriangle, XOctagon, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const statusConfig: Record<HealthStatus, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
   GOOD: { bg: 'bg-success/10 border-success/30', text: 'text-success', icon: <ShieldCheck className="h-6 w-6" />, label: 'GOOD' },
@@ -17,6 +19,7 @@ const metricStatusDot: Record<HealthStatus, string> = {
 
 export function RetailHealthHero() {
   const { data: score, isLoading } = useRetailHealthScore();
+  const { data: snapshot } = useFinanceTruthSnapshot();
 
   if (isLoading) {
     return <Skeleton className="h-28" />;
@@ -33,6 +36,11 @@ export function RetailHealthHero() {
   }
 
   const config = statusConfig[score.overall];
+  const dq = snapshot?.dataQuality;
+  const missingData: string[] = [];
+  if (dq && !dq.hasExpenseData) missingData.push('COGS/Chi phí');
+  if (dq && !dq.hasCashData) missingData.push('Cash');
+  if (dq && !dq.hasInventoryData) missingData.push('Inventory chi tiết');
 
   return (
     <Card className={`border ${config.bg}`}>
@@ -45,6 +53,18 @@ export function RetailHealthHero() {
               <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <Activity className="h-3 w-3" />
                 Retail Health Score
+                {missingData.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[250px]">
+                      <p className="text-xs font-normal normal-case tracking-normal">
+                        Thiếu dữ liệu: {missingData.join(', ')}. Score có thể chưa chính xác.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <div className={`text-2xl font-bold ${config.text}`}>{config.label}</div>
             </div>
@@ -71,6 +91,14 @@ export function RetailHealthHero() {
             ))}
           </div>
         </div>
+
+        {/* Data quality note */}
+        {missingData.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-border/50 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Info className="h-3 w-3 flex-shrink-0" />
+            <span>Thiếu: {missingData.join(', ')} — một số metrics hiển thị N/A hoặc 0</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
