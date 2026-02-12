@@ -24204,6 +24204,59 @@ export type Database = {
           },
         ]
       }
+      post_impact_metrics: {
+        Row: {
+          baseline_date: string
+          baseline_window_days: number
+          card_action_id: string | null
+          created_at: string
+          delta_health_score: number | null
+          delta_inventory_age: number | null
+          delta_margin: number | null
+          delta_revenue: number | null
+          id: string
+          measure_date: string
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          baseline_date: string
+          baseline_window_days?: number
+          card_action_id?: string | null
+          created_at?: string
+          delta_health_score?: number | null
+          delta_inventory_age?: number | null
+          delta_margin?: number | null
+          delta_revenue?: number | null
+          id?: string
+          measure_date: string
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          baseline_date?: string
+          baseline_window_days?: number
+          card_action_id?: string | null
+          created_at?: string
+          delta_health_score?: number | null
+          delta_inventory_age?: number | null
+          delta_margin?: number | null
+          delta_revenue?: number | null
+          id?: string
+          measure_date?: string
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_impact_metrics_card_action_id_fkey"
+            columns: ["card_action_id"]
+            isOneToOne: false
+            referencedRelation: "card_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prediction_accuracy_log: {
         Row: {
           accuracy_percent: number | null
@@ -28106,6 +28159,45 @@ export type Database = {
           },
         ]
       }
+      state_cash_lock_daily: {
+        Row: {
+          as_of_date: string
+          cash_locked_value: number
+          created_at: string
+          expected_release_days: number | null
+          id: string
+          inventory_value: number
+          lock_driver: string | null
+          locked_pct: number
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string
+          cash_locked_value?: number
+          created_at?: string
+          expected_release_days?: number | null
+          id?: string
+          inventory_value?: number
+          lock_driver?: string | null
+          locked_pct?: number
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          cash_locked_value?: number
+          created_at?: string
+          expected_release_days?: number | null
+          id?: string
+          inventory_value?: number
+          lock_driver?: string | null
+          locked_pct?: number
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       state_lost_revenue_daily: {
         Row: {
           as_of_date: string
@@ -28134,6 +28226,42 @@ export type Database = {
           id?: string
           lost_revenue_est?: number
           lost_units_est?: number
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      state_margin_leak_daily: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          cumulative_leak_30d: number | null
+          id: string
+          leak_detail: Json | null
+          leak_driver: string
+          margin_leak_value: number
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date?: string
+          created_at?: string
+          cumulative_leak_30d?: number | null
+          id?: string
+          leak_detail?: Json | null
+          leak_driver: string
+          margin_leak_value?: number
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          cumulative_leak_30d?: number | null
+          id?: string
+          leak_detail?: Json | null
+          leak_driver?: string
+          margin_leak_value?: number
           product_id?: string
           tenant_id?: string
         }

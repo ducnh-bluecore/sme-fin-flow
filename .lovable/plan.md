@@ -156,10 +156,13 @@ Modify `inventory-kpi-engine/index.ts`:
 5. ✅ Create state_size_transfer_daily table — Phase 2
 6. ✅ Add Smart Transfer Engine + Per-store Health to edge function — Phase 2
 7. ✅ Update hook and UI with Transfer Opportunities — Phase 2
+8. ✅ Create evidence_packs, post_impact_metrics, state_cash_lock_daily, state_margin_leak_daily tables — Phase 3
+9. ✅ Add Cash Lock + Margin Leak + Evidence Pack computations to edge function — Phase 3
+10. ✅ Update UI with Cash Lock, Margin Leak KPIs + Evidence Pack drawer — Phase 3
 
-### Phase 2 Results
-- **200** Size Transfer opportunities detected
-- **18,155** Per-store Health records computed
-- Smart Transfer prioritizes same-region transfers, core sizes, and stockout urgency
-- Net benefit calculation: estimated_revenue_gain - transfer_cost
+### Phase 3 Results
+- **Cash Lock**: Tracks inventory value trapped by broken size curves (70% locked for broken, 40% for risk, 15% for watch)
+- **Margin Leak**: Two drivers tracked — `size_break` (40% margin on lost revenue) and `markdown_risk` (35% discount on high-risk inventory)
+- **Evidence Packs**: Audit trail with full data snapshot for every broken/risk product — includes health, lost revenue, cash lock, margin leak, markdown risk
+- **Evidence Drawer**: Click any at-risk style to see complete evidence pack with all metrics and source tables
 
