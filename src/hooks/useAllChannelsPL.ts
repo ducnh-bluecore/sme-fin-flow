@@ -172,7 +172,7 @@ export function useAllChannelsPL() {
 
 /**
  * Fallback: query kpi_facts_daily with dimension_type='channel'
- * Much lighter than v_channel_pl_summary view
+ * Uses pivot format: metric_code + metric_value (not flat columns)
  */
 async function fetchFromKpiFallback(
   buildSelectQuery: any,
@@ -180,11 +180,11 @@ async function fetchFromKpiFallback(
   endDateStr: string
 ): Promise<AllChannelsPLData | null> {
   try {
-    const { data, error } = await buildSelectQuery('kpi_facts_daily', '*')
+    const { data, error } = await buildSelectQuery('kpi_facts_daily', 'dimension_value,metric_code,metric_value')
       .eq('dimension_type', 'channel')
-      .gte('date', startDateStr)
-      .lte('date', endDateStr)
-      .limit(1000);
+      .gte('grain_date', startDateStr)
+      .lte('grain_date', endDateStr)
+      .limit(5000);
 
     if (error || !data || data.length === 0) {
       console.warn('[useAllChannelsPL] Fallback also empty');
@@ -197,21 +197,41 @@ async function fetchFromKpiFallback(
       };
     }
 
-    // kpi_facts_daily columns: dimension_value (channel name), net_revenue, gross_revenue, cogs, order_count, etc.
+    // Pivot: group by channel, aggregate metric_code values
     const channelMap = new Map<string, { totalRevenue: number; totalCogs: number; totalFees: number; orderCount: number; contributionMargin: number }>();
 
     (data as any[]).forEach(row => {
       const name = normalizeChannel(row.dimension_value);
       const existing = channelMap.get(name) || { totalRevenue: 0, totalCogs: 0, totalFees: 0, orderCount: 0, contributionMargin: 0 };
-      existing.totalRevenue += Number(row.gross_revenue || row.net_revenue || 0);
-      existing.totalCogs += Number(row.cogs || 0);
-      const netRev = Number(row.net_revenue || 0);
-      const grossRev = Number(row.gross_revenue || 0);
-      existing.totalFees += grossRev - netRev;
-      existing.orderCount += Number(row.order_count || 0);
-      existing.contributionMargin += Number(row.contribution_margin || 0);
+      const val = Number(row.metric_value || 0);
+
+      switch ((row.metric_code || '').toUpperCase()) {
+        case 'NET_REVENUE':
+          existing.totalRevenue += val;
+          break;
+        case 'ORDER_COUNT':
+          existing.orderCount += val;
+          break;
+        case 'COGS':
+          existing.totalCogs += val;
+          break;
+        case 'GROSS_MARGIN':
+          // This is margin amount, use as contribution margin
+          existing.contributionMargin += val;
+          break;
+        case 'CHANNEL_FEE':
+        case 'PLATFORM_FEE':
+          existing.totalFees += val;
+          break;
+      }
+
       channelMap.set(name, existing);
     });
+
+    // Filter out channels with no revenue (e.g. SHOPEE_ADS)
+    for (const [name, ch] of channelMap) {
+      if (ch.totalRevenue <= 0) channelMap.delete(name);
+    }
 
     return buildChannelResult(channelMap, 'fallback');
   } catch (e) {
