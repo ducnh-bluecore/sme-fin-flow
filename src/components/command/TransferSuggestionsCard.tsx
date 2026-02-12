@@ -338,6 +338,42 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                           <p className="font-bold text-emerald-600">{formatVNDCompact(t.net_benefit ?? 0)}</p>
                                         </div>
                                       </div>
+                                     {/* Size breakdown at destination */}
+                                      <div className="col-span-2 md:col-span-3 border-t border-dashed pt-2 mt-1">
+                                        <div className="flex items-start gap-2">
+                                          <Store className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                                          <div>
+                                            <p className="text-muted-foreground mb-1">Tồn kho size tại kho đích</p>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {(() => {
+                                                const siblingRows = rows.filter((r: any) => r.product_id === t.product_id);
+                                                const sizeMap = new Map<string, number>();
+                                                siblingRows.forEach((r: any) => sizeMap.set(r.size_code, r.dest_on_hand ?? 0));
+                                                const sizes = Array.from(sizeMap.entries()).sort((a, b) => {
+                                                  const order = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL'];
+                                                  const ia = order.indexOf(a[0]), ib = order.indexOf(b[0]);
+                                                  return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+                                                });
+                                                return sizes.map(([size, qty]) => (
+                                                  <Badge
+                                                    key={size}
+                                                    variant="outline"
+                                                    className={`text-[10px] font-medium ${
+                                                      size === t.size_code
+                                                        ? 'border-primary bg-primary/10 text-primary'
+                                                        : qty === 0
+                                                        ? 'border-destructive/50 bg-destructive/10 text-destructive'
+                                                        : 'border-border'
+                                                    }`}
+                                                  >
+                                                    {size}: {qty} {size === t.size_code && '← đang chuyển'}
+                                                  </Badge>
+                                                ));
+                                              })()}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
                                       <div className="col-span-2 md:col-span-3 border-t border-dashed pt-2 mt-1">
                                         <div className="flex items-start gap-2">
                                           <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
