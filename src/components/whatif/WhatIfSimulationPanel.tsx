@@ -22,6 +22,7 @@ import {
   History,
   Calculator,
   HelpCircle,
+  Clock,
 } from 'lucide-react';
 import { FormulaTooltip, FormulaRelationshipPanel, FormulaChip } from './FormulaTooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +53,7 @@ import { formatVNDCompact } from '@/lib/formatters';
 import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useWhatIfDefaults } from '@/hooks/useWhatIfDefaults';
 import { useWhatIfRealData } from '@/hooks/useWhatIfRealData';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { 
   useWhatIfScenarios, 
   useSaveWhatIfScenario, 
@@ -59,6 +61,7 @@ import {
   useUpdateWhatIfScenario,
   WhatIfParams,
   WhatIfResults,
+  type TimeHorizon,
 } from '@/hooks/useWhatIfScenarios';
 import { MonthlyProfitTrendChart } from './MonthlyProfitTrendChart';
 import { WhatIfChatbot } from './WhatIfChatbot';
@@ -180,13 +183,32 @@ export function WhatIfSimulationPanel() {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [scenarioName, setScenarioName] = useState('');
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>(12);
+
+  const TIME_HORIZON_OPTIONS: { value: TimeHorizon; label: string }[] = [
+    { value: 1, label: '1T' },
+    { value: 3, label: '3T' },
+    { value: 6, label: '6T' },
+    { value: 12, label: '1N' },
+    { value: 24, label: '2N' },
+  ];
+
+  const timeHorizonLabel = useMemo(() => {
+    switch (timeHorizon) {
+      case 1: return '1 tháng tới';
+      case 3: return '3 tháng tới';
+      case 6: return '6 tháng tới';
+      case 12: return '1 năm';
+      case 24: return '2 năm';
+    }
+  }, [timeHorizon]);
 
   // Base values (prefer KPI cache; fallback to real orders data if KPI cache isn't built yet)
-  const baseValues = useMemo(() => {
+  // Monthly base values (snapshot covers ~90 days = ~3 months)
+  const monthlyBase = useMemo(() => {
     const kpiHasRevenue = (kpiData?.totalRevenue || 0) > 0;
     const sourceRevenue = kpiHasRevenue ? (kpiData?.totalRevenue || 0) : (realData?.totalRevenue || 0);
 
-    // Prefer KPI gross margin when available; otherwise compute from order data
     const sourceGrossMargin = kpiHasRevenue
       ? (kpiData?.grossMargin || 35)
       : (sourceRevenue > 0
@@ -197,22 +219,31 @@ export function WhatIfSimulationPanel() {
       ? sourceRevenue * (1 - sourceGrossMargin / 100)
       : (realData?.totalCogs || 0);
 
-    // For demo / order-based fallback: approximate EBITDA with net profit
     const ebitda = kpiHasRevenue ? (kpiData?.ebitda || 0) : (realData?.totalNetProfit || 0);
 
-    // Estimate OPEX: EBITDA = (Revenue - COGS - Fees) - OPEX
     const fees = kpiHasRevenue ? 0 : (realData?.totalFees || 0);
     const grossProfitAfterFees = sourceRevenue - cogs - fees;
     const opex = grossProfitAfterFees - ebitda;
 
+    // Snapshot is ~3 months, so divide by 3 for monthly
+    const divisor = 3;
     return {
-      revenue: sourceRevenue,
-      cogs,
-      opex: opex > 0 ? opex : sourceRevenue * 0.25,
-      ebitda,
+      revenue: sourceRevenue / divisor,
+      cogs: cogs / divisor,
+      opex: (opex > 0 ? opex : sourceRevenue * 0.25) / divisor,
+      ebitda: ebitda / divisor,
       grossMargin: sourceGrossMargin,
     };
   }, [kpiData, realData]);
+
+  // Scale base values by time horizon
+  const baseValues = useMemo(() => ({
+    revenue: monthlyBase.revenue * timeHorizon,
+    cogs: monthlyBase.cogs * timeHorizon,
+    opex: monthlyBase.opex * timeHorizon,
+    ebitda: monthlyBase.ebitda * timeHorizon,
+    grossMargin: monthlyBase.grossMargin,
+  }), [monthlyBase, timeHorizon]);
 
   // Calculate projected values
   const projectedValues = useMemo(() => {
@@ -271,6 +302,7 @@ export function WhatIfSimulationPanel() {
       apDaysChange: 0,
       priceChange: params.priceChange,
       volumeChange: params.volumeChange,
+      timeHorizon,
     };
     
     const whatIfResults: WhatIfResults = {
@@ -306,6 +338,9 @@ export function WhatIfSimulationPanel() {
       priceChange: scenario.params.priceChange || 0,
       volumeChange: scenario.params.volumeChange || 0,
     });
+    if (scenario.params.timeHorizon) {
+      setTimeHorizon(scenario.params.timeHorizon);
+    }
     setSelectedScenarioId(scenario.id);
   };
 
@@ -539,6 +574,30 @@ export function WhatIfSimulationPanel() {
           </TabsList>
         </div>
 
+        {/* Time Horizon Selector */}
+        {mode === 'simple' && (
+          <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-muted/30">
+            <Clock className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Khung thời gian:</span>
+            <ToggleGroup
+              type="single"
+              value={String(timeHorizon)}
+              onValueChange={(v) => v && setTimeHorizon(Number(v) as TimeHorizon)}
+              variant="outline"
+              size="sm"
+            >
+              {TIME_HORIZON_OPTIONS.map((opt) => (
+                <ToggleGroupItem key={opt.value} value={String(opt.value)} className="px-3 text-xs font-medium">
+                  {opt.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <Badge variant="secondary" className="ml-auto text-xs">
+              {timeHorizonLabel}
+            </Badge>
+          </div>
+        )}
+
         {/* Simple Mode Content */}
         <TabsContent value="simple" className="mt-0 space-y-6">
           {/* No Data Overlay */}
@@ -557,7 +616,7 @@ export function WhatIfSimulationPanel() {
               <div>
                 <FormulaTooltip formulaKey="revenueChange" variant="hovercard" showIcon={false}>
                   <p className="text-xs text-muted-foreground cursor-help hover:text-primary transition-colors flex items-center gap-1">
-                    Doanh thu
+                    Doanh thu ({timeHorizonLabel})
                     <HelpCircle className="w-3 h-3" />
                   </p>
                 </FormulaTooltip>
@@ -586,7 +645,7 @@ export function WhatIfSimulationPanel() {
               <div>
                 <FormulaTooltip formulaKey="ebitda" variant="hovercard" showIcon={false}>
                   <p className="text-xs text-muted-foreground cursor-help hover:text-primary transition-colors flex items-center gap-1">
-                    EBITDA
+                    EBITDA ({timeHorizonLabel})
                     <HelpCircle className="w-3 h-3" />
                   </p>
                 </FormulaTooltip>
@@ -803,6 +862,7 @@ export function WhatIfSimulationPanel() {
             ebitdaChange: projectedValues.ebitdaChange,
           }}
           controlMode="simple"
+          timeHorizon={timeHorizon}
         />
       )}
 

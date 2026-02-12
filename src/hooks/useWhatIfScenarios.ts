@@ -10,6 +10,8 @@ import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
+export type TimeHorizon = 1 | 3 | 6 | 12 | 24;
+
 export interface WhatIfParams {
   revenueChange: number;
   cogsChange: number;
@@ -18,6 +20,7 @@ export interface WhatIfParams {
   apDaysChange: number;
   priceChange: number;
   volumeChange: number;
+  timeHorizon?: TimeHorizon;
 }
 
 export interface WhatIfResults {
