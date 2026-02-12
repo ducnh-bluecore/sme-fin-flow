@@ -56,7 +56,11 @@ export function useRetailHealthScore() {
     const runwayStatus: HealthStatus = 
       runway === null || runway === Infinity ? 'GOOD' :
       runway < 3 ? 'CRITICAL' : runway < 6 ? 'WARNING' : 'GOOD';
-    const dioStatus: HealthStatus = dio > 120 ? 'CRITICAL' : dio > 60 ? 'WARNING' : 'GOOD';
+    // DIO status: if COGS coverage is low (gross_margin% > 95%), DIO is provisional → cap at WARNING
+    const cogsIsLow = snapshot.grossMarginPercent > 95 && snapshot.grossProfit > 0;
+    const dioStatus: HealthStatus = cogsIsLow
+      ? (dio > 60 ? 'WARNING' : 'GOOD')  // Cap at WARNING when COGS data is incomplete
+      : (dio > 120 ? 'CRITICAL' : dio > 60 ? 'WARNING' : 'GOOD');
     const sellThroughStatus: HealthStatus = sellThrough < 10 ? 'CRITICAL' : sellThrough < 30 ? 'WARNING' : 'GOOD';
     const cacStatus: HealthStatus = cacPayback > 6 ? 'CRITICAL' : cacPayback > 3 ? 'WARNING' : 'GOOD';
 
