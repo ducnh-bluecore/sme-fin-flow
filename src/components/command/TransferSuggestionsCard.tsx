@@ -51,10 +51,9 @@ function translateReason(reason: string): string[] {
 
 function getPurposeBadge(reason: string): { label: string; className: string } {
   const r = (reason || '').toLowerCase();
-  // Priority: broken_size > stockout > core_size > high_velocity > excess_source/low_stock
-  if (r.includes('broken_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
+  // Priority: core_size/broken_size > stockout > high_velocity > excess_source/low_stock
+  if (r.includes('core_size') || r.includes('broken_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
   if (r.includes('stockout')) return { label: 'Hết hàng', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' };
-  if (r.includes('core_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
   if (r.includes('high_velocity')) return { label: 'Bán nhanh', className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' };
   if (r.includes('excess_source') || r.includes('low_stock')) return { label: 'Cân bằng kho', className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' };
   return { label: 'Tối ưu', className: 'bg-muted text-muted-foreground border-border' };
