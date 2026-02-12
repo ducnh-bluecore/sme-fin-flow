@@ -49,6 +49,17 @@ function translateReason(reason: string): string[] {
   return tags.map(tag => reasonTranslations[tag] || tag);
 }
 
+function getPurposeBadge(reason: string): { label: string; className: string } {
+  const r = (reason || '').toLowerCase();
+  // Priority: broken_size > stockout > core_size > high_velocity > excess_source/low_stock
+  if (r.includes('broken_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
+  if (r.includes('stockout')) return { label: 'Hết hàng', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' };
+  if (r.includes('core_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
+  if (r.includes('high_velocity')) return { label: 'Bán nhanh', className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' };
+  if (r.includes('excess_source') || r.includes('low_stock')) return { label: 'Cân bằng kho', className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' };
+  return { label: 'Tối ưu', className: 'bg-muted text-muted-foreground border-border' };
+}
+
 export default function TransferSuggestionsCard({ transferByDest, detailRows, storeNames, fcNames, totalOpportunities }: Props) {
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
@@ -202,7 +213,7 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                             <TableHead className="text-xs">From</TableHead>
                             <TableHead className="text-xs text-center">Qty</TableHead>
                             <TableHead className="text-xs text-right">Net Benefit</TableHead>
-                            <TableHead className="text-xs">Reason</TableHead>
+                            <TableHead className="text-xs">Mục đích</TableHead>
                             <TableHead className="text-xs text-center">Status</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -254,7 +265,12 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs font-medium text-emerald-600">{formatVNDCompact(t.net_benefit)}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">{t.reason}</TableCell>
+                                <TableCell>
+                                  {(() => {
+                                    const purpose = getPurposeBadge(t.reason);
+                                    return <Badge variant="outline" className={`text-[10px] font-medium border ${purpose.className}`}>{purpose.label}</Badge>;
+                                  })()}
+                                </TableCell>
                                 <TableCell className="text-center">
                                   {isApproved && <Badge className="text-[10px] bg-emerald-600">Đã duyệt</Badge>}
                                   {isRejected && <Badge variant="secondary" className="text-[10px]">Từ chối</Badge>}
