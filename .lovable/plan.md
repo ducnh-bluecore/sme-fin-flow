@@ -1,74 +1,66 @@
 
 
-## Phase 3.1: Chuyển Size Health Details sang Action Groups
+## Phase 3.2: Smart Transfer — Approve + Export Excel
 
-### Vấn đề hiện tại
-- Bảng Size Health Details hiển thị flat list, giới hạn 1000 dòng (thực tế chỉ show 100)
-- Không phân biệt mức độ nghiêm trọng — style broken và healthy nằm chung
-- Vi phạm nguyên tắc Progressive Decision Disclosure
-- Trùng lặp thông tin với các action feeds phía trên
+### Muc tieu
+Khi CEO/CFO bam "Approve" tren Smart Transfer Suggestions, he thong:
+1. Cap nhat trang thai cac dong duoc duyet trong DB
+2. Tu dong download file Excel "Phieu dieu chuyen" de import vao WMS/ERP tao lenh dieu chuyen
 
-### Giải pháp: Action Groups by Curve State
+### Thay doi ky thuat
 
-Thay thế bảng flat bằng 4 Collapsible Action Groups, sắp xếp theo mức độ nghiêm trọng:
+#### 1. Database Migration
+Them 3 cot vao `state_size_transfer_daily`:
+- `status` (text, default 'pending') — pending / approved / rejected
+- `approved_by` (uuid, nullable)
+- `approved_at` (timestamptz, nullable)
+
+#### 2. Export function: `exportSizeTransferToExcel`
+Them function moi trong `src/lib/inventory-export.ts`, tao file Excel 2 sheet:
+- **Sheet "Phieu dieu chuyen"**: STT, Ten SP, Size, Kho nguon, Kho dich, SL, Net Benefit, Reason, Ngay duyet
+- **Sheet "Tom tat"**: Tong dong, tong SL, tong net benefit, ngay xuat, nguoi duyet
+
+Tai su dung pattern tu `exportRebalanceToExcel` da co san, dung thu vien `xlsx`.
+
+#### 3. Hook moi: `useApproveTransfer.ts`
+- Mutation nhan `transferIds[]` + action ('approved' | 'rejected')
+- Khi approve: update status trong DB
+- Goi callback `onApproved` de trigger Excel export
+- Invalidate queries lien quan
+
+#### 4. Component moi: `TransferSuggestionsCard.tsx`
+Tach logic Smart Transfer tu `AssortmentPage.tsx` ra component rieng:
+- Props: transferByDest, detailRows, storeNames, fcNames
+- Them nut "Duyet & Xuat Excel" tren moi store group header
+- Them nut "Duyet tat ca & Xuat Excel" o card header
+- Khi bam Approve:
+  1. Confirm dialog (xac nhan so luong)
+  2. Update DB status = approved
+  3. Auto download Excel file
+- Row da approved: highlight xanh + badge "Da duyet"
+- Row da rejected: mo di + badge "Tu choi"
+
+#### 5. Refactor `AssortmentPage.tsx`
+- Thay the inline Smart Transfer Suggestions bang `<TransferSuggestionsCard />`
+- Giu nguyen cac phan khac (Hero KPIs, Tabs, Evidence)
+
+### Flow nguoi dung
 
 ```text
-+--------------------------------------------------+
-| BROKEN (45 styles)              Cash: 2.3B locked |
-| Total Lost Rev: 890M | Margin Leak: 234M         |
-| [Click to expand]                                 |
-+--------------------------------------------------+
-| RISK (120 styles)               Cash: 1.1B locked |
-| Total Lost Rev: 456M | MD Risk: 67 styles         |
-| [Click to expand]                                 |
-+--------------------------------------------------+
-| WATCH (300 styles)              Deviation avg: 12 |
-| [Collapsed by default]                            |
-+--------------------------------------------------+
-| HEALTHY (735 styles)            Avg score: 82     |
-| [Collapsed by default]                            |
-+--------------------------------------------------+
+CEO xem Smart Transfer Suggestions
+  → Expand store group → Xem chi tiet
+  → Bam "Duyet & Xuat Excel"
+  → Confirm dialog hien tong SL + net benefit
+  → Bam "Xac nhan"
+  → DB cap nhat status = approved
+  → Browser tu dong download file Excel
+  → CEO gui file Excel cho team Ops import WMS
 ```
 
-### Chi tiet ky thuat
-
-#### 1. Tao DB View: `v_size_health_by_state`
-
-View nay group theo `curve_state` va tinh tong impact metrics tu cac bang state:
-- Count styles per state
-- Sum lost_revenue, cash_locked, margin_leak per state
-- Avg health_score per state
-
-#### 2. Tao DB RPC: `fn_size_health_details`
-
-RPC nhan tham so `p_curve_state` va `p_limit`/`p_offset` de load chi tiet theo tung group voi server-side pagination. Join voi `dim_products` de lay ten san pham thay vi UUID.
-
-#### 3. Tao Hook: `useSizeHealthGroups`
-
-- Goi `v_size_health_by_state` cho summary 4 groups (luon load)
-- Goi `fn_size_health_details` khi user expand 1 group (lazy load)
-- Cache theo group de khong re-fetch khi collapse/expand
-
-#### 4. Refactor UI trong `AssortmentPage.tsx`
-
-- Xoa bang "Size Health Details" hien tai
-- Thay bang 4 Collapsible cards (dung Accordion component co san)
-- Moi card header hien: State badge + count + tong impact metrics
-- Expand: hien bang chi tiet voi product name, health score, lost rev, cash lock, margin leak
-- Broken va Risk: auto-expand khi co data
-- Watch va Healthy: collapsed mac dinh
-- Moi group co "Load more" button neu > 50 styles
-
-#### 5. Giu nguyen phan tren (Hero KPIs + Action Feeds)
-
-- Hero KPIs van dung `useSizeIntelligenceSummary` (DB views)
-- Smart Transfer Suggestions van gom theo store
-- Evidence Pack drawer van hoat dong
-
-### Ket qua mong doi
-- Hero KPIs chinh xac 100% (da fix)
-- Action Groups load nhanh (chi 1 query summary + lazy load detail)
-- Khong bi gioi han 1000 dong
-- CEO/CFO thay ngay: "45 styles broken, khoa 2.3B" trong 5 giay
-- Drill-down khi can audit
+### Files thay doi
+- `supabase/migrations/` — them cot status, approved_by, approved_at
+- `src/lib/inventory-export.ts` — them `exportSizeTransferToExcel()`
+- `src/hooks/inventory/useApproveTransfer.ts` — hook moi
+- `src/components/command/TransferSuggestionsCard.tsx` — component moi
+- `src/pages/command/AssortmentPage.tsx` — thay the inline code bang component
 
