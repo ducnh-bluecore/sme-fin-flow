@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Layers3, AlertTriangle, RefreshCw, Search, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, ArrowRight, Lock, Flame, FileText, ChevronDown, ChevronRight, Store } from 'lucide-react';
+import { Layers3, AlertTriangle, RefreshCw, ShieldAlert, TrendingDown, DollarSign, Activity, Clock, ArrowRightLeft, Lock, Flame, FileText, ChevronDown, ChevronRight, Store } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -14,6 +12,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
 import { useSizeIntelligenceSummary } from '@/hooks/inventory/useSizeIntelligenceSummary';
+import { useSizeHealthGroups } from '@/hooks/inventory/useSizeHealthGroups';
+import SizeHealthActionGroups from '@/components/command/SizeHealthActionGroups';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatVNDCompact } from '@/lib/formatters';
@@ -21,9 +21,6 @@ import { formatVNDCompact } from '@/lib/formatters';
 export default function AssortmentPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'health' | 'lost_revenue' | 'markdown' | 'cash_lock'>('lost_revenue');
   const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
 
@@ -36,6 +33,9 @@ export default function AssortmentPage() {
     cashLockMap, marginLeakMap, evidencePackMap,
     isLoading: siLoading, lostRevenue, sizeTransfers
   } = useSizeIntelligence();
+
+  // Action Groups (server-side aggregation + pagination)
+  const { groups: healthGroups, isLoading: groupsLoading, detailCache, loadingStates, loadGroupDetails, PAGE_SIZE } = useSizeHealthGroups();
 
   // FC names
   const { data: fcNames } = useQuery({
@@ -84,32 +84,14 @@ export default function AssortmentPage() {
     onSuccess: (data) => {
       toast.success(`Engine: ${data.size_health_rows} Health, ${data.cash_lock_rows || 0} Cash Lock, ${data.margin_leak_rows || 0} Margin Leak, ${data.evidence_pack_rows || 0} Evidence`);
       ['si-health-summary', 'si-lost-rev-summary', 'si-md-risk-summary', 'si-transfer-by-dest', 'si-cash-lock-summary', 'si-margin-leak-summary',
-       'size-health', 'store-size-health', 'lost-revenue', 'markdown-risk', 'size-transfers', 'cash-lock', 'margin-leak', 'evidence-packs'].forEach(k =>
+       'si-health-by-state', 'size-health', 'store-size-health', 'lost-revenue', 'markdown-risk', 'size-transfers', 'cash-lock', 'margin-leak', 'evidence-packs'].forEach(k =>
         queryClient.invalidateQueries({ queryKey: [k] })
       );
     },
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
 
-  // Build detail list from healthMap (capped by query limit for drill-down)
-  const allStyles = [...healthMap.keys()];
-  let filtered = allStyles;
-  if (statusFilter !== 'all') {
-    filtered = filtered.filter(fcId => healthMap.get(fcId)?.curve_state === statusFilter);
-  }
-  if (search) {
-    const q = search.toLowerCase();
-    filtered = filtered.filter(fcId => (fcNames?.get(fcId) || fcId).toLowerCase().includes(q));
-  }
-  if (sortBy === 'lost_revenue') {
-    filtered = [...filtered].sort((a, b) => (lostRevenueMap.get(b)?.lost_revenue_est || 0) - (lostRevenueMap.get(a)?.lost_revenue_est || 0));
-  } else if (sortBy === 'health') {
-    filtered = [...filtered].sort((a, b) => (healthMap.get(a)?.size_health_score || 100) - (healthMap.get(b)?.size_health_score || 100));
-  } else if (sortBy === 'markdown') {
-    filtered = [...filtered].sort((a, b) => (markdownRiskMap.get(b)?.markdown_risk_score || 0) - (markdownRiskMap.get(a)?.markdown_risk_score || 0));
-  } else if (sortBy === 'cash_lock') {
-    filtered = [...filtered].sort((a, b) => (cashLockMap.get(b)?.cash_locked_value || 0) - (cashLockMap.get(a)?.cash_locked_value || 0));
-  }
+  // (Filtering/sorting now handled by Action Groups via server-side RPC)
 
   const topLostRevStyles = (lostRevenue.data || []).slice(0, 5);
 
@@ -370,140 +352,26 @@ export default function AssortmentPage() {
         </Card>
       )}
 
-      {/* ── Size Health Details ── */}
+      {/* ── Size Health Action Groups ── */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Layers3 className="h-4 w-4" /> Size Health Details
-              {summary.totalProducts > 0 && (
-                <Badge variant="outline" className="text-xs ml-1">{summary.totalProducts} total (showing top {Math.min(filtered.length, 100)})</Badge>
-              )}
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search style..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 w-48" />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All States</SelectItem>
-                  <SelectItem value="broken">Broken ({summary.brokenCount})</SelectItem>
-                  <SelectItem value="risk">Risk ({summary.riskCount})</SelectItem>
-                  <SelectItem value="watch">Watch ({summary.watchCount})</SelectItem>
-                  <SelectItem value="healthy">Healthy ({summary.healthyCount})</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lost_revenue">By Lost Revenue</SelectItem>
-                  <SelectItem value="health">By Health Score</SelectItem>
-                  <SelectItem value="markdown">By MD Risk</SelectItem>
-                  <SelectItem value="cash_lock">By Cash Lock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Layers3 className="h-4 w-4" /> Size Health by State
+            {summary.totalProducts > 0 && (
+              <Badge variant="outline" className="text-xs ml-1">{summary.totalProducts} styles</Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {(siLoading || summaryLoading) ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <AlertTriangle className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">No size health data</p>
-              <p className="text-xs mt-1">Click "Run Engine" to compute Size Intelligence</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Style</TableHead>
-                    <TableHead className="text-center">Health</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead className="text-right">Lost Rev</TableHead>
-                    <TableHead className="text-right">Cash Lock</TableHead>
-                    <TableHead className="text-right">Margin Leak</TableHead>
-                    <TableHead className="text-center">MD Risk</TableHead>
-                    <TableHead className="text-center">ETA</TableHead>
-                    <TableHead className="text-center">Evidence</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.slice(0, 100).map((fcId) => {
-                    const h = healthMap.get(fcId)!;
-                    const lr = lostRevenueMap.get(fcId);
-                    const md = markdownRiskMap.get(fcId);
-                    const cl = cashLockMap.get(fcId);
-                    const ml = marginLeakMap.get(fcId) || 0;
-                    const name = fcNames?.get(fcId) || fcId;
-                    const hasEvidence = evidencePackMap.has(fcId);
-
-                    return (
-                      <TableRow key={fcId} className={hasEvidence ? 'cursor-pointer hover:bg-muted/50' : ''} onClick={() => hasEvidence && setEvidenceProductId(fcId)}>
-                        <TableCell className="text-xs font-medium max-w-[200px] truncate">{name}</TableCell>
-                        <TableCell className="text-center">
-                          <span className={`font-semibold text-sm ${
-                            h.size_health_score >= 80 ? 'text-emerald-600' :
-                            h.size_health_score >= 60 ? 'text-amber-600' :
-                            h.size_health_score >= 40 ? 'text-orange-600' : 'text-destructive'
-                          }`}>
-                            {h.size_health_score.toFixed(0)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={
-                            h.curve_state === 'broken' ? 'destructive' :
-                            h.curve_state === 'risk' ? 'secondary' : 'default'
-                          } className="text-xs capitalize">
-                            {h.curve_state}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {lr ? <span className="text-destructive">{formatVNDCompact(lr.lost_revenue_est)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {cl ? <span className="text-orange-600">{formatVNDCompact(cl.cash_locked_value)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {ml > 0 ? <span className="text-red-600">{formatVNDCompact(ml)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {md ? (
-                            <span className={`font-semibold text-xs ${
-                              md.markdown_risk_score >= 80 ? 'text-destructive' :
-                              md.markdown_risk_score >= 60 ? 'text-orange-600' :
-                              md.markdown_risk_score >= 40 ? 'text-amber-600' : 'text-muted-foreground'
-                            }`}>
-                              {md.markdown_risk_score}
-                            </span>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell className="text-center text-xs">
-                          {md?.markdown_eta_days ? `${md.markdown_eta_days}d` : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {hasEvidence ? <FileText className="h-3.5 w-3.5 mx-auto text-muted-foreground" /> : '—'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {filtered.length > 100 && (
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Showing top 100 of {filtered.length} loaded styles (total: {summary.totalProducts})
-                </p>
-              )}
-            </div>
-          )}
+          <SizeHealthActionGroups
+            groups={healthGroups}
+            isLoading={groupsLoading || summaryLoading}
+            detailCache={detailCache}
+            loadingStates={loadingStates}
+            onExpandGroup={loadGroupDetails}
+            onViewEvidence={(productId) => evidencePackMap.has(productId) && setEvidenceProductId(productId)}
+            pageSize={PAGE_SIZE}
+          />
         </CardContent>
       </Card>
 

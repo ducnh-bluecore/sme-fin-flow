@@ -39428,6 +39428,22 @@ export type Database = {
           },
         ]
       }
+      v_size_health_by_state: {
+        Row: {
+          avg_deviation: number | null
+          avg_health_score: number | null
+          core_missing_count: number | null
+          curve_state: string | null
+          high_md_risk_count: number | null
+          style_count: number | null
+          tenant_id: string | null
+          total_cash_locked: number | null
+          total_lost_revenue: number | null
+          total_lost_units: number | null
+          total_margin_leak: number | null
+        }
+        Relationships: []
+      }
       v_size_intelligence_summary: {
         Row: {
           as_of_date: string | null
@@ -40550,6 +40566,29 @@ export type Database = {
         Returns: {
           store_id: string
           total_on_hand: number
+        }[]
+      }
+      fn_size_health_details: {
+        Args: {
+          p_curve_state: string
+          p_limit?: number
+          p_offset?: number
+          p_sort_by?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          cash_locked_value: number
+          core_size_missing: boolean
+          curve_state: string
+          deviation_score: number
+          lost_revenue_est: number
+          lost_units_est: number
+          margin_leak_value: number
+          markdown_eta_days: number
+          markdown_risk_score: number
+          product_id: string
+          product_name: string
+          size_health_score: number
         }[]
       }
       generate_asset_code: {
