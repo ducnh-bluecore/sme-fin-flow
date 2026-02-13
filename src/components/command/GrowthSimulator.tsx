@@ -39,6 +39,8 @@ interface SimResult {
   currentQty: number;
   neededRevenue: number;
   neededQty: number;
+  onHandQty: number;
+  productionQty: number;
   cashRequired: number;
   projectedMargin: number;
   marginPct: number;
@@ -68,6 +70,7 @@ function runSimulation(
   revenueData: any[],
   skuData: SKUSummary[],
   fcData: FamilyCode[],
+  inventoryMap: Map<string, number>,
   growthPct: number,
   timeframe: string
 ): SimSummary | null {
@@ -124,8 +127,10 @@ function runSimulation(
   const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
   const heroShareActual = totalSkuRevenue > 0 ? heroTotalRevenue / totalSkuRevenue : 0;
 
-  const heroGapAllocation = gapRevenue * 0.6;
-  const nonHeroGapAllocation = gapRevenue * 0.4;
+  // Use actual hero revenue share for allocation (not hardcoded 60/40)
+  const heroShareForAllocation = heroShareActual > 0 ? Math.max(heroShareActual, 0.1) : 0;
+  const heroGapAllocation = gapRevenue * heroShareForAllocation;
+  const nonHeroGapAllocation = gapRevenue * (1 - heroShareForAllocation);
 
   const details: SimResult[] = [];
 
@@ -135,7 +140,12 @@ function runSimulation(
     const unitPrice = agg.count > 0 ? agg.avgPrice / agg.count : 250000;
     const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
     const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
-    const cashRequired = neededQty * unitCogs;
+    
+    // Subtract current inventory on-hand
+    const onHandQty = inventoryMap.get(fcCode) || 0;
+    const productionQty = Math.max(0, neededQty - onHandQty);
+    
+    const cashRequired = productionQty * unitCogs;
     const projectedMargin = neededQty * (unitPrice - unitCogs);
     const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
 
@@ -147,6 +157,8 @@ function runSimulation(
       currentQty: agg.qty,
       neededRevenue,
       neededQty,
+      onHandQty,
+      productionQty,
       cashRequired,
       projectedMargin,
       marginPct,
@@ -166,15 +178,15 @@ function runSimulation(
 
   details.sort((a, b) => b.neededRevenue - a.neededRevenue);
 
-  const totalQtyNeeded = details.reduce((s, d) => s + d.neededQty, 0);
+  const totalQtyNeeded = details.reduce((s, d) => s + d.productionQty, 0);
   const totalCashRequired = details.reduce((s, d) => s + d.cashRequired, 0);
   const totalProjectedMargin = details.reduce((s, d) => s + d.projectedMargin, 0);
   const avgMarginPct = totalCashRequired + totalProjectedMargin > 0
     ? (totalProjectedMargin / (totalCashRequired + totalProjectedMargin)) * 100
     : 0;
 
-  const heroQtyTotal = details.filter(d => d.isHero).reduce((s, d) => s + d.neededQty, 0);
-  const nonHeroQtyTotal = details.filter(d => !d.isHero).reduce((s, d) => s + d.neededQty, 0);
+  const heroQtyTotal = details.filter(d => d.isHero).reduce((s, d) => s + d.productionQty, 0);
+  const nonHeroQtyTotal = details.filter(d => !d.isHero).reduce((s, d) => s + d.productionQty, 0);
 
   const risks: SimSummary['risks'] = [];
   const heroCount = heroFCs.length;
@@ -269,7 +281,38 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  const dataLoading = revLoading || skuLoading || fcLoading;
+  const { data: inventoryData, isLoading: invLoading } = useQuery({
+    queryKey: ['growth-sim-inventory', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery(
+        'inventory_snapshots' as any,
+        'sku, quantity'
+      ).limit(5000);
+      if (error) throw error;
+      return (data || []) as unknown as { sku: string; quantity: number }[];
+    },
+    enabled: isReady,
+  });
+
+  // Build inventory map: aggregate by SKU prefix (fc_code)
+  const inventoryMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!inventoryData || !fcData) return map;
+    for (const inv of inventoryData) {
+      if (!inv.sku) continue;
+      let fcCode = inv.sku;
+      for (const fc of fcData) {
+        if (inv.sku.startsWith(fc.fc_code)) {
+          fcCode = fc.fc_code;
+          break;
+        }
+      }
+      map.set(fcCode, (map.get(fcCode) || 0) + (inv.quantity || 0));
+    }
+    return map;
+  }, [inventoryData, fcData]);
+
+  const dataLoading = revLoading || skuLoading || fcLoading || invLoading;
   const dataReady = !!revenueData?.length && !!skuData?.length;
 
   const handleRun = useCallback(() => {
@@ -277,11 +320,11 @@ export default function GrowthSimulator() {
     setIsRunning(true);
     // Use setTimeout to allow UI to show loading state
     setTimeout(() => {
-      const result = runSimulation(revenueData, skuData, fcData || [], growthPct, timeframe);
+      const result = runSimulation(revenueData, skuData, fcData || [], inventoryMap, growthPct, timeframe);
       setSimulation(result);
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, growthPct, timeframe]);
+  }, [revenueData, skuData, fcData, inventoryMap, growthPct, timeframe]);
 
   const heroDetails = simulation?.details.filter(d => d.isHero) || [];
 
@@ -294,7 +337,7 @@ export default function GrowthSimulator() {
   const barData = simulation
     ? simulation.details.slice(0, 10).map(d => ({
         name: d.fcName.length > 12 ? d.fcName.slice(0, 12) + '…' : d.fcName,
-        qty: d.neededQty,
+        qty: d.productionQty,
         isHero: d.isHero,
       }))
     : [];
@@ -431,7 +474,9 @@ export default function GrowthSimulator() {
                       <TableRow>
                         <TableHead>Hero FC</TableHead>
                         <TableHead className="text-right">DT Hiện Tại</TableHead>
-                        <TableHead className="text-right">SL Cần Thêm</TableHead>
+                        <TableHead className="text-right">SL Cần Bán</TableHead>
+                        <TableHead className="text-right">Tồn Kho</TableHead>
+                        <TableHead className="text-right">SL Cần SX</TableHead>
                         <TableHead className="text-right">Vốn Cần</TableHead>
                         <TableHead className="text-right">Margin</TableHead>
                       </TableRow>
@@ -446,7 +491,9 @@ export default function GrowthSimulator() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">{formatVNDCompact(d.currentRevenue)}</TableCell>
-                          <TableCell className="text-right font-medium text-orange-600">{d.neededQty.toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{d.neededQty.toLocaleString()}</TableCell>
+                          <TableCell className="text-right text-blue-600">{d.onHandQty.toLocaleString()}</TableCell>
+                          <TableCell className="text-right font-medium text-orange-600">{d.productionQty.toLocaleString()}</TableCell>
                           <TableCell className="text-right">{formatVNDCompact(d.cashRequired)}</TableCell>
                           <TableCell className="text-right">
                             <span className={d.marginPct < 20 ? 'text-red-600' : d.marginPct < 40 ? 'text-amber-600' : 'text-emerald-600'}>
@@ -474,7 +521,9 @@ export default function GrowthSimulator() {
                     <TableRow>
                       <TableHead>Tên SP</TableHead>
                       <TableHead>Hero?</TableHead>
-                      <TableHead className="text-right">SL Cần</TableHead>
+                      <TableHead className="text-right">SL Cần Bán</TableHead>
+                      <TableHead className="text-right">Tồn Kho</TableHead>
+                      <TableHead className="text-right">Cần SX</TableHead>
                       <TableHead className="text-right">Vốn Cần</TableHead>
                       <TableHead className="text-right">Margin DK</TableHead>
                       <TableHead>Rủi Ro</TableHead>
@@ -491,7 +540,9 @@ export default function GrowthSimulator() {
                             <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-medium">{d.neededQty.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{d.neededQty.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-blue-600">{d.onHandQty.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-medium text-orange-600">{d.productionQty.toLocaleString()}</TableCell>
                         <TableCell className="text-right">{formatVNDCompact(d.cashRequired)}</TableCell>
                         <TableCell className="text-right">
                           <span className={d.marginPct < 20 ? 'text-red-600' : d.marginPct < 40 ? 'text-amber-600' : 'text-emerald-600'}>
