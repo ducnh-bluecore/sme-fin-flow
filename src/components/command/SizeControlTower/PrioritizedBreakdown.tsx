@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ShieldAlert, Loader2, FileText } from 'lucide-react';
+import { ShieldAlert, Loader2 } from 'lucide-react';
 import { formatVNDCompact } from '@/lib/formatters';
 import type { SizeHealthDetailRow } from '@/hooks/inventory/useSizeHealthGroups';
+import { useQuery } from '@tanstack/react-query';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 interface PrioritizedBreakdownProps {
   details: SizeHealthDetailRow[];
@@ -27,6 +29,8 @@ function getFixability(row: SizeHealthDetailRow): { label: string; stars: number
 export default function PrioritizedBreakdown({
   details, isLoading, hasMore, totalCount, onLoadMore, onViewEvidence,
 }: PrioritizedBreakdownProps) {
+  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+
   // Sort by financial damage score
   const sorted = useMemo(() => {
     return [...details].sort((a, b) => {
@@ -35,6 +39,43 @@ export default function PrioritizedBreakdown({
       return damageB - damageA;
     });
   }, [details]);
+
+  const productIds = useMemo(() => sorted.map(s => s.product_id), [sorted]);
+
+  // Fetch missing sizes for all displayed products
+  const { data: missingSizesMap } = useQuery({
+    queryKey: ['breakdown-missing-sizes', tenantId, productIds.join(',')],
+    queryFn: async () => {
+      if (productIds.length === 0) return new Map<string, string[]>();
+      const { data, error } = await buildQuery('kpi_size_completeness' as any)
+        .select('style_id,missing_sizes')
+        .in('style_id', productIds)
+        .neq('status', 'HEALTHY')
+        .limit(2000);
+      if (error) throw error;
+      const map = new Map<string, Set<string>>();
+      for (const row of (data || []) as any[]) {
+        const sizes = row.missing_sizes as string[];
+        if (!sizes || sizes.length === 0) continue;
+        if (!map.has(row.style_id)) map.set(row.style_id, new Set());
+        for (const s of sizes) map.get(row.style_id)!.add(s);
+      }
+      const result = new Map<string, string[]>();
+      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+      for (const [k, v] of map) {
+        const arr = [...v].sort((a, b) => {
+          const ia = order.indexOf(a), ib = order.indexOf(b);
+          if (ia !== -1 && ib !== -1) return ia - ib;
+          if (ia !== -1) return -1;
+          if (ib !== -1) return 1;
+          return a.localeCompare(b);
+        });
+        result.set(k, arr);
+      }
+      return result;
+    },
+    enabled: !!tenantId && isReady && productIds.length > 0,
+  });
 
   return (
     <Card>
@@ -59,7 +100,8 @@ export default function PrioritizedBreakdown({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs w-[200px]">Mẫu SP</TableHead>
+                    <TableHead className="text-xs w-[180px]">Mẫu SP</TableHead>
+                    <TableHead className="text-xs">Size Thiếu</TableHead>
                     <TableHead className="text-center text-xs">Sức Khỏe</TableHead>
                     <TableHead className="text-right text-xs">DT Mất</TableHead>
                     <TableHead className="text-right text-xs">Vốn Khóa</TableHead>
@@ -78,7 +120,7 @@ export default function PrioritizedBreakdown({
                         className={`cursor-pointer hover:bg-muted/50 ${i < 3 ? 'bg-destructive/5' : ''}`}
                         onClick={() => onViewEvidence?.(row.product_id)}
                       >
-                        <TableCell className="text-xs font-medium max-w-[200px]">
+                        <TableCell className="text-xs font-medium max-w-[180px]">
                           <div className="flex items-center gap-1.5">
                             <span className="text-muted-foreground font-bold text-[10px] w-4">{i + 1}</span>
                             <span className="truncate">{row.product_name}</span>
@@ -86,6 +128,21 @@ export default function PrioritizedBreakdown({
                               <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30 shrink-0">core</Badge>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {(() => {
+                            const missing = missingSizesMap?.get(row.product_id) || [];
+                            if (missing.length === 0) return <span className="text-muted-foreground">—</span>;
+                            return (
+                              <div className="flex items-center gap-0.5 flex-wrap">
+                                {missing.map(size => (
+                                  <Badge key={size} variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5">
+                                    {size}
+                                  </Badge>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-center">
                           <span className={`font-bold text-sm ${
