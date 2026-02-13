@@ -94,24 +94,36 @@ function runSimulation(
     if (fc.is_core_hero) heroSet.add(fc.fc_code);
   }
 
+  // Set of all known FC codes for identifying fashion products
+  const allFcCodes = new Set<string>();
+  for (const fc of fcData || []) {
+    allFcCodes.add(fc.fc_code);
+  }
+
   const fcAgg = new Map<string, {
     revenue: number; qty: number; cogs: number; profit: number;
     avgPrice: number; avgCogs: number; count: number;
+    isFashion: boolean;
   }>();
 
   for (const sku of skuData) {
     if (!sku.sku) continue;
     // Use skuFcMap first, then fallback to startsWith
     let fcCode = skuFcMap.get(sku.sku) || sku.sku;
+    let isFashion = skuFcMap.has(sku.sku);
     if (fcCode === sku.sku) {
       for (const fc of fcData || []) {
         if (sku.sku.startsWith(fc.fc_code)) {
           fcCode = fc.fc_code;
+          isFashion = true;
           break;
         }
       }
     }
-    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0 };
+    // Also check if the resolved fcCode is a known FC
+    if (!isFashion && allFcCodes.has(fcCode)) isFashion = true;
+
+    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0, isFashion: false };
     existing.revenue += sku.total_revenue || 0;
     existing.qty += sku.total_quantity || 0;
     existing.cogs += sku.total_cogs || 0;
@@ -119,17 +131,23 @@ function runSimulation(
     existing.avgPrice += sku.avg_unit_price || 0;
     existing.avgCogs += sku.avg_unit_cogs || 0;
     existing.count += 1;
+    if (isFashion) existing.isFashion = true;
     fcAgg.set(fcCode, existing);
   }
 
   const totalSkuRevenue = Array.from(fcAgg.values()).reduce((s, v) => s + v.revenue, 0);
   if (totalSkuRevenue === 0) return null;
 
+  // Calculate hero share based on FASHION products only (exclude services, shipping, etc.)
+  const fashionFCs = Array.from(fcAgg.entries()).filter(([, v]) => v.isFashion);
+  const fashionTotalRevenue = fashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
+
   const heroFCs = Array.from(fcAgg.entries()).filter(([k]) => heroSet.has(k));
   const nonHeroFCs = Array.from(fcAgg.entries()).filter(([k]) => !heroSet.has(k));
 
   const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
-  const heroShareActual = totalSkuRevenue > 0 ? heroTotalRevenue / totalSkuRevenue : 0;
+  // Hero share = hero revenue / fashion revenue only (not diluted by services)
+  const heroShareActual = fashionTotalRevenue > 0 ? heroTotalRevenue / fashionTotalRevenue : 0;
 
   // Use actual hero revenue share for allocation (not hardcoded 60/40)
   const heroShareForAllocation = heroShareActual > 0 ? Math.max(heroShareActual, 0.1) : 0;
