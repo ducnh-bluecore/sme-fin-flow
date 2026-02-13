@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Play, AlertTriangle, Star, Zap } from 'lucide-react';
+import { TrendingUp, Play, AlertTriangle, Star, Zap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { formatVNDCompact } from '@/lib/formatters';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface SKUSummary {
   sku: string | null;
@@ -55,18 +56,176 @@ interface SimSummary {
   heroCount: number;
   heroRevenueShare: number;
   newHeroesNeeded: number;
+  heroQtyTotal: number;
+  nonHeroQtyTotal: number;
   risks: { type: string; severity: 'warning' | 'critical'; message: string }[];
   details: SimResult[];
+}
+
+const PIE_COLORS = ['hsl(45, 93%, 47%)', 'hsl(215, 20%, 65%)'];
+
+function runSimulation(
+  revenueData: any[],
+  skuData: SKUSummary[],
+  fcData: FamilyCode[],
+  growthPct: number,
+  timeframe: string
+): SimSummary | null {
+  if (!revenueData?.length || !skuData?.length) return null;
+
+  const totalDailyRevenue = revenueData.reduce((s: number, r: any) => s + (Number(r.metric_value) || 0), 0);
+  const daysCount = revenueData.length || 1;
+  const avgDailyRevenue = totalDailyRevenue / daysCount;
+  const monthlyRevenue = avgDailyRevenue * 30;
+  const months = Number(timeframe);
+  const currentRevenue = monthlyRevenue * months;
+
+  const targetRevenue = currentRevenue * (1 + growthPct / 100);
+  const gapRevenue = targetRevenue - currentRevenue;
+
+  const heroSet = new Set<string>();
+  const fcNameMap = new Map<string, string>();
+  for (const fc of fcData || []) {
+    fcNameMap.set(fc.fc_code, fc.fc_name);
+    if (fc.is_core_hero) heroSet.add(fc.fc_code);
+  }
+
+  const fcAgg = new Map<string, {
+    revenue: number; qty: number; cogs: number; profit: number;
+    avgPrice: number; avgCogs: number; count: number;
+  }>();
+
+  for (const sku of skuData) {
+    if (!sku.sku) continue;
+    let fcCode = sku.sku;
+    for (const fc of fcData || []) {
+      if (sku.sku.startsWith(fc.fc_code)) {
+        fcCode = fc.fc_code;
+        break;
+      }
+    }
+    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0 };
+    existing.revenue += sku.total_revenue || 0;
+    existing.qty += sku.total_quantity || 0;
+    existing.cogs += sku.total_cogs || 0;
+    existing.profit += sku.gross_profit || 0;
+    existing.avgPrice += sku.avg_unit_price || 0;
+    existing.avgCogs += sku.avg_unit_cogs || 0;
+    existing.count += 1;
+    fcAgg.set(fcCode, existing);
+  }
+
+  const totalSkuRevenue = Array.from(fcAgg.values()).reduce((s, v) => s + v.revenue, 0);
+  if (totalSkuRevenue === 0) return null;
+
+  const heroFCs = Array.from(fcAgg.entries()).filter(([k]) => heroSet.has(k));
+  const nonHeroFCs = Array.from(fcAgg.entries()).filter(([k]) => !heroSet.has(k));
+
+  const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
+  const heroShareActual = totalSkuRevenue > 0 ? heroTotalRevenue / totalSkuRevenue : 0;
+
+  const heroGapAllocation = gapRevenue * 0.6;
+  const nonHeroGapAllocation = gapRevenue * 0.4;
+
+  const details: SimResult[] = [];
+
+  const buildDetail = (fcCode: string, agg: typeof fcAgg extends Map<string, infer V> ? V : never, allocation: number, totalInGroup: number, isHero: boolean) => {
+    const share = totalInGroup > 0 ? agg.revenue / totalInGroup : 0.05;
+    const neededRevenue = allocation * share;
+    const unitPrice = agg.count > 0 ? agg.avgPrice / agg.count : 250000;
+    const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
+    const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
+    const cashRequired = neededQty * unitCogs;
+    const projectedMargin = neededQty * (unitPrice - unitCogs);
+    const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
+
+    details.push({
+      fcCode,
+      fcName: fcNameMap.get(fcCode) || fcCode,
+      isHero,
+      currentRevenue: agg.revenue,
+      currentQty: agg.qty,
+      neededRevenue,
+      neededQty,
+      cashRequired,
+      projectedMargin,
+      marginPct,
+      riskLevel: marginPct < 20 ? 'high' : marginPct < 40 ? 'medium' : 'low',
+    });
+  };
+
+  for (const [fcCode, agg] of heroFCs) {
+    buildDetail(fcCode, agg, heroGapAllocation, heroTotalRevenue, true);
+  }
+
+  const nonHeroTotalRevenue = nonHeroFCs.reduce((s, [, v]) => s + v.revenue, 0);
+  const topNonHero = [...nonHeroFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20);
+  for (const [fcCode, agg] of topNonHero) {
+    buildDetail(fcCode, agg, nonHeroGapAllocation, nonHeroTotalRevenue, false);
+  }
+
+  details.sort((a, b) => b.neededRevenue - a.neededRevenue);
+
+  const totalQtyNeeded = details.reduce((s, d) => s + d.neededQty, 0);
+  const totalCashRequired = details.reduce((s, d) => s + d.cashRequired, 0);
+  const totalProjectedMargin = details.reduce((s, d) => s + d.projectedMargin, 0);
+  const avgMarginPct = totalCashRequired + totalProjectedMargin > 0
+    ? (totalProjectedMargin / (totalCashRequired + totalProjectedMargin)) * 100
+    : 0;
+
+  const heroQtyTotal = details.filter(d => d.isHero).reduce((s, d) => s + d.neededQty, 0);
+  const nonHeroQtyTotal = details.filter(d => !d.isHero).reduce((s, d) => s + d.neededQty, 0);
+
+  const risks: SimSummary['risks'] = [];
+  const heroCount = heroFCs.length;
+
+  if (heroCount < 3) {
+    risks.push({
+      type: 'concentration',
+      severity: 'critical',
+      message: `Chỉ có ${heroCount} Hero FC — rủi ro tập trung cao. Nếu 1 Hero sụt giảm, ảnh hưởng lớn đến kế hoạch.`,
+    });
+  }
+
+  if (heroShareActual < 0.4) {
+    const avgHeroRevenue = heroCount > 0 ? heroTotalRevenue / heroCount : 1;
+    const newHeroesNeeded = avgHeroRevenue > 0 ? Math.ceil((gapRevenue * 0.6) / avgHeroRevenue) : 0;
+    risks.push({
+      type: 'hero_gap',
+      severity: 'warning',
+      message: `Hero chỉ chiếm ${(heroShareActual * 100).toFixed(0)}% doanh thu. Cần phát triển thêm ~${newHeroesNeeded} Hero mới.`,
+    });
+  }
+
+  if (totalCashRequired > currentRevenue * 0.5) {
+    risks.push({
+      type: 'capital',
+      severity: 'critical',
+      message: `Vốn cần (${formatVNDCompact(totalCashRequired)}) chiếm >${((totalCashRequired / currentRevenue) * 100).toFixed(0)}% doanh thu hiện tại. Rủi ro cashflow cao.`,
+    });
+  }
+
+  const newHeroesNeeded = heroShareActual < 0.4 && heroCount > 0
+    ? Math.ceil((gapRevenue * 0.6) / (heroTotalRevenue / heroCount))
+    : 0;
+
+  return {
+    currentRevenue, targetRevenue, gapRevenue,
+    totalQtyNeeded, totalCashRequired, totalProjectedMargin, avgMarginPct,
+    heroCount, heroRevenueShare: heroShareActual * 100, newHeroesNeeded,
+    heroQtyTotal, nonHeroQtyTotal,
+    risks, details,
+  };
 }
 
 export default function GrowthSimulator() {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const [growthPct, setGrowthPct] = useState(30);
   const [timeframe, setTimeframe] = useState('6');
-  const [hasRun, setHasRun] = useState(false);
+  const [simulation, setSimulation] = useState<SimSummary | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
 
-  // Fetch current revenue from kpi_facts_daily
-  const { data: revenueData } = useQuery({
+  const { data: revenueData, isLoading: revLoading } = useQuery({
     queryKey: ['growth-sim-revenue', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery(
@@ -83,8 +242,7 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  // Fetch SKU summary
-  const { data: skuData } = useQuery({
+  const { data: skuData, isLoading: skuLoading } = useQuery({
     queryKey: ['growth-sim-sku', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery('fdp_sku_summary' as any, '*')
@@ -96,8 +254,7 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  // Fetch family codes for hero info
-  const { data: fcData } = useQuery({
+  const { data: fcData, isLoading: fcLoading } = useQuery({
     queryKey: ['growth-sim-fc', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery(
@@ -112,191 +269,35 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  const simulation = useMemo((): SimSummary | null => {
-    if (!hasRun || !revenueData?.length || !skuData?.length) return null;
+  const dataLoading = revLoading || skuLoading || fcLoading;
+  const dataReady = !!revenueData?.length && !!skuData?.length;
 
-    // 1. Current monthly revenue (avg of last 90 days → monthly)
-    const totalDailyRevenue = revenueData.reduce((s: number, r: any) => s + (Number(r.metric_value) || 0), 0);
-    const daysCount = revenueData.length || 1;
-    const avgDailyRevenue = totalDailyRevenue / daysCount;
-    const monthlyRevenue = avgDailyRevenue * 30;
-    const months = Number(timeframe);
-    const currentRevenue = monthlyRevenue * months;
-
-    // 2. Target
-    const targetRevenue = currentRevenue * (1 + growthPct / 100);
-    const gapRevenue = targetRevenue - currentRevenue;
-
-    // 3. Build FC hero map
-    const heroSet = new Set<string>();
-    const fcNameMap = new Map<string, string>();
-    for (const fc of fcData || []) {
-      fcNameMap.set(fc.fc_code, fc.fc_name);
-      if (fc.is_core_hero) heroSet.add(fc.fc_code);
-    }
-
-    // 4. Aggregate SKU data by extracting FC from SKU
-    // FC = SKU without size suffix (simplified: take everything before last dash or size marker)
-    const fcAgg = new Map<string, {
-      revenue: number; qty: number; cogs: number; profit: number;
-      avgPrice: number; avgCogs: number; count: number;
-    }>();
-
-    for (const sku of skuData) {
-      if (!sku.sku) continue;
-      // Try to find matching FC
-      let fcCode = sku.sku;
-      for (const fc of fcData || []) {
-        if (sku.sku.startsWith(fc.fc_code)) {
-          fcCode = fc.fc_code;
-          break;
-        }
-      }
-
-      const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0 };
-      existing.revenue += sku.total_revenue || 0;
-      existing.qty += sku.total_quantity || 0;
-      existing.cogs += sku.total_cogs || 0;
-      existing.profit += sku.gross_profit || 0;
-      existing.avgPrice += sku.avg_unit_price || 0;
-      existing.avgCogs += sku.avg_unit_cogs || 0;
-      existing.count += 1;
-      fcAgg.set(fcCode, existing);
-    }
-
-    // 5. Calculate total revenue for proportional distribution
-    const totalSkuRevenue = Array.from(fcAgg.values()).reduce((s, v) => s + v.revenue, 0);
-    if (totalSkuRevenue === 0) return null;
-
-    // 6. Distribute gap revenue: 60% to Hero, 40% to non-Hero
-    const heroFCs = Array.from(fcAgg.entries()).filter(([k]) => heroSet.has(k));
-    const nonHeroFCs = Array.from(fcAgg.entries()).filter(([k]) => !heroSet.has(k));
-
-    const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
-    const heroShareActual = totalSkuRevenue > 0 ? heroTotalRevenue / totalSkuRevenue : 0;
-
-    // Hero gets 60% of gap (or proportional if fewer heroes)
-    const heroGapAllocation = gapRevenue * 0.6;
-    const nonHeroGapAllocation = gapRevenue * 0.4;
-
-    const details: SimResult[] = [];
-
-    // Distribute to hero FCs
-    for (const [fcCode, agg] of heroFCs) {
-      const shareInHero = heroTotalRevenue > 0 ? agg.revenue / heroTotalRevenue : 1 / heroFCs.length;
-      const neededRevenue = heroGapAllocation * shareInHero;
-      const unitPrice = agg.count > 0 ? agg.avgPrice / agg.count : 250000;
-      const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
-      const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
-      const cashRequired = neededQty * unitCogs;
-      const projectedMargin = neededQty * (unitPrice - unitCogs);
-      const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
-
-      details.push({
-        fcCode,
-        fcName: fcNameMap.get(fcCode) || fcCode,
-        isHero: true,
-        currentRevenue: agg.revenue,
-        currentQty: agg.qty,
-        neededRevenue,
-        neededQty,
-        cashRequired,
-        projectedMargin,
-        marginPct,
-        riskLevel: marginPct < 20 ? 'high' : marginPct < 40 ? 'medium' : 'low',
-      });
-    }
-
-    // Distribute to non-hero FCs (top performers only)
-    const nonHeroTotalRevenue = nonHeroFCs.reduce((s, [, v]) => s + v.revenue, 0);
-    const topNonHero = nonHeroFCs.sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20);
-
-    for (const [fcCode, agg] of topNonHero) {
-      const shareInNonHero = nonHeroTotalRevenue > 0 ? agg.revenue / nonHeroTotalRevenue : 1 / topNonHero.length;
-      const neededRevenue = nonHeroGapAllocation * shareInNonHero;
-      const unitPrice = agg.count > 0 ? agg.avgPrice / agg.count : 250000;
-      const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
-      const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
-      const cashRequired = neededQty * unitCogs;
-      const projectedMargin = neededQty * (unitPrice - unitCogs);
-      const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
-
-      details.push({
-        fcCode,
-        fcName: fcNameMap.get(fcCode) || fcCode,
-        isHero: false,
-        currentRevenue: agg.revenue,
-        currentQty: agg.qty,
-        neededRevenue,
-        neededQty,
-        cashRequired,
-        projectedMargin,
-        marginPct,
-        riskLevel: marginPct < 20 ? 'high' : marginPct < 40 ? 'medium' : 'low',
-      });
-    }
-
-    // Sort by needed revenue desc
-    details.sort((a, b) => b.neededRevenue - a.neededRevenue);
-
-    const totalQtyNeeded = details.reduce((s, d) => s + d.neededQty, 0);
-    const totalCashRequired = details.reduce((s, d) => s + d.cashRequired, 0);
-    const totalProjectedMargin = details.reduce((s, d) => s + d.projectedMargin, 0);
-    const avgMarginPct = totalCashRequired + totalProjectedMargin > 0
-      ? (totalProjectedMargin / (totalCashRequired + totalProjectedMargin)) * 100
-      : 0;
-
-    // Risk assessment
-    const risks: SimSummary['risks'] = [];
-    const heroCount = heroFCs.length;
-
-    if (heroCount < 3) {
-      risks.push({
-        type: 'concentration',
-        severity: 'critical',
-        message: `Chỉ có ${heroCount} Hero FC — rủi ro tập trung cao. Nếu 1 Hero sụt giảm, ảnh hưởng lớn đến kế hoạch.`,
-      });
-    }
-
-    if (heroShareActual < 0.4) {
-      const avgHeroRevenue = heroCount > 0 ? heroTotalRevenue / heroCount : 1;
-      const newHeroesNeeded = avgHeroRevenue > 0 ? Math.ceil((gapRevenue * 0.6) / avgHeroRevenue) : 0;
-      risks.push({
-        type: 'hero_gap',
-        severity: 'warning',
-        message: `Hero chỉ chiếm ${(heroShareActual * 100).toFixed(0)}% doanh thu. Cần phát triển thêm ~${newHeroesNeeded} Hero mới.`,
-      });
-    }
-
-    if (totalCashRequired > currentRevenue * 0.5) {
-      risks.push({
-        type: 'capital',
-        severity: 'critical',
-        message: `Vốn cần (${formatVNDCompact(totalCashRequired)}) chiếm >${((totalCashRequired / currentRevenue) * 100).toFixed(0)}% doanh thu hiện tại. Rủi ro cashflow cao.`,
-      });
-    }
-
-    const newHeroesNeeded = heroShareActual < 0.4 && heroCount > 0
-      ? Math.ceil((gapRevenue * 0.6) / (heroTotalRevenue / heroCount))
-      : 0;
-
-    return {
-      currentRevenue,
-      targetRevenue,
-      gapRevenue,
-      totalQtyNeeded,
-      totalCashRequired,
-      totalProjectedMargin,
-      avgMarginPct,
-      heroCount,
-      heroRevenueShare: heroShareActual * 100,
-      newHeroesNeeded,
-      risks,
-      details,
-    };
-  }, [hasRun, revenueData, skuData, fcData, growthPct, timeframe]);
+  const handleRun = useCallback(() => {
+    if (!revenueData || !skuData) return;
+    setIsRunning(true);
+    // Use setTimeout to allow UI to show loading state
+    setTimeout(() => {
+      const result = runSimulation(revenueData, skuData, fcData || [], growthPct, timeframe);
+      setSimulation(result);
+      setIsRunning(false);
+    }, 100);
+  }, [revenueData, skuData, fcData, growthPct, timeframe]);
 
   const heroDetails = simulation?.details.filter(d => d.isHero) || [];
+
+  // Chart data
+  const pieData = simulation ? [
+    { name: 'Hero', value: simulation.heroQtyTotal },
+    { name: 'Non-Hero', value: simulation.nonHeroQtyTotal },
+  ] : [];
+
+  const barData = simulation
+    ? simulation.details.slice(0, 10).map(d => ({
+        name: d.fcName.length > 12 ? d.fcName.slice(0, 12) + '…' : d.fcName,
+        qty: d.neededQty,
+        isHero: d.isHero,
+      }))
+    : [];
 
   return (
     <Card>
@@ -335,8 +336,9 @@ export default function GrowthSimulator() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => setHasRun(true)} className="gap-2">
-            <Play className="h-4 w-4" /> Chạy Mô Phỏng
+          <Button onClick={handleRun} disabled={dataLoading || !dataReady || isRunning} className="gap-2">
+            {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {dataLoading ? 'Đang tải...' : 'Chạy Mô Phỏng'}
           </Button>
         </div>
 
@@ -364,6 +366,47 @@ export default function GrowthSimulator() {
                 <p className="text-xs text-muted-foreground">Margin Dự Kiến</p>
                 <p className="text-xl font-bold mt-1 text-emerald-600">{simulation.avgMarginPct.toFixed(1)}%</p>
                 <p className="text-xs text-muted-foreground">{formatVNDCompact(simulation.totalProjectedMargin)}</p>
+              </div>
+            </div>
+
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Pie Chart: Hero vs Non-Hero */}
+              <div className="rounded-lg border p-4 bg-background">
+                <h4 className="text-sm font-semibold mb-3">Phân Bổ SL Sản Xuất</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {pieData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Bar Chart: Top FC cần sản xuất */}
+              <div className="rounded-lg border p-4 bg-background">
+                <h4 className="text-sm font-semibold mb-3">Top FC Cần Sản Xuất</h4>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis type="number" tickFormatter={(v) => v.toLocaleString()} />
+                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: number) => value.toLocaleString()} contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }} />
+                    <Bar dataKey="qty" name="SL Cần SX" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
 
@@ -495,10 +538,19 @@ export default function GrowthSimulator() {
           </>
         )}
 
-        {!hasRun && (
+        {!simulation && !isRunning && (
           <p className="text-sm text-muted-foreground text-center py-6">
-            Chọn % tăng trưởng và khung thời gian, sau đó nhấn "Chạy Mô Phỏng" để xem kết quả.
+            {dataLoading
+              ? 'Đang tải dữ liệu...'
+              : 'Chọn % tăng trưởng và khung thời gian, sau đó nhấn "Chạy Mô Phỏng" để xem kết quả.'}
           </p>
+        )}
+
+        {isRunning && (
+          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Đang tính toán...</span>
+          </div>
         )}
       </CardContent>
     </Card>
