@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ShieldAlert, Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Wrench, Eye, Expand } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ShieldAlert, Loader2, Search, ChevronLeft, ChevronRight, AlertTriangle, Wrench, Eye } from 'lucide-react';
 import { formatVNDCompact } from '@/lib/formatters';
 import type { SizeHealthDetailRow } from '@/hooks/inventory/useSizeHealthGroups';
 import { useQuery } from '@tanstack/react-query';
@@ -20,12 +21,10 @@ interface PrioritizedBreakdownProps {
   onViewEvidence?: (productId: string) => void;
 }
 
-type FilterType = null | 'urgent' | 'action' | 'monitor';
+type TierKey = 'urgent' | 'action' | 'monitor';
 type SortType = 'damage' | 'health' | 'md_eta';
 
 const ITEMS_PER_PAGE = 20;
-const COLLAPSE_THRESHOLD = 50;
-const COLLAPSED_SHOW = 10;
 
 function getFixability(row: SizeHealthDetailRow): { label: string; stars: number; className: string } {
   if (row.markdown_risk_score >= 80) return { label: 'Sẽ giảm giá', stars: 1, className: 'text-destructive bg-destructive/10' };
@@ -35,7 +34,7 @@ function getFixability(row: SizeHealthDetailRow): { label: string; stars: number
   return { label: 'Trung bình', stars: 3, className: 'text-amber-700 bg-amber-500/10' };
 }
 
-function getTierCategory(row: SizeHealthDetailRow): 'urgent' | 'action' | 'monitor' {
+function getTierCategory(row: SizeHealthDetailRow): TierKey {
   if ((row.markdown_risk_score || 0) >= 80) return 'urgent';
   const fix = getFixability(row);
   if (fix.label === 'Khó' || fix.label === 'Trung bình') return 'action';
@@ -46,32 +45,213 @@ function getDamageScore(row: SizeHealthDetailRow): number {
   return (row.lost_revenue_est || 0) + (row.cash_locked_value || 0) + (row.margin_leak_value || 0);
 }
 
-export default function PrioritizedBreakdown({
-  details, isLoading, hasMore, totalCount, onLoadMore, onViewEvidence,
-}: PrioritizedBreakdownProps) {
-  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
-  const [activeFilter, setActiveFilter] = useState<FilterType>(null);
+const TIER_CONFIG: Record<TierKey, { label: string; icon: typeof AlertTriangle; activeClass: string }> = {
+  urgent: { label: 'Khẩn cấp', icon: AlertTriangle, activeClass: 'data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground' },
+  action: { label: 'Cần xử lý', icon: Wrench, activeClass: 'data-[state=active]:bg-orange-600 data-[state=active]:text-white' },
+  monitor: { label: 'Theo dõi', icon: Eye, activeClass: 'data-[state=active]:bg-amber-500 data-[state=active]:text-white' },
+};
+
+/* ── Paginated table for a single tier ── */
+function TierTable({
+  items,
+  isLoading,
+  onViewEvidence,
+  sizeDataMap,
+}: {
+  items: SizeHealthDetailRow[];
+  isLoading: boolean;
+  onViewEvidence?: (productId: string) => void;
+  sizeDataMap?: Map<string, { missing: string[]; present: string[]; partial: string[] }>;
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('damage');
   const [currentPage, setCurrentPage] = useState(1);
-  const [isExpanded, setIsExpanded] = useState(false);
 
-  // Sort items
   const sorted = useMemo(() => {
-    return [...details].sort((a, b) => {
+    let list = [...items];
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(r => r.product_name.toLowerCase().includes(term));
+    }
+    list.sort((a, b) => {
       if (sortBy === 'damage') return getDamageScore(b) - getDamageScore(a);
       if (sortBy === 'health') return (a.size_health_score || 0) - (b.size_health_score || 0);
       if (sortBy === 'md_eta') return (a.markdown_eta_days ?? 999) - (b.markdown_eta_days ?? 999);
       return 0;
     });
-  }, [details, sortBy]);
+    return list;
+  }, [items, sortBy, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginated = sorted.slice((safePage - 1) * ITEMS_PER_PAGE, safePage * ITEMS_PER_PAGE);
+
+  if (items.length === 0) {
+    return <div className="text-center py-6 text-muted-foreground text-xs">Không có mẫu trong nhóm này</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Search + Sort */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Tìm sản phẩm..."
+            value={searchTerm}
+            onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            className="h-8 pl-8 text-xs"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={v => { setSortBy(v as SortType); setCurrentPage(1); }}>
+          <SelectTrigger className="h-8 w-[160px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="damage">Thiệt hại cao nhất</SelectItem>
+            <SelectItem value="health">Sức khỏe thấp nhất</SelectItem>
+            <SelectItem value="md_eta">MD ETA gần nhất</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{sorted.length} mẫu</span>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs w-[180px]">Mẫu SP</TableHead>
+              <TableHead className="text-xs">Size Map</TableHead>
+              <TableHead className="text-center text-xs">Sức Khỏe</TableHead>
+              <TableHead className="text-right text-xs">DT Mất</TableHead>
+              <TableHead className="text-right text-xs">Vốn Khóa</TableHead>
+              <TableHead className="text-right text-xs">Rò Biên</TableHead>
+              <TableHead className="text-center text-xs">Khả Năng Fix</TableHead>
+              <TableHead className="text-center text-xs">MD ETA</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginated.map((row, i) => {
+              const fix = getFixability(row);
+              const globalIndex = (safePage - 1) * ITEMS_PER_PAGE + i;
+              return (
+                <TableRow
+                  key={row.product_id}
+                  className={`cursor-pointer hover:bg-muted/50 ${globalIndex < 3 ? 'bg-destructive/5' : ''}`}
+                  onClick={() => onViewEvidence?.(row.product_id)}
+                >
+                  <TableCell className="text-xs font-medium max-w-[180px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-muted-foreground font-bold text-[10px] w-4">{globalIndex + 1}</span>
+                      <span className="truncate">{row.product_name}</span>
+                      {row.core_size_missing && (
+                        <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30 shrink-0">core</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const sizeData = sizeDataMap?.get(row.product_id);
+                      if (!sizeData || (sizeData.missing.length === 0 && sizeData.present.length === 0 && sizeData.partial.length === 0)) return <span className="text-muted-foreground">—</span>;
+                      return (
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                          {sizeData.present.map(size => (
+                            <Badge key={`p-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                              {size}
+                            </Badge>
+                          ))}
+                          {sizeData.partial.map(size => (
+                            <Badge key={`w-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-semibold text-amber-700 border-amber-500/40 bg-amber-500/10">
+                              {size}
+                            </Badge>
+                          ))}
+                          {sizeData.missing.map(size => (
+                            <Badge key={`m-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5 line-through">
+                              {size}
+                            </Badge>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={`font-bold text-sm ${
+                      row.size_health_score >= 80 ? 'text-emerald-600' :
+                      row.size_health_score >= 60 ? 'text-amber-600' :
+                      row.size_health_score >= 40 ? 'text-orange-600' : 'text-destructive'
+                    }`}>
+                      {Math.round(row.size_health_score)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right text-xs font-medium">
+                    {row.lost_revenue_est > 0 ? <span className="text-destructive">{formatVNDCompact(row.lost_revenue_est)}</span> : '—'}
+                  </TableCell>
+                  <TableCell className="text-right text-xs font-medium">
+                    {row.cash_locked_value > 0 ? <span className="text-orange-600">{formatVNDCompact(row.cash_locked_value)}</span> : '—'}
+                  </TableCell>
+                  <TableCell className="text-right text-xs font-medium">
+                    {row.margin_leak_value > 0 ? <span className="text-red-600">{formatVNDCompact(row.margin_leak_value)}</span> : '—'}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="outline" className={`text-[10px] ${fix.className}`}>
+                      {fix.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-center text-xs text-muted-foreground">
+                    {row.markdown_eta_days ? `${row.markdown_eta_days}d` : '—'}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between py-2 border-t">
+          <span className="text-xs text-muted-foreground">
+            Trang {safePage}/{totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-7 w-7" disabled={safePage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let page: number;
+              if (totalPages <= 5) page = i + 1;
+              else if (safePage <= 3) page = i + 1;
+              else if (safePage >= totalPages - 2) page = totalPages - 4 + i;
+              else page = safePage - 2 + i;
+              return (
+                <Button key={page} variant={safePage === page ? 'default' : 'outline'} size="icon" className="h-7 w-7 text-xs" onClick={() => setCurrentPage(page)}>
+                  {page}
+                </Button>
+              );
+            })}
+            <Button variant="outline" size="icon" className="h-7 w-7" disabled={safePage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main Component ── */
+export default function PrioritizedBreakdown({
+  details, isLoading, hasMore, totalCount, onLoadMore, onViewEvidence,
+}: PrioritizedBreakdownProps) {
+  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // Tier categorization
   const tiers = useMemo(() => {
     const urgent: SizeHealthDetailRow[] = [];
     const action: SizeHealthDetailRow[] = [];
     const monitor: SizeHealthDetailRow[] = [];
-    for (const row of sorted) {
+    for (const row of details) {
       const cat = getTierCategory(row);
       if (cat === 'urgent') urgent.push(row);
       else if (cat === 'action') action.push(row);
@@ -82,45 +262,11 @@ export default function PrioritizedBreakdown({
       action: { items: action, totalDamage: action.reduce((s, r) => s + getDamageScore(r), 0) },
       monitor: { items: monitor, totalDamage: monitor.reduce((s, r) => s + getDamageScore(r), 0) },
     };
-  }, [sorted]);
+  }, [details]);
 
-  // Filter + search
-  const filtered = useMemo(() => {
-    let items = sorted;
-    if (activeFilter) {
-      items = items.filter(row => getTierCategory(row) === activeFilter);
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      items = items.filter(row => row.product_name.toLowerCase().includes(term));
-    }
-    return items;
-  }, [sorted, activeFilter, searchTerm]);
+  const productIds = useMemo(() => details.map(s => s.product_id), [details]);
 
-  // Collapse logic: if > COLLAPSE_THRESHOLD and not expanded, show only top COLLAPSED_SHOW
-  const shouldCollapse = totalCount > COLLAPSE_THRESHOLD && !isExpanded && !activeFilter && !searchTerm.trim();
-  const displayItems = shouldCollapse ? filtered.slice(0, COLLAPSED_SHOW) : filtered;
-
-  // Pagination (only when expanded or filtered)
-  const totalPages = shouldCollapse ? 1 : Math.ceil(displayItems.length / ITEMS_PER_PAGE);
-  const paginatedItems = shouldCollapse
-    ? displayItems
-    : displayItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-  // Reset page when filter/search changes
-  const handleFilterClick = useCallback((filter: FilterType) => {
-    setActiveFilter(prev => prev === filter ? null : filter);
-    setCurrentPage(1);
-  }, []);
-
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  }, []);
-
-  const productIds = useMemo(() => paginatedItems.map(s => s.product_id), [paginatedItems]);
-
-  // Fetch missing sizes for displayed products
+  // Fetch missing sizes for all products
   const { data: sizeDataMap } = useQuery({
     queryKey: ['breakdown-size-data', tenantId, productIds.join(',')],
     queryFn: async () => {
@@ -197,238 +343,61 @@ export default function PrioritizedBreakdown({
           </CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="pt-0 space-y-3">
-        {/* Summary Bar - Tier Chips */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handleFilterClick('urgent')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              activeFilter === 'urgent'
-                ? 'bg-destructive text-destructive-foreground border-destructive shadow-sm'
-                : 'bg-destructive/10 text-destructive border-destructive/30 hover:bg-destructive/20'
-            }`}
-          >
-            <AlertTriangle className="h-3 w-3" />
-            Khẩn cấp: {tiers.urgent.items.length} mẫu
-            {tiers.urgent.totalDamage > 0 && <span className="opacity-80">• {formatVNDCompact(tiers.urgent.totalDamage)}</span>}
-          </button>
-          <button
-            onClick={() => handleFilterClick('action')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              activeFilter === 'action'
-                ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
-                : 'bg-orange-500/10 text-orange-700 border-orange-500/30 hover:bg-orange-500/20'
-            }`}
-          >
-            <Wrench className="h-3 w-3" />
-            Cần xử lý: {tiers.action.items.length} mẫu
-            {tiers.action.totalDamage > 0 && <span className="opacity-80">• {formatVNDCompact(tiers.action.totalDamage)}</span>}
-          </button>
-          <button
-            onClick={() => handleFilterClick('monitor')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              activeFilter === 'monitor'
-                ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
-                : 'bg-amber-500/10 text-amber-700 border-amber-500/30 hover:bg-amber-500/20'
-            }`}
-          >
-            <Eye className="h-3 w-3" />
-            Theo dõi: {tiers.monitor.items.length} mẫu
-          </button>
-        </div>
-
-        {/* Search + Sort Controls */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Tìm sản phẩm..."
-              value={searchTerm}
-              onChange={e => handleSearchChange(e.target.value)}
-              className="h-8 pl-8 text-xs"
-            />
-          </div>
-          <Select value={sortBy} onValueChange={v => { setSortBy(v as SortType); setCurrentPage(1); }}>
-            <SelectTrigger className="h-8 w-[160px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="damage">Thiệt hại cao nhất</SelectItem>
-              <SelectItem value="health">Sức khỏe thấp nhất</SelectItem>
-              <SelectItem value="md_eta">MD ETA gần nhất</SelectItem>
-            </SelectContent>
-          </Select>
-          {filtered.length !== sorted.length && (
-            <span className="text-xs text-muted-foreground">{filtered.length}/{sorted.length} mẫu</span>
-          )}
-        </div>
-
-        {/* Table */}
-        {isLoading && sorted.length === 0 ? (
+      <CardContent className="pt-0">
+        {isLoading && details.length === 0 ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" /> Đang tải...
           </div>
-        ) : sorted.length === 0 ? (
+        ) : details.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground text-xs">Không có mẫu lẻ size</div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs w-[180px]">Mẫu SP</TableHead>
-                    <TableHead className="text-xs">Size Map</TableHead>
-                    <TableHead className="text-center text-xs">Sức Khỏe</TableHead>
-                    <TableHead className="text-right text-xs">DT Mất</TableHead>
-                    <TableHead className="text-right text-xs">Vốn Khóa</TableHead>
-                    <TableHead className="text-right text-xs">Rò Biên</TableHead>
-                    <TableHead className="text-center text-xs">Khả Năng Fix</TableHead>
-                    <TableHead className="text-center text-xs">MD ETA</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedItems.map((row, i) => {
-                    const fix = getFixability(row);
-                    const globalIndex = shouldCollapse ? i : (currentPage - 1) * ITEMS_PER_PAGE + i;
-                    return (
-                      <TableRow
-                        key={row.product_id}
-                        className={`cursor-pointer hover:bg-muted/50 ${globalIndex < 3 ? 'bg-destructive/5' : ''}`}
-                        onClick={() => onViewEvidence?.(row.product_id)}
-                      >
-                        <TableCell className="text-xs font-medium max-w-[180px]">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-muted-foreground font-bold text-[10px] w-4">{globalIndex + 1}</span>
-                            <span className="truncate">{row.product_name}</span>
-                            {row.core_size_missing && (
-                              <Badge variant="outline" className="text-[9px] text-destructive border-destructive/30 shrink-0">core</Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {(() => {
-                            const sizeData = sizeDataMap?.get(row.product_id);
-                            if (!sizeData || (sizeData.missing.length === 0 && sizeData.present.length === 0 && sizeData.partial.length === 0)) return <span className="text-muted-foreground">—</span>;
-                            return (
-                              <div className="flex items-center gap-0.5 flex-wrap">
-                                {sizeData.present.map(size => (
-                                  <Badge key={`p-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
-                                    {size}
-                                  </Badge>
-                                ))}
-                                {sizeData.partial.map(size => (
-                                  <Badge key={`w-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-semibold text-amber-700 border-amber-500/40 bg-amber-500/10">
-                                    {size}
-                                  </Badge>
-                                ))}
-                                {sizeData.missing.map(size => (
-                                  <Badge key={`m-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5 line-through">
-                                    {size}
-                                  </Badge>
-                                ))}
-                              </div>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={`font-bold text-sm ${
-                            row.size_health_score >= 80 ? 'text-emerald-600' :
-                            row.size_health_score >= 60 ? 'text-amber-600' :
-                            row.size_health_score >= 40 ? 'text-orange-600' : 'text-destructive'
-                          }`}>
-                            {Math.round(row.size_health_score)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {row.lost_revenue_est > 0 ? <span className="text-destructive">{formatVNDCompact(row.lost_revenue_est)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {row.cash_locked_value > 0 ? <span className="text-orange-600">{formatVNDCompact(row.cash_locked_value)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium">
-                          {row.margin_leak_value > 0 ? <span className="text-red-600">{formatVNDCompact(row.margin_leak_value)}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className={`text-[10px] ${fix.className}`}>
-                            {fix.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center text-xs text-muted-foreground">
-                          {row.markdown_eta_days ? `${row.markdown_eta_days}d` : '—'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Collapsed state: show expand button */}
-            {shouldCollapse && (
-              <div className="flex justify-center py-3 border-t">
-                <Button variant="outline" size="sm" onClick={() => setIsExpanded(true)} className="gap-1.5 text-xs">
-                  <Expand className="h-3 w-3" />
-                  Xem tất cả ({filtered.length - COLLAPSED_SHOW} mẫu còn lại)
-                </Button>
-              </div>
-            )}
-
-            {/* Pagination (when expanded or filtered) */}
-            {!shouldCollapse && totalPages > 1 && (
-              <div className="flex items-center justify-between py-3 border-t">
-                <span className="text-xs text-muted-foreground">
-                  Trang {currentPage}/{totalPages} • {displayItems.length} mẫu
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    disabled={currentPage <= 1}
-                    onClick={() => setCurrentPage(p => p - 1)}
+          <Tabs defaultValue="urgent" className="w-full">
+            <TabsList className="w-full grid grid-cols-3 h-auto p-1">
+              {(['urgent', 'action', 'monitor'] as TierKey[]).map(key => {
+                const config = TIER_CONFIG[key];
+                const tier = tiers[key];
+                const Icon = config.icon;
+                return (
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className={`flex items-center gap-1.5 text-xs py-2 ${config.activeClass}`}
                   >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let page: number;
-                    if (totalPages <= 5) page = i + 1;
-                    else if (currentPage <= 3) page = i + 1;
-                    else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-                    else page = currentPage - 2 + i;
-                    return (
-                      <Button
-                        key={page}
-                        variant={currentPage === page ? 'default' : 'outline'}
-                        size="icon"
-                        className="h-7 w-7 text-xs"
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setCurrentPage(p => p + 1)}
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            )}
+                    <Icon className="h-3 w-3" />
+                    <span>{config.label}</span>
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 ml-0.5">
+                      {tier.items.length}
+                    </Badge>
+                    {tier.totalDamage > 0 && (
+                      <span className="text-[10px] opacity-70 hidden sm:inline">
+                        • {formatVNDCompact(tier.totalDamage)}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
 
-            {/* Load more from server if needed */}
-            {hasMore && !shouldCollapse && currentPage >= totalPages && (
-              <div className="flex justify-center py-2">
-                <Button variant="ghost" size="sm" disabled={isLoading} onClick={onLoadMore} className="text-xs">
-                  {isLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Đang tải...</> : <>Tải thêm từ server ({sorted.length}/{totalCount})</>}
-                </Button>
-              </div>
-            )}
-          </>
+            {(['urgent', 'action', 'monitor'] as TierKey[]).map(key => (
+              <TabsContent key={key} value={key} className="mt-3">
+                <TierTable
+                  items={tiers[key].items}
+                  isLoading={isLoading}
+                  onViewEvidence={onViewEvidence}
+                  sizeDataMap={sizeDataMap}
+                />
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
+
+        {/* Load more from server */}
+        {hasMore && (
+          <div className="flex justify-center py-2 border-t mt-3">
+            <Button variant="ghost" size="sm" disabled={isLoading} onClick={onLoadMore} className="text-xs">
+              {isLoading ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Đang tải...</> : <>Tải thêm từ server ({details.length}/{totalCount})</>}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
