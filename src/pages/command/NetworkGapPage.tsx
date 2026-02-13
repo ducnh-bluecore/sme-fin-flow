@@ -65,7 +65,7 @@ export default function NetworkGapPage() {
 
   // Logic quyết định
   const decisionLevel: 'safe' | 'monitor' | 'action' = 
-    totalShortage === 0 || transferCoverage >= 95 ? 'safe' :
+    totalShortage === 0 ? 'safe' :
     totalShortage < 50 ? 'monitor' : 'action';
 
   // Tìm kiếm
