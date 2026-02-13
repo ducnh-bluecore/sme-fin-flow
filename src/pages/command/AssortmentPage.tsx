@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, FileText, Activity, DollarSign, Lock, Flame, TrendingDown, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -100,6 +100,14 @@ export default function AssortmentPage() {
     },
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
+
+  // Auto-load broken details when groups are available
+  useEffect(() => {
+    const brokenGroup = groups.find(g => g.curve_state === 'broken');
+    if (brokenGroup && brokenGroup.style_count > 0 && !detailCache['broken']?.length && !loadingStates['broken']) {
+      loadGroupDetails('broken');
+    }
+  }, [groups, detailCache, loadingStates, loadGroupDetails]);
 
   // Broken group data
   const brokenGroup = groups.find(g => g.curve_state === 'broken');
