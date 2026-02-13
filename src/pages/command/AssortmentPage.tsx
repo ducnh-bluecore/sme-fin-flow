@@ -119,30 +119,46 @@ export default function AssortmentPage() {
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
   const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
 
-  // Missing sizes for selected product
-  const { data: drawerMissingSizes } = useQuery({
-    queryKey: ['drawer-missing-sizes', tenantId, evidenceProductId],
+  // Missing + present sizes for selected product in drawer
+  const { data: drawerSizeData } = useQuery({
+    queryKey: ['drawer-size-data', tenantId, evidenceProductId],
     queryFn: async () => {
-      if (!evidenceProductId) return [];
-      const { data, error } = await buildQuery('kpi_size_completeness' as any)
-        .select('store_id,missing_sizes,status')
-        .eq('style_id', evidenceProductId)
-        .neq('status', 'HEALTHY')
-        .limit(500);
-      if (error) throw error;
-      const allSizes = new Set<string>();
-      for (const row of (data || []) as any[]) {
-        const sizes = row.missing_sizes as string[];
-        if (sizes) sizes.forEach(s => allSizes.add(s));
-      }
+      if (!evidenceProductId) return { missing: [] as string[], present: [] as string[] };
       const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
-      return [...allSizes].sort((a, b) => {
+      const sortSizes = (arr: string[]) => arr.sort((a, b) => {
         const ia = order.indexOf(a), ib = order.indexOf(b);
         if (ia !== -1 && ib !== -1) return ia - ib;
         if (ia !== -1) return -1;
         if (ib !== -1) return 1;
         return a.localeCompare(b);
       });
+
+      // Missing sizes
+      const { data: compData } = await buildQuery('kpi_size_completeness' as any)
+        .select('style_id,missing_sizes')
+        .eq('style_id', evidenceProductId)
+        .neq('status', 'HEALTHY')
+        .limit(500);
+      const missingSet = new Set<string>();
+      for (const row of (compData || []) as any[]) {
+        const sizes = row.missing_sizes as string[];
+        if (sizes) sizes.forEach(s => missingSet.add(s));
+      }
+
+      // All expected sizes
+      const { data: skuData } = await buildQuery('inv_sku_fc_mapping' as any)
+        .select('size')
+        .eq('fc_id', evidenceProductId)
+        .eq('is_active', true)
+        .limit(100);
+      const allSizes = new Set<string>();
+      for (const row of (skuData || []) as any[]) {
+        if (row.size) allSizes.add(row.size);
+      }
+
+      const missing = sortSizes([...missingSet]);
+      const present = sortSizes([...allSizes].filter(s => !missingSet.has(s)));
+      return { missing, present };
     },
     enabled: !!tenantId && isReady && !!evidenceProductId,
   });
@@ -238,16 +254,21 @@ export default function AssortmentPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {/* Missing sizes - always show if available */}
-          {drawerMissingSizes && drawerMissingSizes.length > 0 && (
+          {/* Size map - present + missing */}
+          {drawerSizeData && (drawerSizeData.present.length > 0 || drawerSizeData.missing.length > 0) && (
             <div className="space-y-2 mb-4">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
-                <ShieldAlert className="h-3.5 w-3.5 text-destructive" /> Size Đang Thiếu
+                <ShieldAlert className="h-3.5 w-3.5 text-destructive" /> Bản Đồ Size
               </h4>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {drawerMissingSizes.map(size => (
-                  <Badge key={size} variant="outline" className="text-xs px-2 py-0.5 font-bold text-destructive border-destructive/40 bg-destructive/5">
-                    {size}
+                {drawerSizeData.present.map(size => (
+                  <Badge key={`p-${size}`} variant="outline" className="text-xs px-2 py-0.5 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                    ✓ {size}
+                  </Badge>
+                ))}
+                {drawerSizeData.missing.map(size => (
+                  <Badge key={`m-${size}`} variant="outline" className="text-xs px-2 py-0.5 font-bold text-destructive border-destructive/40 bg-destructive/5">
+                    ✗ {size}
                   </Badge>
                 ))}
               </div>
