@@ -119,11 +119,11 @@ export default function AssortmentPage() {
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
   const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
 
-  // Missing + present sizes for selected product in drawer
+  // Size data for selected product in drawer (store-level aggregation)
   const { data: drawerSizeData } = useQuery({
     queryKey: ['drawer-size-data', tenantId, evidenceProductId],
     queryFn: async () => {
-      if (!evidenceProductId) return { missing: [] as string[], present: [] as string[] };
+      if (!evidenceProductId) return { missing: [] as string[], present: [] as string[], partial: [] as string[] };
       const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
       const sortSizes = (arr: string[]) => arr.sort((a, b) => {
         const ia = order.indexOf(a), ib = order.indexOf(b);
@@ -133,17 +133,21 @@ export default function AssortmentPage() {
         return a.localeCompare(b);
       });
 
-      // Missing sizes
+      // Per-store missing sizes
       const { data: compData } = await buildQuery('kpi_size_completeness' as any)
-        .select('style_id,missing_sizes')
+        .select('style_id,store_id,missing_sizes')
         .eq('style_id', evidenceProductId)
-        .neq('status', 'HEALTHY')
         .limit(500);
-      const missingSet = new Set<string>();
+      
+      let totalStores = 0;
+      const sizeMissCount = new Map<string, number>();
       for (const row of (compData || []) as any[]) {
+        totalStores++;
         const sizes = row.missing_sizes as string[];
-        if (sizes) sizes.forEach(s => missingSet.add(s));
+        if (!sizes) continue;
+        for (const s of sizes) sizeMissCount.set(s, (sizeMissCount.get(s) || 0) + 1);
       }
+      if (totalStores === 0) totalStores = 1;
 
       // All expected sizes
       const { data: skuData } = await buildQuery('inv_sku_fc_mapping' as any)
@@ -151,14 +155,21 @@ export default function AssortmentPage() {
         .eq('fc_id', evidenceProductId)
         .eq('is_active', true)
         .limit(100);
-      const allSizes = new Set<string>();
+      const allSizes: string[] = [];
       for (const row of (skuData || []) as any[]) {
-        if (row.size) allSizes.add(row.size);
+        if (row.size && !allSizes.includes(row.size)) allSizes.push(row.size);
       }
 
-      const missing = sortSizes([...missingSet]);
-      const present = sortSizes([...allSizes].filter(s => !missingSet.has(s)));
-      return { missing, present };
+      const missing: string[] = [];
+      const partial: string[] = [];
+      const present: string[] = [];
+      for (const size of allSizes) {
+        const missCount = sizeMissCount.get(size) || 0;
+        if (missCount >= totalStores) missing.push(size);
+        else if (missCount > 0) partial.push(size);
+        else present.push(size);
+      }
+      return { missing: sortSizes(missing), present: sortSizes(present), partial: sortSizes(partial) };
     },
     enabled: !!tenantId && isReady && !!evidenceProductId,
   });
@@ -255,7 +266,7 @@ export default function AssortmentPage() {
           </SheetHeader>
 
           {/* Size map - present + missing */}
-          {drawerSizeData && (drawerSizeData.present.length > 0 || drawerSizeData.missing.length > 0) && (
+          {drawerSizeData && (drawerSizeData.present.length > 0 || drawerSizeData.partial.length > 0 || drawerSizeData.missing.length > 0) && (
             <div className="space-y-2 mb-4">
               <h4 className="text-sm font-semibold flex items-center gap-1.5">
                 <ShieldAlert className="h-3.5 w-3.5 text-destructive" /> Bản Đồ Size
@@ -266,11 +277,21 @@ export default function AssortmentPage() {
                     ✓ {size}
                   </Badge>
                 ))}
+                {drawerSizeData.partial.map(size => (
+                  <Badge key={`w-${size}`} variant="outline" className="text-xs px-2 py-0.5 font-semibold text-amber-700 border-amber-500/40 bg-amber-500/10">
+                    ⚠ {size}
+                  </Badge>
+                ))}
                 {drawerSizeData.missing.map(size => (
                   <Badge key={`m-${size}`} variant="outline" className="text-xs px-2 py-0.5 font-bold text-destructive border-destructive/40 bg-destructive/5">
                     ✗ {size}
                   </Badge>
                 ))}
+              </div>
+              <div className="text-[10px] text-muted-foreground flex items-center gap-3">
+                <span><span className="text-emerald-700">✓</span> Đủ hàng</span>
+                <span><span className="text-amber-700">⚠</span> Lẻ (thiếu ở một số store)</span>
+                <span><span className="text-destructive">✗</span> Hết toàn bộ</span>
               </div>
               {evidenceRow?.core_size_missing && (
                 <p className="text-xs text-destructive font-medium">⚠️ Bao gồm size core — ảnh hưởng trực tiếp đến doanh thu</p>
