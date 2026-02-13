@@ -289,6 +289,7 @@ export function runSimulationV2(input: EngineInput): SimSummary | null {
       heroScore,
       segment,
       velocity: fc.velocity,
+      velocity7d: fc.velocity7d,
       velocityTrend: fc.trend,
       forecastDemand,
       onHandQty,
@@ -515,12 +516,11 @@ export function computeGrowthShape(
   const catMap = new Map<string, {
     fcs: SimResult[];
     totalVelocity: number;
+    totalVelocity7d: number;
     totalRevenue: number;
     sumMargin: number;
     sumDOC: number;
     overstockCount: number;
-    trendUpCount: number;
-    trendDownCount: number;
   }>();
 
   const totalRevAll = details.reduce((s, d) => s + d.currentRevenue, 0);
@@ -528,18 +528,16 @@ export function computeGrowthShape(
   for (const d of details) {
     const cat = classifyCategory(d.fcName);
     const e = catMap.get(cat) || {
-      fcs: [], totalVelocity: 0, totalRevenue: 0,
+      fcs: [], totalVelocity: 0, totalVelocity7d: 0, totalRevenue: 0,
       sumMargin: 0, sumDOC: 0, overstockCount: 0,
-      trendUpCount: 0, trendDownCount: 0,
     };
     e.fcs.push(d);
     e.totalVelocity += d.velocity;
+    e.totalVelocity7d += d.velocity7d || d.velocity; // fallback to 30d if no 7d
     e.totalRevenue += d.currentRevenue;
     e.sumMargin += d.marginPct;
     e.sumDOC += d.docCurrent;
     if (d.riskFlags.some(r => r.type === 'overstock')) e.overstockCount++;
-    if (d.velocityTrend === 'up') e.trendUpCount++;
-    if (d.velocityTrend === 'down') e.trendDownCount++;
     catMap.set(cat, e);
   }
 
@@ -561,16 +559,17 @@ export function computeGrowthShape(
     const overstockRatio = e.overstockCount / n;
     const revenueShare = totalRevAll > 0 ? (e.totalRevenue / totalRevAll) * 100 : 0;
 
-    // Momentum: net trend direction
-    const momentumPct = n > 0
-      ? ((e.trendUpCount - e.trendDownCount) / n) * 100
+    // Momentum: velocity7d vs velocity30d ratio (short-term acceleration)
+    const momentumPct = e.totalVelocity > 0
+      ? ((e.totalVelocity7d - e.totalVelocity) / e.totalVelocity) * 100
       : 0;
 
     // Efficiency Score — relative normalization against max category velocity
     const velScore = clamp(avgVelocity / maxCatVelocity, 0, 1) * 40;
     const marginScore = clamp(avgMargin / 100, 0, 1) * 25;
     const invScore = (1 - clamp(overstockRatio, 0, 1)) * 20;
-    const stabilityScore = clamp((e.trendUpCount + (n - e.trendUpCount - e.trendDownCount)) / n, 0, 1) * 15;
+    const stabilityRatio = e.totalVelocity > 0 ? 1 - Math.abs(e.totalVelocity7d - e.totalVelocity) / e.totalVelocity : 0.5;
+    const stabilityScore = clamp(stabilityRatio, 0, 1) * 15;
     // Bonus for revenue share (categories driving more revenue get a boost)
     const revenueBonus = clamp(revenueShare / 30, 0, 1) * 10;
     const efficiencyScore = Math.round(Math.min(100, velScore + marginScore + invScore + stabilityScore + revenueBonus));

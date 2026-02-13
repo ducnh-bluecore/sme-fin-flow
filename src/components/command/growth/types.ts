@@ -64,6 +64,7 @@ export interface SimResult {
   segment: MoverSegment;
   // Demand & Velocity
   velocity: number;       // avg_daily_sales
+  velocity7d: number;    // short-term velocity
   velocityTrend: string | null;
   forecastDemand: number;
   // Inventory
