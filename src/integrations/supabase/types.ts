@@ -40558,6 +40558,13 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_inv_overview_stats: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          locked_cash: number
+          total_units: number
+        }[]
+      }
       fn_inv_positions_agg: {
         Args: { p_tenant_id: string }
         Returns: {

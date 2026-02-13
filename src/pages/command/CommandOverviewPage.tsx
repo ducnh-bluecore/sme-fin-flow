@@ -6,30 +6,21 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-
-function formatVND(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '₫0';
-  const absValue = Math.abs(value);
-  if (absValue >= 1e9) return `₫${(value / 1e9).toFixed(1)}B`;
-  if (absValue >= 1e6) return `₫${(value / 1e6).toFixed(0)}M`;
-  if (absValue >= 1e3) return `₫${(value / 1e3).toFixed(0)}K`;
-  return `₫${value.toFixed(0)}`;
-}
+import { supabase } from '@/integrations/supabase/client';
+import { formatVNDCompact } from '@/lib/formatters';
 
 export default function CommandOverviewPage() {
   const navigate = useNavigate();
-  const { buildQuery, buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
-  // Aggregate inventory stats from inv_state_positions
+  // Aggregate inventory stats via RPC (no row limit)
   const { data: invStats } = useQuery({
     queryKey: ['command-inv-stats', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_state_positions' as any, 'on_hand, unit_cost')
-        .limit(1000);
-      if (error || !data) return { totalUnits: 0, lockedCash: 0 };
-      const totalUnits = (data as any[]).reduce((sum: number, r: any) => sum + (r.on_hand || 0), 0);
-      const lockedCash = (data as any[]).reduce((sum: number, r: any) => sum + ((r.on_hand || 0) * (r.unit_cost || 0)), 0);
-      return { totalUnits, lockedCash };
+      const { data, error } = await supabase.rpc('fn_inv_overview_stats', { p_tenant_id: tenantId });
+      if (error || !data || (data as any[]).length === 0) return { totalUnits: 0, lockedCash: 0 };
+      const row = (data as any[])[0];
+      return { totalUnits: Number(row.total_units) || 0, lockedCash: Number(row.locked_cash) || 0 };
     },
     enabled: !!tenantId && isReady,
     staleTime: 60_000,
@@ -77,7 +68,7 @@ export default function CommandOverviewPage() {
     },
     { 
       label: 'Vốn Bị Khóa', 
-      value: formatVND(invStats?.lockedCash || distortionData?.totalLockedCash), 
+      value: formatVNDCompact(invStats?.lockedCash || distortionData?.totalLockedCash || 0), 
       icon: DollarSign,
       color: 'text-orange-600',
       bgColor: 'bg-orange-500/10',
@@ -156,7 +147,7 @@ export default function CommandOverviewPage() {
         <CardContent>
           {(!pendingPackages || pendingPackages.length === 0) ? (
             <div className="text-center py-8 text-muted-foreground">
-              <ListChecksIcon className="h-10 w-10 mx-auto mb-3 opacity-40" />
+              <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
               <p className="text-sm">Không có gói quyết định nào</p>
               <p className="text-xs mt-1">Chạy engine phân bổ để tạo gói quyết định</p>
             </div>
@@ -183,7 +174,7 @@ export default function CommandOverviewPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold text-foreground">
-                      {formatVND((pkg.impact_summary as any)?.revenue_protected)}
+                      {formatVNDCompact((pkg.impact_summary as any)?.revenue_protected || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground">bảo vệ được</p>
                   </div>
@@ -195,9 +186,4 @@ export default function CommandOverviewPage() {
       </Card>
     </div>
   );
-}
-
-// Simple placeholder icon
-function ListChecksIcon({ className }: { className?: string }) {
-  return <Package className={className} />;
 }

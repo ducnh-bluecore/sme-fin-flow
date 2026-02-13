@@ -167,8 +167,8 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Smart Transfer Suggestions
-              <Badge variant="secondary" className="text-xs ml-2">{totalOpportunities} opportunities</Badge>
+              <ArrowRightLeft className="h-4 w-4 text-amber-600" /> Đề Xuất Điều Chuyển
+              <Badge variant="secondary" className="text-xs ml-2">{totalOpportunities} cơ hội</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
               {selectedIds.size > 0 && (
@@ -207,9 +207,9 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                         <span className="font-medium text-sm">{destName}</span>
                       </div>
                       <div className="flex items-center gap-4 text-xs">
-                        <span className="text-muted-foreground"><strong>{group.transfer_count}</strong> transfers</span>
-                        <span className="text-muted-foreground"><strong>{group.total_qty?.toLocaleString()}</strong> units</span>
-                        <span className="text-muted-foreground">{group.unique_products} styles</span>
+                        <span className="text-muted-foreground"><strong>{group.transfer_count}</strong> chuyển</span>
+                        <span className="text-muted-foreground"><strong>{group.total_qty?.toLocaleString()}</strong> đơn vị</span>
+                        <span className="text-muted-foreground">{group.unique_products} mẫu</span>
                         <span className="font-semibold text-emerald-600">+{formatVNDCompact(group.total_net_benefit || 0)}</span>
                       </div>
                     </div>
@@ -226,14 +226,14 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-8"><span className="sr-only">Select</span></TableHead>
-                            <TableHead className="text-xs">Style</TableHead>
-                            <TableHead className="text-xs">Size</TableHead>
-                            <TableHead className="text-xs">From</TableHead>
-                            <TableHead className="text-xs text-center">Qty</TableHead>
-                            <TableHead className="text-xs text-right">Net Benefit</TableHead>
-                            <TableHead className="text-xs">Mục đích</TableHead>
-                            <TableHead className="text-xs text-center">Status</TableHead>
+                            <TableHead className="w-8"><span className="sr-only">Chọn</span></TableHead>
+                             <TableHead className="text-xs">Mẫu SP</TableHead>
+                             <TableHead className="text-xs">Size</TableHead>
+                             <TableHead className="text-xs">Từ Kho</TableHead>
+                             <TableHead className="text-xs text-center">SL</TableHead>
+                             <TableHead className="text-xs text-right">Lợi Ích Ròng</TableHead>
+                             <TableHead className="text-xs">Mục đích</TableHead>
+                             <TableHead className="text-xs text-center">Trạng Thái</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
