@@ -4,14 +4,15 @@ import { TrendingUp, Play, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-import { DEFAULTS, type SimulationParams, type SimSummary, type SKUSummary, type FamilyCode } from './growth/types';
-import { runSimulationV2, type EngineInput } from './growth/simulationEngine';
+import { DEFAULTS, type SimulationParams, type SimSummary, type SKUSummary, type FamilyCode, type GrowthShape } from './growth/types';
+import { runSimulationV2, computeGrowthShape, type EngineInput } from './growth/simulationEngine';
 import GrowthInputPanel from './growth/GrowthInputPanel';
 import GrowthHeroStrip from './growth/GrowthHeroStrip';
 import GrowthBeforeAfter from './growth/GrowthBeforeAfter';
 import GrowthProductionTable from './growth/GrowthProductionTable';
 import GrowthHeroPlan from './growth/GrowthHeroPlan';
 import GrowthRiskRegister from './growth/GrowthRiskRegister';
+import GrowthExpansionMap from './growth/GrowthExpansionMap';
 
 export default function GrowthSimulator() {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -28,6 +29,7 @@ export default function GrowthSimulator() {
   });
 
   const [simulation, setSimulation] = useState<SimSummary | null>(null);
+  const [growthShape, setGrowthShape] = useState<GrowthShape | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
   // ---- Data queries (unchanged from v1) ----
@@ -168,6 +170,12 @@ export default function GrowthSimulator() {
       };
       const result = runSimulationV2(input);
       setSimulation(result);
+      if (result) {
+        const shape = computeGrowthShape(result.details, skuData, skuFcMap, params);
+        setGrowthShape(shape);
+      } else {
+        setGrowthShape(null);
+      }
       setIsRunning(false);
     }, 100);
   }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, params]);
@@ -197,6 +205,9 @@ export default function GrowthSimulator() {
         {simulation && (
           <>
             <GrowthHeroStrip sim={simulation} />
+            {growthShape && (
+              <GrowthExpansionMap shape={growthShape} growthPct={params.growthPct} horizonMonths={params.horizonMonths} />
+            )}
             <GrowthBeforeAfter data={simulation.beforeAfter} />
             <GrowthProductionTable details={simulation.details} />
             <GrowthHeroPlan

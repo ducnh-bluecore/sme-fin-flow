@@ -15,6 +15,10 @@ import {
   type RiskType,
   type HeroGap,
   type BeforeAfterMetrics,
+  type CategoryShape,
+  type SizeShift,
+  type PriceBandShape,
+  type GrowthShape,
 } from './types';
 
 // ---- Helpers ----
@@ -473,5 +477,218 @@ export function runSimulationV2(input: EngineInput): SimSummary | null {
     details,
     topRisks: allRisks.slice(0, 10),
     heroCandidates,
+  };
+}
+
+// ============================================================
+// Growth Expansion Map — computeGrowthShape
+// ============================================================
+
+function classifyCategory(fcName: string): string {
+  const n = fcName.toLowerCase();
+  if (/top|shirt|blouse|ao|áo/.test(n) && !/khoác|jacket|coat|blazer/.test(n)) return 'Áo/Tops';
+  if (/dress|dam|đầm/.test(n)) return 'Đầm/Dresses';
+  if (/skirt|vay|váy|chân váy/.test(n)) return 'Váy/Skirts';
+  if (/pant|jean|quan|quần/.test(n)) return 'Quần/Bottoms';
+  if (/set/.test(n)) return 'Set';
+  if (/jacket|coat|blazer|khoác/.test(n)) return 'Áo khoác';
+  return 'Khác';
+}
+
+function extractSize(sku: string): string | null {
+  const u = sku.toUpperCase().trim();
+  if (u.endsWith('XL')) return 'XL';
+  if (u.endsWith('XS')) return 'XS';
+  if (u.endsWith('L') && !u.endsWith('XL')) return 'L';
+  if (u.endsWith('M')) return 'M';
+  if (u.endsWith('S') && !u.endsWith('XS')) return 'S';
+  return null;
+}
+
+export function computeGrowthShape(
+  details: SimResult[],
+  skuData: SKUSummary[],
+  skuFcMap: Map<string, string>,
+  params: SimulationParams,
+): GrowthShape {
+  // --- 1. Group by category ---
+  const catMap = new Map<string, {
+    fcs: SimResult[];
+    totalVelocity: number;
+    totalRevenue: number;
+    sumMargin: number;
+    sumDOC: number;
+    overstockCount: number;
+    trendUpCount: number;
+    trendDownCount: number;
+  }>();
+
+  const totalRevAll = details.reduce((s, d) => s + d.currentRevenue, 0);
+
+  for (const d of details) {
+    const cat = classifyCategory(d.fcName);
+    const e = catMap.get(cat) || {
+      fcs: [], totalVelocity: 0, totalRevenue: 0,
+      sumMargin: 0, sumDOC: 0, overstockCount: 0,
+      trendUpCount: 0, trendDownCount: 0,
+    };
+    e.fcs.push(d);
+    e.totalVelocity += d.velocity;
+    e.totalRevenue += d.currentRevenue;
+    e.sumMargin += d.marginPct;
+    e.sumDOC += d.docCurrent;
+    if (d.riskFlags.some(r => r.type === 'overstock')) e.overstockCount++;
+    if (d.velocityTrend === 'up') e.trendUpCount++;
+    if (d.velocityTrend === 'down') e.trendDownCount++;
+    catMap.set(cat, e);
+  }
+
+  // --- 2. Compute CategoryShape ---
+  const categories: CategoryShape[] = [];
+  for (const [cat, e] of catMap) {
+    const n = e.fcs.length;
+    if (n === 0) continue;
+    const avgVelocity = e.totalVelocity / n;
+    const avgMargin = e.sumMargin / n;
+    const avgDOC = e.sumDOC / n;
+    const overstockRatio = e.overstockCount / n;
+    const revenueShare = totalRevAll > 0 ? (e.totalRevenue / totalRevAll) * 100 : 0;
+
+    // Momentum: net trend direction
+    const momentumPct = n > 0
+      ? ((e.trendUpCount - e.trendDownCount) / n) * 100
+      : 0;
+
+    // Efficiency Score
+    const velScore = clamp(avgVelocity / 5, 0, 1) * 40; // normalize to ~5 units/day max
+    const marginScore = clamp(avgMargin / 100, 0, 1) * 25;
+    const invScore = (1 - clamp(overstockRatio, 0, 1)) * 20;
+    const stabilityScore = clamp((e.trendUpCount + (n - e.trendUpCount - e.trendDownCount)) / n, 0, 1) * 15;
+    const efficiencyScore = Math.round(velScore + marginScore + invScore + stabilityScore);
+
+    const efficiencyLabel: CategoryShape['efficiencyLabel'] =
+      efficiencyScore >= 65 ? 'CAO' : efficiencyScore >= 40 ? 'TRUNG BÌNH' : 'THẤP';
+
+    const direction: CategoryShape['direction'] =
+      efficiencyLabel === 'CAO' && momentumPct >= 0 ? 'expand' :
+      efficiencyLabel === 'THẤP' || momentumPct < -20 ? 'avoid' : 'hold';
+
+    // Reason
+    const reasons: string[] = [];
+    if (avgVelocity >= 2) reasons.push('Tốc độ bán tốt');
+    else if (avgVelocity < 0.5) reasons.push('Luân chuyển chậm');
+    if (avgMargin >= 50) reasons.push('biên lợi nhuận cao');
+    else if (avgMargin < 25) reasons.push('biên lợi nhuận thấp');
+    if (momentumPct > 20) reasons.push('xu hướng tăng mạnh');
+    else if (momentumPct < -20) reasons.push('cầu đang giảm');
+    if (overstockRatio > 0.3) reasons.push('rủi ro tồn kho');
+
+    categories.push({
+      category: cat,
+      fcCount: n,
+      totalVelocity: e.totalVelocity,
+      avgVelocity,
+      momentumPct,
+      avgMarginPct: avgMargin,
+      avgDOC,
+      overstockRatio,
+      revenueShare,
+      efficiencyScore,
+      efficiencyLabel,
+      direction,
+      reason: reasons.join(', ') || 'Dữ liệu trung bình',
+    });
+  }
+
+  categories.sort((a, b) => b.efficiencyScore - a.efficiencyScore);
+
+  const expandCategories = categories.filter(c => c.direction === 'expand');
+  const avoidCategories = categories.filter(c => c.direction === 'avoid');
+
+  // --- 3. Size shifts ---
+  const sizeMap = new Map<string, { velocity: number; count: number }>();
+  for (const sku of skuData) {
+    if (!sku.sku) continue;
+    const fcCode = skuFcMap.get(sku.sku);
+    if (!fcCode) continue;
+    const size = extractSize(sku.sku);
+    if (!size) continue;
+    const fc = details.find(d => d.fcCode === fcCode);
+    if (!fc) continue;
+    const e = sizeMap.get(size) || { velocity: 0, count: 0 };
+    e.velocity += fc.velocity / Math.max(fc.currentQty, 1) * (sku.total_quantity || 0);
+    e.count++;
+    sizeMap.set(size, e);
+  }
+
+  const totalSizeVelocity = Array.from(sizeMap.values()).reduce((s, e) => s + e.velocity, 0);
+  const sizeOrder = ['XS', 'S', 'M', 'L', 'XL'];
+  const equalShare = sizeMap.size > 0 ? 100 / sizeMap.size : 20;
+
+  const sizeShifts: SizeShift[] = sizeOrder
+    .filter(s => sizeMap.has(s))
+    .map(size => {
+      const e = sizeMap.get(size)!;
+      const share = totalSizeVelocity > 0 ? (e.velocity / totalSizeVelocity) * 100 : 0;
+      const delta = share - equalShare;
+      return {
+        size,
+        totalVelocity: e.velocity,
+        velocityShare: share,
+        deltaPct: delta,
+        direction: delta > 5 ? 'tăng' as const : delta < -5 ? 'giảm' as const : 'ổn định' as const,
+      };
+    });
+
+  // --- 4. Price bands ---
+  const bandDefs = [
+    { band: '< 300K', min: 0, max: 300000 },
+    { band: '300-500K', min: 300000, max: 500000 },
+    { band: '500K-1M', min: 500000, max: 1000000 },
+    { band: '> 1M', min: 1000000, max: Infinity },
+  ];
+
+  const priceBands: PriceBandShape[] = bandDefs.map(def => {
+    const fcs = details.filter(d => {
+      const price = d.currentQty > 0 ? d.currentRevenue / d.currentQty : 0;
+      return price >= def.min && price < def.max;
+    });
+    const n = fcs.length;
+    const avgV = n > 0 ? fcs.reduce((s, f) => s + f.velocity, 0) / n : 0;
+    const avgM = n > 0 ? fcs.reduce((s, f) => s + f.marginPct, 0) / n : 0;
+    const upCount = fcs.filter(f => f.velocityTrend === 'up').length;
+    const downCount = fcs.filter(f => f.velocityTrend === 'down').length;
+    const mom = n > 0 ? ((upCount - downCount) / n) * 100 : 0;
+    const eff = Math.round(clamp(avgV / 5, 0, 1) * 40 + clamp(avgM / 100, 0, 1) * 25 + 20 + 15 * (n > 0 ? (upCount + (n - upCount - downCount)) / n : 0));
+    return {
+      band: def.band,
+      fcCount: n,
+      avgVelocity: avgV,
+      avgMarginPct: avgM,
+      momentumPct: mom,
+      efficiencyLabel: eff >= 65 ? 'CAO' as const : eff >= 40 ? 'TRUNG BÌNH' as const : 'THẤP' as const,
+    };
+  }).filter(b => b.fcCount > 0);
+
+  // --- 5. Gravity summary ---
+  const topCat = expandCategories[0];
+  const topSize = sizeShifts.sort((a, b) => b.velocityShare - a.velocityShare)[0];
+  const topBand = priceBands.sort((a, b) => b.avgVelocity - a.avgVelocity)[0];
+
+  const gravitySummary = topCat
+    ? `Phát hiện trọng lực tại: ${topCat.category}${topSize ? ` | Size ${topSize.size}` : ''}${topBand ? ` | ${topBand.band}` : ''}`
+    : 'Chưa đủ dữ liệu để xác định trọng lực tăng trưởng.';
+
+  const shapeStatement = topCat
+    ? 'Cấu trúc này tối đa hóa xác suất doanh thu và bảo vệ biên lợi nhuận.'
+    : 'Cần thêm dữ liệu để đánh giá cấu trúc tối ưu.';
+
+  return {
+    expandCategories,
+    avoidCategories,
+    sizeShifts,
+    priceBands,
+    gravitySummary,
+    shapeStatement,
   };
 }
