@@ -74,6 +74,7 @@ function runSimulation(
   skuFcMap: Map<string, string>,
   skuFcIdMap: Map<string, string>,
   inventoryByFcId: Map<string, number>,
+  demandByFcId: Map<string, { velocity: number; avgDaily: number; trend: string | null }>,
   growthPct: number,
   timeframe: string
 ): SimSummary | null {
@@ -180,11 +181,35 @@ function runSimulation(
     const projectedMargin = neededQty * (unitPrice - unitCogs);
     const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
 
-    // Generate production reason narrative
+    // Get sales velocity data for this FC
+    const demandInfo = fcId ? demandByFcId.get(fcId) : null;
+    const avgDailySales = demandInfo?.avgDaily ?? 0;
+    const velocity = demandInfo?.velocity ?? 0;
+    const trend = demandInfo?.trend ?? null;
+
+    // Generate production reason narrative with velocity context
     const reasons: string[] = [];
+    
+    // Velocity-based signals (most important)
+    if (avgDailySales > 0) {
+      if (avgDailySales >= 5) reasons.push(`🔥 Bán nhanh (${avgDailySales.toFixed(1)} SP/ngày)`);
+      else if (avgDailySales >= 1) reasons.push(`Tốc độ bán TB (${avgDailySales.toFixed(1)} SP/ngày)`);
+      else reasons.push(`⚠ Bán chậm (${avgDailySales.toFixed(2)} SP/ngày)`);
+    } else if (onHandQty === 0 && agg.qty > 0) {
+      reasons.push('⚠ Hết hàng — không có dữ liệu tốc độ bán gần đây');
+    } else if (agg.qty === 0) {
+      reasons.push('⛔ Chưa có lịch sử bán — cần xem xét kỹ');
+    }
+
+    // Trend signal
+    if (trend === 'up') reasons.push('📈 Xu hướng tăng');
+    else if (trend === 'down') reasons.push('📉 Xu hướng giảm — cân nhắc giảm SL');
+
     if (isHero) reasons.push('Hero product — ưu tiên sản xuất');
-    if (onHandQty === 0) reasons.push('Hết tồn kho');
-    else if (onHandQty < neededQty * 0.1) reasons.push(`Tồn kho chỉ đủ ${((onHandQty / neededQty) * 100).toFixed(0)}% nhu cầu`);
+    if (onHandQty === 0 && avgDailySales >= 1) reasons.push('Hết tồn kho + bán tốt → cần bổ sung gấp');
+    else if (onHandQty === 0 && avgDailySales < 0.5 && avgDailySales > 0) reasons.push('Hết tồn kho nhưng bán chậm → sản xuất ít');
+    else if (onHandQty > 0 && onHandQty < neededQty * 0.1) reasons.push(`Tồn kho chỉ đủ ${((onHandQty / neededQty) * 100).toFixed(0)}% nhu cầu`);
+    
     if (agg.revenue > 0) {
       const revenueShare = totalInGroup > 0 ? (agg.revenue / totalInGroup * 100) : 0;
       if (revenueShare > 5) reasons.push(`Top doanh thu (${revenueShare.toFixed(1)}% nhóm)`);
@@ -360,7 +385,7 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  const { data: inventoryData, isLoading: invLoading } = useQuery({
+   const { data: inventoryData, isLoading: invLoading } = useQuery({
     queryKey: ['growth-sim-inventory', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery(
@@ -369,6 +394,20 @@ export default function GrowthSimulator() {
       ).limit(10000);
       if (error) throw error;
       return (data || []) as unknown as { fc_id: string; on_hand: number }[];
+    },
+    enabled: isReady,
+  });
+
+  // Fetch demand/velocity data
+  const { data: demandData, isLoading: demandLoading } = useQuery({
+    queryKey: ['growth-sim-demand', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery(
+        'inv_state_demand' as any,
+        'fc_id, sales_velocity, avg_daily_sales, trend'
+      ).limit(5000);
+      if (error) throw error;
+      return (data || []) as unknown as { fc_id: string; sales_velocity: number; avg_daily_sales: number; trend: string | null }[];
     },
     enabled: isReady,
   });
@@ -410,18 +449,32 @@ export default function GrowthSimulator() {
     return map;
   }, [inventoryData]);
 
-  const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading;
+  // Build demand map: fc_id → velocity info
+  const demandByFcId = useMemo(() => {
+    const map = new Map<string, { velocity: number; avgDaily: number; trend: string | null }>();
+    if (!demandData) return map;
+    for (const d of demandData) {
+      if (!d.fc_id) continue;
+      const existing = map.get(d.fc_id);
+      if (!existing || d.avg_daily_sales > existing.avgDaily) {
+        map.set(d.fc_id, { velocity: d.sales_velocity || 0, avgDaily: d.avg_daily_sales || 0, trend: d.trend });
+      }
+    }
+    return map;
+  }, [demandData]);
+
+  const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading || demandLoading;
   const dataReady = !!revenueData?.length && !!skuData?.length;
 
   const handleRun = useCallback(() => {
     if (!revenueData || !skuData) return;
     setIsRunning(true);
     setTimeout(() => {
-      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, skuFcIdMap, inventoryByFcId, growthPct, timeframe);
+      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, growthPct, timeframe);
       setSimulation(result);
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, growthPct, timeframe]);
+  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, growthPct, timeframe]);
 
   const heroDetails = simulation?.details.filter(d => d.isHero) || [];
 
