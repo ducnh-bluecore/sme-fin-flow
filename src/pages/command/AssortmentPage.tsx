@@ -117,6 +117,35 @@ export default function AssortmentPage() {
 
   // Evidence drawer
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
+  const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
+
+  // Missing sizes for selected product
+  const { data: drawerMissingSizes } = useQuery({
+    queryKey: ['drawer-missing-sizes', tenantId, evidenceProductId],
+    queryFn: async () => {
+      if (!evidenceProductId) return [];
+      const { data, error } = await buildQuery('kpi_size_completeness' as any)
+        .select('store_id,missing_sizes,status')
+        .eq('style_id', evidenceProductId)
+        .neq('status', 'HEALTHY')
+        .limit(500);
+      if (error) throw error;
+      const allSizes = new Set<string>();
+      for (const row of (data || []) as any[]) {
+        const sizes = row.missing_sizes as string[];
+        if (sizes) sizes.forEach(s => allSizes.add(s));
+      }
+      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+      return [...allSizes].sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.localeCompare(b);
+      });
+    },
+    enabled: !!tenantId && isReady && !!evidenceProductId,
+  });
 
   // Enrich transferByDest with store names
   const enrichedTransferByDest = useMemo(() => {
@@ -179,7 +208,7 @@ export default function AssortmentPage() {
         hasMore={brokenHasMore}
         totalCount={brokenGroup?.style_count || 0}
         onLoadMore={() => loadGroupDetails('broken', true)}
-        onViewEvidence={(pid) => evidencePackMap.has(pid) && setEvidenceProductId(pid)}
+        onViewEvidence={(pid) => setEvidenceProductId(pid)}
       />
 
       {/* ── Section 4: Transfer Network ── */}
@@ -205,9 +234,79 @@ export default function AssortmentPage() {
               Hồ Sơ Bằng Chứng
             </SheetTitle>
             <SheetDescription>
-              {evidenceProductId && (fcNames?.get(evidenceProductId) || evidenceProductId)}
+              {evidenceRow?.product_name || (evidenceProductId && (fcNames?.get(evidenceProductId) || evidenceProductId))}
             </SheetDescription>
           </SheetHeader>
+
+          {/* Missing sizes - always show if available */}
+          {drawerMissingSizes && drawerMissingSizes.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 text-destructive" /> Size Đang Thiếu
+              </h4>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {drawerMissingSizes.map(size => (
+                  <Badge key={size} variant="outline" className="text-xs px-2 py-0.5 font-bold text-destructive border-destructive/40 bg-destructive/5">
+                    {size}
+                  </Badge>
+                ))}
+              </div>
+              {evidenceRow?.core_size_missing && (
+                <p className="text-xs text-destructive font-medium">⚠️ Bao gồm size core — ảnh hưởng trực tiếp đến doanh thu</p>
+              )}
+            </div>
+          )}
+
+          {/* Basic info from detail row when no evidence pack */}
+          {!evidencePack && evidenceRow && (
+            <div className="space-y-4 mb-4">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2 rounded bg-muted/50">
+                  <span className="text-muted-foreground">Sức Khỏe</span>
+                  <p className={`font-bold text-lg ${
+                    evidenceRow.size_health_score < 40 ? 'text-destructive' :
+                    evidenceRow.size_health_score < 60 ? 'text-orange-600' : 'text-amber-600'
+                  }`}>{Math.round(evidenceRow.size_health_score)}</p>
+                </div>
+                <div className="p-2 rounded bg-muted/50">
+                  <span className="text-muted-foreground">Trạng Thái</span>
+                  <p className="font-bold text-lg capitalize">{evidenceRow.curve_state}</p>
+                </div>
+              </div>
+              <Separator />
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                {evidenceRow.lost_revenue_est > 0 && (
+                  <div className="p-2 rounded bg-destructive/5">
+                    <span className="text-muted-foreground">DT Mất</span>
+                    <p className="font-bold text-destructive">{formatVNDCompact(evidenceRow.lost_revenue_est)}</p>
+                  </div>
+                )}
+                {evidenceRow.cash_locked_value > 0 && (
+                  <div className="p-2 rounded bg-orange-500/5">
+                    <span className="text-muted-foreground">Vốn Khóa</span>
+                    <p className="font-bold text-orange-600">{formatVNDCompact(evidenceRow.cash_locked_value)}</p>
+                  </div>
+                )}
+                {evidenceRow.margin_leak_value > 0 && (
+                  <div className="p-2 rounded bg-destructive/5">
+                    <span className="text-muted-foreground">Rò Biên</span>
+                    <p className="font-bold text-destructive">{formatVNDCompact(evidenceRow.margin_leak_value)}</p>
+                  </div>
+                )}
+                {evidenceRow.markdown_eta_days && (
+                  <div className="p-2 rounded bg-muted/50">
+                    <span className="text-muted-foreground">MD ETA</span>
+                    <p className="font-bold">{evidenceRow.markdown_eta_days} ngày</p>
+                  </div>
+                )}
+              </div>
+              {evidenceRow.markdown_risk_score >= 80 && (
+                <div className="p-2 rounded bg-destructive/10 text-xs text-destructive font-medium">
+                  ⚠️ Rủi ro markdown cao ({evidenceRow.markdown_risk_score}%) — Cân nhắc thanh lý sớm
+                </div>
+              )}
+            </div>
+          )}
           
           {evidencePack ? (
             <div className="space-y-4">
@@ -337,9 +436,9 @@ export default function AssortmentPage() {
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground text-sm">Không có hồ sơ bằng chứng</div>
-          )}
+          ) : !evidenceRow ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">Không có dữ liệu chi tiết</div>
+          ) : null}
         </SheetContent>
       </Sheet>
     </div>
