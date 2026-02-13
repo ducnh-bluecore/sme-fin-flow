@@ -57,18 +57,17 @@ export default function StoreHeatmap({ data, isLoading }: StoreHeatmapProps) {
     return Array.from(regionMap.values()).sort((a, b) => b.broken - a.broken);
   }, [data, viewMode]);
 
-  const maxCount = Math.max(...rows.map(r => Math.max(r.broken, r.risk, r.watch, r.healthy)), 1);
+  const maxBroken = Math.max(...rows.map(r => r.broken), 1);
 
-  const renderDots = (count: number, color: string) => {
+  const renderBar = (count: number, color: string, max: number) => {
     if (count === 0) return <span className="text-muted-foreground/30 text-xs">—</span>;
-    const dotSize = count > 20 ? 'h-2.5 w-2.5' : 'h-3 w-3';
-    const displayCount = Math.min(count, 8);
+    const pct = Math.min((count / max) * 100, 100);
     return (
-      <div className="flex items-center gap-0.5">
-        {Array.from({ length: displayCount }).map((_, i) => (
-          <div key={i} className={`${dotSize} rounded-full ${color}`} />
-        ))}
-        {count > 8 && <span className="text-[10px] font-semibold ml-0.5">+{count - 8}</span>}
+      <div className="flex items-center gap-1.5 w-full">
+        <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-[11px] font-semibold tabular-nums w-7 text-right">{count}</span>
       </div>
     );
   };
@@ -111,35 +110,40 @@ export default function StoreHeatmap({ data, isLoading }: StoreHeatmapProps) {
           <TooltipProvider delayDuration={200}>
             <div className="space-y-0">
               {/* Header */}
-              <div className="grid grid-cols-[1fr_repeat(4,80px)] gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pb-2 border-b">
+              <div className="grid grid-cols-[140px_repeat(4,1fr)] gap-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider pb-2 border-b">
                 <div>{viewMode === 'region' ? 'Khu Vực' : 'Cửa Hàng'}</div>
-                <div className="text-center">Lẻ Size</div>
-                <div className="text-center">Rủi Ro</div>
-                <div className="text-center">Theo Dõi</div>
-                <div className="text-center">Khỏe</div>
+                <div>Lẻ Size</div>
+                <div>Rủi Ro</div>
+                <div>Theo Dõi</div>
+                <div>Khỏe</div>
               </div>
               {/* Rows */}
-              {rows.map((row) => (
-                <Tooltip key={row.label}>
-                  <TooltipTrigger asChild>
-                    <div className="grid grid-cols-[1fr_repeat(4,80px)] gap-1 py-2 border-b border-border/30 hover:bg-muted/30 cursor-default transition-colors items-center">
-                      <div className="text-xs font-medium truncate">{row.label}</div>
-                      <div className="flex justify-center">{renderDots(row.broken, 'bg-destructive')}</div>
-                      <div className="flex justify-center">{renderDots(row.risk, 'bg-orange-500')}</div>
-                      <div className="flex justify-center">{renderDots(row.watch, 'bg-amber-400')}</div>
-                      <div className="flex justify-center">{renderDots(row.healthy, 'bg-emerald-500')}</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="text-xs">
-                    <p className="font-semibold mb-1">{row.label}</p>
-                    <p>Lẻ size: <span className="text-destructive font-bold">{row.broken}</span></p>
-                    <p>Rủi ro: <span className="text-orange-600 font-bold">{row.risk}</span></p>
-                    <p>Theo dõi: {row.watch} · Khỏe: {row.healthy}</p>
-                    {row.lost_revenue > 0 && <p>DT rủi ro: <span className="text-destructive font-semibold">{formatVNDCompact(row.lost_revenue)}</span></p>}
-                    {row.cash_locked > 0 && <p>Vốn khóa: <span className="text-orange-600 font-semibold">{formatVNDCompact(row.cash_locked)}</span></p>}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+              {rows.map((row) => {
+                const total = row.broken + row.risk + row.watch + row.healthy;
+                const rowMax = Math.max(row.broken, row.risk, row.watch, row.healthy, 1);
+                return (
+                  <Tooltip key={row.label}>
+                    <TooltipTrigger asChild>
+                      <div className="grid grid-cols-[140px_repeat(4,1fr)] gap-3 py-2.5 border-b border-border/30 hover:bg-muted/30 cursor-default transition-colors items-center">
+                        <div className="text-xs font-medium truncate">{row.label}</div>
+                        <div>{renderBar(row.broken, 'bg-destructive', rowMax)}</div>
+                        <div>{renderBar(row.risk, 'bg-orange-500', rowMax)}</div>
+                        <div>{renderBar(row.watch, 'bg-amber-400', rowMax)}</div>
+                        <div>{renderBar(row.healthy, 'bg-emerald-500', rowMax)}</div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      <p className="font-semibold mb-1">{row.label}</p>
+                      <p>Tổng: {total} mẫu</p>
+                      <p>Lẻ size: <span className="text-destructive font-bold">{row.broken}</span></p>
+                      <p>Rủi ro: <span className="text-orange-600 font-bold">{row.risk}</span></p>
+                      <p>Theo dõi: {row.watch} · Khỏe: {row.healthy}</p>
+                      {row.lost_revenue > 0 && <p>DT rủi ro: <span className="text-destructive font-semibold">{formatVNDCompact(row.lost_revenue)}</span></p>}
+                      {row.cash_locked > 0 && <p>Vốn khóa: <span className="text-orange-600 font-semibold">{formatVNDCompact(row.cash_locked)}</span></p>}
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              })}
             </div>
           </TooltipProvider>
         )}
