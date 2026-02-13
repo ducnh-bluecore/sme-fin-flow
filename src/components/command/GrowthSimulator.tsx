@@ -234,7 +234,7 @@ export default function GrowthSimulator() {
       )
         .eq('metric_code', 'NET_REVENUE')
         .eq('dimension_type', 'total')
-        .order('fact_date', { ascending: false })
+        .order('grain_date', { ascending: false })
         .limit(90);
       if (error) throw error;
       return (data || []) as any[];
