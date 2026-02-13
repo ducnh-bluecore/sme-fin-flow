@@ -439,7 +439,65 @@ function runSimulation(
       });
     }
   }
-  for (const d of details) allRisks.push(...d.riskFlags);
+  // Aggregate risks by type instead of listing each individually
+  const riskAgg = new Map<string, { count: number; severity: string; examples: string[]; totalQty: number }>();
+  for (const d of details) {
+    for (const r of d.riskFlags) {
+      const existing = riskAgg.get(r.type);
+      if (existing) {
+        existing.count++;
+        if (r.severity === 'critical' || (r.severity === 'high' && existing.severity !== 'critical')) {
+          existing.severity = r.severity;
+        }
+        if (existing.examples.length < 3) existing.examples.push(d.fcName || d.fcCode);
+        existing.totalQty += d.onHandQty;
+      } else {
+        riskAgg.set(r.type, { count: 1, severity: r.severity, examples: [d.fcName || d.fcCode], totalQty: d.onHandQty });
+      }
+    }
+  }
+
+  const riskTypeLabels: Record<string, string> = {
+    stockout: 'Hết hàng / Sắp hết',
+    overstock: 'Tồn kho dư thừa',
+    slow_mover_high_stock: 'Bán chậm + Tồn cao',
+  };
+
+  for (const [type, agg] of riskAgg) {
+    const exampleStr = agg.examples.join(', ') + (agg.count > 3 ? ` (+${agg.count - 3} khác)` : '');
+    const label = riskTypeLabels[type] || type;
+
+    if (type === 'stockout') {
+      allRisks.push({
+        type,
+        severity: agg.severity as RiskFlag['severity'],
+        detail: `${agg.count} FC ${label.toLowerCase()} — cần bổ sung sản xuất`,
+        suggestion: `Ưu tiên: ${exampleStr}`,
+      });
+    } else if (type === 'overstock') {
+      allRisks.push({
+        type,
+        severity: agg.severity as RiskFlag['severity'],
+        detail: `${agg.count} FC tồn kho vượt nhu cầu — rủi ro khóa cash`,
+        suggestion: `Markdown/Bundle: ${exampleStr}`,
+      });
+    } else if (type === 'slow_mover_high_stock') {
+      allRisks.push({
+        type,
+        severity: agg.severity as RiskFlag['severity'],
+        detail: `${agg.count} FC bán chậm còn tồn — DOC cao, rủi ro cash`,
+        suggestion: `Xem xét: ${exampleStr}`,
+      });
+    } else {
+      allRisks.push({
+        type,
+        severity: agg.severity as RiskFlag['severity'],
+        detail: `${agg.count} FC gặp vấn đề ${type}`,
+        suggestion: exampleStr,
+      });
+    }
+  }
+
   const sevOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
   allRisks.sort((a, b) => (sevOrder[a.severity] ?? 3) - (sevOrder[b.severity] ?? 3));
 
