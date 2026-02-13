@@ -165,11 +165,22 @@ export function runSimulationV2(input: EngineInput): SimSummary | null {
     const vForecast = vBase * clamp(trendRatio, 0.7, 1.3);
     const forecastDemand = vForecast * horizonDays;
 
-    // B4. Segment classification
+    // B4. Segment classification (percentile + absolute thresholds)
     const velPercentile = percentileRank(fc.velocity, allVelocities);
     let segment: MoverSegment = 'normal';
-    if (velPercentile >= DEFAULTS.FAST_MOVER_PERCENTILE) segment = 'fast';
-    else if (velPercentile <= DEFAULTS.SLOW_MOVER_PERCENTILE) segment = 'slow';
+    // Absolute thresholds override percentile to avoid "0.1/day = Fast" when most FCs have 0
+    if (fc.velocity < 0.5) {
+      // Below 0.5 units/day is always slow, regardless of percentile
+      segment = 'slow';
+    } else if (fc.velocity >= 3 && velPercentile >= DEFAULTS.FAST_MOVER_PERCENTILE) {
+      // Must be both high percentile AND >= 3 units/day to be "Fast"
+      segment = 'fast';
+    } else if (velPercentile >= DEFAULTS.FAST_MOVER_PERCENTILE && fc.velocity >= 1) {
+      // Moderate absolute velocity + high percentile = fast
+      segment = 'fast';
+    } else if (velPercentile <= DEFAULTS.SLOW_MOVER_PERCENTILE || fc.velocity < 1) {
+      segment = 'slow';
+    }
 
     // Skip slow movers with very low velocity (unless Hero)
     const isHeroManual = fc.isHeroManual;
