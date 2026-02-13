@@ -328,7 +328,7 @@ function DecisionBanner({ level, totalShortage, totalRevenueAtRisk, stylesNeedPr
   if (level === 'safe') {
     return (
       <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-        className="rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30 p-4">
+        className="rounded-lg border border-emerald-100 bg-[hsl(60,30%,97%)] dark:border-emerald-900/30 dark:bg-[hsl(60,10%,12%)] p-4">
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0" />
           <div>
