@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, FileText, Activity, DollarSign, Lock, Flame, TrendingDown, ShieldAlert } from 'lucide-react';
+import { RefreshCw, FileText, Activity, DollarSign, Lock, Flame, TrendingDown, ShieldAlert, Store, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
@@ -174,7 +174,70 @@ export default function AssortmentPage() {
     enabled: !!tenantId && isReady && !!evidenceProductId,
   });
 
-  // Enrich transferByDest with store names
+  // Fetch stores with surplus of missing/partial sizes (potential transfer sources)
+  const problematicSizes = useMemo(() => {
+    if (!drawerSizeData) return [] as string[];
+    return [...(drawerSizeData.missing || []), ...(drawerSizeData.partial || [])];
+  }, [drawerSizeData]);
+
+  const { data: surplusStores } = useQuery({
+    queryKey: ['drawer-surplus-stores', tenantId, evidenceProductId, problematicSizes.join(',')],
+    queryFn: async () => {
+      if (!evidenceProductId || problematicSizes.length === 0) return [];
+      // Get SKUs for the problematic sizes
+      const { data: skuRows } = await buildQuery('inv_sku_fc_mapping' as any)
+        .select('sku,size')
+        .eq('fc_id', evidenceProductId)
+        .eq('is_active', true)
+        .in('size', problematicSizes)
+        .limit(50);
+      if (!skuRows || skuRows.length === 0) return [];
+
+      const skuToSize = new Map<string, string>();
+      for (const r of skuRows as any[]) skuToSize.set(r.sku, r.size);
+      const skus = [...skuToSize.keys()];
+
+      // Get positions with on_hand > 0 for these SKUs
+      const { data: posRows } = await buildQuery('inv_state_positions' as any)
+        .select('store_id,sku,on_hand')
+        .eq('fc_id', evidenceProductId)
+        .in('sku', skus)
+        .gt('on_hand', 0)
+        .limit(500);
+
+      // Aggregate by store
+      const storeMap = new Map<string, { store_id: string; sizes: Map<string, number> }>();
+      for (const r of (posRows || []) as any[]) {
+        const size = skuToSize.get(r.sku);
+        if (!size) continue;
+        if (!storeMap.has(r.store_id)) storeMap.set(r.store_id, { store_id: r.store_id, sizes: new Map() });
+        const entry = storeMap.get(r.store_id)!;
+        entry.sizes.set(size, (entry.sizes.get(size) || 0) + (r.on_hand || 0));
+      }
+
+      // Fetch store names
+      const storeIds = [...storeMap.keys()];
+      if (storeIds.length === 0) return [];
+      const { data: nameRows } = await buildQuery('inv_stores' as any)
+        .select('id,store_name')
+        .in('id', storeIds)
+        .limit(50);
+      const nameMap = new Map<string, string>();
+      for (const r of (nameRows || []) as any[]) nameMap.set(r.id, r.store_name);
+
+      return [...storeMap.values()]
+        .map(s => ({
+          store_id: s.store_id,
+          store_name: nameMap.get(s.store_id) || s.store_id.slice(0, 12),
+          sizes: Object.fromEntries(s.sizes),
+          totalQty: [...s.sizes.values()].reduce((a, b) => a + b, 0),
+        }))
+        .sort((a, b) => b.totalQty - a.totalQty)
+        .slice(0, 10);
+    },
+    enabled: !!tenantId && isReady && !!evidenceProductId && problematicSizes.length > 0,
+  });
+
   const enrichedTransferByDest = useMemo(() => {
     return transferByDest.map((d: any) => ({
       ...d,
@@ -296,6 +359,35 @@ export default function AssortmentPage() {
               {evidenceRow?.core_size_missing && (
                 <p className="text-xs text-destructive font-medium">⚠️ Bao gồm size core — ảnh hưởng trực tiếp đến doanh thu</p>
               )}
+            </div>
+          )}
+
+          {/* Surplus stores - stores with stock of missing/partial sizes */}
+          {surplusStores && surplusStores.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5 text-emerald-600" /> Nguồn Hàng Khả Dụng
+              </h4>
+              <p className="text-[10px] text-muted-foreground">
+                Cửa hàng đang có tồn kho size thiếu/lẻ — có thể điều chuyển
+              </p>
+              <div className="space-y-1.5">
+                {surplusStores.map(s => (
+                  <div key={s.store_id} className="flex items-center justify-between text-xs p-2 rounded-md bg-emerald-500/5 border border-emerald-500/15">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Store className="h-3 w-3 text-emerald-600 shrink-0" />
+                      <span className="font-medium truncate">{s.store_name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {Object.entries(s.sizes).map(([size, qty]) => (
+                        <Badge key={size} variant="outline" className="text-[9px] px-1.5 py-0 h-5 font-semibold text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                          {size}: {qty}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
