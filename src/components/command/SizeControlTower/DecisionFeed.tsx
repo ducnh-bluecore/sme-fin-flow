@@ -21,11 +21,11 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
 
   const productIds = signals.map(s => s.product_id);
 
-  // Fetch missing + present sizes for these products
+  // Fetch size data with proper store-level aggregation
   const { data: sizeDataMap } = useQuery({
     queryKey: ['decision-feed-size-data', tenantId, productIds.join(',')],
     queryFn: async () => {
-      if (productIds.length === 0) return new Map<string, { missing: string[]; present: string[] }>();
+      if (productIds.length === 0) return new Map<string, { missing: string[]; present: string[]; partial: string[] }>();
       const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
       const sortSizes = (arr: string[]) => arr.sort((a, b) => {
         const ia = order.indexOf(a), ib = order.indexOf(b);
@@ -35,19 +35,22 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
         return a.localeCompare(b);
       });
 
-      // Fetch missing sizes
+      // Fetch per-store missing sizes
       const { data: compData } = await buildQuery('kpi_size_completeness' as any)
-        .select('style_id,missing_sizes')
+        .select('style_id,store_id,missing_sizes')
         .in('style_id', productIds)
-        .neq('status', 'HEALTHY')
-        .limit(500);
+        .limit(2000);
 
-      const missingMap = new Map<string, Set<string>>();
+      const storeCountMap = new Map<string, number>();
+      const sizeMissCountMap = new Map<string, Map<string, number>>();
       for (const row of (compData || []) as any[]) {
+        const pid = row.style_id as string;
+        storeCountMap.set(pid, (storeCountMap.get(pid) || 0) + 1);
         const sizes = row.missing_sizes as string[];
         if (!sizes || sizes.length === 0) continue;
-        if (!missingMap.has(row.style_id)) missingMap.set(row.style_id, new Set());
-        for (const s of sizes) missingMap.get(row.style_id)!.add(s);
+        if (!sizeMissCountMap.has(pid)) sizeMissCountMap.set(pid, new Map());
+        const sizeMap = sizeMissCountMap.get(pid)!;
+        for (const s of sizes) sizeMap.set(s, (sizeMap.get(s) || 0) + 1);
       }
 
       // Fetch all expected sizes
@@ -64,14 +67,22 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
         allSizesMap.get(row.fc_id)!.add(row.size);
       }
 
-      const result = new Map<string, { missing: string[]; present: string[] }>();
+      const result = new Map<string, { missing: string[]; present: string[]; partial: string[] }>();
       for (const pid of productIds) {
-        const missing = missingMap.has(pid) ? sortSizes([...missingMap.get(pid)!]) : [];
         const allSizes = allSizesMap.has(pid) ? [...allSizesMap.get(pid)!] : [];
-        const missingSet = new Set(missing);
-        const present = sortSizes(allSizes.filter(s => !missingSet.has(s)));
-        if (missing.length > 0 || present.length > 0) {
-          result.set(pid, { missing, present });
+        const totalStores = storeCountMap.get(pid) || 1;
+        const sizeMap = sizeMissCountMap.get(pid) || new Map();
+        const missing: string[] = [];
+        const partial: string[] = [];
+        const present: string[] = [];
+        for (const size of allSizes) {
+          const missCount = sizeMap.get(size) || 0;
+          if (missCount >= totalStores) missing.push(size);
+          else if (missCount > 0) partial.push(size);
+          else present.push(size);
+        }
+        if (missing.length > 0 || partial.length > 0 || present.length > 0) {
+          result.set(pid, { missing: sortSizes(missing), present: sortSizes(present), partial: sortSizes(partial) });
         }
       }
       return result;
@@ -118,11 +129,16 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
                       </Badge>
                     )}
                   </div>
-                  {/* Size map display: present + missing */}
-                  {sizeData && (sizeData.present.length > 0 || sizeData.missing.length > 0) && (
+                  {/* Size map display: present + partial + missing */}
+                  {sizeData && (sizeData.present.length > 0 || sizeData.partial.length > 0 || sizeData.missing.length > 0) && (
                     <div className="flex items-center gap-1 mb-1.5 flex-wrap">
                       {sizeData.present.map(size => (
                         <Badge key={`p-${size}`} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                          {size}
+                        </Badge>
+                      ))}
+                      {sizeData.partial.map(size => (
+                        <Badge key={`w-${size}`} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-semibold text-amber-700 border-amber-500/40 bg-amber-500/10">
                           {size}
                         </Badge>
                       ))}
