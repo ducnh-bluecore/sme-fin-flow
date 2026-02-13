@@ -544,6 +544,13 @@ export function computeGrowthShape(
   }
 
   // --- 2. Compute CategoryShape ---
+  // First pass: collect all category avg velocities for relative normalization
+  const catAvgVelocities: number[] = [];
+  for (const [, e] of catMap) {
+    if (e.fcs.length > 0) catAvgVelocities.push(e.totalVelocity / e.fcs.length);
+  }
+  const maxCatVelocity = Math.max(...catAvgVelocities, 0.01);
+
   const categories: CategoryShape[] = [];
   for (const [cat, e] of catMap) {
     const n = e.fcs.length;
@@ -559,28 +566,34 @@ export function computeGrowthShape(
       ? ((e.trendUpCount - e.trendDownCount) / n) * 100
       : 0;
 
-    // Efficiency Score
-    const velScore = clamp(avgVelocity / 5, 0, 1) * 40; // normalize to ~5 units/day max
+    // Efficiency Score — relative normalization against max category velocity
+    const velScore = clamp(avgVelocity / maxCatVelocity, 0, 1) * 40;
     const marginScore = clamp(avgMargin / 100, 0, 1) * 25;
     const invScore = (1 - clamp(overstockRatio, 0, 1)) * 20;
     const stabilityScore = clamp((e.trendUpCount + (n - e.trendUpCount - e.trendDownCount)) / n, 0, 1) * 15;
-    const efficiencyScore = Math.round(velScore + marginScore + invScore + stabilityScore);
+    // Bonus for revenue share (categories driving more revenue get a boost)
+    const revenueBonus = clamp(revenueShare / 30, 0, 1) * 10;
+    const efficiencyScore = Math.round(Math.min(100, velScore + marginScore + invScore + stabilityScore + revenueBonus));
 
     const efficiencyLabel: CategoryShape['efficiencyLabel'] =
       efficiencyScore >= 65 ? 'CAO' : efficiencyScore >= 40 ? 'TRUNG BÌNH' : 'THẤP';
 
+    // Direction: top efficiency + non-negative momentum = expand
+    // Also expand if score is high (>= 55) and has positive revenue share
     const direction: CategoryShape['direction'] =
-      efficiencyLabel === 'CAO' && momentumPct >= 0 ? 'expand' :
-      efficiencyLabel === 'THẤP' || momentumPct < -20 ? 'avoid' : 'hold';
+      (efficiencyLabel === 'CAO' && momentumPct >= -10) ? 'expand' :
+      (efficiencyScore >= 55 && momentumPct >= 0 && revenueShare >= 10) ? 'expand' :
+      (efficiencyLabel === 'THẤP' || momentumPct < -30) ? 'avoid' : 'hold';
 
     // Reason
     const reasons: string[] = [];
-    if (avgVelocity >= 2) reasons.push('Tốc độ bán tốt');
-    else if (avgVelocity < 0.5) reasons.push('Luân chuyển chậm');
+    if (avgVelocity >= maxCatVelocity * 0.7) reasons.push('Tốc độ bán tốt');
+    else if (avgVelocity < maxCatVelocity * 0.2) reasons.push('Luân chuyển chậm');
     if (avgMargin >= 50) reasons.push('biên lợi nhuận cao');
     else if (avgMargin < 25) reasons.push('biên lợi nhuận thấp');
-    if (momentumPct > 20) reasons.push('xu hướng tăng mạnh');
-    else if (momentumPct < -20) reasons.push('cầu đang giảm');
+    if (revenueShare >= 20) reasons.push(`chiếm ${revenueShare.toFixed(0)}% doanh thu`);
+    if (momentumPct > 10) reasons.push('xu hướng tăng');
+    else if (momentumPct < -10) reasons.push('cầu đang giảm');
     if (overstockRatio > 0.3) reasons.push('rủi ro tồn kho');
 
     categories.push({
@@ -671,7 +684,7 @@ export function computeGrowthShape(
   }).filter(b => b.fcCount > 0);
 
   // --- 5. Gravity summary ---
-  const topCat = expandCategories[0];
+  const topCat = expandCategories[0] || categories[0]; // fallback to highest efficiency
   const topSize = sizeShifts.sort((a, b) => b.velocityShare - a.velocityShare)[0];
   const topBand = priceBands.sort((a, b) => b.avgVelocity - a.avgVelocity)[0];
 
