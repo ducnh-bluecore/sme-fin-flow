@@ -260,10 +260,7 @@ export default function AssortmentPage() {
         </Button>
       </motion.div>
 
-      {/* ── Section 1: Decision Feed (moved to top) ── */}
-      <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
-
-      {/* ── Section 2: Global Health Strip ── */}
+      {/* ── Section 1: Global Health Strip ── */}
       <HealthStrip
         avgHealthScore={summary.avgHealthScore}
         healthStatus={healthStatus}
@@ -278,6 +275,9 @@ export default function AssortmentPage() {
         recoverableStyles={recoverableStyles}
         effortLevel={effortLevel}
       />
+
+      {/* ── Section 2: Decision Feed ── */}
+      <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
 
       {/* ── Section 3: Tabbed Content ── */}
       <Tabs defaultValue="breakdown" className="w-full">
