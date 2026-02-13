@@ -11,6 +11,7 @@ import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { formatVNDCompact } from '@/lib/formatters';
+import GrowthSimulator from '@/components/command/GrowthSimulator';
 
 export default function NetworkGapPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -187,6 +188,9 @@ export default function NetworkGapPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Mô Phỏng Tăng Trưởng */}
+      <GrowthSimulator />
 
       {/* Bảng Chi Tiết */}
       <Card>
