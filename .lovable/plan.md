@@ -1,78 +1,64 @@
 
-# Kết Nối Hành Động Sau Mô Phỏng Tăng Trưởng
 
-## Vấn đề hiện tại
-Sau khi chạy mô phỏng, người dùng chỉ thấy kết quả trên màn hình -- không có bước tiếp theo nào. Kết quả "chết" tại đó. Điều này vi phạm nguyên tắc FDP: **"Nếu không khiến quyết định rõ ràng hơn -- FDP đã thất bại."**
+# Sửa Logic Sản Xuất: Không Đề Xuất Hàng Bán Chậm
 
-## Giải pháp: Action Bar sau kết quả mô phỏng
+## Vấn đề
+Engine đang đề xuất sản xuất hàng bán chậm (velocity 0.1-0.2/ngày) vì:
+- Ngưỡng chặn quá thấp (chỉ chặn < 0.1 SP/ngày)
+- Công thức tính nhu cầu không phân biệt slow vs fast mover
+- DOC sau sản xuất lên tới 235-270 ngày = khóa cash vô nghĩa
+- Vi phạm nguyên tắc FDP: "SKU lỗ + khóa cash + tăng risk -> phải nói STOP"
 
-Thêm một thanh hành động (Action Bar) xuất hiện sau khi có kết quả, cho phép người dùng thực hiện 3 hành động cụ thể:
+## Giải pháp: 3 tầng lọc cho slow mover
 
-### 1. "Tạo Đề Xuất Sản Xuất" (Push to Production)
-- Chuyển các FC cần sản xuất (từ `simulation.details` có `productionUnits > 0`) thành bản ghi trong bảng `dec_production_candidates`
-- Mỗi FC tạo 1 dòng với: style_id, recommended_qty, cash_required, size_breakdown, urgency_score, status = 'PROPOSED'
-- Sau khi tạo xong, hiện nút điều hướng sang trang `/command/production` để duyệt
+### Tầng 1: Nâng ngưỡng chặn
+- Slow mover (velocity < 0.5/ngày) + KHÔNG phải Hero -> productionQty = 0
+- Chỉ Hero mới được sản xuất dù bán chậm
 
-### 2. "Xuất Báo Cáo" (Export)
-- Xuất kết quả mô phỏng ra file Excel (.xlsx) gồm 3 sheet:
-  - Tổng quan (hero strip metrics)
-  - Chi tiết FC (production table)
-  - Bản đồ mở rộng (expand/avoid categories)
-- Dùng thư viện `xlsx` đã cài sẵn
+### Tầng 2: Giới hạn DOC cho slow mover
+- Slow mover Hero: DOC target tối đa 30 ngày (thay vì 60)
+- Normal mover: giữ nguyên logic hiện tại
 
-### 3. "Lưu Kịch Bản" (Save Scenario)
-- Lưu params + kết quả tóm tắt vào một bảng mới `growth_scenarios` để so sánh nhiều kịch bản
-- Cho phép đặt tên kịch bản (vd: "Tăng 30% - Q3 2025")
+### Tầng 3: Cash Recovery Filter
+- Nếu DOC sau sản xuất > 120 ngày -> cắt productionQty về mức DOC = 90 ngày
+- Đảm bảo không khóa cash quá 3 tháng cho bất kỳ FC nào
 
----
+### Tầng 4: Cải thiện lý do (Reason)
+- Slow mover bị chặn: hiển thị rõ "Không SX - bán chậm, rủi ro khóa cash"
+- Slow mover Hero được SX: hiển thị "SX giới hạn - Hero nhưng velocity thấp"
 
 ## Chi tiết kỹ thuật
 
-### File mới:
-- `src/components/command/growth/GrowthActionBar.tsx` -- Thanh hành động với 3 nút
+### File sửa: `supabase/functions/growth-simulator/index.ts`
 
-### File sửa:
-- `src/components/command/GrowthSimulator.tsx` -- Import và render GrowthActionBar sau tất cả kết quả
+Logic thay đổi tại khu vực tính productionQty (khoảng line 313-320):
 
-### Database:
-- Tạo bảng `growth_scenarios` (id, tenant_id, name, params jsonb, summary jsonb, created_at) với RLS policy theo tenant
-
-### Logic Push to Production:
 ```text
-Voi moi SimResult co productionUnits > 0:
-  -> Insert vao dec_production_candidates:
-     style_id = fc_code
-     recommended_qty = productionUnits
-     cash_required = cashRequired
-     margin_projection = tinh tu margin% * revenue du kien
-     urgency_score = tinh tu velocity segment + hero status
-     size_breakdown = tu sku data (nhom theo size suffix)
-     status = 'PROPOSED'
-     as_of_date = today
+TRUOC:
+  if (segment === 'slow' && velocity < 0.1 && !isHero) -> productionQty = 0
+
+SAU:
+  // Tang 1: Chan slow mover khong phai Hero
+  if (segment === 'slow' && !isHero) -> productionQty = 0
+  
+  // Tang 2: Slow mover Hero -> giam DOC target
+  if (segment === 'slow' && isHero) -> targetDOC = min(targetDOC, 30)
+  
+  // Tang 3: Cap DOC sau SX cho tat ca
+  if (docAfterProduction > 120) -> 
+    productionQty = max(0, round(90 * vForecast - onHandQty))
 ```
 
-### Logic Export Excel:
-```text
-Sheet 1 "Tong Quan": hero strip metrics (5 dong)
-Sheet 2 "Chi Tiet FC": production table (tat ca details)
-Sheet 3 "Chien Luoc": expand/avoid categories + size shifts
-```
+### Kết quả mong đợi
+- Babette Fleur Top (0.2/ngày, slow, non-hero): **Không SX** (truoc: SX 40)
+- Kaede Bow Top (0.2/ngày, slow, non-hero): **Không SX** (truoc: SX 40)
+- Circe Bag (0.2/ngày, slow, non-hero): **Không SX** (truoc: SX 40)
+- Kaori Top (0.1/ngày, slow, non-hero): **Không SX** (truoc: SX 31)
+- Janece Knit Top (Hero): **Van SX** nhung giam so luong (DOC cap 90 ngay)
 
-### UI Action Bar:
-```text
-+---------------------------------------------------------------+
-| HANH DONG TIEP THEO                                           |
-|                                                                |
-| [Tao De Xuat San Xuat (X FC)]  [Xuat Excel]  [Luu Kich Ban]  |
-|                                                                |
-| Sau khi tao: "Da tao X de xuat san xuat. Xem tai day ->"      |
-+---------------------------------------------------------------+
-```
+### Tac dong
+- Giam so FC duoc de xuat SX
+- Giam tong cash required
+- Tang chat luong de xuat (chi SX hang ban duoc)
+- Production table chi hien hang dang SX that su
 
-### Thu tu implement:
-1. Tao migration cho bang `growth_scenarios`
-2. Tao `GrowthActionBar.tsx` voi 3 nut hanh dong
-3. Implement logic push to `dec_production_candidates`
-4. Implement logic export Excel
-5. Implement logic luu kich ban
-6. Noi vao `GrowthSimulator.tsx`
