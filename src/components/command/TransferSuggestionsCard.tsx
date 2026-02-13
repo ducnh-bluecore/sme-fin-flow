@@ -152,22 +152,18 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
     return TAB_ORDER.find(k => tabData[k].totalCount > 0) || 'broken_size';
   }, [tabData]);
 
-  // Build lookups for destination size inventory based on expanded rows
+  // Build lookups for destination size inventory — only for the expanded row
   const sizeLookups = useMemo(() => {
-    const lookups: { product_id: string; dest_store_id: string }[] = [];
-    for (const destId of expandedDest) {
-      const rows = detailRows.get(destId) || [];
-      const seen = new Set<string>();
-      for (const r of rows) {
-        const key = `${r.product_id}__${destId}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          lookups.push({ product_id: r.product_id, dest_store_id: destId });
-        }
+    if (!expandedRowId) return [];
+    // Find the expanded row's product_id and dest_store_id
+    for (const [destId, rows] of detailRows) {
+      const row = rows.find((r: any) => r.id === expandedRowId);
+      if (row) {
+        return [{ product_id: row.product_id, dest_store_id: destId }];
       }
     }
-    return lookups;
-  }, [expandedDest, detailRows]);
+    return [];
+  }, [expandedRowId, detailRows]);
 
   const { data: destSizeMap } = useDestinationSizeInventory(sizeLookups);
 
