@@ -1,48 +1,96 @@
+# Đánh Giá & Đề Xuất Nâng Cấp Bluecore Command
+
+## Đánh giá hiện trạng
+
+Module đã hoàn thiện tốt với 8 trang chức năng, hệ thống Decision Intelligence hoàn chỉnh (từ đề xuất → duyệt → đánh giá kết quả), và Size Intelligence Engine mạnh. Tuy nhiên còn nhiều điểm có thể cải thiện:
+
+---
+
+## Nhóm 1: Bugs & Technical Debt (Ưu tiên cao)
+
+### 1.1 Overview Page bị giới hạn 1,000 rows
+
+- `CommandOverviewPage.tsx` line 28: `.limit(1000)` khi query `inv_state_positions` — số liệu "Tồn Kho Mạng Lưới" và "Vốn Bị Khóa" sai nếu có >1,000 SKU
+- **Fix**: Tạo DB view tổng hợp (giống `v_size_intelligence_summary`) hoặc dùng RPC function
+
+### 1.2 Chưa localize hết tiếng Việt
+
+- `SizeHealthActionGroups.tsx`: Vẫn còn tiếng Anh: "Loading action groups...", "No size health data", "styles", "core missing", "MD risk", "Load more", "Lost Rev", "Cash Lock", "Margin Leak", "Health", "ETA"
+- `TransferSuggestionsCard.tsx`: Header còn "Smart Transfer Suggestions", "opportunities", "transfers", "units", "styles", "Style", "Size", "From", "Qty", "Net Benefit", "Status"
+
+### 1.3 Trùng lặp hàm `formatVND`
+
+- Định nghĩa lại `formatVND` ở 4 file khác nhau (Overview, Decisions, Outcomes, Production). Nên dùng `formatVNDCompact` từ `@/lib/formatters` đã có sẵn.
+
+---
+
+## Nhóm 2: UX Improvements (Ưu tiên trung bình)
+
+### 2.1 Overview Page quá đơn giản
+
+Hiện tại chỉ có 4 KPI cards + 1 decision feed. Đề xuất thêm:
+
+- **Quick Action Bar**: Nút "Chạy Engine" nhanh cho từng module (Size Intelligence, Allocation, Network Gap)
+- **Health Pulse**: 1 dòng tổng kết tình trạng — XANH/VÀNG/ĐỎ dựa trên composite score
+- **Last Run Timestamps**: Hiển thị "Size Engine chạy lần cuối: 2 giờ trước" để biết dữ liệu có cũ không
+
+### 2.2 Decision Queue thiếu filter & search
+
+- Không có ô tìm kiếm
+- Không filter theo `package_type` hoặc `risk_level`
+- Package lines hiện UUID thay vì tên store/product
+
+### 2.3 Outcomes Page thiếu visualization
+
+- Bảng "Dự Đoán vs Thực Tế" chỉ là table text
+- Nên có bar chart so sánh predicted vs actual revenue cho mỗi package
+- Accuracy trend line theo thời gian
+
+### 2.4 Production Page thiếu context
+
+- Cột "Mẫu SP" hiện `style_id` (UUID/code) thay vì tên sản phẩm readable
+- Thiếu liên kết ngược: từ production candidate → xem evidence pack của sản phẩm đó
+
+---
+
+## Nhóm 3: Feature Gaps (Ưu tiên theo nhu cầu)
+
+### 3.1 Thiếu Notification/Alert System
+
+- Theo manifesto Control Tower: "mỗi alert phải có owner, trạng thái, outcome"
+- Hiện tại không có cơ chế push alert khi engine phát hiện vấn đề mới
+- Đề xuất: Alert banner trên Overview khi có broken size mới / cash lock tăng đột biến
+
+### 3.2 Thiếu Date Range Filter toàn cục
+
+- Không thể xem dữ liệu theo khoảng thời gian
+- Outcomes page cần filter theo period (7d / 30d / 90d)
+- Network Gap cần so sánh trend
+
+### 3.3 Thiếu Export/Report cho Management
+
+- Chỉ có export Excel cho transfer suggestions
+- Đề xuất: "Báo Cáo Tổng Hợp" PDF/Excel cho CEO — gồm health score, top risks, decisions made, outcomes
+
+### 3.4 Mobile UX chưa tối ưu
+
+- Bảng dữ liệu nhiều cột sẽ khó đọc trên mobile
+- Decision Queue actions (Duyệt/Từ Chối) quá nhỏ trên mobile
+
+---
+
+## Đề xuất thứ tự triển khai
 
 
-## Hiển thị tồn kho size đầy đủ tại kho đích
-
-### Vấn đề hiện tại
-Phần "Tồn kho size tại kho đích" chỉ hiển thị những size **đang được đề xuất chuyển**, không phải toàn bộ size sản phẩm tại cửa hàng. Vì vậy không chứng minh được lý do chuyển hàng: cửa hàng đã có sẵn S, XL nhưng thiếu M, nên cần chuyển M vào để chống lẻ size.
-
-### Giải pháp
-Query trực tiếp bảng `inv_state_positions` để lấy **tất cả SKU** của sản phẩm (theo `fc_id`) tại cửa hàng đích (`store_id`), rồi tách size từ mã SKU.
-
-### Thay đổi cụ thể
-
-#### 1. Tạo hook mới: `useDestinationSizeInventory`
-- Input: danh sách `{ product_id, dest_store_id }` (lấy từ transfer suggestions đang expand)
-- Query `inv_state_positions` WHERE `fc_id = product_id` AND `store_id = dest_store_id`
-- Parse size từ SKU suffix (ví dụ: `222011792M` -> size `M`)
-- Return: `Map<product_id, { size, on_hand }[]>`
-
-#### 2. Cập nhật `TransferSuggestionsCard.tsx`
-- Gọi hook mới khi expand một group (kho đích)
-- Thay thế logic hiện tại (chỉ dùng sibling rows) bằng data thật từ `inv_state_positions`
-- Hiển thị:
-  - Size **có hàng**: badge xanh, ghi rõ số lượng (ví dụ: `S: 3`, `XL: 2`)
-  - Size **đang chuyển vào**: badge highlight, ghi "← đang chuyển X đv"
-  - Size **hết hàng** (0 units, không nằm trong đề xuất): badge đỏ, ghi `0`
-- Thêm dòng tóm tắt: "Cửa hàng có 4/6 size, thiếu M — chuyển để hoàn thiện size run"
-
-#### 3. Logic tách size từ SKU
-Dựa trên pattern dữ liệu thực: SKU suffix là size code (S, M, L, XL, FS...). Sử dụng regex match cuối chuỗi SKU.
-
-### Files thay đổi
-
-| File | Thay đổi |
-|------|---------|
-| `src/hooks/inventory/useDestinationSizeInventory.ts` | Hook mới, query `inv_state_positions` |
-| `src/components/command/TransferSuggestionsCard.tsx` | Dùng hook mới, hiển thị full size curve + tóm tắt lý do |
-
-### Kết quả mong đợi
-
-Khi expand một dòng transfer (ví dụ: chuyển size M vào cửa hàng X):
-
-```
-Tồn kho size tại kho đích
-[S: 3] [M: 0 ← đang chuyển 2đv] [L: 2] [XL: 1]
-Cửa hàng có 3/4 size · Thiếu M — chuyển để hoàn thiện size run
-```
-
-Giúp người duyệt thấy ngay: cửa hàng đã có S, L, XL nhưng thiếu M, chuyển vào là hợp lý.
+| #   | Hạng mục                                                                   | Effort     | Impact     |
+| --- | -------------------------------------------------------------------------- | ---------- | ---------- |
+| 1   | Localize hết tiếng Việt (SizeHealthActionGroups + TransferSuggestionsCard) | Thấp       | Cao        |
+| 2   | Fix Overview 1,000-row limit                                               | Thấp       | Cao        |
+| 3   | Gộp formatVND trùng lặp                                                    | Rất thấp   | Trung bình |
+| 4   | Overview Health Pulse + Last Run                                           | Trung bình | Cao        |
+| 5   | Decision Queue thêm search + filter + human-readable names                 | Trung bình | Cao        |
+| 6   | Production Page resolve names                                              | Thấp       | Trung bình |
+| 7   | Outcomes visualization (charts)                                            | Trung bình | Trung bình |
+| 8   | Date range filter toàn cục                                                 | Cao        | Trung bình |
+| 9   | Alert system                                                               | Cao        | Cao        |
+| 10  | Export báo cáo tổng hợp                                                    | Cao        | Trung bình |
