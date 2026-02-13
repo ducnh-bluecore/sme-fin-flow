@@ -70,6 +70,7 @@ function runSimulation(
   revenueData: any[],
   skuData: SKUSummary[],
   fcData: FamilyCode[],
+  skuFcMap: Map<string, string>,
   inventoryMap: Map<string, number>,
   growthPct: number,
   timeframe: string
@@ -100,11 +101,14 @@ function runSimulation(
 
   for (const sku of skuData) {
     if (!sku.sku) continue;
-    let fcCode = sku.sku;
-    for (const fc of fcData || []) {
-      if (sku.sku.startsWith(fc.fc_code)) {
-        fcCode = fc.fc_code;
-        break;
+    // Use skuFcMap first, then fallback to startsWith
+    let fcCode = skuFcMap.get(sku.sku) || sku.sku;
+    if (fcCode === sku.sku) {
+      for (const fc of fcData || []) {
+        if (sku.sku.startsWith(fc.fc_code)) {
+          fcCode = fc.fc_code;
+          break;
+        }
       }
     }
     const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0 };
@@ -281,6 +285,19 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
+  const { data: skuFcMappingData, isLoading: mappingLoading } = useQuery({
+    queryKey: ['growth-sim-sku-fc-map', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery(
+        'inv_sku_fc_mapping' as any,
+        'sku, fc_id'
+      ).eq('is_active', true).limit(5000);
+      if (error) throw error;
+      return (data || []) as unknown as { sku: string; fc_id: string }[];
+    },
+    enabled: isReady,
+  });
+
   const { data: inventoryData, isLoading: invLoading } = useQuery({
     queryKey: ['growth-sim-inventory', tenantId],
     queryFn: async () => {
@@ -294,37 +311,46 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
-  // Build inventory map: aggregate by SKU prefix (fc_code)
+  // Build SKU → FC code map using inv_sku_fc_mapping
+  const skuFcMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!skuFcMappingData || !fcData) return map;
+    const fcIdToCode = new Map<string, string>();
+    for (const fc of fcData) {
+      fcIdToCode.set(fc.id, fc.fc_code);
+    }
+    for (const m of skuFcMappingData) {
+      if (!m.sku || !m.fc_id) continue;
+      const fcCode = fcIdToCode.get(m.fc_id);
+      if (fcCode) map.set(m.sku, fcCode);
+    }
+    return map;
+  }, [skuFcMappingData, fcData]);
+
+  // Build inventory map: aggregate by FC code
   const inventoryMap = useMemo(() => {
     const map = new Map<string, number>();
-    if (!inventoryData || !fcData) return map;
+    if (!inventoryData) return map;
     for (const inv of inventoryData) {
       if (!inv.sku) continue;
-      let fcCode = inv.sku;
-      for (const fc of fcData) {
-        if (inv.sku.startsWith(fc.fc_code)) {
-          fcCode = fc.fc_code;
-          break;
-        }
-      }
+      const fcCode = skuFcMap.get(inv.sku) || inv.sku;
       map.set(fcCode, (map.get(fcCode) || 0) + (inv.quantity || 0));
     }
     return map;
-  }, [inventoryData, fcData]);
+  }, [inventoryData, skuFcMap]);
 
-  const dataLoading = revLoading || skuLoading || fcLoading || invLoading;
+  const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading;
   const dataReady = !!revenueData?.length && !!skuData?.length;
 
   const handleRun = useCallback(() => {
     if (!revenueData || !skuData) return;
     setIsRunning(true);
-    // Use setTimeout to allow UI to show loading state
     setTimeout(() => {
-      const result = runSimulation(revenueData, skuData, fcData || [], inventoryMap, growthPct, timeframe);
+      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, inventoryMap, growthPct, timeframe);
       setSimulation(result);
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, inventoryMap, growthPct, timeframe]);
+  }, [revenueData, skuData, fcData, skuFcMap, inventoryMap, growthPct, timeframe]);
 
   const heroDetails = simulation?.details.filter(d => d.isHero) || [];
 
