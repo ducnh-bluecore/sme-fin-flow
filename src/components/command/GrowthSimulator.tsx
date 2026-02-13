@@ -110,6 +110,43 @@ export default function GrowthSimulator() {
     enabled: isReady,
   });
 
+  // Momentum data: compare recent 15 days vs prior 15 days from cdp_order_items
+  const { data: momentumData, isLoading: momentumLoading } = useQuery({
+    queryKey: ['growth-sim-momentum', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery('cdp_order_items' as any, 'sku, qty, order_id')
+        .limit(10000);
+      if (error) throw error;
+      // We also need order dates — fetch cdp_orders
+      const { data: ordersData, error: ordersErr } = await buildSelectQuery('cdp_orders' as any, 'id, order_at')
+        .gte('order_at', new Date(Date.now() - 30 * 86400000).toISOString())
+        .limit(10000);
+      if (ordersErr) throw ordersErr;
+
+      const orderDateMap = new Map<string, string>();
+      for (const o of (ordersData || []) as any[]) {
+        orderDateMap.set(o.id, o.order_at);
+      }
+
+      const cutoff = new Date(Date.now() - 15 * 86400000).toISOString();
+      const skuMomentum = new Map<string, { recent: number; prior: number }>();
+      for (const item of (data || []) as any[]) {
+        if (!item.sku || !item.order_id) continue;
+        const orderDate = orderDateMap.get(item.order_id);
+        if (!orderDate) continue;
+        const entry = skuMomentum.get(item.sku) || { recent: 0, prior: 0 };
+        if (orderDate >= cutoff) {
+          entry.recent += (item.qty || 0);
+        } else {
+          entry.prior += (item.qty || 0);
+        }
+        skuMomentum.set(item.sku, entry);
+      }
+      return skuMomentum;
+    },
+    enabled: isReady,
+  });
+
   // ---- Derived maps ----
   const skuFcMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -156,7 +193,7 @@ export default function GrowthSimulator() {
     return map;
   }, [demandData]);
 
-  const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading || demandLoading;
+  const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading || demandLoading || momentumLoading;
   const dataReady = !!revenueData?.length && !!skuData?.length;
 
   const handleRun = useCallback(() => {
@@ -171,14 +208,14 @@ export default function GrowthSimulator() {
       const result = runSimulationV2(input);
       setSimulation(result);
       if (result) {
-        const shape = computeGrowthShape(result.details, skuData, skuFcMap, params);
+        const shape = computeGrowthShape(result.details, skuData, skuFcMap, params, momentumData || new Map());
         setGrowthShape(shape);
       } else {
         setGrowthShape(null);
       }
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, params]);
+  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, params, momentumData]);
 
   const heroes = simulation?.details.filter(d => d.isHero) || [];
 

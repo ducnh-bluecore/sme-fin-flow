@@ -511,12 +511,14 @@ export function computeGrowthShape(
   skuData: SKUSummary[],
   skuFcMap: Map<string, string>,
   params: SimulationParams,
+  skuMomentumMap?: Map<string, { recent: number; prior: number }>,
 ): GrowthShape {
   // --- 1. Group by category ---
   const catMap = new Map<string, {
     fcs: SimResult[];
     totalVelocity: number;
-    totalVelocity7d: number;
+    recentQty: number;
+    priorQty: number;
     totalRevenue: number;
     sumMargin: number;
     sumDOC: number;
@@ -525,15 +527,33 @@ export function computeGrowthShape(
 
   const totalRevAll = details.reduce((s, d) => s + d.currentRevenue, 0);
 
+  // Build FC→momentum lookup from SKU momentum data
+  const fcMomentumMap = new Map<string, { recent: number; prior: number }>();
+  if (skuMomentumMap) {
+    for (const [sku, m] of skuMomentumMap) {
+      const fcCode = skuFcMap.get(sku);
+      if (!fcCode) continue;
+      const existing = fcMomentumMap.get(fcCode) || { recent: 0, prior: 0 };
+      existing.recent += m.recent;
+      existing.prior += m.prior;
+      fcMomentumMap.set(fcCode, existing);
+    }
+  }
+
   for (const d of details) {
     const cat = classifyCategory(d.fcName);
     const e = catMap.get(cat) || {
-      fcs: [], totalVelocity: 0, totalVelocity7d: 0, totalRevenue: 0,
+      fcs: [], totalVelocity: 0, recentQty: 0, priorQty: 0, totalRevenue: 0,
       sumMargin: 0, sumDOC: 0, overstockCount: 0,
     };
     e.fcs.push(d);
     e.totalVelocity += d.velocity;
-    e.totalVelocity7d += d.velocity7d || d.velocity; // fallback to 30d if no 7d
+    // Aggregate momentum from order data
+    const fcM = fcMomentumMap.get(d.fcCode);
+    if (fcM) {
+      e.recentQty += fcM.recent;
+      e.priorQty += fcM.prior;
+    }
     e.totalRevenue += d.currentRevenue;
     e.sumMargin += d.marginPct;
     e.sumDOC += d.docCurrent;
@@ -559,16 +579,16 @@ export function computeGrowthShape(
     const overstockRatio = e.overstockCount / n;
     const revenueShare = totalRevAll > 0 ? (e.totalRevenue / totalRevAll) * 100 : 0;
 
-    // Momentum: velocity7d vs velocity30d ratio (short-term acceleration)
-    const momentumPct = e.totalVelocity > 0
-      ? ((e.totalVelocity7d - e.totalVelocity) / e.totalVelocity) * 100
-      : 0;
+    // Momentum: recent 15 days vs prior 15 days from actual order data
+    const momentumPct = e.priorQty > 0
+      ? ((e.recentQty - e.priorQty) / e.priorQty) * 100
+      : (e.recentQty > 0 ? 100 : 0);
 
     // Efficiency Score — relative normalization against max category velocity
     const velScore = clamp(avgVelocity / maxCatVelocity, 0, 1) * 40;
     const marginScore = clamp(avgMargin / 100, 0, 1) * 25;
     const invScore = (1 - clamp(overstockRatio, 0, 1)) * 20;
-    const stabilityRatio = e.totalVelocity > 0 ? 1 - Math.abs(e.totalVelocity7d - e.totalVelocity) / e.totalVelocity : 0.5;
+    const stabilityRatio = e.priorQty > 0 ? 1 - Math.abs(e.recentQty - e.priorQty) / Math.max(e.recentQty, e.priorQty) : 0.5;
     const stabilityScore = clamp(stabilityRatio, 0, 1) * 15;
     // Bonus for revenue share (categories driving more revenue get a boost)
     const revenueBonus = clamp(revenueShare / 30, 0, 1) * 10;
