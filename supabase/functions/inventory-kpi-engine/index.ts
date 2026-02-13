@@ -66,11 +66,11 @@ Deno.serve(async (req) => {
     console.log(`[KPI Engine] SCS computed: ${scsResults.length} style-store pairs`);
 
     // ── 3. Compute CHI (Curve Health Index) per style ──
-    const chiResults = computeCHI(tenant_id, today, scsResults);
+    const chiResults = computeCHI(tenant_id, today, scsResults, demand);
     console.log(`[KPI Engine] CHI computed: ${chiResults.length} styles`);
 
     // ── 4. Compute Network Gap per style ──
-    const gapResults = computeNetworkGap(tenant_id, today, positions, demand, skuMapping, retailStores);
+    const gapResults = computeNetworkGap(tenant_id, today, positions, demand, skuMapping, retailStores, priceMap);
     console.log(`[KPI Engine] Network Gap computed: ${gapResults.length} styles`);
 
     // ── 5. SIZE INTELLIGENCE: Size Health Score ──
@@ -295,7 +295,9 @@ function computeIDI(tenantId: string, date: string, positions: any[], demand: an
   for (const [fcId, entries] of fcStoreStock) {
     if (entries.length < 2) continue;
 
-    const docs = entries.map(e => e.velocity > 0 ? e.onHand / e.velocity : (e.onHand > 0 ? 999 : 0));
+    const DOC_CAP = 180;
+    const EPS = 0.01;
+    const docs = entries.map(e => e.velocity > EPS ? Math.min(DOC_CAP, e.onHand / e.velocity) : (e.onHand > 0 ? DOC_CAP : 0));
     const mean = docs.reduce((s, v) => s + v, 0) / docs.length;
     const variance = docs.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / docs.length;
     const stddev = Math.sqrt(variance);
@@ -303,9 +305,11 @@ function computeIDI(tenantId: string, date: string, positions: any[], demand: an
     const overstock = entries.filter((e, i) => docs[i] > mean * 1.5).map(e => e.storeId);
     const understock = entries.filter((e, i) => docs[i] < mean * 0.5 && docs[i] < 14).map(e => e.storeId);
 
+    // COGS-based valuation (value_at_risk), not retail price
+    const DEFAULT_UNIT_COGS = 150000;
     const lockedCash = entries
       .filter((e, i) => docs[i] > mean * 1.5)
-      .reduce((s, e) => s + e.onHand * 250000, 0);
+      .reduce((s, e) => s + e.onHand * DEFAULT_UNIT_COGS, 0);
 
     results.push({
       tenant_id: tenantId,
@@ -388,18 +392,35 @@ function computeSCS(tenantId: string, date: string, positions: any[], skuMapping
   return results;
 }
 
-// ── CHI: Curve Health Index per style ──
-function computeCHI(tenantId: string, date: string, scsResults: any[]) {
-  const styleScores = new Map<string, number[]>();
+// ── CHI: Curve Health Index per style (weighted by store demand) ──
+function computeCHI(tenantId: string, date: string, scsResults: any[], demandData?: any[]) {
+  // Build store-style velocity map for weighting
+  const storeStyleVelocity = new Map<string, number>();
+  if (demandData) {
+    for (const d of demandData) {
+      if (!d.store_id || !d.fc_id) continue;
+      const key = `${d.store_id}:${d.fc_id}`;
+      storeStyleVelocity.set(key, (storeStyleVelocity.get(key) || 0) + (d.avg_daily_sales || 0));
+    }
+  }
+
+  const styleScores = new Map<string, { score: number; weight: number }[]>();
   for (const scs of scsResults) {
     if (!styleScores.has(scs.style_id)) styleScores.set(scs.style_id, []);
-    styleScores.get(scs.style_id)!.push(scs.size_completeness_score || 0);
+    const velKey = `${scs.store_id}:${scs.style_id}`;
+    const velocity = storeStyleVelocity.get(velKey) || 0;
+    styleScores.get(scs.style_id)!.push({ score: scs.size_completeness_score || 0, weight: velocity });
   }
 
   const results: any[] = [];
-  for (const [styleId, scores] of styleScores) {
-    if (scores.length === 0) continue;
-    const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+  for (const [styleId, entries] of styleScores) {
+    if (entries.length === 0) continue;
+    
+    // Weighted average by store velocity; fallback to simple avg if no demand data
+    const totalWeight = entries.reduce((s, e) => s + e.weight, 0);
+    const avg = totalWeight > 0
+      ? entries.reduce((s, e) => s + e.score * e.weight, 0) / totalWeight
+      : entries.reduce((s, e) => s + e.score, 0) / entries.length;
 
     let riskBand = "LOW";
     if (avg < 0.3) riskBand = "CRITICAL";
@@ -419,7 +440,7 @@ function computeCHI(tenantId: string, date: string, scsResults: any[]) {
 }
 
 // ── Network Gap: demand - available stock per FC ──
-function computeNetworkGap(tenantId: string, date: string, positions: any[], demand: any[], skuMapping: any[], retailStores: any[]) {
+function computeNetworkGap(tenantId: string, date: string, positions: any[], demand: any[], skuMapping: any[], retailStores: any[], priceMap: Map<string, number>) {
   const retailIds = new Set(retailStores.map((s: any) => s.id));
   const validFcIds = new Set(skuMapping.map((m: any) => m.fc_id).filter(Boolean));
 
@@ -447,7 +468,13 @@ function computeNetworkGap(tenantId: string, date: string, positions: any[], dem
     const reallocatable = Math.floor(totalStock * 0.7);
     const trueShortage = Math.max(0, Math.ceil(totalDemand28d) - totalStock);
     const netGap = Math.max(0, Math.ceil(totalDemand28d) - reallocatable);
-    const revenueAtRisk = trueShortage * 250000;
+    // Use FC price lookup from priceMap instead of hardcoded 250k
+    const skusByFc = skuMapping.filter((m: any) => m.fc_id === styleId && m.sku);
+    const fcPrices = skusByFc.map((m: any) => priceMap.get(m.sku)).filter(Boolean) as number[];
+    const fcPriceLookup = fcPrices.length > 0
+      ? fcPrices.reduce((s: number, v: number) => s + v, 0) / fcPrices.length
+      : DEFAULT_UNIT_PRICE;
+    const revenueAtRisk = trueShortage * fcPriceLookup;
 
     if (trueShortage <= 0 && netGap <= 0) continue;
 
@@ -469,8 +496,10 @@ function computeNetworkGap(tenantId: string, date: string, positions: any[], dem
 // SIZE INTELLIGENCE ENGINE — Phase 1
 // ══════════════════════════════════════════════════════════════
 
-const CORE_SIZES = new Set(["M", "L"]);
+const DEFAULT_CORE_SIZES = new Set(["M", "L"]);
 const DEFAULT_UNIT_PRICE = 250000;
+const DEFAULT_UNIT_COGS_GLOBAL = 150000;
+const COGS_RATIO_FALLBACK = 0.6; // estimated COGS/retail ratio
 
 /**
  * Engine #1+#2: Size Health Score
@@ -537,14 +566,34 @@ function computeSizeHealth(
     const totalOnHand = [...actualStock.values()].reduce((s, v) => s + v, 0);
     if (totalOnHand <= 0) continue; // No stock at all, skip
 
-    // 1. Deviation penalty: how far actual ratio deviates from uniform expected
-    const expectedRatio = 1 / expectedSizes.size;
+    // Resolve curve profile for this FC's category (if available)
+    // curveProfiles: { category_id, size_ratios: { S: 0.15, M: 0.30, L: 0.30, XL: 0.25 }, is_current }
+    let profileRatios: Record<string, number> | null = null;
+    let coreSizes = DEFAULT_CORE_SIZES;
+    if (_curveProfiles.length > 0) {
+      // Try to match by fcId prefix as category hint (e.g., "AO-", "DAM-")
+      // If no match, use first profile as default
+      const profile = _curveProfiles[0]; // TODO: match by category when category_id is available on FC
+      if (profile?.size_ratios && typeof profile.size_ratios === 'object') {
+        profileRatios = profile.size_ratios as Record<string, number>;
+        // Extract core sizes from profile: sizes with ratio >= 0.2
+        const profileCoreSizes = Object.entries(profileRatios)
+          .filter(([_, ratio]) => ratio >= 0.2)
+          .map(([size]) => size);
+        if (profileCoreSizes.length > 0) coreSizes = new Set(profileCoreSizes);
+      }
+    }
+
+    // 1. Deviation penalty: how far actual ratio deviates from expected (curve profile or uniform)
     let deviationSum = 0;
     for (const size of expectedSizes) {
+      const expectedRatio = profileRatios && profileRatios[size] != null
+        ? profileRatios[size]
+        : 1 / expectedSizes.size; // uniform fallback
       const actualQty = actualStock.get(size) || 0;
       const actualRatio = totalOnHand > 0 ? actualQty / totalOnHand : 0;
       const deviation = Math.abs(expectedRatio - actualRatio);
-      const weight = CORE_SIZES.has(size) ? 1.5 : 1.0;
+      const weight = coreSizes.has(size) ? 1.5 : 1.0;
       deviationSum += deviation * weight;
     }
     // Normalize: max possible deviation ~ 2, scale penalty to 0-40
@@ -552,7 +601,7 @@ function computeSizeHealth(
 
     // 2. Core size missing penalty
     let coreMissing = false;
-    for (const cs of CORE_SIZES) {
+    for (const cs of coreSizes) {
       if (expectedSizes.has(cs) && (!actualStock.has(cs) || actualStock.get(cs)! <= 0)) {
         coreMissing = true;
         break;
@@ -675,7 +724,7 @@ function computeLostRevenue(
     for (const size of expectedSizes) {
       if (!actualStock.has(size) || actualStock.get(size)! <= 0) {
         missingSizes.push(size);
-        if (CORE_SIZES.has(size)) driver = "core_missing";
+        if (DEFAULT_CORE_SIZES.has(size)) driver = "core_missing";
       }
     }
 
@@ -692,7 +741,7 @@ function computeLostRevenue(
     // Expected demand for missing sizes (uniform distribution assumption over 28d)
     const missingRatio = missingSizes.length / expectedSizes.size;
     const shallowRatio = shallowSizes / expectedSizes.size * 0.3; // 30% of shallow demand is "lost"
-    const lostRatio = missingRatio + shallowRatio;
+    const lostRatio = Math.min(0.8, missingRatio + shallowRatio); // Clamp: retail rarely loses 100% demand
 
     const lostUnits = Math.ceil(velocity * 28 * lostRatio);
     const unitPrice = fcPrice.get(fcId) || DEFAULT_UNIT_PRICE;
@@ -803,7 +852,8 @@ function computeMarkdownRisk(
     let etaDays: number | null = null;
     if (riskScore >= 60) {
       // High risk: estimate 14-30 days
-      etaDays = velocity > 0 ? Math.min(90, Math.max(7, Math.round(stock / velocity / 2))) : 30;
+      const vFloor = Math.max(velocity, 0.1); // Velocity floor to prevent ETA explosion
+      etaDays = Math.min(90, Math.max(7, Math.round(stock / vFloor / 2)));
     } else if (riskScore >= 40) {
       etaDays = velocity > 0 ? Math.min(120, Math.round(stock / velocity)) : 60;
     }
@@ -922,7 +972,8 @@ function computeSizeTransfers(
         const velKey = `${store.id}:${fcId}`;
         const onHand = storeFcSizeStock.get(stockKey) || 0;
         const velocity = (storeFcVelocity.get(velKey) || 0) / sizes.size; // Approximate per-size velocity
-        const doc = velocity > 0 ? onHand / velocity : (onHand > 0 ? 999 : 0);
+        const DOC_CAP_TRANSFER = 180;
+        const doc = velocity > 0 ? Math.min(DOC_CAP_TRANSFER, onHand / velocity) : (onHand > 0 ? DOC_CAP_TRANSFER : 0);
 
         storeData.push({ storeId: store.id, onHand, velocity, doc });
       }
@@ -959,6 +1010,10 @@ function computeSizeTransfers(
         );
         if (transferQty <= 0) continue;
 
+        // After-transfer DOC check: don't leave source short
+        const sourceDocAfter = (source.onHand - transferQty) / Math.max(source.velocity, 0.01);
+        if (sourceDocAfter < 30) continue; // Source would become understocked
+
         const sameRegion = storeRegion.get(source.storeId) === destRegion;
         const transferCost = transferQty * (sameRegion ? TRANSFER_COST_SAME_REGION : TRANSFER_COST_CROSS_REGION);
         const revenueGain = transferQty * unitPrice;
@@ -968,7 +1023,7 @@ function computeSizeTransfers(
 
         // Transfer score: higher = more urgent
         const stockoutUrgency = dest.onHand === 0 ? 2 : 1;
-        const coreSizeBonus = CORE_SIZES.has(size) ? 1.5 : 1.0;
+        const coreSizeBonus = DEFAULT_CORE_SIZES.has(size) ? 1.5 : 1.0;
         const transferScore = Math.round(
           (stockoutUrgency * coreSizeBonus * revenueGain - transferCost) / 1000
         );
@@ -976,7 +1031,7 @@ function computeSizeTransfers(
         const reason = [
           dest.onHand === 0 ? 'stockout' : 'low_stock',
           sameRegion ? 'same_region' : 'cross_region',
-          CORE_SIZES.has(size) ? 'core_size' : null,
+          DEFAULT_CORE_SIZES.has(size) ? 'core_size' : null,
         ].filter(Boolean).join(' + ');
 
         results.push({
@@ -1068,13 +1123,13 @@ function computePerStoreSizeHealth(
       const actualQty = sizeStock.get(size) || 0;
       const actualRatio = actualQty / totalOnHand;
       const deviation = Math.abs(expectedRatio - actualRatio);
-      const weight = CORE_SIZES.has(size) ? 1.5 : 1.0;
+      const weight = DEFAULT_CORE_SIZES.has(size) ? 1.5 : 1.0;
       deviationSum += deviation * weight;
     }
     const deviationPenalty = Math.min(40, deviationSum * 20);
 
     let coreMissing = false;
-    for (const cs of CORE_SIZES) {
+    for (const cs of DEFAULT_CORE_SIZES) {
       if (expectedSizes.has(cs) && (!sizeStock.has(cs) || sizeStock.get(cs)! <= 0)) {
         coreMissing = true;
         break;
@@ -1175,7 +1230,9 @@ function computeCashLock(
     if (stock <= 0) continue;
 
     const unitPrice = fcPrice.get(fcId) || DEFAULT_UNIT_PRICE;
-    const inventoryValue = stock * unitPrice;
+    // COGS-based valuation: use COGS or estimated COGS from retail price
+    const unitCogs = (unitPrice * COGS_RATIO_FALLBACK) || DEFAULT_UNIT_COGS_GLOBAL;
+    const inventoryValue = stock * unitCogs;
     const velocity = fcVelocity.get(fcId) || 0;
 
     // Determine lock percentage based on curve state

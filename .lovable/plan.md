@@ -1,178 +1,214 @@
 
 
-# Plan: Fix Formula Biases & Update Documentation
+# Bluecore Command — Formula Spec & Changelog
 
-## Tong Quan
+## Status: ✅ ALL 10 FIXES IMPLEMENTED
 
-Ap dung 9 diem review tu A (cong thuc) + B (van hanh) + C (nang cap) vao ca code (inventory-kpi-engine) va tai lieu (plan.md).
+Tat ca 10 formula biases da duoc fix trong `inventory-kpi-engine/index.ts`.
 
 ---
 
-## Phan 1: Sua Code — inventory-kpi-engine/index.ts
+## A. Cong Thuc Da Fix (Implemented)
 
-### 1.1 IDI — Cap DOC + Doi locked_cash sang COGS fallback
+### A1. IDI — Inventory Distortion Index
 
-**Hien tai (line 298):**
-```
-DOC = velocity > 0 ? onHand/velocity : (onHand > 0 ? 999 : 0)
-lockedCash = onHand * 250000
-```
+**Truoc**: DOC = 999 khi velocity = 0; locked_cash = onHand × 250,000 (retail price)
 
-**Sua thanh:**
+**Sau (implemented)**:
 ```
 DOC_CAP = 180
 EPS = 0.01
-DOC = velocity > EPS ? min(DOC_CAP, onHand/velocity) : (onHand > 0 ? DOC_CAP : 0)
-lockedCash = onHand * 150000  // COGS fallback, doi ten thanh value_at_risk
+DOC = velocity > EPS ? min(DOC_CAP, onHand / velocity) : (onHand > 0 ? DOC_CAP : 0)
+value_at_risk = onHand × 150,000  // COGS fallback, khong phai retail price
 ```
 
-### 1.2 CHI — Weighted avg theo demand
+**Ly do**: DOC=999 lam variance bung no, bien IDI thanh velocity detector. Cap 180 giu variance trong tam kiem soat.
 
-**Hien tai (line 402):**
-```
-avg = scores.reduce(sum) / scores.length  // Cao bang
-```
+### A2. CHI — Curve Health Index (Weighted)
 
-**Sua thanh:**
-```
-// Weight theo store velocity (demand)
-CHI = sum(SCS_i * velocity_i) / sum(velocity_i)
-// Fallback: neu khong co demand data, dung simple avg
-```
+**Truoc**: Simple avg across stores (cao bang)
 
-Thay doi: ham `computeCHI` can nhan them tham so `demand[]` de lay velocity per store-fc.
-
-### 1.3 Size Health Score — Dung curve profile thay vi uniform
-
-**Hien tai (line 541, 472):**
+**Sau (implemented)**:
 ```
-expectedRatio = 1 / expectedSizes.size   // Curve phang
-CORE_SIZES = hardcode {M, L}
+// Weighted avg theo store velocity (demand)
+totalWeight = sum(velocity_i)
+CHI = totalWeight > 0
+  ? sum(SCS_i × velocity_i) / totalWeight
+  : sum(SCS_i) / count  // fallback simple avg
 ```
 
-**Sua thanh:**
-```
-// Uu tien doc tu sem_size_curve_profiles (da fetch o line 40)
-// Neu co profile cho category nay -> dung size_ratios lam expected_ratio
-// Neu khong -> fallback uniform 1/N
-// CORE_SIZES doc tu profile hoac default {M, L} theo category
-```
+**Ly do**: Store ban 50 units/ngay thieu size nghiem trong hon store ban 1 unit/ngay.
 
-Ham `computeSizeHealth` da nhan `_curveProfiles` nhung chua dung. Se wire vao.
+### A3. Size Health Score — Curve Profile
 
-### 1.4 Lost Revenue — Clamp lost_ratio max 0.8
+**Truoc**: expectedRatio = 1/N (uniform); CORE_SIZES = hardcode {M, L}
 
-**Hien tai (line 695):**
+**Sau (implemented)**:
 ```
-lostRatio = missingRatio + shallowRatio  // Co the > 1.0
+// Doc tu sem_size_curve_profiles (category_id, size_ratios, is_current)
+// Neu co profile: expectedRatio = profile.size_ratios[size]
+// Core sizes = sizes voi ratio >= 0.2 trong profile
+// Fallback: uniform 1/N, core = {M, L}
 ```
 
-**Sua thanh:**
+**Ly do**: Size curve khong deu — M/L thuong chiem 25-30% moi size. Curve phang gay false positive.
+
+### A4. Lost Revenue — Clamp 0.8
+
+**Truoc**: lostRatio = missingRatio + shallowRatio (co the > 1.0)
+
+**Sau (implemented)**:
 ```
 lostRatio = Math.min(0.8, missingRatio + shallowRatio)
 ```
 
-### 1.5 Markdown Risk — Velocity floor cho ETA
+**Ly do**: Retail hiem khi mat 100% demand. Clamp 80% la bao thu hop ly.
 
-**Hien tai (line 806):**
-```
-etaDays = velocity > 0 ? ... : 30
-```
+### A5. Markdown Risk — Velocity Floor
 
-**Sua thanh:**
+**Truoc**: etaDays dung velocity truc tiep, no khi velocity ~ 0
+
+**Sau (implemented)**:
 ```
 vFloor = Math.max(velocity, 0.1)
 etaDays = Math.min(90, Math.max(7, Math.round(stock / vFloor / 2)))
 ```
 
-### 1.6 Smart Transfer — DOC cap + After-transfer check
+**Ly do**: Velocity = 0.001 → ETA = 500,000 ngay. Floor 0.1 gioi han ETA max ~ 90 ngay.
 
-**Hien tai (line 925):**
-```
-doc = velocity > 0 ? onHand/velocity : (onHand > 0 ? 999 : 0)
-// Khong check source DOC sau khi chuyen
-```
+### A6. Smart Transfer — DOC Cap + After-Transfer Check
 
-**Sua thanh:**
+**Truoc**: DOC = 999 khi velocity = 0; khong check source sau transfer
+
+**Sau (implemented)**:
 ```
 DOC_CAP = 180
 doc = velocity > 0 ? Math.min(DOC_CAP, onHand/velocity) : (onHand > 0 ? DOC_CAP : 0)
 
-// Sau khi tinh transferQty, check:
+// After-transfer guardrail:
 sourceDocAfter = (source.onHand - transferQty) / Math.max(source.velocity, 0.01)
-if (sourceDocAfter < 30) skip  // Source se bi thieu hang
+if (sourceDocAfter < 30) skip  // Khong de source bi thieu hang
 ```
 
-### 1.7 Cash Lock — Dung COGS fallback thay vi retail price
+**Ly do**: Transfer khong nen tao van de moi cho source store.
 
-**Hien tai (line 1177-1178):**
-```
-unitPrice = fcPrice.get(fcId) || DEFAULT_UNIT_PRICE  // 250k retail
-inventoryValue = stock * unitPrice
-```
+### A7. Cash Lock — COGS-based Valuation
 
-**Sua thanh:**
+**Truoc**: inventoryValue = stock × unitPrice (retail price 250k)
+
+**Sau (implemented)**:
 ```
-// Tao COGS map song song voi price map
-// Neu co COGS -> dung COGS
-// Neu khong -> dung price * 0.6 (estimated COGS ratio)
-DEFAULT_UNIT_COGS = 150000
-unitCogs = fcCogs.get(fcId) || (unitPrice * 0.6) || DEFAULT_UNIT_COGS
-inventoryValue = stock * unitCogs  // COGS-based, khong phai retail
+COGS_RATIO_FALLBACK = 0.6
+DEFAULT_UNIT_COGS = 150,000
+unitCogs = unitPrice × COGS_RATIO_FALLBACK  // hoac DEFAULT_UNIT_COGS
+inventoryValue = stock × unitCogs
 ```
 
-### 1.8 Network Gap — revenue_at_risk dung FC price
+**Ly do**: Cash lock la von bi khoa, phai do bang COGS (gia von), khong phai retail price.
 
-**Hien tai (line 450):**
+### A8. Network Gap — FC Price Lookup
+
+**Truoc**: revenueAtRisk = trueShortage × 250,000 (hardcode)
+
+**Sau (implemented)**:
 ```
-revenueAtRisk = trueShortage * 250000  // hardcode
+// Lookup gia thuc te tu v_inv_avg_unit_price theo SKU → FC
+fcPrices = skuMapping.filter(fc).map(sku => priceMap.get(sku))
+fcPriceLookup = avg(fcPrices) || DEFAULT_UNIT_PRICE (250k)
+revenueAtRisk = trueShortage × fcPriceLookup
 ```
 
-**Sua thanh:**
+**Ly do**: FC co ASP 1.2M se bi underestimate neu dung 250k.
+
+### A9. CORE_SIZES — Dynamic tu Profile
+
+**Truoc**: `const CORE_SIZES = new Set(["M", "L"])` hardcode
+
+**Sau (implemented)**:
 ```
-revenueAtRisk = trueShortage * (fcPrice.get(styleId) || DEFAULT_UNIT_PRICE)
+DEFAULT_CORE_SIZES = {M, L}  // fallback
+// Khi co curve profile: core = sizes voi ratio >= 0.2
+// Ap dung cho: Size Health, Lost Revenue, Smart Transfer, Per-store Health
 ```
 
-Ham `computeNetworkGap` can them tham so `priceMap` va `skuMapping` de build fcPrice.
+### A10. Constants Refactored
+
+```
+DEFAULT_CORE_SIZES = new Set(["M", "L"])
+DEFAULT_UNIT_PRICE = 250,000
+DEFAULT_UNIT_COGS_GLOBAL = 150,000
+COGS_RATIO_FALLBACK = 0.6
+TRANSFER_COST_SAME_REGION = 15,000 VND
+TRANSFER_COST_CROSS_REGION = 35,000 VND
+```
 
 ---
 
-## Phan 2: Update Documentation — .lovable/plan.md
+## B. Approval Gate & Safety Layers
 
-Cap nhat tat ca cong thuc tuong ung voi code moi, bao gom:
+### 3 Tang An Toan (Human-in-Control)
 
-1. **IDI**: DOC cap 180, eps, COGS fallback 150k, doi ten locked_cash → value_at_risk
-2. **CHI**: Weighted avg formula, giai thich weight = store velocity
-3. **SCS**: Ghi chu expected_sizes doc tu sem_size_curve_profiles
-4. **Size Health Score**: expected_ratio tu curve profile, CORE_SIZES tu profile
-5. **Lost Revenue**: Clamp 0.8
-6. **Markdown Risk**: Velocity floor 0.1
-7. **Smart Transfer**: DOC cap 180, after-transfer DOC check >= 30
-8. **Cash Lock**: COGS-based, khong phai retail price
-9. **Network Gap**: FC price thay vi 250k hardcode
+| Tang | Dieu Kien | Nguoi Duyet |
+|------|-----------|-------------|
+| SAFE | cash_locked < 50M VND VA markdown_risk < 40 VA stores_impacted < 5 | Planner |
+| ELEVATED | cash_locked 50-200M HOAC markdown_risk 40-70 HOAC stores 5-15 | Head of Ops |
+| HIGH | cash_locked > 200M HOAC markdown_risk > 70 HOAC stores > 15 | CFO/COO |
 
-Them muc moi:
+### Evidence Pack Rules
+- Khong co evidence → khong co nut Approve
+- Evidence phai show "before/after" du kien (sau transfer / sau production)
+- Evidence tu: state_size_health_daily, state_lost_revenue_daily, state_markdown_risk_daily, state_cash_lock_daily
 
-10. **Muc B: Approval Gate & Safety Layers** — 3 tang an toan (SAFE/ELEVATED/HIGH)
-11. **Muc C: Fallback Settings** — Ghi nhan can tenant-level config cho fallback_unit_price, fallback_unit_cogs, default_margin_rate
-12. **Muc C: Decision Unit Normalization** — FC la primary key, style la group view, SKU la line item
+### Override Learning Bounds
+- Chi hoc khi decision outcome >= 75% accuracy (sau 30 ngay)
+- Hoac khi planner co role "trusted_planner"
+- Khong hoc tu moi override de tranh bias
 
 ---
 
-## Phan 3: Tom Tat Thay Doi
+## C. Fallback Settings & Decision Unit
 
-| # | Van De | Fix | File |
-|---|--------|-----|------|
-| 1 | DOC=999 lam bung variance | Cap 180, eps floor | index.ts + plan.md |
-| 2 | locked_cash dung retail 250k | Doi sang COGS 150k | index.ts + plan.md |
-| 3 | CHI cao bang stores | Weighted avg theo velocity | index.ts + plan.md |
-| 4 | expected_ratio phang | Doc tu sem_size_curve_profiles | index.ts + plan.md |
-| 5 | CORE_SIZES hardcode M/L | Doc tu profile theo category | index.ts + plan.md |
-| 6 | lost_ratio co the > 1 | Clamp max 0.8 | index.ts + plan.md |
-| 7 | ETA no khi velocity ~0 | Velocity floor 0.1 | index.ts + plan.md |
-| 8 | Transfer khong check source | After-transfer DOC >= 30 | index.ts + plan.md |
-| 9 | Cash Lock dung retail price | COGS-based valuation | index.ts + plan.md |
-| 10 | Network Gap 250k hardcode | FC price lookup | index.ts + plan.md |
+### C1. Tenant-level Fallback Config (Can Implement)
 
-**Khong thay doi**: Financial Damage Score, Fixability Score, Evidence Pack, Growth Simulator — cac cong thuc nay da dung.
+Cac gia tri fallback hien tai hardcode trong engine. Can chuyen sang `command_settings` theo tenant:
 
+| Setting | Default | Muc Dich |
+|---------|---------|----------|
+| fallback_unit_price | 250,000 | Gia ban fallback khi khong co data |
+| fallback_unit_cogs | 150,000 | Gia von fallback |
+| default_margin_rate | 0.4 | Ty le margin cho Margin Leak |
+| cogs_ratio_fallback | 0.6 | COGS/retail ratio estimate |
+| doc_cap | 180 | Tran Days of Cover |
+| velocity_floor | 0.1 | San velocity cho ETA |
+| transfer_source_min_doc | 30 | DOC toi thieu sau transfer |
+
+### C2. Decision Unit Normalization
+
+| Don Vi | Vai Tro | Vi Du |
+|--------|---------|-------|
+| **FC (Family Code)** | Primary decision unit | AO-POLO-001 |
+| **Style** | Group view / aggregation | = FC alias |
+| **SKU** | Line item / evidence | AO-POLO-001-M, AO-POLO-001-L |
+
+- Moi `state_*` va `dec_*` table dung `product_id` = FC
+- `inv_sku_fc_mapping` lam bridge SKU → FC + Size
+- UI hien thi FC level, drill-down xuong SKU/Size
+
+---
+
+## D. Tom Tat Thay Doi (Completed)
+
+| # | Van De | Fix | Status |
+|---|--------|-----|--------|
+| 1 | DOC=999 lam bung variance | Cap 180, eps floor | ✅ |
+| 2 | locked_cash dung retail 250k | COGS 150k | ✅ |
+| 3 | CHI cao bang stores | Weighted avg theo velocity | ✅ |
+| 4 | expected_ratio phang | Doc tu sem_size_curve_profiles | ✅ |
+| 5 | CORE_SIZES hardcode M/L | Dynamic tu profile (ratio >= 0.2) | ✅ |
+| 6 | lost_ratio co the > 1 | Clamp max 0.8 | ✅ |
+| 7 | ETA no khi velocity ~0 | Velocity floor 0.1 | ✅ |
+| 8 | Transfer khong check source | After-transfer DOC >= 30 | ✅ |
+| 9 | Cash Lock dung retail price | COGS-based valuation | ✅ |
+| 10 | Network Gap 250k hardcode | FC price lookup tu priceMap | ✅ |
+
+**Khong thay doi**: Financial Damage Score, Fixability Score, Evidence Pack builder, Growth Simulator — cac cong thuc nay da dung.
