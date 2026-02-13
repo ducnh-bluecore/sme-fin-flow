@@ -17775,6 +17775,36 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_scenarios: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          params: Json
+          summary: Json
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          params?: Json
+          summary?: Json
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          params?: Json
+          summary?: Json
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       import_jobs: {
         Row: {
           completed_at: string | null

@@ -13,6 +13,7 @@ import GrowthProductionTable from './growth/GrowthProductionTable';
 import GrowthHeroPlan from './growth/GrowthHeroPlan';
 import GrowthRiskRegister from './growth/GrowthRiskRegister';
 import GrowthExpansionMap from './growth/GrowthExpansionMap';
+import GrowthActionBar from './growth/GrowthActionBar';
 
 export default function GrowthSimulator() {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -277,6 +278,7 @@ export default function GrowthSimulator() {
               horizonMonths={params.horizonMonths}
             />
             <GrowthRiskRegister risks={simulation.topRisks} />
+            <GrowthActionBar simulation={simulation} growthShape={growthShape} params={params} />
           </>
         )}
 
