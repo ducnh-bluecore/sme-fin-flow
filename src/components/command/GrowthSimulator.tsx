@@ -114,23 +114,44 @@ export default function GrowthSimulator() {
   const { data: momentumData, isLoading: momentumLoading } = useQuery({
     queryKey: ['growth-sim-momentum', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('cdp_order_items' as any, 'sku, qty, order_id')
-        .limit(10000);
-      if (error) throw error;
-      // We also need order dates — fetch cdp_orders
-      const { data: ordersData, error: ordersErr } = await buildSelectQuery('cdp_orders' as any, 'id, order_at')
-        .gte('order_at', new Date(Date.now() - 30 * 86400000).toISOString())
-        .limit(10000);
-      if (ordersErr) throw ordersErr;
+      // Step 1: Fetch recent 30-day orders first
+      const since30d = new Date(Date.now() - 30 * 86400000).toISOString();
+      const allOrders: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data: ordersData, error: ordersErr } = await buildSelectQuery('cdp_orders' as any, 'id, order_at')
+          .gte('order_at', since30d)
+          .range(from, from + pageSize - 1);
+        if (ordersErr) throw ordersErr;
+        if (!ordersData || ordersData.length === 0) break;
+        allOrders.push(...ordersData);
+        if (ordersData.length < pageSize) break;
+        from += pageSize;
+      }
+
+      if (allOrders.length === 0) return new Map<string, { recent: number; prior: number }>();
 
       const orderDateMap = new Map<string, string>();
-      for (const o of (ordersData || []) as any[]) {
+      for (const o of allOrders) {
         orderDateMap.set(o.id, o.order_at);
+      }
+      const orderIds = allOrders.map(o => o.id);
+
+      // Step 2: Fetch order items only for these recent orders (in batches of 100 IDs)
+      const allItems: any[] = [];
+      const batchSize = 100;
+      for (let i = 0; i < orderIds.length; i += batchSize) {
+        const batch = orderIds.slice(i, i + batchSize);
+        const { data: itemsData, error: itemsErr } = await buildSelectQuery('cdp_order_items' as any, 'sku, qty, order_id')
+          .in('order_id', batch);
+        if (itemsErr) throw itemsErr;
+        if (itemsData) allItems.push(...itemsData);
       }
 
       const cutoff = new Date(Date.now() - 15 * 86400000).toISOString();
       const skuMomentum = new Map<string, { recent: number; prior: number }>();
-      for (const item of (data || []) as any[]) {
+      for (const item of allItems) {
         if (!item.sku || !item.order_id) continue;
         const orderDate = orderDateMap.get(item.order_id);
         if (!orderDate) continue;
@@ -142,6 +163,7 @@ export default function GrowthSimulator() {
         }
         skuMomentum.set(item.sku, entry);
       }
+      console.log('[GrowthSim] Momentum SKUs:', skuMomentum.size, 'from', allItems.length, 'items,', allOrders.length, 'orders');
       return skuMomentum;
     },
     enabled: isReady,
