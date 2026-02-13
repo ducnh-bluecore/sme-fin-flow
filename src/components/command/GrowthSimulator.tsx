@@ -301,22 +301,22 @@ export default function GrowthSimulator() {
   const { data: skuData, isLoading: skuLoading } = useQuery({
     queryKey: ['growth-sim-sku', tenantId],
     queryFn: async () => {
-      // Fetch fashion SKUs (mapped in inv_sku_fc_mapping) with higher limit
-      const { data: mappedSkus } = await buildSelectQuery('inv_sku_fc_mapping' as any, 'sku')
-        .eq('is_active', true).limit(5000);
-      const mappedSkuSet = new Set((mappedSkus || []).map((r: any) => r.sku));
-      
-      // Fetch all SKU summaries (higher limit to capture fashion products)
-      const { data, error } = await buildSelectQuery('fdp_sku_summary' as any, '*')
-        .order('total_revenue', { ascending: false })
-        .limit(5000);
-      if (error) throw error;
-      
-      // Prioritize: fashion SKUs first, then top non-fashion
-      const allSkus = (data || []) as unknown as SKUSummary[];
-      const fashionSkus = allSkus.filter(s => s.sku && mappedSkuSet.has(s.sku));
-      const nonFashionSkus = allSkus.filter(s => !s.sku || !mappedSkuSet.has(s.sku)).slice(0, 50);
-      return [...fashionSkus, ...nonFashionSkus];
+      // Fetch ALL SKU summaries — no artificial limit
+      // Supabase default limit is 1000, so paginate to get all
+      const allData: SKUSummary[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await buildSelectQuery('fdp_sku_summary' as any, '*')
+          .order('total_revenue', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...(data as unknown as SKUSummary[]));
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return allData;
     },
     enabled: isReady,
   });
