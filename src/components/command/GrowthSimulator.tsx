@@ -71,7 +71,8 @@ function runSimulation(
   skuData: SKUSummary[],
   fcData: FamilyCode[],
   skuFcMap: Map<string, string>,
-  inventoryMap: Map<string, number>,
+  skuFcIdMap: Map<string, string>,
+  inventoryByFcId: Map<string, number>,
   growthPct: number,
   timeframe: string
 ): SimSummary | null {
@@ -87,11 +88,20 @@ function runSimulation(
   const targetRevenue = currentRevenue * (1 + growthPct / 100);
   const gapRevenue = targetRevenue - currentRevenue;
 
-  const heroSet = new Set<string>();
-  const fcNameMap = new Map<string, string>();
+  // Build lookups: fc_id (UUID) → fc_code, fc_code → fc_name, hero by fc_id
+  const heroSetById = new Set<string>(); // fc_id UUIDs
+  const heroSetByCode = new Set<string>(); // fc_code strings  
+  const fcNameMap = new Map<string, string>(); // fc_code → name
+  const fcIdToCode = new Map<string, string>(); // fc_id → fc_code
+  const fcCodeToId = new Map<string, string>(); // fc_code → fc_id
   for (const fc of fcData || []) {
     fcNameMap.set(fc.fc_code, fc.fc_name);
-    if (fc.is_core_hero) heroSet.add(fc.fc_code);
+    fcIdToCode.set(fc.id, fc.fc_code);
+    fcCodeToId.set(fc.fc_code, fc.id);
+    if (fc.is_core_hero) {
+      heroSetById.add(fc.id);
+      heroSetByCode.add(fc.fc_code);
+    }
   }
 
   // Set of all known FC codes for identifying fashion products
@@ -103,18 +113,20 @@ function runSimulation(
   const fcAgg = new Map<string, {
     revenue: number; qty: number; cogs: number; profit: number;
     avgPrice: number; avgCogs: number; count: number;
-    isFashion: boolean;
+    isFashion: boolean; fcId: string | null;
   }>();
 
   for (const sku of skuData) {
     if (!sku.sku) continue;
-    // Use skuFcMap first, then fallback to startsWith
+    // Use skuFcMap (SKU → fc_code) first, then fallback to startsWith
     let fcCode = skuFcMap.get(sku.sku) || sku.sku;
     let isFashion = skuFcMap.has(sku.sku);
+    let fcId = skuFcIdMap.get(sku.sku) || null;
     if (fcCode === sku.sku) {
       for (const fc of fcData || []) {
         if (sku.sku.startsWith(fc.fc_code)) {
           fcCode = fc.fc_code;
+          fcId = fc.id;
           isFashion = true;
           break;
         }
@@ -122,8 +134,9 @@ function runSimulation(
     }
     // Also check if the resolved fcCode is a known FC
     if (!isFashion && allFcCodes.has(fcCode)) isFashion = true;
+    if (!fcId && fcCodeToId.has(fcCode)) fcId = fcCodeToId.get(fcCode) || null;
 
-    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0, isFashion: false };
+    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0, isFashion: false, fcId: null };
     existing.revenue += sku.total_revenue || 0;
     existing.qty += sku.total_quantity || 0;
     existing.cogs += sku.total_cogs || 0;
@@ -132,6 +145,7 @@ function runSimulation(
     existing.avgCogs += sku.avg_unit_cogs || 0;
     existing.count += 1;
     if (isFashion) existing.isFashion = true;
+    if (fcId) existing.fcId = fcId;
     fcAgg.set(fcCode, existing);
   }
 
@@ -142,8 +156,9 @@ function runSimulation(
   const fashionFCs = Array.from(fcAgg.entries()).filter(([, v]) => v.isFashion);
   const fashionTotalRevenue = fashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
 
-  const heroFCs = Array.from(fcAgg.entries()).filter(([k]) => heroSet.has(k));
-  const nonHeroFCs = Array.from(fcAgg.entries()).filter(([k]) => !heroSet.has(k));
+  // Match hero using BOTH fc_code and fc_id to ensure correct identification
+  const heroFCs = Array.from(fcAgg.entries()).filter(([k, v]) => heroSetByCode.has(k) || (v.fcId && heroSetById.has(v.fcId)));
+  const nonHeroFashionFCs = fashionFCs.filter(([k, v]) => !heroSetByCode.has(k) && !(v.fcId && heroSetById.has(v.fcId)));
 
   const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
   // Hero share = hero revenue / fashion revenue only (not diluted by services)
@@ -163,8 +178,9 @@ function runSimulation(
     const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
     const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
     
-    // Subtract current inventory on-hand
-    const onHandQty = inventoryMap.get(fcCode) || 0;
+    // Get inventory by fc_id (UUID) from inv_state_positions
+    const fcId = agg.fcId || fcCodeToId.get(fcCode) || null;
+    const onHandQty = fcId ? (inventoryByFcId.get(fcId) || 0) : 0;
     const productionQty = Math.max(0, neededQty - onHandQty);
     
     const cashRequired = productionQty * unitCogs;
@@ -192,8 +208,8 @@ function runSimulation(
     buildDetail(fcCode, agg, heroGapAllocation, heroTotalRevenue, true);
   }
 
-  const nonHeroTotalRevenue = nonHeroFCs.reduce((s, [, v]) => s + v.revenue, 0);
-  const topNonHero = [...nonHeroFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20);
+  const nonHeroTotalRevenue = nonHeroFashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
+  const topNonHero = [...nonHeroFashionFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20);
   for (const [fcCode, agg] of topNonHero) {
     buildDetail(fcCode, agg, nonHeroGapAllocation, nonHeroTotalRevenue, false);
   }
@@ -213,7 +229,7 @@ function runSimulation(
   const risks: SimSummary['risks'] = [];
   const heroCount = heroFCs.length;
 
-  if (heroCount < 3) {
+  if (heroCount > 0 && heroCount < 3) {
     risks.push({
       type: 'concentration',
       severity: 'critical',
@@ -221,7 +237,13 @@ function runSimulation(
     });
   }
 
-  if (heroShareActual < 0.4) {
+  if (heroCount === 0) {
+    risks.push({
+      type: 'no_hero',
+      severity: 'warning',
+      message: `Chưa có FC nào được đánh dấu Hero. Hãy xác định Hero products trong danh mục để phân bổ sản xuất chính xác hơn.`,
+    });
+  } else if (heroShareActual < 0.4) {
     const avgHeroRevenue = heroCount > 0 ? heroTotalRevenue / heroCount : 1;
     const newHeroesNeeded = avgHeroRevenue > 0 ? Math.ceil((gapRevenue * 0.6) / avgHeroRevenue) : 0;
     risks.push({
@@ -320,11 +342,11 @@ export default function GrowthSimulator() {
     queryKey: ['growth-sim-inventory', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery(
-        'inventory_snapshots' as any,
-        'sku, quantity'
-      ).limit(5000);
+        'inv_state_positions' as any,
+        'fc_id, on_hand'
+      ).limit(10000);
       if (error) throw error;
-      return (data || []) as unknown as { sku: string; quantity: number }[];
+      return (data || []) as unknown as { fc_id: string; on_hand: number }[];
     },
     enabled: isReady,
   });
@@ -345,17 +367,26 @@ export default function GrowthSimulator() {
     return map;
   }, [skuFcMappingData, fcData]);
 
-  // Build inventory map: aggregate by FC code
-  const inventoryMap = useMemo(() => {
+  // Build SKU → FC id (UUID) map
+  const skuFcIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (!skuFcMappingData) return map;
+    for (const m of skuFcMappingData) {
+      if (m.sku && m.fc_id) map.set(m.sku, m.fc_id);
+    }
+    return map;
+  }, [skuFcMappingData]);
+
+  // Build inventory map: aggregate on_hand by fc_id (UUID)
+  const inventoryByFcId = useMemo(() => {
     const map = new Map<string, number>();
     if (!inventoryData) return map;
     for (const inv of inventoryData) {
-      if (!inv.sku) continue;
-      const fcCode = skuFcMap.get(inv.sku) || inv.sku;
-      map.set(fcCode, (map.get(fcCode) || 0) + (inv.quantity || 0));
+      if (!inv.fc_id) continue;
+      map.set(inv.fc_id, (map.get(inv.fc_id) || 0) + (inv.on_hand || 0));
     }
     return map;
-  }, [inventoryData, skuFcMap]);
+  }, [inventoryData]);
 
   const dataLoading = revLoading || skuLoading || fcLoading || invLoading || mappingLoading;
   const dataReady = !!revenueData?.length && !!skuData?.length;
@@ -364,11 +395,11 @@ export default function GrowthSimulator() {
     if (!revenueData || !skuData) return;
     setIsRunning(true);
     setTimeout(() => {
-      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, inventoryMap, growthPct, timeframe);
+      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, skuFcIdMap, inventoryByFcId, growthPct, timeframe);
       setSimulation(result);
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, skuFcMap, inventoryMap, growthPct, timeframe]);
+  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, growthPct, timeframe]);
 
   const heroDetails = simulation?.details.filter(d => d.isHero) || [];
 
