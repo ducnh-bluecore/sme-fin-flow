@@ -1,329 +1,40 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, Play, AlertTriangle, Star, Zap, Loader2 } from 'lucide-react';
+import { TrendingUp, Play, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-import { formatVNDCompact } from '@/lib/formatters';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-
-interface SKUSummary {
-  sku: string | null;
-  product_name: string | null;
-  category: string | null;
-  total_revenue: number | null;
-  total_quantity: number | null;
-  total_cogs: number | null;
-  gross_profit: number | null;
-  margin_percent: number | null;
-  avg_unit_price: number | null;
-  avg_unit_cogs: number | null;
-}
-
-interface FamilyCode {
-  id: string;
-  fc_code: string;
-  fc_name: string;
-  is_core_hero: boolean;
-}
-
-interface SimResult {
-  fcCode: string;
-  fcName: string;
-  isHero: boolean;
-  currentRevenue: number;
-  currentQty: number;
-  neededRevenue: number;
-  neededQty: number;
-  onHandQty: number;
-  productionQty: number;
-  cashRequired: number;
-  projectedMargin: number;
-  marginPct: number;
-  riskLevel: 'low' | 'medium' | 'high';
-  reason: string;
-}
-
-interface SimSummary {
-  currentRevenue: number;
-  targetRevenue: number;
-  gapRevenue: number;
-  totalQtyNeeded: number;
-  totalCashRequired: number;
-  totalProjectedMargin: number;
-  avgMarginPct: number;
-  heroCount: number;
-  heroRevenueShare: number;
-  newHeroesNeeded: number;
-  heroQtyTotal: number;
-  nonHeroQtyTotal: number;
-  risks: { type: string; severity: 'warning' | 'critical'; message: string }[];
-  details: SimResult[];
-}
-
-const PIE_COLORS = ['hsl(45, 93%, 47%)', 'hsl(215, 20%, 65%)'];
-
-function runSimulation(
-  revenueData: any[],
-  skuData: SKUSummary[],
-  fcData: FamilyCode[],
-  skuFcMap: Map<string, string>,
-  skuFcIdMap: Map<string, string>,
-  inventoryByFcId: Map<string, number>,
-  demandByFcId: Map<string, { velocity: number; avgDaily: number; trend: string | null }>,
-  growthPct: number,
-  timeframe: string
-): SimSummary | null {
-  if (!revenueData?.length || !skuData?.length) return null;
-
-  const totalDailyRevenue = revenueData.reduce((s: number, r: any) => s + (Number(r.metric_value) || 0), 0);
-  const daysCount = revenueData.length || 1;
-  const avgDailyRevenue = totalDailyRevenue / daysCount;
-  const monthlyRevenue = avgDailyRevenue * 30;
-  const months = Number(timeframe);
-  const currentRevenue = monthlyRevenue * months;
-
-  const targetRevenue = currentRevenue * (1 + growthPct / 100);
-  const gapRevenue = targetRevenue - currentRevenue;
-
-  // Build lookups: fc_id (UUID) → fc_code, fc_code → fc_name, hero by fc_id
-  const heroSetById = new Set<string>(); // fc_id UUIDs
-  const heroSetByCode = new Set<string>(); // fc_code strings  
-  const fcNameMap = new Map<string, string>(); // fc_code → name
-  const fcIdToCode = new Map<string, string>(); // fc_id → fc_code
-  const fcCodeToId = new Map<string, string>(); // fc_code → fc_id
-  for (const fc of fcData || []) {
-    fcNameMap.set(fc.fc_code, fc.fc_name);
-    fcIdToCode.set(fc.id, fc.fc_code);
-    fcCodeToId.set(fc.fc_code, fc.id);
-    if (fc.is_core_hero) {
-      heroSetById.add(fc.id);
-      heroSetByCode.add(fc.fc_code);
-    }
-  }
-
-  // (fashion identification now relies solely on inv_sku_fc_mapping)
-
-  const fcAgg = new Map<string, {
-    revenue: number; qty: number; cogs: number; profit: number;
-    avgPrice: number; avgCogs: number; count: number;
-    isFashion: boolean; fcId: string | null;
-  }>();
-
-  for (const sku of skuData) {
-    if (!sku.sku) continue;
-    // Primary: use skuFcMap (from inv_sku_fc_mapping) for exact match
-    const mappedFcCode = skuFcMap.get(sku.sku);
-    let fcCode = mappedFcCode || sku.sku;
-    let isFashion = !!mappedFcCode;
-    let fcId = skuFcIdMap.get(sku.sku) || null;
-    
-    // No more expensive startsWith loop — rely on inv_sku_fc_mapping only
-    if (!fcId && fcCodeToId.has(fcCode)) fcId = fcCodeToId.get(fcCode) || null;
-
-    const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0, isFashion: false, fcId: null };
-    existing.revenue += sku.total_revenue || 0;
-    existing.qty += sku.total_quantity || 0;
-    existing.cogs += sku.total_cogs || 0;
-    existing.profit += sku.gross_profit || 0;
-    existing.avgPrice += sku.avg_unit_price || 0;
-    existing.avgCogs += sku.avg_unit_cogs || 0;
-    existing.count += 1;
-    if (isFashion) existing.isFashion = true;
-    if (fcId) existing.fcId = fcId;
-    fcAgg.set(fcCode, existing);
-  }
-
-  const totalSkuRevenue = Array.from(fcAgg.values()).reduce((s, v) => s + v.revenue, 0);
-  if (totalSkuRevenue === 0) return null;
-
-  // DEBUG: understand fashion matching
-  const fashionCount = Array.from(fcAgg.values()).filter(v => v.isFashion).length;
-  const nonFashionCount = Array.from(fcAgg.values()).filter(v => !v.isFashion).length;
-  console.log(`[GrowthSim] Total SKUs processed: ${skuData.length}, FC aggregated: ${fcAgg.size}, Fashion FCs: ${fashionCount}, Non-fashion: ${nonFashionCount}, skuFcMap size: ${skuFcMap.size}`);
-
-  // Calculate hero share based on FASHION products only (exclude services, shipping, etc.)
-  const fashionFCs = Array.from(fcAgg.entries()).filter(([, v]) => v.isFashion);
-  const fashionTotalRevenue = fashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
-
-  // Match hero using BOTH fc_code and fc_id to ensure correct identification
-  const heroFCs = Array.from(fcAgg.entries()).filter(([k, v]) => heroSetByCode.has(k) || (v.fcId && heroSetById.has(v.fcId)));
-  const nonHeroFashionFCs = fashionFCs.filter(([k, v]) => !heroSetByCode.has(k) && !(v.fcId && heroSetById.has(v.fcId)));
-
-  const heroTotalRevenue = heroFCs.reduce((s, [, v]) => s + v.revenue, 0);
-  // Hero share = hero revenue / fashion revenue only (not diluted by services)
-  const heroShareActual = fashionTotalRevenue > 0 ? heroTotalRevenue / fashionTotalRevenue : 0;
-
-  // Use actual hero revenue share for allocation (not hardcoded 60/40)
-  const heroShareForAllocation = heroShareActual > 0 ? Math.max(heroShareActual, 0.1) : 0;
-  const heroGapAllocation = gapRevenue * heroShareForAllocation;
-  const nonHeroGapAllocation = gapRevenue * (1 - heroShareForAllocation);
-
-  const details: SimResult[] = [];
-
-  const buildDetail = (fcCode: string, agg: typeof fcAgg extends Map<string, infer V> ? V : never, allocation: number, totalInGroup: number, isHero: boolean) => {
-    const share = totalInGroup > 0 ? agg.revenue / totalInGroup : 0.05;
-    const neededRevenue = allocation * share;
-    const unitPrice = agg.count > 0 ? agg.avgPrice / agg.count : 250000;
-    const unitCogs = agg.count > 0 ? agg.avgCogs / agg.count : 150000;
-    const neededQty = unitPrice > 0 ? Math.ceil(neededRevenue / unitPrice) : 0;
-    
-    // Get inventory by fc_id (UUID) from inv_state_positions
-    const fcId = agg.fcId || fcCodeToId.get(fcCode) || null;
-    const onHandQty = fcId ? (inventoryByFcId.get(fcId) || 0) : 0;
-    const productionQty = Math.max(0, neededQty - onHandQty);
-    
-    const cashRequired = productionQty * unitCogs;
-    const projectedMargin = neededQty * (unitPrice - unitCogs);
-    const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
-
-    // Get sales velocity data for this FC
-    const demandInfo = fcId ? demandByFcId.get(fcId) : null;
-    const avgDailySales = demandInfo?.avgDaily ?? 0;
-    const velocity = demandInfo?.velocity ?? 0;
-    const trend = demandInfo?.trend ?? null;
-
-    // Generate production reason narrative with velocity context
-    const reasons: string[] = [];
-    
-    // Velocity-based signals (most important)
-    if (avgDailySales > 0) {
-      if (avgDailySales >= 5) reasons.push(`🔥 Bán nhanh (${avgDailySales.toFixed(1)} SP/ngày)`);
-      else if (avgDailySales >= 1) reasons.push(`Tốc độ bán TB (${avgDailySales.toFixed(1)} SP/ngày)`);
-      else reasons.push(`⚠ Bán chậm (${avgDailySales.toFixed(2)} SP/ngày)`);
-    } else if (onHandQty === 0 && agg.qty > 0) {
-      reasons.push('⚠ Hết hàng — không có dữ liệu tốc độ bán gần đây');
-    } else if (agg.qty === 0) {
-      reasons.push('⛔ Chưa có lịch sử bán — cần xem xét kỹ');
-    }
-
-    // Trend signal
-    if (trend === 'up') reasons.push('📈 Xu hướng tăng');
-    else if (trend === 'down') reasons.push('📉 Xu hướng giảm — cân nhắc giảm SL');
-
-    if (isHero) reasons.push('Hero product — ưu tiên sản xuất');
-    if (onHandQty === 0 && avgDailySales >= 1) reasons.push('Hết tồn kho + bán tốt → cần bổ sung gấp');
-    else if (onHandQty === 0 && avgDailySales < 0.5 && avgDailySales > 0) reasons.push('Hết tồn kho nhưng bán chậm → sản xuất ít');
-    else if (onHandQty > 0 && onHandQty < neededQty * 0.1) reasons.push(`Tồn kho chỉ đủ ${((onHandQty / neededQty) * 100).toFixed(0)}% nhu cầu`);
-    
-    if (agg.revenue > 0) {
-      const revenueShare = totalInGroup > 0 ? (agg.revenue / totalInGroup * 100) : 0;
-      if (revenueShare > 5) reasons.push(`Top doanh thu (${revenueShare.toFixed(1)}% nhóm)`);
-    }
-    if (marginPct > 60) reasons.push(`Biên lợi nhuận cao (${marginPct.toFixed(0)}%)`);
-    else if (marginPct < 20) reasons.push(`⚠ Margin thấp — cân nhắc giá`);
-    if (productionQty > 0 && cashRequired > 0) {
-      const roi = projectedMargin / cashRequired;
-      if (roi > 3) reasons.push(`ROI dự kiến ${roi.toFixed(1)}x`);
-    }
-    if (reasons.length === 0) reasons.push('Bổ sung theo tỷ trọng doanh thu');
-
-    details.push({
-      fcCode,
-      fcName: fcNameMap.get(fcCode) || fcCode,
-      isHero,
-      currentRevenue: agg.revenue,
-      currentQty: agg.qty,
-      neededRevenue,
-      neededQty,
-      onHandQty,
-      productionQty,
-      cashRequired,
-      projectedMargin,
-      marginPct,
-      riskLevel: marginPct < 20 ? 'high' : marginPct < 40 ? 'medium' : 'low',
-      reason: reasons.join(' · '),
-    });
-  };
-
-  for (const [fcCode, agg] of heroFCs) {
-    buildDetail(fcCode, agg, heroGapAllocation, heroTotalRevenue, true);
-  }
-
-  const nonHeroTotalRevenue = nonHeroFashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
-  const topNonHero = [...nonHeroFashionFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 50);
-  for (const [fcCode, agg] of topNonHero) {
-    buildDetail(fcCode, agg, nonHeroGapAllocation, nonHeroTotalRevenue, false);
-  }
-
-  details.sort((a, b) => b.neededRevenue - a.neededRevenue);
-
-  const totalQtyNeeded = details.reduce((s, d) => s + d.productionQty, 0);
-  const totalCashRequired = details.reduce((s, d) => s + d.cashRequired, 0);
-  const totalProjectedMargin = details.reduce((s, d) => s + d.projectedMargin, 0);
-  const avgMarginPct = totalCashRequired + totalProjectedMargin > 0
-    ? (totalProjectedMargin / (totalCashRequired + totalProjectedMargin)) * 100
-    : 0;
-
-  const heroQtyTotal = details.filter(d => d.isHero).reduce((s, d) => s + d.productionQty, 0);
-  const nonHeroQtyTotal = details.filter(d => !d.isHero).reduce((s, d) => s + d.productionQty, 0);
-
-  const risks: SimSummary['risks'] = [];
-  const heroCount = heroFCs.length;
-
-  if (heroCount > 0 && heroCount < 3) {
-    risks.push({
-      type: 'concentration',
-      severity: 'critical',
-      message: `Chỉ có ${heroCount} Hero FC — rủi ro tập trung cao. Nếu 1 Hero sụt giảm, ảnh hưởng lớn đến kế hoạch.`,
-    });
-  }
-
-  if (heroCount === 0) {
-    risks.push({
-      type: 'no_hero',
-      severity: 'warning',
-      message: `Chưa có FC nào được đánh dấu Hero. Hãy xác định Hero products trong danh mục để phân bổ sản xuất chính xác hơn.`,
-    });
-  } else if (heroShareActual < 0.4) {
-    const avgHeroRevenue = heroCount > 0 ? heroTotalRevenue / heroCount : 1;
-    const newHeroesNeeded = avgHeroRevenue > 0 ? Math.ceil((gapRevenue * 0.6) / avgHeroRevenue) : 0;
-    risks.push({
-      type: 'hero_gap',
-      severity: 'warning',
-      message: `Hero chỉ chiếm ${(heroShareActual * 100).toFixed(0)}% doanh thu. Cần phát triển thêm ~${newHeroesNeeded} Hero mới.`,
-    });
-  }
-
-  if (totalCashRequired > currentRevenue * 0.5) {
-    risks.push({
-      type: 'capital',
-      severity: 'critical',
-      message: `Vốn cần (${formatVNDCompact(totalCashRequired)}) chiếm >${((totalCashRequired / currentRevenue) * 100).toFixed(0)}% doanh thu hiện tại. Rủi ro cashflow cao.`,
-    });
-  }
-
-  const newHeroesNeeded = heroShareActual < 0.4 && heroCount > 0
-    ? Math.ceil((gapRevenue * 0.6) / (heroTotalRevenue / heroCount))
-    : 0;
-
-  return {
-    currentRevenue, targetRevenue, gapRevenue,
-    totalQtyNeeded, totalCashRequired, totalProjectedMargin, avgMarginPct,
-    heroCount, heroRevenueShare: heroShareActual * 100, newHeroesNeeded,
-    heroQtyTotal, nonHeroQtyTotal,
-    risks, details,
-  };
-}
+import { DEFAULTS, type SimulationParams, type SimSummary, type SKUSummary, type FamilyCode } from './growth/types';
+import { runSimulationV2, type EngineInput } from './growth/simulationEngine';
+import GrowthInputPanel from './growth/GrowthInputPanel';
+import GrowthHeroStrip from './growth/GrowthHeroStrip';
+import GrowthBeforeAfter from './growth/GrowthBeforeAfter';
+import GrowthProductionTable from './growth/GrowthProductionTable';
+import GrowthHeroPlan from './growth/GrowthHeroPlan';
+import GrowthRiskRegister from './growth/GrowthRiskRegister';
 
 export default function GrowthSimulator() {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
-  const [growthPct, setGrowthPct] = useState(30);
-  const [timeframe, setTimeframe] = useState('6');
+
+  const [params, setParams] = useState<SimulationParams>({
+    growthPct: 30,
+    horizonMonths: 6,
+    docHero: DEFAULTS.DOC_HERO,
+    docNonHero: DEFAULTS.DOC_NON_HERO,
+    safetyStockPct: DEFAULTS.SAFETY_STOCK_PCT,
+    cashCap: 0,
+    capacityCap: 0,
+    overstockThreshold: DEFAULTS.OVERSTOCK_THRESHOLD,
+  });
+
   const [simulation, setSimulation] = useState<SimSummary | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
+  // ---- Data queries (unchanged from v1) ----
   const { data: revenueData, isLoading: revLoading } = useQuery({
     queryKey: ['growth-sim-revenue', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'kpi_facts_daily' as any,
-        'metric_value'
-      )
+      const { data, error } = await buildSelectQuery('kpi_facts_daily' as any, 'metric_value')
         .eq('metric_code', 'NET_REVENUE')
         .eq('dimension_type', 'total')
         .order('grain_date', { ascending: false })
@@ -337,8 +48,6 @@ export default function GrowthSimulator() {
   const { data: skuData, isLoading: skuLoading } = useQuery({
     queryKey: ['growth-sim-sku', tenantId],
     queryFn: async () => {
-      // Fetch ALL SKU summaries — no artificial limit
-      // Supabase default limit is 1000, so paginate to get all
       const allData: SKUSummary[] = [];
       let from = 0;
       const pageSize = 1000;
@@ -360,12 +69,8 @@ export default function GrowthSimulator() {
   const { data: fcData, isLoading: fcLoading } = useQuery({
     queryKey: ['growth-sim-fc', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_family_codes' as any,
-        'id, fc_code, fc_name, is_core_hero'
-      )
-        .eq('is_active', true)
-        .limit(2000);
+      const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id, fc_code, fc_name, is_core_hero')
+        .eq('is_active', true).limit(2000);
       if (error) throw error;
       return (data || []) as unknown as FamilyCode[];
     },
@@ -375,51 +80,40 @@ export default function GrowthSimulator() {
   const { data: skuFcMappingData, isLoading: mappingLoading } = useQuery({
     queryKey: ['growth-sim-sku-fc-map', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_sku_fc_mapping' as any,
-        'sku, fc_id'
-      ).eq('is_active', true).limit(5000);
+      const { data, error } = await buildSelectQuery('inv_sku_fc_mapping' as any, 'sku, fc_id')
+        .eq('is_active', true).limit(5000);
       if (error) throw error;
       return (data || []) as unknown as { sku: string; fc_id: string }[];
     },
     enabled: isReady,
   });
 
-   const { data: inventoryData, isLoading: invLoading } = useQuery({
+  const { data: inventoryData, isLoading: invLoading } = useQuery({
     queryKey: ['growth-sim-inventory', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_state_positions' as any,
-        'fc_id, on_hand'
-      ).limit(10000);
+      const { data, error } = await buildSelectQuery('inv_state_positions' as any, 'fc_id, on_hand').limit(10000);
       if (error) throw error;
       return (data || []) as unknown as { fc_id: string; on_hand: number }[];
     },
     enabled: isReady,
   });
 
-  // Fetch demand/velocity data
   const { data: demandData, isLoading: demandLoading } = useQuery({
     queryKey: ['growth-sim-demand', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_state_demand' as any,
-        'fc_id, sales_velocity, avg_daily_sales, trend'
-      ).limit(5000);
+      const { data, error } = await buildSelectQuery('inv_state_demand' as any, 'fc_id, sales_velocity, avg_daily_sales, trend').limit(5000);
       if (error) throw error;
       return (data || []) as unknown as { fc_id: string; sales_velocity: number; avg_daily_sales: number; trend: string | null }[];
     },
     enabled: isReady,
   });
 
-  // Build SKU → FC code map using inv_sku_fc_mapping
+  // ---- Derived maps ----
   const skuFcMap = useMemo(() => {
     const map = new Map<string, string>();
     if (!skuFcMappingData || !fcData) return map;
     const fcIdToCode = new Map<string, string>();
-    for (const fc of fcData) {
-      fcIdToCode.set(fc.id, fc.fc_code);
-    }
+    for (const fc of fcData) fcIdToCode.set(fc.id, fc.fc_code);
     for (const m of skuFcMappingData) {
       if (!m.sku || !m.fc_id) continue;
       const fcCode = fcIdToCode.get(m.fc_id);
@@ -428,7 +122,6 @@ export default function GrowthSimulator() {
     return map;
   }, [skuFcMappingData, fcData]);
 
-  // Build SKU → FC id (UUID) map
   const skuFcIdMap = useMemo(() => {
     const map = new Map<string, string>();
     if (!skuFcMappingData) return map;
@@ -438,7 +131,6 @@ export default function GrowthSimulator() {
     return map;
   }, [skuFcMappingData]);
 
-  // Build inventory map: aggregate on_hand by fc_id (UUID)
   const inventoryByFcId = useMemo(() => {
     const map = new Map<string, number>();
     if (!inventoryData) return map;
@@ -449,7 +141,6 @@ export default function GrowthSimulator() {
     return map;
   }, [inventoryData]);
 
-  // Build demand map: fc_id → velocity info
   const demandByFcId = useMemo(() => {
     const map = new Map<string, { velocity: number; avgDaily: number; trend: string | null }>();
     if (!demandData) return map;
@@ -470,276 +161,52 @@ export default function GrowthSimulator() {
     if (!revenueData || !skuData) return;
     setIsRunning(true);
     setTimeout(() => {
-      const result = runSimulation(revenueData, skuData, fcData || [], skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, growthPct, timeframe);
+      const input: EngineInput = {
+        revenueData, skuData, fcData: fcData || [],
+        skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId,
+        params,
+      };
+      const result = runSimulationV2(input);
       setSimulation(result);
       setIsRunning(false);
     }, 100);
-  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, growthPct, timeframe]);
+  }, [revenueData, skuData, fcData, skuFcMap, skuFcIdMap, inventoryByFcId, demandByFcId, params]);
 
-  const heroDetails = simulation?.details.filter(d => d.isHero) || [];
-
-  // Chart data
-  const pieData = simulation ? [
-    { name: 'Hero', value: simulation.heroQtyTotal },
-    { name: 'Non-Hero', value: simulation.nonHeroQtyTotal },
-  ] : [];
-
-  const barData = simulation
-    ? simulation.details.slice(0, 10).map(d => ({
-        name: d.fcName.length > 12 ? d.fcName.slice(0, 12) + '…' : d.fcName,
-        qty: d.productionQty,
-        isHero: d.isHero,
-      }))
-    : [];
+  const heroes = simulation?.details.filter(d => d.isHero) || [];
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" /> Mô Phỏng Tăng Trưởng
+          <TrendingUp className="h-4 w-4 text-primary" /> Mô Phỏng Tăng Trưởng v2
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Input Panel */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 p-4 rounded-lg bg-muted/50 border">
-          <div className="flex-1 w-full space-y-2">
-            <label className="text-sm font-medium">Mục tiêu tăng trưởng</label>
-            <div className="flex items-center gap-3">
-              <Slider
-                value={[growthPct]}
-                onValueChange={v => setGrowthPct(v[0])}
-                min={10}
-                max={100}
-                step={5}
-                className="flex-1"
-              />
-              <span className="text-lg font-bold text-primary w-16 text-right">+{growthPct}%</span>
-            </div>
+        {/* Input Panel + Run Button */}
+        <div className="space-y-4">
+          <GrowthInputPanel params={params} onChange={setParams} />
+          <div className="flex justify-end">
+            <Button onClick={handleRun} disabled={dataLoading || !dataReady || isRunning} className="gap-2">
+              {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {dataLoading ? 'Đang tải...' : 'Chạy Mô Phỏng'}
+            </Button>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Khung thời gian</label>
-            <Select value={timeframe} onValueChange={setTimeframe}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="3">3 tháng</SelectItem>
-                <SelectItem value="6">6 tháng</SelectItem>
-                <SelectItem value="12">12 tháng</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={handleRun} disabled={dataLoading || !dataReady || isRunning} className="gap-2">
-            {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {dataLoading ? 'Đang tải...' : 'Chạy Mô Phỏng'}
-          </Button>
         </div>
 
         {/* Results */}
         {simulation && (
           <>
-            {/* KPI Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="rounded-lg border p-3 bg-background">
-                <p className="text-xs text-muted-foreground">Doanh Thu Mục Tiêu</p>
-                <p className="text-xl font-bold mt-1 text-primary">{formatVNDCompact(simulation.targetRevenue)}</p>
-                <p className="text-xs text-muted-foreground">({timeframe} tháng, +{growthPct}%)</p>
-              </div>
-              <div className="rounded-lg border p-3 bg-background">
-                <p className="text-xs text-muted-foreground">Tổng SL Cần SX</p>
-                <p className="text-xl font-bold mt-1 text-orange-600">{simulation.totalQtyNeeded.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">đơn vị thêm</p>
-              </div>
-              <div className="rounded-lg border p-3 bg-background">
-                <p className="text-xs text-muted-foreground">Vốn Cần</p>
-                <p className="text-xl font-bold mt-1 text-red-600">{formatVNDCompact(simulation.totalCashRequired)}</p>
-                <p className="text-xs text-muted-foreground">cash required</p>
-              </div>
-              <div className="rounded-lg border p-3 bg-background">
-                <p className="text-xs text-muted-foreground">Margin Dự Kiến</p>
-                <p className="text-xl font-bold mt-1 text-emerald-600">{simulation.avgMarginPct.toFixed(1)}%</p>
-                <p className="text-xs text-muted-foreground">{formatVNDCompact(simulation.totalProjectedMargin)}</p>
-              </div>
-            </div>
-
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Pie Chart: Hero vs Non-Hero */}
-              <div className="rounded-lg border p-4 bg-background">
-                <h4 className="text-sm font-semibold mb-3">Phân Bổ SL Sản Xuất</h4>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {pieData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Bar Chart: Top FC cần sản xuất */}
-              <div className="rounded-lg border p-4 bg-background">
-                <h4 className="text-sm font-semibold mb-3">Top FC Cần Sản Xuất</h4>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis type="number" tickFormatter={(v) => v.toLocaleString()} />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: number) => value.toLocaleString()} contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }} />
-                    <Bar dataKey="qty" name="SL Cần SX" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Hero Analysis */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  <Star className="h-4 w-4 text-amber-500" /> Hero Analysis
-                </h4>
-                <div className="flex items-center gap-2 text-xs">
-                  <Badge variant="outline">{simulation.heroCount} Hero FC</Badge>
-                  <Badge variant="outline">{simulation.heroRevenueShare.toFixed(0)}% doanh thu</Badge>
-                  {simulation.newHeroesNeeded > 0 && (
-                    <Badge variant="destructive">Cần +{simulation.newHeroesNeeded} Hero mới</Badge>
-                  )}
-                </div>
-              </div>
-              {heroDetails.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Hero FC</TableHead>
-                        <TableHead className="text-right">DT Hiện Tại</TableHead>
-                        <TableHead className="text-right">SL Cần Bán</TableHead>
-                        <TableHead className="text-right">Tồn Kho</TableHead>
-                        <TableHead className="text-right">SL Cần SX</TableHead>
-                        <TableHead className="text-right">Vốn Cần</TableHead>
-                        <TableHead className="text-right">Margin</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {heroDetails.map(d => (
-                        <TableRow key={d.fcCode}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-1.5">
-                              <Star className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                              {d.fcName}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">{formatVNDCompact(d.currentRevenue)}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">{d.neededQty.toLocaleString()}</TableCell>
-                          <TableCell className="text-right text-blue-600">{d.onHandQty.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-medium text-orange-600">{d.productionQty.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">{formatVNDCompact(d.cashRequired)}</TableCell>
-                          <TableCell className="text-right">
-                            <span className={d.marginPct < 20 ? 'text-red-600' : d.marginPct < 40 ? 'text-amber-600' : 'text-emerald-600'}>
-                              {d.marginPct.toFixed(1)}%
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center">Chưa có FC nào được đánh dấu Hero</p>
-              )}
-            </div>
-
-            {/* Full Production Table */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold flex items-center gap-2">
-                <Zap className="h-4 w-4" /> Chi Tiết Sản Xuất
-              </h4>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tên SP</TableHead>
-                      <TableHead>Hero?</TableHead>
-                      <TableHead className="text-right">SL Cần Bán</TableHead>
-                      <TableHead className="text-right">Tồn Kho</TableHead>
-                      <TableHead className="text-right">Cần SX</TableHead>
-                      <TableHead className="text-right">Vốn Cần</TableHead>
-                      <TableHead className="text-right">Margin DK</TableHead>
-                      <TableHead>Rủi Ro</TableHead>
-                      <TableHead className="min-w-[200px]">Lý Do Đề Xuất</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {simulation.details.slice(0, 30).map(d => (
-                      <TableRow key={d.fcCode}>
-                        <TableCell className="font-medium text-sm">{d.fcName}</TableCell>
-                        <TableCell>
-                          {d.isHero ? (
-                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-0">Hero</Badge>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">{d.neededQty.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-blue-600">{d.onHandQty.toLocaleString()}</TableCell>
-                        <TableCell className="text-right font-medium text-orange-600">{d.productionQty.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{formatVNDCompact(d.cashRequired)}</TableCell>
-                        <TableCell className="text-right">
-                          <span className={d.marginPct < 20 ? 'text-red-600' : d.marginPct < 40 ? 'text-amber-600' : 'text-emerald-600'}>
-                            {d.marginPct.toFixed(1)}%
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={d.riskLevel === 'high' ? 'destructive' : d.riskLevel === 'medium' ? 'secondary' : 'outline'}>
-                            {d.riskLevel === 'high' ? 'Cao' : d.riskLevel === 'medium' ? 'TB' : 'Thấp'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[250px]">
-                          {d.reason}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {simulation.details.length > 30 && (
-                  <p className="text-xs text-muted-foreground mt-2 text-center">Hiển thị 30 / {simulation.details.length}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Risk Summary */}
-            {simulation.risks.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Đánh Giá Rủi Ro
-                </h4>
-                <div className="space-y-2">
-                  {simulation.risks.map((risk, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-lg border p-3 text-sm ${
-                        risk.severity === 'critical'
-                          ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/20 text-red-800 dark:text-red-300'
-                          : 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300'
-                      }`}
-                    >
-                      {risk.message}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <GrowthHeroStrip sim={simulation} />
+            <GrowthBeforeAfter data={simulation.beforeAfter} />
+            <GrowthProductionTable details={simulation.details} />
+            <GrowthHeroPlan
+              heroes={heroes}
+              candidates={simulation.heroCandidates}
+              heroGap={simulation.heroGap}
+              growthPct={params.growthPct}
+              horizonMonths={params.horizonMonths}
+            />
+            <GrowthRiskRegister risks={simulation.topRisks} />
           </>
         )}
 
