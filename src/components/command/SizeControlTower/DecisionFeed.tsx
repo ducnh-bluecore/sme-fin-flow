@@ -21,37 +21,58 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
 
   const productIds = signals.map(s => s.product_id);
 
-  // Fetch missing sizes for these products
-  const { data: missingSizesMap } = useQuery({
-    queryKey: ['decision-feed-missing-sizes', tenantId, productIds.join(',')],
+  // Fetch missing + present sizes for these products
+  const { data: sizeDataMap } = useQuery({
+    queryKey: ['decision-feed-size-data', tenantId, productIds.join(',')],
     queryFn: async () => {
-      if (productIds.length === 0) return new Map<string, string[]>();
-      const { data, error } = await buildQuery('kpi_size_completeness' as any)
+      if (productIds.length === 0) return new Map<string, { missing: string[]; present: string[] }>();
+      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+      const sortSizes = (arr: string[]) => arr.sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      // Fetch missing sizes
+      const { data: compData } = await buildQuery('kpi_size_completeness' as any)
         .select('style_id,missing_sizes')
         .in('style_id', productIds)
         .neq('status', 'HEALTHY')
         .limit(500);
-      if (error) throw error;
-      // Aggregate unique missing sizes per product
-      const map = new Map<string, Set<string>>();
-      for (const row of (data || []) as any[]) {
+
+      const missingMap = new Map<string, Set<string>>();
+      for (const row of (compData || []) as any[]) {
         const sizes = row.missing_sizes as string[];
         if (!sizes || sizes.length === 0) continue;
-        if (!map.has(row.style_id)) map.set(row.style_id, new Set());
-        for (const s of sizes) map.get(row.style_id)!.add(s);
+        if (!missingMap.has(row.style_id)) missingMap.set(row.style_id, new Set());
+        for (const s of sizes) missingMap.get(row.style_id)!.add(s);
       }
-      const result = new Map<string, string[]>();
-      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
-      for (const [k, v] of map) {
-        const sorted = [...v].sort((a, b) => {
-          const ia = order.indexOf(a);
-          const ib = order.indexOf(b);
-          if (ia !== -1 && ib !== -1) return ia - ib;
-          if (ia !== -1) return -1;
-          if (ib !== -1) return 1;
-          return a.localeCompare(b);
-        });
-        result.set(k, sorted);
+
+      // Fetch all expected sizes
+      const { data: skuData } = await buildQuery('inv_sku_fc_mapping' as any)
+        .select('fc_id,size')
+        .in('fc_id', productIds)
+        .eq('is_active', true)
+        .limit(500);
+
+      const allSizesMap = new Map<string, Set<string>>();
+      for (const row of (skuData || []) as any[]) {
+        if (!row.size) continue;
+        if (!allSizesMap.has(row.fc_id)) allSizesMap.set(row.fc_id, new Set());
+        allSizesMap.get(row.fc_id)!.add(row.size);
+      }
+
+      const result = new Map<string, { missing: string[]; present: string[] }>();
+      for (const pid of productIds) {
+        const missing = missingMap.has(pid) ? sortSizes([...missingMap.get(pid)!]) : [];
+        const allSizes = allSizesMap.has(pid) ? [...allSizesMap.get(pid)!] : [];
+        const missingSet = new Set(missing);
+        const present = sortSizes(allSizes.filter(s => !missingSet.has(s)));
+        if (missing.length > 0 || present.length > 0) {
+          result.set(pid, { missing, present });
+        }
       }
       return result;
     },
@@ -72,7 +93,7 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
         {signals.map((signal) => {
           const severity = signal.size_health_score < 30 ? 'critical' :
             signal.size_health_score < 50 ? 'high' : 'medium';
-          const missingSizes = missingSizesMap?.get(signal.product_id) || [];
+          const sizeData = sizeDataMap?.get(signal.product_id);
           
           return (
             <div
@@ -97,12 +118,16 @@ export default function DecisionFeed({ brokenDetails }: DecisionFeedProps) {
                       </Badge>
                     )}
                   </div>
-                  {/* Missing sizes display */}
-                  {missingSizes.length > 0 && (
+                  {/* Size map display: present + missing */}
+                  {sizeData && (sizeData.present.length > 0 || sizeData.missing.length > 0) && (
                     <div className="flex items-center gap-1 mb-1.5 flex-wrap">
-                      <span className="text-[10px] text-muted-foreground">Thiếu:</span>
-                      {missingSizes.map(size => (
-                        <Badge key={size} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5">
+                      {sizeData.present.map(size => (
+                        <Badge key={`p-${size}`} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                          {size}
+                        </Badge>
+                      ))}
+                      {sizeData.missing.map(size => (
+                        <Badge key={`m-${size}`} variant="outline" className="text-[10px] px-1.5 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5 line-through">
                           {size}
                         </Badge>
                       ))}

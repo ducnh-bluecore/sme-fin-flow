@@ -43,34 +43,57 @@ export default function PrioritizedBreakdown({
   const productIds = useMemo(() => sorted.map(s => s.product_id), [sorted]);
 
   // Fetch missing sizes for all displayed products
-  const { data: missingSizesMap } = useQuery({
-    queryKey: ['breakdown-missing-sizes', tenantId, productIds.join(',')],
+  const { data: sizeDataMap } = useQuery({
+    queryKey: ['breakdown-size-data', tenantId, productIds.join(',')],
     queryFn: async () => {
-      if (productIds.length === 0) return new Map<string, string[]>();
-      const { data, error } = await buildQuery('kpi_size_completeness' as any)
+      if (productIds.length === 0) return new Map<string, { missing: string[]; present: string[] }>();
+      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
+      const sortSizes = (arr: string[]) => arr.sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      // Fetch missing sizes
+      const { data: compData } = await buildQuery('kpi_size_completeness' as any)
         .select('style_id,missing_sizes')
         .in('style_id', productIds)
         .neq('status', 'HEALTHY')
         .limit(2000);
-      if (error) throw error;
-      const map = new Map<string, Set<string>>();
-      for (const row of (data || []) as any[]) {
+
+      const missingMap = new Map<string, Set<string>>();
+      for (const row of (compData || []) as any[]) {
         const sizes = row.missing_sizes as string[];
         if (!sizes || sizes.length === 0) continue;
-        if (!map.has(row.style_id)) map.set(row.style_id, new Set());
-        for (const s of sizes) map.get(row.style_id)!.add(s);
+        if (!missingMap.has(row.style_id)) missingMap.set(row.style_id, new Set());
+        for (const s of sizes) missingMap.get(row.style_id)!.add(s);
       }
-      const result = new Map<string, string[]>();
-      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
-      for (const [k, v] of map) {
-        const arr = [...v].sort((a, b) => {
-          const ia = order.indexOf(a), ib = order.indexOf(b);
-          if (ia !== -1 && ib !== -1) return ia - ib;
-          if (ia !== -1) return -1;
-          if (ib !== -1) return 1;
-          return a.localeCompare(b);
-        });
-        result.set(k, arr);
+
+      // Fetch all expected sizes from inv_sku_fc_mapping
+      const { data: skuData } = await buildQuery('inv_sku_fc_mapping' as any)
+        .select('fc_id,size')
+        .in('fc_id', productIds)
+        .eq('is_active', true)
+        .limit(5000);
+
+      const allSizesMap = new Map<string, Set<string>>();
+      for (const row of (skuData || []) as any[]) {
+        if (!row.size) continue;
+        if (!allSizesMap.has(row.fc_id)) allSizesMap.set(row.fc_id, new Set());
+        allSizesMap.get(row.fc_id)!.add(row.size);
+      }
+
+      const result = new Map<string, { missing: string[]; present: string[] }>();
+      for (const pid of productIds) {
+        const missing = missingMap.has(pid) ? sortSizes([...missingMap.get(pid)!]) : [];
+        const allSizes = allSizesMap.has(pid) ? [...allSizesMap.get(pid)!] : [];
+        const missingSet = new Set(missing);
+        const present = sortSizes(allSizes.filter(s => !missingSet.has(s)));
+        if (missing.length > 0 || present.length > 0) {
+          result.set(pid, { missing, present });
+        }
       }
       return result;
     },
@@ -101,7 +124,7 @@ export default function PrioritizedBreakdown({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs w-[180px]">Mẫu SP</TableHead>
-                    <TableHead className="text-xs">Size Thiếu</TableHead>
+                    <TableHead className="text-xs">Size Map</TableHead>
                     <TableHead className="text-center text-xs">Sức Khỏe</TableHead>
                     <TableHead className="text-right text-xs">DT Mất</TableHead>
                     <TableHead className="text-right text-xs">Vốn Khóa</TableHead>
@@ -131,12 +154,17 @@ export default function PrioritizedBreakdown({
                         </TableCell>
                         <TableCell className="text-xs">
                           {(() => {
-                            const missing = missingSizesMap?.get(row.product_id) || [];
-                            if (missing.length === 0) return <span className="text-muted-foreground">—</span>;
+                            const sizeData = sizeDataMap?.get(row.product_id);
+                            if (!sizeData || (sizeData.missing.length === 0 && sizeData.present.length === 0)) return <span className="text-muted-foreground">—</span>;
                             return (
                               <div className="flex items-center gap-0.5 flex-wrap">
-                                {missing.map(size => (
-                                  <Badge key={size} variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5">
+                                {sizeData.present.map(size => (
+                                  <Badge key={`p-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-medium text-emerald-700 border-emerald-500/40 bg-emerald-500/10">
+                                    {size}
+                                  </Badge>
+                                ))}
+                                {sizeData.missing.map(size => (
+                                  <Badge key={`m-${size}`} variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-destructive border-destructive/40 bg-destructive/5 line-through">
                                     {size}
                                   </Badge>
                                 ))}
