@@ -250,7 +250,7 @@ export default function AssortmentPage() {
       )}
 
       {/* ── Section 5: Decision Feed ── */}
-      <DecisionFeed brokenDetails={brokenDetails} />
+      <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
 
       {/* ── Evidence Pack Drawer ── */}
       <Sheet open={!!evidenceProductId} onOpenChange={(open) => !open && setEvidenceProductId(null)}>
