@@ -1,65 +1,86 @@
 
 
-## Vấn đề
+# Growth Simulator - Mô phỏng Tăng Trưởng Doanh Thu
 
-Bảng "Mẫu Lẻ Size" hiện tại hiển thị flat list tất cả sản phẩm broken. Khi có vài trăm mẫu, bảng sẽ:
-- Quá dài, không thể scan nhanh
-- Không phân biệt được mức độ nghiêm trọng
-- Mất focus vào những SP cần xử lý trước
+## Mục tiêu
+Thêm một module **"Mô phỏng Tăng Trưởng"** vào trang Phân Tích Nguồn Cung (NetworkGapPage), cho phép CEO/CFO nhập mục tiêu tăng trưởng doanh thu (30%, 50%...) theo khung thời gian (3/6/12 tháng) và hệ thống sẽ tự động tính toán:
+- Cần sản xuất thêm bao nhiêu đơn vị
+- Sản phẩm nào nên sản xuất (ưu tiên Hero)
+- Phân tích rủi ro và vốn cần thiết
+- Cần thêm bao nhiêu Hero product mới
 
-## Giải pháp: Tiered Breakdown với Filter + Search
+## Nguồn dữ liệu hiện có
+- `inv_family_codes`: danh mục mẫu, có cờ `is_core_hero`
+- `fdp_sku_summary`: doanh thu, margin, số lượng bán theo SKU
+- `inv_state_positions`: tồn kho hiện tại theo store/SKU
+- `kpi_network_gap`: thiếu hụt hiện tại
+- `kpi_facts_daily`: doanh thu tổng hàng ngày (NET_REVENUE)
 
-Thay vì flat list, chia thành **3 tầng ưu tiên** kết hợp **filter/search** và **collapse mặc định**.
+## Thiết kế UI
 
-### 1. Summary Bar (Thay thế header đơn giản)
+### Vị trí
+Thêm một **Card mới** ngay sau "Radar San Xuat" trên NetworkGapPage, với tiêu đề **"Mo Phong Tang Truong"**.
 
-Hiển thị 3 nhóm con ngay trên đầu bảng dưới dạng clickable chips:
-- **Khẩn cấp** (Sẽ giảm giá / markdown_risk >= 80): X mẫu, Y triệu thiệt hại -- chip đỏ
-- **Cần xử lý** (Trung bình + Khó): X mẫu, Y triệu -- chip cam  
-- **Theo dõi** (Dễ fix): X mẫu -- chip vàng
+### Giao dien bao gom:
 
-Click vào chip = filter bảng theo nhóm đó. Click lại = bỏ filter.
+**1. Input Panel (thanh cau hinh)**
+- Slider/Input: % tang truong muc tieu (10-100%, mac dinh 30%)
+- Select: Khung thoi gian (3 thang / 6 thang / 12 thang)
+- Button: "Chay Mo Phong"
 
-### 2. Search + Sort Controls
+**2. Ket Qua Tong Quan (4 KPI cards)**
+- Doanh thu muc tieu (hien tai + % tang)
+- Tong SL can san xuat them
+- Von can (cash required)
+- Bien loi nhuan du kien
 
-Thêm thanh search nhỏ phía trên bảng:
-- Input search theo tên sản phẩm
-- Sort dropdown: Thiệt hại cao nhat (default), Suc khoe thap nhat, MD ETA gan nhat
+**3. Bang Hero Analysis**
+- Danh sach FC hien tai la Hero (is_core_hero = true) va hieu suat ban
+- So luong can san xuat them cho moi Hero
+- De xuat them bao nhieu Hero moi (dua tren gap giua muc tieu va nang luc hien tai)
 
-### 3. Bảng với Pagination thay vì "Load More"
+**4. Bang Chi Tiet San Xuat**
+- Tat ca FC duoc de xuat, sap xep theo uu tien
+- Cot: Ten SP | Hero? | SL Can | Von Can | Margin Du Kien | Rui Ro
 
-- Hiển thị **20 dòng/trang** (thay vì load tất cả rồi "tải thêm")
-- Pagination controls ở dưới
-- Top 3 vẫn highlight nền đỏ nhạt
+**5. Risk Summary**
+- Rui ro tap trung (qua phu thuoc vao it Hero)
+- Rui ro von (tong von can vs kha nang)
+- Rui ro thoi gian (lead time san xuat vs deadline)
 
-### 4. Collapse mặc định khi > 50 mẫu
-
-- Khi tổng > 50 mẫu, bảng mặc định chỉ hiển thị **Top 10** + summary text "Còn X mẫu khác"
-- Button "Xem tất cả" để expand ra full bảng với pagination
-
-## Chi tiết kỹ thuật
-
-### File thay đổi
-
-**`src/components/command/SizeControlTower/PrioritizedBreakdown.tsx`**:
-- Thêm state: `activeFilter` (null | 'urgent' | 'action' | 'monitor'), `searchTerm`, `currentPage`, `isExpanded`
-- Phân loại sorted items theo fixability score thành 3 nhóm
-- Render Summary Bar chips với count + tổng thiệt hại
-- Thêm search input (debounced) 
-- Filter + paginate logic trước khi render TableBody
-- Thay "Tải thêm" bằng Pagination component
-- Khi totalCount > 50 và chưa expand: chỉ show top 10 + "Xem tất cả" button
-
-### Logic phân nhóm
+## Logic Tinh Toan (client-side)
 
 ```text
-urgent:  markdown_risk_score >= 80 (Sẽ giảm giá)
-action:  fixability = 'Khó' hoặc 'Trung bình'
-monitor: fixability = 'Dễ'
+1. Lay doanh thu hien tai tu kpi_facts_daily (NET_REVENUE tong)
+2. Tinh doanh thu muc tieu = hien tai * (1 + growth%)
+3. Tinh doanh thu can them = muc tieu - hien tai
+4. Lay danh sach FC tu fdp_sku_summary (revenue, margin, qty per FC)
+5. Phan bo doanh thu can them:
+   - Uu tien Hero (is_core_hero) theo ty le doanh thu hien tai
+   - Phan con lai cho non-Hero
+6. Chuyen doi doanh thu -> so luong = revenue_needed / avg_unit_price
+7. Tinh von can = qty * avg_unit_cogs
+8. Tinh margin du kien = qty * (avg_unit_price - avg_unit_cogs)
+9. Danh gia rui ro:
+   - Neu Hero < 3 FC -> canh bao tap trung
+   - Neu Hero chi chiem < 40% doanh thu -> can them Hero moi
+   - So Hero moi can = ceil((gap_revenue * 0.6) / avg_hero_revenue)
 ```
 
-### Không thay đổi
-- Data fetching logic (vẫn dùng server-side pagination qua RPC)
-- Size Map column
-- Evidence drawer
-- Các component khác trong Control Tower
+## Cac file can tao/sua
+
+### File moi:
+- `src/components/command/GrowthSimulator.tsx` - Component chinh chua toan bo UI mo phong
+
+### File sua:
+- `src/pages/command/NetworkGapPage.tsx` - Them GrowthSimulator component vao sau Radar San Xuat
+
+## Chi tiet ky thuat
+
+- Component `GrowthSimulator` se dung `useQuery` de lay du lieu tu `kpi_facts_daily`, `fdp_sku_summary`, va `inv_family_codes`
+- Toan bo tinh toan chay client-side (du lieu da duoc pre-aggregate trong summary views)
+- Dung `useTenantQueryBuilder` de dam bao tenant isolation
+- Khong can tao bang moi trong database - chi doc du lieu hien co
+- Su dung cac UI components da co: Card, Table, Badge, Slider, Select, Button
+- Format tien dung `formatVNDCompact` da co
+
