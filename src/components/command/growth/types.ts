@@ -140,3 +140,46 @@ export interface SimSummary {
   // Hero candidates (non-hero, sorted by heroScore desc)
   heroCandidates: SimResult[];
 }
+
+// ---- Growth Expansion Map Types ----
+export interface CategoryShape {
+  category: string;
+  fcCount: number;
+  totalVelocity: number;
+  avgVelocity: number;
+  momentumPct: number;
+  avgMarginPct: number;
+  avgDOC: number;
+  overstockRatio: number;
+  revenueShare: number;
+  efficiencyScore: number;
+  efficiencyLabel: 'CAO' | 'TRUNG BÌNH' | 'THẤP';
+  direction: 'expand' | 'hold' | 'avoid';
+  reason: string;
+}
+
+export interface SizeShift {
+  size: string;
+  totalVelocity: number;
+  velocityShare: number;
+  deltaPct: number;
+  direction: 'tăng' | 'ổn định' | 'giảm';
+}
+
+export interface PriceBandShape {
+  band: string;
+  fcCount: number;
+  avgVelocity: number;
+  avgMarginPct: number;
+  momentumPct: number;
+  efficiencyLabel: 'CAO' | 'TRUNG BÌNH' | 'THẤP';
+}
+
+export interface GrowthShape {
+  expandCategories: CategoryShape[];
+  avoidCategories: CategoryShape[];
+  sizeShifts: SizeShift[];
+  priceBands: PriceBandShape[];
+  gravitySummary: string;
+  shapeStatement: string;
+}
