@@ -10,14 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
-
-function formatVND(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '₫0';
-  const absValue = Math.abs(value);
-  if (absValue >= 1e9) return `₫${(value / 1e9).toFixed(1)}B`;
-  if (absValue >= 1e6) return `₫${(value / 1e6).toFixed(0)}M`;
-  return `₫${value?.toFixed(0) || 0}`;
-}
+import { formatVNDCompact } from '@/lib/formatters';
 
 export default function NetworkGapPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -121,7 +114,7 @@ export default function NetworkGapPage() {
         <Card>
           <CardContent className="pt-5 pb-4">
             <p className="text-xs text-muted-foreground">Doanh Thu Rủi Ro</p>
-            <p className="text-2xl font-bold mt-1 text-red-600">{formatVND(totalRevenueAtRisk)}</p>
+            <p className="text-2xl font-bold mt-1 text-red-600">{formatVNDCompact(totalRevenueAtRisk)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -185,7 +178,7 @@ export default function NetworkGapPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Doanh thu bị đe dọa</p>
-                <p className="text-xl font-bold mt-0.5 text-red-600">{formatVND(totalRevenueAtRisk)}</p>
+                <p className="text-xl font-bold mt-0.5 text-red-600">{formatVNDCompact(totalRevenueAtRisk)}</p>
               </div>
             </div>
             <Button variant="outline" size="sm" className="mt-4" onClick={() => navigate('/command/production')}>
@@ -243,7 +236,7 @@ export default function NetworkGapPage() {
                         >
                           <TableCell className="font-medium text-sm">{fcMap.get(row.style_id) || row.style_id?.slice(0, 8)}</TableCell>
                           <TableCell className="text-right text-orange-600">{netGap.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-medium">{formatVND(row.revenue_at_risk)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatVNDCompact(row.revenue_at_risk)}</TableCell>
                           <TableCell className="text-right text-emerald-600">{transferable.toLocaleString()}</TableCell>
                           <TableCell className="text-right font-semibold text-red-600">{shortage.toLocaleString()}</TableCell>
                           <TableCell>
@@ -268,7 +261,7 @@ export default function NetworkGapPage() {
                                           còn lại <span className="text-red-600 font-medium">{shortage} đơn vị</span> cần sản xuất thêm.
                                         </p>
                                         <p className="text-sm text-muted-foreground">
-                                          Doanh thu bị đe dọa: <span className="font-medium text-red-600">{formatVND(row.revenue_at_risk)}</span> nếu không xử lý.
+                                          Doanh thu bị đe dọa: <span className="font-medium text-red-600">{formatVNDCompact(row.revenue_at_risk)}</span> nếu không xử lý.
                                         </p>
                                       </>
                                     ) : (
@@ -358,7 +351,7 @@ function DecisionBanner({ level, totalShortage, totalRevenueAtRisk, stylesNeedPr
           <div>
             <p className="font-semibold text-amber-800 dark:text-amber-300">Thiếu hụt nhỏ — theo dõi</p>
             <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
-              {totalShortage} đơn vị / {formatVND(totalRevenueAtRisk)} doanh thu rủi ro trên {stylesNeedProduction} mẫu
+              {totalShortage} đơn vị / {formatVNDCompact(totalRevenueAtRisk)} doanh thu rủi ro trên {stylesNeedProduction} mẫu
             </p>
           </div>
         </div>
@@ -374,7 +367,7 @@ function DecisionBanner({ level, totalShortage, totalRevenueAtRisk, stylesNeedPr
         <div>
           <p className="font-semibold text-red-800 dark:text-red-300">CẦN SẢN XUẤT NGAY</p>
           <p className="text-sm text-red-700 dark:text-red-400 mt-0.5">
-            {stylesNeedProduction} mẫu, {totalShortage.toLocaleString()} đơn vị, {formatVND(totalRevenueAtRisk)} doanh thu bị đe dọa
+            {stylesNeedProduction} mẫu, {totalShortage.toLocaleString()} đơn vị, {formatVNDCompact(totalRevenueAtRisk)} doanh thu bị đe dọa
           </p>
         </div>
       </div>

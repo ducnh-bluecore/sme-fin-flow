@@ -91,7 +91,7 @@ export default function SizeHealthActionGroups({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Loader2 className="h-5 w-5 mx-auto animate-spin mb-2" />
-        Loading action groups...
+        Đang tải nhóm hành động...
       </div>
     );
   }
@@ -100,8 +100,8 @@ export default function SizeHealthActionGroups({
     return (
       <div className="text-center py-12 text-muted-foreground">
         <AlertTriangle className="h-10 w-10 mx-auto mb-3 opacity-40" />
-        <p className="text-sm">No size health data</p>
-        <p className="text-xs mt-1">Click "Run Engine" to compute Size Intelligence</p>
+        <p className="text-sm">Chưa có dữ liệu sức khỏe size</p>
+        <p className="text-xs mt-1">Nhấn "Chạy Engine" để phân tích Size Intelligence</p>
       </div>
     );
   }
@@ -132,11 +132,11 @@ export default function SizeHealthActionGroups({
                   <Icon className={`h-5 w-5 ${config.color}`} />
                   <span className="font-semibold capitalize">{group.curve_state}</span>
                   <Badge variant={config.badgeVariant} className="text-xs">
-                    {group.style_count} styles
+                    {group.style_count} mẫu
                   </Badge>
                   {group.core_missing_count > 0 && (
                     <Badge variant="outline" className="text-xs text-destructive border-destructive/30">
-                      {group.core_missing_count} core missing
+                      {group.core_missing_count} thiếu core
                     </Badge>
                   )}
                 </div>
@@ -162,11 +162,11 @@ export default function SizeHealthActionGroups({
                   {group.high_md_risk_count > 0 && (
                     <span className="flex items-center gap-1">
                       <TrendingDown className="h-3 w-3" />
-                      <span>{group.high_md_risk_count} MD risk</span>
+                      <span>{group.high_md_risk_count} rủi ro MD</span>
                     </span>
                   )}
                   {group.curve_state === 'healthy' && (
-                    <span>Avg score: {Number(group.avg_health_score).toFixed(0)}</span>
+                    <span>Điểm TB: {Number(group.avg_health_score).toFixed(0)}</span>
                   )}
                 </div>
               </div>
@@ -175,21 +175,21 @@ export default function SizeHealthActionGroups({
               {isDetailLoading && details.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
                   <Loader2 className="h-4 w-4 mx-auto animate-spin mb-1" />
-                  Loading details...
+                  Đang tải chi tiết...
                 </div>
               ) : details.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground text-xs">No detail data</div>
+                <div className="text-center py-4 text-muted-foreground text-xs">Không có dữ liệu chi tiết</div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
+                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs">Style</TableHead>
-                        <TableHead className="text-center text-xs">Health</TableHead>
-                        <TableHead className="text-right text-xs">Lost Rev</TableHead>
-                        <TableHead className="text-right text-xs">Cash Lock</TableHead>
-                        <TableHead className="text-right text-xs">Margin Leak</TableHead>
-                        <TableHead className="text-center text-xs">MD Risk</TableHead>
+                        <TableHead className="text-xs">Mẫu SP</TableHead>
+                        <TableHead className="text-center text-xs">Sức Khỏe</TableHead>
+                        <TableHead className="text-right text-xs">DT Mất</TableHead>
+                        <TableHead className="text-right text-xs">Vốn Khóa</TableHead>
+                        <TableHead className="text-right text-xs">Rò Biên</TableHead>
+                        <TableHead className="text-center text-xs">Rủi Ro MD</TableHead>
                         <TableHead className="text-center text-xs">ETA</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -260,9 +260,9 @@ export default function SizeHealthActionGroups({
                         }}
                       >
                         {isDetailLoading ? (
-                          <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Loading...</>
+                          <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> Đang tải...</>
                         ) : (
-                          <>Load more ({details.length}/{group.style_count})</>
+                          <>Tải thêm ({details.length}/{group.style_count})</>
                         )}
                       </Button>
                     </div>

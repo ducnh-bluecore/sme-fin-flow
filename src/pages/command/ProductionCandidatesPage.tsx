@@ -8,14 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
-
-function formatVND(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '₫0';
-  const absValue = Math.abs(value);
-  if (absValue >= 1e9) return `₫${(value / 1e9).toFixed(1)}B`;
-  if (absValue >= 1e6) return `₫${(value / 1e6).toFixed(0)}M`;
-  return `₫${value?.toFixed(0) || 0}`;
-}
+import { formatVNDCompact } from '@/lib/formatters';
 
 type StatusFilter = 'ALL' | 'PROPOSED' | 'APPROVED' | 'REJECTED';
 
@@ -90,13 +83,13 @@ export default function ProductionCandidatesPage() {
         <Card>
           <CardContent className="pt-5 pb-4">
             <p className="text-xs text-muted-foreground">Vốn Cần</p>
-            <p className="text-2xl font-bold mt-1">{formatVND(totalCash)}</p>
+            <p className="text-2xl font-bold mt-1">{formatVNDCompact(totalCash)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5 pb-4">
             <p className="text-xs text-muted-foreground">Biên Lợi Nhuận Dự Kiến</p>
-            <p className="text-2xl font-bold mt-1 text-emerald-600">{formatVND(totalMargin)}</p>
+            <p className="text-2xl font-bold mt-1 text-emerald-600">{formatVNDCompact(totalMargin)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -158,8 +151,8 @@ export default function ProductionCandidatesPage() {
                     >
                       <TableCell className="font-semibold">{c.style_id}</TableCell>
                       <TableCell className="text-right">{c.recommended_qty?.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{formatVND(c.cash_required)}</TableCell>
-                      <TableCell className="text-right text-emerald-600">{formatVND(c.margin_projection)}</TableCell>
+                      <TableCell className="text-right">{formatVNDCompact(c.cash_required)}</TableCell>
+                      <TableCell className="text-right text-emerald-600">{formatVNDCompact(c.margin_projection)}</TableCell>
                       <TableCell className="text-center">{c.payback_days || '—'} ngày</TableCell>
                       <TableCell className="text-center">
                         <span className={`font-bold ${urgencyColor(c.urgency_score || 0)}`}>

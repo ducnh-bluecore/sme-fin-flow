@@ -9,14 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-function formatVND(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '₫0';
-  const absValue = Math.abs(value);
-  if (absValue >= 1e9) return `₫${(value / 1e9).toFixed(1)}B`;
-  if (absValue >= 1e6) return `₫${(value / 1e6).toFixed(0)}M`;
-  return `₫${value?.toFixed(0) || 0}`;
-}
+import { formatVNDCompact } from '@/lib/formatters';
 
 export default function DecisionOutcomesPage() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -143,8 +136,8 @@ export default function DecisionOutcomesPage() {
         <Card>
           <CardContent className="pt-5 pb-4">
             <p className="text-xs text-muted-foreground">DT Thực Đạt</p>
-            <p className="text-xl font-bold mt-1">{formatVND(totalActualRevenue)}</p>
-            <p className="text-xs text-muted-foreground">trên {formatVND(totalPredictedRevenue)} dự kiến</p>
+            <p className="text-xl font-bold mt-1">{formatVNDCompact(totalActualRevenue)}</p>
+            <p className="text-xs text-muted-foreground">trên {formatVNDCompact(totalPredictedRevenue)} dự kiến</p>
           </CardContent>
         </Card>
       </div>
@@ -198,8 +191,8 @@ export default function DecisionOutcomesPage() {
                           <TableCell className="font-mono text-xs">{(o.package_id as string)?.slice(0, 8)}</TableCell>
                           <TableCell><Badge variant="secondary">{pkg?.package_type || '—'}</Badge></TableCell>
                           <TableCell className="text-sm">{o.evaluation_date}</TableCell>
-                          <TableCell className="text-right text-sm">{formatVND(predicted)}</TableCell>
-                          <TableCell className="text-right text-sm font-medium">{formatVND(actual)}</TableCell>
+                          <TableCell className="text-right text-sm">{formatVNDCompact(predicted)}</TableCell>
+                          <TableCell className="text-right text-sm font-medium">{formatVNDCompact(actual)}</TableCell>
                           <TableCell className="text-center">
                             <span className={`font-bold ${verdictColor}`}>{(acc * 100).toFixed(1)}%</span>
                           </TableCell>

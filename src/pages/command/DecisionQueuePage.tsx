@@ -1,25 +1,30 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ListChecks, Package, ChevronRight, Check, X } from 'lucide-react';
+import { ListChecks, Package, ChevronRight, Check, X, Search, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
+import { formatVNDCompact } from '@/lib/formatters';
 
-function formatVND(value: number | null | undefined): string {
-  if (value === null || value === undefined || isNaN(value)) return '₫0';
-  const absValue = Math.abs(value);
-  if (absValue >= 1e9) return `₫${(value / 1e9).toFixed(1)}B`;
-  if (absValue >= 1e6) return `₫${(value / 1e6).toFixed(0)}M`;
-  return `₫${value?.toFixed(0) || 0}`;
-}
+type StatusFilter = 'ALL' | 'PROPOSED' | 'APPROVED' | 'REJECTED';
+
+const statusLabels: Record<StatusFilter, string> = {
+  ALL: 'Tất Cả',
+  PROPOSED: 'Đề Xuất',
+  APPROVED: 'Đã Duyệt',
+  REJECTED: 'Từ Chối',
+};
 
 export default function DecisionQueuePage() {
-  const { buildQuery, buildUpdateQuery, buildInsertQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildQuery, buildUpdateQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [expandedPkg, setExpandedPkg] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const { data: packages, isLoading } = useQuery({
     queryKey: ['command-packages', tenantId],
@@ -76,6 +81,23 @@ export default function DecisionQueuePage() {
     LOW: 'outline',
   };
 
+  // Filter packages
+  const filtered = (packages || []).filter((pkg: any) => {
+    if (statusFilter !== 'ALL' && pkg.status !== statusFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const desc = ((pkg.scope_summary as any)?.description || '').toLowerCase();
+      const type = (pkg.package_type || '').toLowerCase();
+      if (!desc.includes(q) && !type.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const statusCounts = (packages || []).reduce((acc: Record<string, number>, pkg: any) => {
+    acc[pkg.status] = (acc[pkg.status] || 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
@@ -83,19 +105,45 @@ export default function DecisionQueuePage() {
         <p className="text-sm text-muted-foreground mt-1">Xem xét và phê duyệt các gói quyết định tồn kho</p>
       </motion.div>
 
-      {(!packages || packages.length === 0) ? (
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm gói quyết định..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          {(['ALL', 'PROPOSED', 'APPROVED', 'REJECTED'] as StatusFilter[]).map(s => (
+            <Button
+              key={s}
+              size="sm"
+              variant={statusFilter === s ? 'default' : 'outline'}
+              onClick={() => setStatusFilter(s)}
+            >
+              {statusLabels[s]}
+              {s !== 'ALL' && statusCounts[s] ? ` (${statusCounts[s]})` : ''}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {(!filtered || filtered.length === 0) ? (
         <Card>
           <CardContent className="py-12">
             <div className="text-center text-muted-foreground">
               <ListChecks className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Không có gói quyết định nào</p>
+              <p className="text-sm">{search || statusFilter !== 'ALL' ? 'Không tìm thấy gói nào khớp bộ lọc' : 'Không có gói quyết định nào'}</p>
               <p className="text-xs mt-1">Các gói được tạo từ engine phân bổ tồn kho</p>
             </div>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {packages.map((pkg: any) => (
+          {filtered.map((pkg: any) => (
             <Card key={pkg.id} className="overflow-hidden">
               <CardContent className="p-0">
                 <div 
@@ -119,11 +167,11 @@ export default function DecisionQueuePage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right mr-4">
-                        <p className="text-sm font-semibold">{formatVND((pkg.impact_summary as any)?.revenue_protected)}</p>
+                        <p className="text-sm font-semibold">{formatVNDCompact((pkg.impact_summary as any)?.revenue_protected || 0)}</p>
                         <p className="text-xs text-muted-foreground">doanh thu bảo vệ</p>
                       </div>
                       <Badge variant={pkg.status === 'APPROVED' ? 'default' : pkg.status === 'REJECTED' ? 'destructive' : 'secondary'}>
-                        {pkg.status === 'APPROVED' ? 'Đã Duyệt' : pkg.status === 'REJECTED' ? 'Từ Chối' : pkg.status === 'PROPOSED' ? 'Đề Xuất' : pkg.status}
+                        {statusLabels[pkg.status as StatusFilter] || pkg.status}
                       </Badge>
                       {pkg.status === 'PROPOSED' && (
                         <div className="flex gap-1">
