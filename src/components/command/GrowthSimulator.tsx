@@ -104,11 +104,7 @@ function runSimulation(
     }
   }
 
-  // Set of all known FC codes for identifying fashion products
-  const allFcCodes = new Set<string>();
-  for (const fc of fcData || []) {
-    allFcCodes.add(fc.fc_code);
-  }
+  // (fashion identification now relies solely on inv_sku_fc_mapping)
 
   const fcAgg = new Map<string, {
     revenue: number; qty: number; cogs: number; profit: number;
@@ -118,22 +114,13 @@ function runSimulation(
 
   for (const sku of skuData) {
     if (!sku.sku) continue;
-    // Use skuFcMap (SKU → fc_code) first, then fallback to startsWith
-    let fcCode = skuFcMap.get(sku.sku) || sku.sku;
-    let isFashion = skuFcMap.has(sku.sku);
+    // Primary: use skuFcMap (from inv_sku_fc_mapping) for exact match
+    const mappedFcCode = skuFcMap.get(sku.sku);
+    let fcCode = mappedFcCode || sku.sku;
+    let isFashion = !!mappedFcCode;
     let fcId = skuFcIdMap.get(sku.sku) || null;
-    if (fcCode === sku.sku) {
-      for (const fc of fcData || []) {
-        if (sku.sku.startsWith(fc.fc_code)) {
-          fcCode = fc.fc_code;
-          fcId = fc.id;
-          isFashion = true;
-          break;
-        }
-      }
-    }
-    // Also check if the resolved fcCode is a known FC
-    if (!isFashion && allFcCodes.has(fcCode)) isFashion = true;
+    
+    // No more expensive startsWith loop — rely on inv_sku_fc_mapping only
     if (!fcId && fcCodeToId.has(fcCode)) fcId = fcCodeToId.get(fcCode) || null;
 
     const existing = fcAgg.get(fcCode) || { revenue: 0, qty: 0, cogs: 0, profit: 0, avgPrice: 0, avgCogs: 0, count: 0, isFashion: false, fcId: null };
@@ -151,6 +138,11 @@ function runSimulation(
 
   const totalSkuRevenue = Array.from(fcAgg.values()).reduce((s, v) => s + v.revenue, 0);
   if (totalSkuRevenue === 0) return null;
+
+  // DEBUG: understand fashion matching
+  const fashionCount = Array.from(fcAgg.values()).filter(v => v.isFashion).length;
+  const nonFashionCount = Array.from(fcAgg.values()).filter(v => !v.isFashion).length;
+  console.log(`[GrowthSim] Total SKUs processed: ${skuData.length}, FC aggregated: ${fcAgg.size}, Fashion FCs: ${fashionCount}, Non-fashion: ${nonFashionCount}, skuFcMap size: ${skuFcMap.size}`);
 
   // Calculate hero share based on FASHION products only (exclude services, shipping, etc.)
   const fashionFCs = Array.from(fcAgg.entries()).filter(([, v]) => v.isFashion);
@@ -209,7 +201,7 @@ function runSimulation(
   }
 
   const nonHeroTotalRevenue = nonHeroFashionFCs.reduce((s, [, v]) => s + v.revenue, 0);
-  const topNonHero = [...nonHeroFashionFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 20);
+  const topNonHero = [...nonHeroFashionFCs].sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 50);
   for (const [fcCode, agg] of topNonHero) {
     buildDetail(fcCode, agg, nonHeroGapAllocation, nonHeroTotalRevenue, false);
   }
