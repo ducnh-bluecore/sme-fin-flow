@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, FileText, Activity, DollarSign, Lock, Flame, TrendingDown, ShieldAlert, Store, Package } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
@@ -259,7 +260,10 @@ export default function AssortmentPage() {
         </Button>
       </motion.div>
 
-      {/* ── Section 1: Global Health Strip ── */}
+      {/* ── Section 1: Decision Feed (moved to top) ── */}
+      <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
+
+      {/* ── Section 2: Global Health Strip ── */}
       <HealthStrip
         avgHealthScore={summary.avgHealthScore}
         healthStatus={healthStatus}
@@ -275,45 +279,58 @@ export default function AssortmentPage() {
         effortLevel={effortLevel}
       />
 
-      {/* ── Section 2: Store Heatmap + Action Impact Panel ── */}
-      <div className="flex gap-4">
-        <StoreHeatmap
-          data={heatmap.data || []}
-          isLoading={heatmap.isLoading}
-        />
-        <ActionImpactPanel
-          projectedRecovery={projectedRecovery}
-          transferUnits={transferUnits}
-          recoverableStyles={recoverableStyles}
-          effortLevel={effortLevel}
-          totalTransfers={totalTransfers}
-          transferByDest={enrichedTransferByDest}
-        />
-      </div>
+      {/* ── Section 3: Tabbed Content ── */}
+      <Tabs defaultValue="breakdown" className="w-full">
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="breakdown">📋 Phân Tích SKU</TabsTrigger>
+          <TabsTrigger value="transfers">🔄 Đề Xuất Điều Chuyển</TabsTrigger>
+          <TabsTrigger value="heatmap">🗺️ Heatmap & Impact</TabsTrigger>
+        </TabsList>
 
-      {/* ── Section 3: Broken SKU Table ── */}
-      <PrioritizedBreakdown
-        details={brokenDetails}
-        isLoading={brokenLoading}
-        hasMore={brokenHasMore}
-        totalCount={brokenGroup?.style_count || 0}
-        onLoadMore={() => loadGroupDetails('broken', true)}
-        onViewEvidence={(pid) => setEvidenceProductId(pid)}
-      />
+        <TabsContent value="breakdown">
+          <PrioritizedBreakdown
+            details={brokenDetails}
+            isLoading={brokenLoading}
+            hasMore={brokenHasMore}
+            totalCount={brokenGroup?.style_count || 0}
+            onLoadMore={() => loadGroupDetails('broken', true)}
+            onViewEvidence={(pid) => setEvidenceProductId(pid)}
+          />
+        </TabsContent>
 
-      {/* ── Section 4: Transfer Network ── */}
-      {transferByDest.length > 0 && (
-        <TransferSuggestionsCard
-          transferByDest={transferByDest}
-          detailRows={transfersByDest}
-          storeNames={storeNames}
-          fcNames={fcNames}
-          totalOpportunities={summary.transferOpportunities}
-        />
-      )}
+        <TabsContent value="transfers">
+          {transferByDest.length > 0 ? (
+            <TransferSuggestionsCard
+              transferByDest={transferByDest}
+              detailRows={transfersByDest}
+              storeNames={storeNames}
+              fcNames={fcNames}
+              totalOpportunities={summary.transferOpportunities}
+            />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Chưa có đề xuất điều chuyển
+            </div>
+          )}
+        </TabsContent>
 
-      {/* ── Section 5: Decision Feed ── */}
-      <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
+        <TabsContent value="heatmap">
+          <div className="flex gap-4">
+            <StoreHeatmap
+              data={heatmap.data || []}
+              isLoading={heatmap.isLoading}
+            />
+            <ActionImpactPanel
+              projectedRecovery={projectedRecovery}
+              transferUnits={transferUnits}
+              recoverableStyles={recoverableStyles}
+              effortLevel={effortLevel}
+              totalTransfers={totalTransfers}
+              transferByDest={enrichedTransferByDest}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* ── Evidence Pack Drawer ── */}
       <Sheet open={!!evidenceProductId} onOpenChange={(open) => !open && setEvidenceProductId(null)}>
