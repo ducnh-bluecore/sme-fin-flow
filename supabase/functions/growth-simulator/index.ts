@@ -310,19 +310,31 @@ function runSimulation(
     const isHeroCalculated = heroScore >= 80 && marginPct >= DEFAULTS.HERO_MARGIN_THRESHOLD;
     const isHero = isHeroManual || isHeroCalculated;
 
-    const targetDOC = isHero ? params.docHero : params.docNonHero;
+    // Tầng 2: Slow mover Hero -> giảm DOC target xuống tối đa 30 ngày
+    let targetDOC = isHero ? params.docHero : params.docNonHero;
+    if (segment === 'slow' && isHero) {
+      targetDOC = Math.min(targetDOC, 30);
+    }
+
     const safetyQty = (params.safetyStockPct / 100) * forecastDemand;
     const requiredSupply = forecastDemand + safetyQty + (targetDOC * vForecast);
     let productionQty = Math.max(0, Math.round(requiredSupply - onHandQty));
 
-    if (segment === 'slow' && fc.velocity < DEFAULTS.SLOW_MOVER_VELOCITY && !isHero) {
+    // Tầng 1: Chặn slow mover không phải Hero (velocity < 0.5/ngày)
+    if (segment === 'slow' && !isHero) {
       productionQty = 0;
+    }
+
+    // Tầng 3: Cash Recovery Filter - cap DOC sau SX ở 120 ngày
+    let docAfterProduction = vForecast > 0 ? (onHandQty + productionQty) / vForecast : 0;
+    if (docAfterProduction > 120 && productionQty > 0) {
+      productionQty = Math.max(0, Math.round(90 * vForecast - onHandQty));
+      docAfterProduction = vForecast > 0 ? (onHandQty + productionQty) / vForecast : 0;
     }
 
     const cashRequired = productionQty * unitCogs;
     const projectedRevenue = productionQty * unitPrice;
     const projectedMargin = productionQty * (unitPrice - unitCogs);
-    const docAfterProduction = vForecast > 0 ? (onHandQty + productionQty) / vForecast : 0;
 
     const riskFlags: RiskFlag[] = [];
     if (vForecast > 0 && onHandQty / vForecast < DEFAULTS.LEAD_TIME_BUFFER) {
@@ -341,12 +353,12 @@ function runSimulation(
         suggestion: segment === 'slow' ? 'Markdown / Bundle' : 'Delay sản xuất',
       });
     }
-    if (segment === 'slow' && onHandQty > 0 && fc.velocity < DEFAULTS.SLOW_MOVER_VELOCITY) {
+    if (segment === 'slow' && onHandQty > 0) {
       riskFlags.push({
         type: 'slow_mover_high_stock',
-        severity: 'medium',
-        detail: `Bán chậm (${fc.velocity.toFixed(2)} SP/ngày) còn ${onHandQty} tồn`,
-        suggestion: 'Giảm SX / Bundle / Markdown',
+        severity: fc.velocity < 0.2 ? 'high' : 'medium',
+        detail: `Bán chậm (${fc.velocity.toFixed(2)} SP/ngày) còn ${onHandQty} tồn, DOC ${Math.round(docAfterProduction)} ngày`,
+        suggestion: productionQty === 0 ? 'Không SX - rủi ro khóa cash' : 'Giảm SX / Bundle / Markdown',
       });
     }
 
@@ -364,7 +376,9 @@ function runSimulation(
     if (marginPct > 60) reasons.push(`Margin cao (${marginPct.toFixed(0)}%)`);
     else if (marginPct < 20) reasons.push(`⚠ Margin thấp (${marginPct.toFixed(0)}%)`);
     if (productionQty === 0 && segment === 'slow' && !isHero) {
-      reasons.push('⛔ Không đề xuất SX (slow mover)');
+      reasons.push('⛔ Không SX - bán chậm, rủi ro khóa cash');
+    } else if (segment === 'slow' && isHero && productionQty > 0) {
+      reasons.push('⚠ SX giới hạn - Hero nhưng velocity thấp');
     }
 
     details.push({
