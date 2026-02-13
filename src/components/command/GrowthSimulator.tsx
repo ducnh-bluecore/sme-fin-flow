@@ -45,6 +45,7 @@ interface SimResult {
   projectedMargin: number;
   marginPct: number;
   riskLevel: 'low' | 'medium' | 'high';
+  reason: string;
 }
 
 interface SimSummary {
@@ -179,6 +180,23 @@ function runSimulation(
     const projectedMargin = neededQty * (unitPrice - unitCogs);
     const marginPct = unitPrice > 0 ? ((unitPrice - unitCogs) / unitPrice) * 100 : 0;
 
+    // Generate production reason narrative
+    const reasons: string[] = [];
+    if (isHero) reasons.push('Hero product — ưu tiên sản xuất');
+    if (onHandQty === 0) reasons.push('Hết tồn kho');
+    else if (onHandQty < neededQty * 0.1) reasons.push(`Tồn kho chỉ đủ ${((onHandQty / neededQty) * 100).toFixed(0)}% nhu cầu`);
+    if (agg.revenue > 0) {
+      const revenueShare = totalInGroup > 0 ? (agg.revenue / totalInGroup * 100) : 0;
+      if (revenueShare > 5) reasons.push(`Top doanh thu (${revenueShare.toFixed(1)}% nhóm)`);
+    }
+    if (marginPct > 60) reasons.push(`Biên lợi nhuận cao (${marginPct.toFixed(0)}%)`);
+    else if (marginPct < 20) reasons.push(`⚠ Margin thấp — cân nhắc giá`);
+    if (productionQty > 0 && cashRequired > 0) {
+      const roi = projectedMargin / cashRequired;
+      if (roi > 3) reasons.push(`ROI dự kiến ${roi.toFixed(1)}x`);
+    }
+    if (reasons.length === 0) reasons.push('Bổ sung theo tỷ trọng doanh thu');
+
     details.push({
       fcCode,
       fcName: fcNameMap.get(fcCode) || fcCode,
@@ -193,6 +211,7 @@ function runSimulation(
       projectedMargin,
       marginPct,
       riskLevel: marginPct < 20 ? 'high' : marginPct < 40 ? 'medium' : 'low',
+      reason: reasons.join(' · '),
     });
   };
 
@@ -605,6 +624,7 @@ export default function GrowthSimulator() {
                       <TableHead className="text-right">Vốn Cần</TableHead>
                       <TableHead className="text-right">Margin DK</TableHead>
                       <TableHead>Rủi Ro</TableHead>
+                      <TableHead className="min-w-[200px]">Lý Do Đề Xuất</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -631,6 +651,9 @@ export default function GrowthSimulator() {
                           <Badge variant={d.riskLevel === 'high' ? 'destructive' : d.riskLevel === 'medium' ? 'secondary' : 'outline'}>
                             {d.riskLevel === 'high' ? 'Cao' : d.riskLevel === 'medium' ? 'TB' : 'Thấp'}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[250px]">
+                          {d.reason}
                         </TableCell>
                       </TableRow>
                     ))}
