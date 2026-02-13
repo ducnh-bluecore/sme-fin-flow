@@ -40607,6 +40607,20 @@ export type Database = {
           size_health_score: number
         }[]
       }
+      fn_store_size_heatmap: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          broken: number
+          cash_locked: number
+          healthy: number
+          lost_revenue: number
+          region: string
+          risk: number
+          store_id: string
+          store_name: string
+          watch: number
+        }[]
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
