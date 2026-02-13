@@ -161,12 +161,12 @@ export default function DecisionFeed({ brokenDetails, onViewEvidence }: Decision
     queryKey: ['decision-feed-store-names', tenantId, expandedStoreIds.join(',')],
     queryFn: async () => {
       if (expandedStoreIds.length === 0) return new Map<string, string>();
-      const { data } = await buildQuery('stores' as any)
-        .select('id,name')
+      const { data } = await buildQuery('inv_stores' as any)
+        .select('id,store_name')
         .in('id', expandedStoreIds)
         .limit(20);
       const map = new Map<string, string>();
-      for (const r of (data || []) as any[]) map.set(r.id, r.name);
+      for (const r of (data || []) as any[]) map.set(r.id, r.store_name);
       return map;
     },
     enabled: !!tenantId && isReady && expandedStoreIds.length > 0,
