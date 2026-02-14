@@ -174,7 +174,7 @@ export function useSizeIntelligence() {
   const evidencePacks = useQuery({
     queryKey: ['evidence-packs', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildQuery('evidence_packs' as any)
+      const { data, error } = await buildQuery('si_evidence_packs' as any)
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw error;

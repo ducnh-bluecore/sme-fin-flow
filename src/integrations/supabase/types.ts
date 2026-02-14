@@ -27756,6 +27756,74 @@ export type Database = {
           },
         ]
       }
+      si_evidence_packs: {
+        Row: {
+          as_of_date: string
+          created_at: string
+          data_snapshot: Json
+          evidence_type: string
+          id: string
+          product_id: string
+          severity: string
+          source_tables: string[]
+          summary: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string
+          data_snapshot?: Json
+          evidence_type?: string
+          id?: string
+          product_id: string
+          severity: string
+          source_tables?: string[]
+          summary: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string
+          data_snapshot?: Json
+          evidence_type?: string
+          id?: string
+          product_id?: string
+          severity?: string
+          source_tables?: string[]
+          summary?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "si_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "si_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "si_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "si_evidence_packs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       sku_profitability_cache: {
         Row: {
           aov: number | null
