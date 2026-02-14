@@ -215,11 +215,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Phase 3: Evidence Packs
+    // Phase 3: Evidence Packs (si_evidence_packs table)
     if (evidencePackResults.length > 0) {
-      await supabase.from("evidence_packs").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
+      await supabase.from("si_evidence_packs").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
       for (let i = 0; i < evidencePackResults.length; i += 500) {
-        const { error } = await supabase.from("evidence_packs").insert(evidencePackResults.slice(i, i + 500));
+        const { error } = await supabase.from("si_evidence_packs").insert(evidencePackResults.slice(i, i + 500));
         if (error) results.errors.push(`EvidencePack: ${error.message}`);
         else results.evidence_packs += Math.min(500, evidencePackResults.length - i);
       }
