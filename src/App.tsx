@@ -204,6 +204,7 @@ import { BluecoreCommandLayout } from "@/components/layout/BluecoreCommandLayout
 import CommandOverviewPage from "./pages/command/CommandOverviewPage";
 import CommandAllocationPage from "./pages/command/CommandAllocationPage";
 import AssortmentPage from "./pages/command/AssortmentPage";
+import ClearancePage from "./pages/command/ClearancePage";
 import NetworkGapPage from "./pages/command/NetworkGapPage";
 import ProductionCandidatesPage from "./pages/command/ProductionCandidatesPage";
 import DecisionQueuePage from "./pages/command/DecisionQueuePage";
@@ -550,6 +551,7 @@ const AppRoutes = () => {
         <Route path="/command/overview" element={<CommandOverviewPage />} />
         <Route path="/command/allocation" element={<CommandAllocationPage />} />
         <Route path="/command/assortment" element={<AssortmentPage />} />
+        <Route path="/command/clearance" element={<ClearancePage />} />
         <Route path="/command/network-gap" element={<NetworkGapPage />} />
         <Route path="/command/production" element={<ProductionCandidatesPage />} />
         <Route path="/command/decisions" element={<DecisionQueuePage />} />
