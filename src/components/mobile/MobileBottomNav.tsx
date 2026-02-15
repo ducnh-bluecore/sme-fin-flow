@@ -2,9 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
-  Bell,
-  CheckSquare,
-  BarChart3,
+  ArrowRightLeft,
+  Layers3,
+  ListChecks,
   Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,10 +19,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Tổng quan', icon: LayoutDashboard, path: '/control-tower' },
-  { id: 'alerts', label: 'Cảnh báo', icon: Bell, path: '/control-tower/alerts', badge: 3 },
-  { id: 'tasks', label: 'Việc cần làm', icon: CheckSquare, path: '/control-tower/tasks', badge: 12 },
-  { id: 'analytics', label: 'Phân tích', icon: BarChart3, path: '/control-tower/analytics' },
+  { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, path: '/command/overview' },
+  { id: 'allocation', label: 'Phân bổ', icon: ArrowRightLeft, path: '/command/allocation' },
+  { id: 'assortment', label: 'Cơ cấu', icon: Layers3, path: '/command/assortment' },
+  { id: 'decisions', label: 'Quyết định', icon: ListChecks, path: '/command/decisions' },
   { id: 'more', label: 'Thêm', icon: Menu, path: '' },
 ];
 
@@ -36,8 +36,8 @@ export function MobileBottomNav({ onMoreClick }: MobileBottomNavProps) {
 
   const isActive = (path: string) => {
     if (!path) return false;
-    if (path === '/control-tower') {
-      return location.pathname === '/control-tower';
+    if (path === '/command/overview') {
+      return location.pathname === '/command/overview' || location.pathname === '/command';
     }
     return location.pathname.startsWith(path);
   };
