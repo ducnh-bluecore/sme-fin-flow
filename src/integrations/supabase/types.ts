@@ -36936,6 +36936,50 @@ export type Database = {
           },
         ]
       }
+      v_clearance_history_by_product: {
+        Row: {
+          avg_discount_pct: number | null
+          channel: string | null
+          discount_band: string | null
+          product_name: string | null
+          revenue_collected: number | null
+          sale_month: string | null
+          sku: string | null
+          tenant_id: string | null
+          total_discount_given: number | null
+          units_sold: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cdp_order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_compute_job_health: {
         Row: {
           avg_duration_ms_7d: number | null
