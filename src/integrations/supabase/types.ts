@@ -40793,6 +40793,15 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_clearance_demand_by_fc: {
+        Args: { p_fc_ids: string[]; p_tenant_id: string }
+        Returns: {
+          avg_daily_sales: number
+          fc_id: string
+          sales_velocity: number
+          trend: string
+        }[]
+      }
       fn_clearance_stock_by_fc: {
         Args: { p_fc_ids: string[]; p_tenant_id: string }
         Returns: {

@@ -29,6 +29,12 @@ export interface ClearanceCandidate {
   inventory_value: number;
   cash_locked: number;
   is_premium: boolean;
+  avg_daily_sales: number;
+  sales_velocity: number;
+  trend: string | null;
+  days_to_clear: number | null;
+  collection_id: string | null;
+  collection_name: string | null;
 }
 
 const PREMIUM_MAX_DISCOUNT = 50;
@@ -90,46 +96,67 @@ export function useClearanceCandidates() {
 
       const productIds = (riskData as any[]).map(r => r.product_id);
 
-      // 2. Fetch family code details (NOT products table)
+      // 2. Fetch family code details with collection_id
       const { data: fcData, error: fcError } = await buildSelectQuery(
         'inv_family_codes',
-        'id, fc_code, fc_name, category, season, metadata'
+        'id, fc_code, fc_name, category, season, metadata, collection_id'
       )
         .in('id', productIds);
 
       if (fcError) throw fcError;
 
-      // 3. Fetch health scores
-      const { data: healthData } = await buildQuery('state_size_health_daily' as any)
-        .select('product_id, size_health_score, curve_state')
-        .in('product_id', productIds)
-        .is('store_id', null);
+      // 3-6: Parallel fetches for health, cash, stock, demand, collections
+      const [healthRes, cashRes, stockRes, demandRes] = await Promise.all([
+        buildQuery('state_size_health_daily' as any)
+          .select('product_id, size_health_score, curve_state')
+          .in('product_id', productIds)
+          .is('store_id', null),
+        buildQuery('state_cash_lock_daily' as any)
+          .select('product_id, cash_locked_value, inventory_value')
+          .in('product_id', productIds),
+        client.rpc('fn_clearance_stock_by_fc', {
+          p_tenant_id: tenantId,
+          p_fc_ids: productIds,
+        }),
+        client.rpc('fn_clearance_demand_by_fc', {
+          p_tenant_id: tenantId,
+          p_fc_ids: productIds,
+        }),
+      ]);
 
-      // 4. Fetch cash lock
-      const { data: cashData } = await buildQuery('state_cash_lock_daily' as any)
-        .select('product_id, cash_locked_value, inventory_value')
-        .in('product_id', productIds);
-
-      // 5. Fetch stock via RPC (server-side aggregation to avoid 1000-row limit)
-      const { data: stockData } = await client.rpc('fn_clearance_stock_by_fc', {
-        p_tenant_id: tenantId,
-        p_fc_ids: productIds,
-      });
-
-      // Build lookup maps
+      // Collect unique collection IDs and fetch collection names
       const fcMap = new Map<string, any>();
       for (const f of (fcData || []) as any[]) fcMap.set(f.id, f);
 
+      const collectionIds = [...new Set(
+        (fcData || []).map((f: any) => f.collection_id).filter(Boolean)
+      )] as string[];
+
+      let collectionMap = new Map<string, { name: string }>();
+      if (collectionIds.length > 0) {
+        const { data: collData } = await buildSelectQuery(
+          'inv_collections',
+          'id, collection_name'
+        ).in('id', collectionIds);
+        for (const c of (collData || []) as any[]) {
+          collectionMap.set(c.id, { name: c.collection_name });
+        }
+      }
+
       const healthMap = new Map<string, any>();
-      for (const h of (healthData || []) as any[]) healthMap.set(h.product_id, h);
+      for (const h of (healthRes.data || []) as any[]) healthMap.set(h.product_id, h);
 
       const cashMap = new Map<string, any>();
-      for (const c of (cashData || []) as any[]) cashMap.set(c.product_id, c);
+      for (const c of (cashRes.data || []) as any[]) cashMap.set(c.product_id, c);
 
-      // Stock map from RPC result
       const stockMap = new Map<string, number>();
-      for (const s of (stockData || []) as any[]) {
+      for (const s of (stockRes.data || []) as any[]) {
         stockMap.set(s.fc_id, Number(s.total_on_hand || 0));
+      }
+
+      const demandMap = new Map<string, any>();
+      for (const d of (demandRes.data || []) as any[]) {
+        demandMap.set(d.fc_id, d);
       }
 
       // Combine
@@ -138,6 +165,9 @@ export function useClearanceCandidates() {
         const health = healthMap.get(r.product_id);
         const cash = cashMap.get(r.product_id);
         const stock = stockMap.get(r.product_id) || 0;
+        const demand = demandMap.get(r.product_id);
+        const avgDaily = Number(demand?.avg_daily_sales || 0);
+        const collId = fc?.collection_id || null;
 
         return {
           product_id: r.product_id,
@@ -157,6 +187,12 @@ export function useClearanceCandidates() {
             fc_name: fc?.fc_name,
             metadata: fc?.metadata,
           }),
+          avg_daily_sales: avgDaily,
+          sales_velocity: Number(demand?.sales_velocity || 0),
+          trend: demand?.trend || null,
+          days_to_clear: avgDaily > 0 ? Math.round(stock / avgDaily) : null,
+          collection_id: collId,
+          collection_name: collId ? (collectionMap.get(collId)?.name || null) : null,
         };
       });
 
