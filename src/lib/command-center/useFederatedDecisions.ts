@@ -140,6 +140,7 @@ export function useFederatedDecisions(
       FDP: deduplicated.filter(d => d.domain === 'FDP'),
       MDP: deduplicated.filter(d => d.domain === 'MDP'),
       CDP: deduplicated.filter(d => d.domain === 'CDP'),
+      COMMAND: deduplicated.filter(d => d.domain === 'COMMAND'),
       CONTROL_TOWER: deduplicated.filter(d => d.domain === 'CONTROL_TOWER'),
     };
     
@@ -151,6 +152,7 @@ export function useFederatedDecisions(
         FDP: byDomain.FDP.length,
         MDP: byDomain.MDP.length,
         CDP: byDomain.CDP.length,
+        COMMAND: byDomain.COMMAND.length,
         CONTROL_TOWER: byDomain.CONTROL_TOWER.length,
       },
       bySeverity: {
