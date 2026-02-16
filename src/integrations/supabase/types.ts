@@ -40700,6 +40700,13 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_clearance_stock_by_fc: {
+        Args: { p_fc_ids: string[]; p_tenant_id: string }
+        Returns: {
+          fc_id: string
+          total_on_hand: number
+        }[]
+      }
       fn_inv_overview_stats: {
         Args: { p_tenant_id: string }
         Returns: {

@@ -138,7 +138,7 @@ function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandida
           {isLoading ? (
             <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : grouped.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có lịch sử giảm giá cho sản phẩm này</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Sản phẩm này chưa từng được giảm giá — chưa có dữ liệu clearance để phân tích.</p>
           ) : (
             <div className="rounded-lg border overflow-hidden">
               <Table>
