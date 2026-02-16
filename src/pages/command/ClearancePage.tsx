@@ -13,17 +13,9 @@ import {
   useClearanceByChannel,
   isPremiumGroup,
   PREMIUM_MAX_DISCOUNT,
-  type ClearanceHistoryItem,
 } from '@/hooks/inventory/useClearanceIntelligence';
+import { formatCurrency, formatNumber } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
-
-function formatCurrency(v: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(v);
-}
-
-function formatNumber(v: number) {
-  return new Intl.NumberFormat('vi-VN').format(v);
-}
 
 // ─── Tab 1: Clearance Candidates ───
 function ClearanceCandidatesTab() {
@@ -35,8 +27,8 @@ function ClearanceCandidatesTab() {
     if (!search) return candidates;
     const q = search.toLowerCase();
     return candidates.filter(c =>
-      (c.fc_name || '').toLowerCase().includes(q) ||
-      (c.fc_code || '').toLowerCase().includes(q)
+      c.product_name.toLowerCase().includes(q) ||
+      c.sku.toLowerCase().includes(q)
     );
   }, [candidates, search]);
 
@@ -64,7 +56,6 @@ function ClearanceCandidatesTab() {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead>Sản phẩm</TableHead>
-              <TableHead>Season</TableHead>
               <TableHead className="text-right">Tồn kho</TableHead>
               <TableHead className="text-right">Giá trị tồn</TableHead>
               <TableHead className="text-center">Health</TableHead>
@@ -75,19 +66,19 @@ function ClearanceCandidatesTab() {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   Không có sản phẩm nào cần clearance
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item, idx) => {
-                const premium = isPremiumGroup({ fc_name: item.fc_name });
+              filtered.map((item) => {
+                const premium = isPremiumGroup({ product_name: item.product_name, subcategory: item.subcategory });
                 return (
-                  <TableRow key={idx} className="hover:bg-muted/30">
+                  <TableRow key={item.product_id} className="hover:bg-muted/30">
                     <TableCell>
                       <div>
-                        <span className="font-medium">{item.fc_name}</span>
-                        <span className="text-xs text-muted-foreground ml-2">{item.fc_code}</span>
+                        <span className="font-medium text-sm">{item.product_name}</span>
+                        <span className="text-xs text-muted-foreground block">{item.sku}</span>
                       </div>
                       {premium && (
                         <Badge variant="outline" className="text-xs mt-1 border-amber-500 text-amber-600">
@@ -96,13 +87,16 @@ function ClearanceCandidatesTab() {
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{item.season || '—'}</TableCell>
-                    <TableCell className="text-right font-mono">{formatNumber(item.total_on_hand)}</TableCell>
+                    <TableCell className="text-right font-mono">{formatNumber(item.current_stock)}</TableCell>
                     <TableCell className="text-right font-mono">{formatCurrency(item.inventory_value)}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={item.health_score < 40 ? 'destructive' : item.health_score < 60 ? 'secondary' : 'default'}>
-                        {item.health_score}
-                      </Badge>
+                      {item.health_score != null ? (
+                        <Badge variant={item.health_score < 40 ? 'destructive' : item.health_score < 60 ? 'secondary' : 'default'}>
+                          {Math.round(item.health_score)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={item.markdown_risk_score >= 80 ? 'destructive' : 'secondary'}>
@@ -110,9 +104,13 @@ function ClearanceCandidatesTab() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={item.curve_state === 'broken' ? 'destructive' : 'secondary'}>
-                        {item.curve_state}
-                      </Badge>
+                      {item.curve_state ? (
+                        <Badge variant={item.curve_state === 'broken' ? 'destructive' : 'secondary'}>
+                          {item.curve_state}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -130,7 +128,6 @@ function MarkdownHistoryTab() {
   const [searchSku, setSearchSku] = useState('');
   const { data: history, isLoading } = useClearanceHistory(searchSku || undefined);
 
-  // Group by discount_band + channel
   const grouped = useMemo(() => {
     if (!history) return [];
     const map = new Map<string, { band: string; channel: string; units: number; revenue: number; discount: number; months: string[] }>();
@@ -289,7 +286,6 @@ export default function ClearancePage() {
         <AlertTriangle className="h-4 w-4 text-amber-500" />
         <AlertDescription className="text-amber-700 dark:text-amber-400">
           <strong>Guardrail:</strong> Nhóm Premium / Signature / Thêu không được off quá {PREMIUM_MAX_DISCOUNT}%.
-          Vi phạm sẽ được cảnh báo.
         </AlertDescription>
       </Alert>
 
