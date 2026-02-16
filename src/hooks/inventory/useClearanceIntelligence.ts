@@ -3,8 +3,8 @@ import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface ClearanceHistoryItem {
   tenant_id: string;
+  fc_id: string;
   product_name: string;
-  sku: string;
   channel: string;
   sale_month: string;
   discount_band: string;
@@ -44,27 +44,28 @@ export function isPremiumGroup(fc: { product_name?: string; fc_name?: string; su
 export { PREMIUM_MAX_DISCOUNT };
 
 /**
- * Fetch clearance history by product_name (matching inv_family_codes.fc_name).
+ * Fetch clearance history by fc_id (matched via inv_sku_fc_mapping in the view).
+ * Includes both discounted and full-price sales for complete picture.
  */
-export function useClearanceHistory(productName?: string) {
+export function useClearanceHistory(fcId?: string) {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['clearance-history', tenantId, productName],
+    queryKey: ['clearance-history-fc', tenantId, fcId],
     queryFn: async () => {
-      let query = buildQuery('v_clearance_history_by_product' as any)
+      let query = buildQuery('v_clearance_history_by_fc' as any)
         .order('sale_month', { ascending: false })
         .limit(500);
 
-      if (productName) {
-        query = query.eq('product_name', productName);
+      if (fcId) {
+        query = query.eq('fc_id', fcId);
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return (data || []) as unknown as ClearanceHistoryItem[];
     },
-    enabled: isReady && !!tenantId,
+    enabled: isReady && !!tenantId && !!fcId,
   });
 }
 
@@ -167,29 +168,39 @@ export function useClearanceCandidates() {
 
 /**
  * Aggregate clearance history by channel for channel analysis tab.
+ * Uses the new v_clearance_history_by_fc view (SKU-based matching).
  */
 export function useClearanceByChannel() {
-  const { data: history, isLoading } = useClearanceHistory();
+  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
-  const channelSummary = (history || []).reduce((acc, item) => {
-    const ch = item.channel || 'Unknown';
-    if (!acc[ch]) {
-      acc[ch] = { channel: ch, totalUnits: 0, totalRevenue: 0, totalDiscount: 0, count: 0, avgDiscountPct: 0 };
-    }
-    acc[ch].totalUnits += item.units_sold;
-    acc[ch].totalRevenue += item.revenue_collected;
-    acc[ch].totalDiscount += item.total_discount_given;
-    acc[ch].count += 1;
-    return acc;
-  }, {} as Record<string, { channel: string; totalUnits: number; totalRevenue: number; totalDiscount: number; count: number; avgDiscountPct: number }>);
+  return useQuery({
+    queryKey: ['clearance-by-channel', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('v_clearance_history_by_fc' as any)
+        .limit(1000);
+      if (error) throw error;
 
-  Object.values(channelSummary).forEach(ch => {
-    const total = ch.totalRevenue + ch.totalDiscount;
-    ch.avgDiscountPct = total > 0 ? Math.round((ch.totalDiscount / total) * 100) : 0;
+      const history = (data || []) as unknown as ClearanceHistoryItem[];
+
+      const channelSummary = history.reduce((acc, item) => {
+        const ch = item.channel || 'Unknown';
+        if (!acc[ch]) {
+          acc[ch] = { channel: ch, totalUnits: 0, totalRevenue: 0, totalDiscount: 0, count: 0, avgDiscountPct: 0 };
+        }
+        acc[ch].totalUnits += item.units_sold;
+        acc[ch].totalRevenue += item.revenue_collected;
+        acc[ch].totalDiscount += item.total_discount_given;
+        acc[ch].count += 1;
+        return acc;
+      }, {} as Record<string, { channel: string; totalUnits: number; totalRevenue: number; totalDiscount: number; count: number; avgDiscountPct: number }>);
+
+      Object.values(channelSummary).forEach(ch => {
+        const total = ch.totalRevenue + ch.totalDiscount;
+        ch.avgDiscountPct = total > 0 ? Math.round((ch.totalDiscount / total) * 100) : 0;
+      });
+
+      return Object.values(channelSummary).sort((a, b) => b.totalUnits - a.totalUnits);
+    },
+    enabled: isReady && !!tenantId,
   });
-
-  return {
-    data: Object.values(channelSummary).sort((a, b) => b.totalUnits - a.totalUnits),
-    isLoading,
-  };
 }

@@ -18219,6 +18219,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inv_allocation_recommendations_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
+          },
+          {
             foreignKeyName: "inv_allocation_recommendations_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
@@ -18724,6 +18731,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inv_rebalance_suggestions_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
+          },
+          {
             foreignKeyName: "inv_rebalance_suggestions_from_location_fkey"
             columns: ["from_location"]
             isOneToOne: false
@@ -18815,6 +18829,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inv_family_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_sku_fc_mapping_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
           },
           {
             foreignKeyName: "inv_sku_fc_mapping_tenant_id_fkey"
@@ -18911,6 +18932,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inv_family_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_demand_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
           },
           {
             foreignKeyName: "inv_state_demand_store_id_fkey"
@@ -19010,6 +19038,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "inv_state_positions_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
+          },
+          {
             foreignKeyName: "inv_state_positions_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
@@ -19090,6 +19125,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inv_family_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_size_integrity_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
           },
           {
             foreignKeyName: "inv_state_size_integrity_store_id_fkey"
@@ -19326,6 +19368,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inv_family_codes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_transfer_orders_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
           },
           {
             foreignKeyName: "inv_transfer_orders_from_store_id_fkey"
@@ -36929,6 +36978,50 @@ export type Database = {
           },
           {
             foreignKeyName: "cdp_orders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      v_clearance_history_by_fc: {
+        Row: {
+          avg_discount_pct: number | null
+          channel: string | null
+          discount_band: string | null
+          fc_id: string | null
+          product_name: string | null
+          revenue_collected: number | null
+          sale_month: string | null
+          tenant_id: string | null
+          total_discount_given: number | null
+          units_sold: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_family_codes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_family_codes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_family_codes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_family_codes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
