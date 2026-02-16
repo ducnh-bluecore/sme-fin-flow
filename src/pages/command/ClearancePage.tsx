@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // ─── Product Detail Panel ───
 function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandidate; onBack: () => void }) {
-  const { data: history, isLoading } = useClearanceHistory(candidate.product_name);
+  const { data: history, isLoading } = useClearanceHistory(candidate.product_id);
 
   const grouped = useMemo(() => {
     if (!history) return [];
@@ -45,7 +45,7 @@ function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandida
         });
       }
     });
-    const bandOrder = ['0-20%', '20-30%', '30-50%', '>50%'];
+    const bandOrder = ['full_price', '0-20%', '20-30%', '30-50%', '>50%'];
     return Array.from(map.values())
       .sort((a, b) => bandOrder.indexOf(a.band) - bandOrder.indexOf(b.band));
   }, [history]);
@@ -138,7 +138,7 @@ function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandida
           {isLoading ? (
             <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : grouped.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">Sản phẩm này chưa từng được giảm giá — chưa có dữ liệu clearance để phân tích.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">Sản phẩm này chưa có lịch sử bán hàng trong hệ thống.</p>
           ) : (
             <div className="rounded-lg border overflow-hidden">
               <Table>
@@ -156,7 +156,9 @@ function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandida
                   {grouped.map((g, i) => (
                     <TableRow key={i}>
                       <TableCell>
-                        <Badge variant={g.band === '>50%' ? 'destructive' : 'secondary'}>{g.band}</Badge>
+                        <Badge variant={g.band === '>50%' ? 'destructive' : g.band === 'full_price' ? 'default' : 'secondary'}>
+                          {g.band === 'full_price' ? 'Giá gốc' : g.band}
+                        </Badge>
                       </TableCell>
                       <TableCell className="font-medium">{g.channel}</TableCell>
                       <TableCell className="text-right font-mono">{formatNumber(g.units)}</TableCell>
@@ -426,7 +428,7 @@ function ChannelAnalysisTab() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {channels.map(ch => (
+      {(channels || []).map(ch => (
         <Card key={ch.channel}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -456,7 +458,7 @@ function ChannelAnalysisTab() {
           </CardContent>
         </Card>
       ))}
-      {channels.length === 0 && (
+      {(!channels || channels.length === 0) && (
         <div className="col-span-full text-center text-muted-foreground py-8">
           Chưa có dữ liệu clearance
         </div>
