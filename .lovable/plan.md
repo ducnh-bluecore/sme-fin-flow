@@ -1,76 +1,106 @@
 
-# Nang cap Clearance Intelligence: Toc do ban, Giai thich rui ro & Nhom theo Bo suu tap
+# Tai lieu Bluecore Command - Viet lai toan bo
 
-## Tong quan
+## Muc tieu
+Viet lai file `.lovable/plan.md` thanh tai lieu toan dien ve Bluecore Command, bao gom kien truc, modules, cong thuc, luong du lieu va database schema. Day la Source of Truth duy nhat cho toan bo he thong.
 
-Ba cai tien chinh:
-1. **Toc do ban (Sales Velocity)** - Hien thi toc do ban trung binh/ngay va xu huong (trend) cho moi san pham clearance
-2. **Giai thich ro ly do clearance** - Chuyen truong `reason` tu database thanh giao dien de doc, hien thi noi bat thay vi chi 1 dong italic nho
-3. **Nhom theo Bo suu tap (Collection)** - Them layer nhom san pham theo collection (vd: "Winter Elegance 2025", "Spring Bloom 2026") de CEO/CFO nhin tong quan nhanh hon
+## Cau truc tai lieu
 
-## Chi tiet thiet ke
+### 1. Tong quan & Triet ly (Decision Stack Philosophy)
 
-### 1. Them Sales Velocity vao danh sach va detail panel
+Mo ta 3 tang nao cua Bluecore Command:
+- **Size Control Tower** (Operational Brain) - Bao ve doanh thu, phat hien "le size", dieu chuyen ton kho
+- **Retail Flight Deck** (Executive Brain) - Clearance Intelligence, markdown risk, thoi gian toi thiet hai tai chinh
+- **Growth Simulator** (Strategic Brain) - Mo phong tang truong, xac dinh Hero products, ke hoach san xuat
 
-**Nguon du lieu**: Bang `inv_state_demand` - da co san du lieu `sales_velocity`, `avg_daily_sales`, `trend` lien ket qua `fc_id`.
+### 2. Module Map - 9 Trang chinh
 
-**Trong danh sach chinh (bang Clearance Candidates)**:
-- Them cot "Toc do ban" hien thi `avg_daily_sales` (vd: "0.07/ngay") va badge trend (tang/giam/on dinh)
-- Cot nay giup CEO thay ngay san pham nao "chet" (velocity gan 0) va can uu tien clear
-
-**Trong detail panel (khi click vao san pham)**:
-- Them 2 metric moi: "Toc do ban TB" va "Xu huong" vao grid metric phia tren
-- Tinh "So ngay de clear het" = current_stock / avg_daily_sales (neu velocity > 0)
-
-### 2. Giai thich ly do clearance ro rang hon
-
-Hien tai `reason` chi hien thi 1 dong nho. Se chuyen thanh:
-- Mot card rieng "Tai sao can Clear?" voi icon canh bao
-- Tach cac yeu to (markdown risk score, health score, curve state, days to markdown) thanh cac dong rieng voi progress bar / badge mau
-- Vd: "Size curve bi pha vo (broken) + Toc do ban cham (0.03/ngay) + Da ton 45 ngay"
-
-### 3. Nhom theo Bo suu tap (Collection Layer)
-
-**Nguon du lieu**: Bang `inv_collections` lien ket qua `collection_id` trong `inv_family_codes`. Da co 3 collections: "Winter Elegance 2025", "Tet Collection 2026", "Spring Bloom 2026".
-
-**Giao dien**:
-- Mac dinh hien thi danh sach theo collection (accordion/group)
-- Moi collection header hien thi: ten collection, season, so san pham can clear, tong gia tri ton
-- Click expand de thay danh sach san pham trong collection do
-- Cung cap toggle "Nhom theo BST / Danh sach phang" de nguoi dung chon
-
-## Chi tiet ky thuat
-
-### File: `src/hooks/inventory/useClearanceIntelligence.ts`
-
-**Interface `ClearanceCandidate`** - Them cac truong:
-```
-avg_daily_sales: number
-sales_velocity: number
-trend: string | null
-days_to_clear: number | null
-collection_id: string | null
-collection_name: string | null
+```text
+/command/overview         -> Trang Tong Quan (KPI cards, decision feed)
+/command/allocation       -> Phan Bo Ton Kho (lazy load InventoryAllocationPage)
+/command/assortment       -> Size Control Tower (HealthStrip, Heatmap, Transfers)
+/command/clearance        -> Clearance Intelligence (MD risk, Why Clear, Collection groups)
+/command/network-gap      -> Nguon Cung & Growth Simulator
+/command/production       -> San Xuat (Production Candidates, approve/reject)
+/command/decisions        -> Hang Doi Quyet Dinh (Decision Packages)
+/command/outcomes         -> Ket Qua (Decision Outcomes, Override Learning)
+/command/settings         -> Cai Dat (Policies, Criticality, Size Curves, Store Tiers)
 ```
 
-**Hook `useClearanceCandidates`** - Them 2 query song song:
-1. Query `inv_state_demand` theo `fc_id` (aggregate `avg_daily_sales` qua cac store)
-2. Query `inv_collections` de lay ten collection
+### 3. Cong thuc & Logic quan trong
 
-Dung RPC hoac aggregate phia server de tranh gioi han 1000 dong khi lay demand data.
+- **Hero Score**: 4 thanh phan (Revenue percentile, Margin, Velocity momentum, Trend) - moi thanh phan 0-25, tong 0-100
+- **Financial Damage Score**: Markdown risk + Cash lock + Margin leak
+- **Growth Efficiency**: Velocity * Margin / DOC
+- **Days to Clear**: current_stock / avg_daily_sales
+- **Clearance logic**: markdown_risk_score >= 50 → candidate, ket hop health_score, curve_state, trend
 
-### File: `src/pages/command/ClearancePage.tsx`
+### 4. Database Schema Map
 
-**ClearanceCandidatesTab** - Thay doi:
-- Them state `groupByCollection` (boolean toggle)
-- Khi bat: nhom candidates theo `collection_name`, render moi nhom trong Collapsible component
-- Moi group header: `[Collection Name] - [Season] - [N san pham] - [Tong gia tri ton]`
-- Them cot "Toc do ban" vao bang
+Liet ke cac nhom bang:
+- `inv_*` (13 bang) - Inventory core: stores, family_codes, sku_fc_mapping, positions, demand, collections...
+- `state_*` (6 bang) - Daily computed states: size_health, cash_lock, margin_leak, markdown_risk, lost_revenue, transfers
+- `kpi_*` (7 bang) - KPI metrics: size_completeness, network_gap, inventory_distortion, curve_health...
+- `dec_*` (5 bang) - Decision engine: packages, package_lines, approvals, outcomes, production_candidates
+- `sem_*` (3 bang) - Semantic config: allocation_policies, size_curve_profiles, sku_criticality
 
-**ProductDetailPanel** - Thay doi:
-- Them metric cards: "Toc do ban TB", "Xu huong", "So ngay de clear het"
-- Them card "Tai sao can Clear?" voi breakdown chi tiet tu `reason`, `markdown_risk_score`, `health_score`, `curve_state`
+### 5. Data Flow & RPC Functions
 
-### Migration (neu can)
+- `fn_inv_overview_stats` - Aggregate inventory stats (no row limit)
+- `fn_clearance_stock_by_fc` - Aggregate stock by FC
+- `fn_clearance_demand_by_fc` - Aggregate demand (avg_daily_sales, velocity, trend) by FC
+- `inventory-kpi-engine` (Edge Function) - Compute health, cash lock, margin leak
+- `growth-simulator` (Edge Function) - Run growth simulation
 
-Co the can tao RPC `fn_clearance_demand_by_fc` de aggregate demand theo fc_id phia server (tuong tu `fn_clearance_stock_by_fc`), tranh hit gioi han 1000 dong khi co nhieu store x fc.
+### 6. Component Architecture
+
+```text
+BluecoreCommandLayout (sidebar + header)
+  |-- CommandOverviewPage (KPI cards + Decision Feed)
+  |-- AssortmentPage (Size Control Tower)
+  |     |-- HealthStrip (global health score)
+  |     |-- DecisionFeed (broken styles priority)
+  |     |-- PrioritizedBreakdown (SKU analysis)
+  |     |-- TransferSuggestionsCard (rebalance)
+  |     |-- StoreHeatmap + ActionImpactPanel
+  |-- ClearancePage
+  |     |-- CandidatesTab (collection groups, velocity)
+  |     |-- WhyClearCard (risk breakdown)
+  |     |-- ProductDetailPanel (history, channels)
+  |     |-- ChannelAnalysisTab
+  |-- NetworkGapPage + GrowthSimulator
+  |     |-- GrowthInputPanel -> GrowthHeroStrip
+  |     |-- GrowthBeforeAfter, GrowthProductionTable
+  |     |-- GrowthExpansionMap, GrowthRiskRegister
+  |-- ProductionCandidatesPage
+  |-- DecisionQueuePage
+  |-- DecisionOutcomesPage
+  |-- CommandSettingsPage
+```
+
+### 7. Hook Architecture
+
+Liet ke cac custom hooks va chuc nang:
+- `useSizeControlTower` - Aggregate hook (summary + heatmap + health groups)
+- `useSizeIntelligence` - Evidence packs + transfers
+- `useClearanceIntelligence` - Clearance candidates + history + channel analysis
+- `useAllocationRecommendations`, `useRunRebalance`, `useApproveTransfer`...
+
+### 8. Simulation Engine (Growth Simulator v2)
+
+Chi tiet cong thuc:
+- Input: `SimulationParams` (growthPct, horizonMonths, DOC, safetyStock, cashCap...)
+- Output: `SimSummary` (production units, cash required, hero gap, before/after, risks)
+- Growth Shape: `CategoryShape`, `SizeShift`, `PriceBandShape`
+
+## File thay doi
+
+| File | Thay doi |
+|------|---------|
+| `.lovable/plan.md` | Viet lai toan bo - tu 76 dong thanh ~300+ dong tai lieu toan dien |
+
+## Ghi chu
+
+- Tai lieu viet bang tieng Viet (khong dau) de dam bao tuong thich voi moi editor
+- Day la tai lieu noi bo cho dev & AI, khong phai user-facing
+- Moi thay doi module trong tuong lai can cap nhat file nay
