@@ -122,7 +122,7 @@ export interface EvidenceContract {
 // DECISION CONTRACT
 // ═══════════════════════════════════════════════════════════════════
 
-export type CommandCenterDomain = 'FDP' | 'MDP' | 'CDP' | 'CONTROL_TOWER';
+export type CommandCenterDomain = 'FDP' | 'MDP' | 'CDP' | 'COMMAND' | 'CONTROL_TOWER';
 
 export type DecisionSeverity = 'critical' | 'high' | 'medium' | 'low';
 
@@ -144,7 +144,7 @@ export type DecisionActionType =
   | 'ADJUST_STRATEGY'  // Change approach
   | 'ESCALATE';        // Send to higher authority
 
-export type DecisionOwnerRole = 'CEO' | 'CFO' | 'CMO' | 'COO' | 'OPS';
+export type DecisionOwnerRole = 'CEO' | 'CFO' | 'CMO' | 'COO' | 'OPS' | 'MERCHANDISER';
 
 export interface DecisionFact {
   /** Fact identifier */

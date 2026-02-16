@@ -434,6 +434,79 @@ const CONTROL_TOWER_METRICS: MetricContract[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════
+// COMMAND METRICS (Inventory Command)
+// ═══════════════════════════════════════════════════════════════════
+
+const COMMAND_METRICS: MetricContract[] = [
+  {
+    metric_code: 'size_health_score',
+    label: 'Size Health Score',
+    label_vi: 'Điểm sức khỏe size',
+    source_view: 'state_size_health_daily',
+    source_expression: 'health_score',
+    grain: 'sku',
+    source_type: 'database_table',
+    version: 1,
+    unit: 'count',
+    domain: 'COMMAND',
+    is_actionable: true,
+  },
+  {
+    metric_code: 'markdown_risk_score',
+    label: 'Markdown Risk Score',
+    label_vi: 'Điểm rủi ro giảm giá',
+    source_view: 'state_markdown_risk_daily',
+    source_expression: 'risk_score',
+    grain: 'sku',
+    source_type: 'database_table',
+    version: 1,
+    unit: 'count',
+    domain: 'COMMAND',
+    is_actionable: true,
+  },
+  {
+    metric_code: 'cash_locked_value',
+    label: 'Cash Locked in Inventory',
+    label_vi: 'Tiền bị khóa trong tồn kho',
+    source_view: 'state_cash_lock_daily',
+    source_expression: 'locked_value',
+    grain: 'sku',
+    source_type: 'database_table',
+    version: 1,
+    unit: 'currency',
+    currency: 'VND',
+    domain: 'COMMAND',
+    is_actionable: true,
+  },
+  {
+    metric_code: 'days_to_clear',
+    label: 'Days to Clear',
+    label_vi: 'Số ngày để clear hàng',
+    source_view: 'state_markdown_risk_daily',
+    source_expression: 'current_stock / NULLIF(avg_daily_sales, 0)',
+    grain: 'sku',
+    source_type: 'hook_computed',
+    version: 1,
+    unit: 'days',
+    domain: 'COMMAND',
+    is_actionable: true,
+  },
+  {
+    metric_code: 'clearance_candidates_count',
+    label: 'Clearance Candidates',
+    label_vi: 'Số FC cần thanh lý',
+    source_view: 'state_markdown_risk_daily',
+    source_expression: "COUNT(*) WHERE risk_score >= 70",
+    grain: 'tenant',
+    source_type: 'database_table',
+    version: 1,
+    unit: 'count',
+    domain: 'COMMAND',
+    is_actionable: true,
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════
 // REGISTRY
 // ═══════════════════════════════════════════════════════════════════
 
@@ -444,6 +517,7 @@ export const METRIC_REGISTRY: MetricContract[] = [
   ...FDP_METRICS,
   ...MDP_METRICS,
   ...CDP_METRICS,
+  ...COMMAND_METRICS,
   ...CONTROL_TOWER_METRICS,
 ];
 
