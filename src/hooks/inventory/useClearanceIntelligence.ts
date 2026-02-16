@@ -72,7 +72,7 @@ export function useClearanceHistory(productName?: string) {
  * Fetch clearance candidates by joining markdown risk with inv_family_codes + health + cash lock.
  */
 export function useClearanceCandidates() {
-  const { buildQuery, buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildQuery, buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['clearance-candidates', tenantId],
@@ -109,12 +109,11 @@ export function useClearanceCandidates() {
         .select('product_id, cash_locked_value, inventory_value')
         .in('product_id', productIds);
 
-      // 5. Fetch stock from inv_state_positions
-      const { data: stockData } = await buildSelectQuery(
-        'inv_state_positions',
-        'fc_id, on_hand'
-      )
-        .in('fc_id', productIds);
+      // 5. Fetch stock via RPC (server-side aggregation to avoid 1000-row limit)
+      const { data: stockData } = await client.rpc('fn_clearance_stock_by_fc', {
+        p_tenant_id: tenantId,
+        p_fc_ids: productIds,
+      });
 
       // Build lookup maps
       const fcMap = new Map<string, any>();
@@ -126,10 +125,10 @@ export function useClearanceCandidates() {
       const cashMap = new Map<string, any>();
       for (const c of (cashData || []) as any[]) cashMap.set(c.product_id, c);
 
-      // Aggregate stock by fc_id
+      // Stock map from RPC result
       const stockMap = new Map<string, number>();
       for (const s of (stockData || []) as any[]) {
-        stockMap.set(s.fc_id, (stockMap.get(s.fc_id) || 0) + Number(s.on_hand || 0));
+        stockMap.set(s.fc_id, Number(s.total_on_hand || 0));
       }
 
       // Combine
