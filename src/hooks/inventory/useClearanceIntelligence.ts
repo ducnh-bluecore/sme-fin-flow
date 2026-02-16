@@ -17,9 +17,9 @@ export interface ClearanceHistoryItem {
 export interface ClearanceCandidate {
   product_id: string;
   product_name: string;
-  sku: string;
+  fc_code: string;
   category: string | null;
-  subcategory: string | null;
+  season: string | null;
   markdown_risk_score: number;
   markdown_eta_days: number | null;
   reason: string;
@@ -28,12 +28,12 @@ export interface ClearanceCandidate {
   current_stock: number;
   inventory_value: number;
   cash_locked: number;
-  cost_price: number;
+  is_premium: boolean;
 }
 
 const PREMIUM_MAX_DISCOUNT = 50;
 
-export function isPremiumGroup(fc: { product_name?: string; subcategory?: string; fc_name?: string; metadata?: { tags?: string[] } }) {
+export function isPremiumGroup(fc: { product_name?: string; fc_name?: string; subcategory?: string; metadata?: { tags?: string[] } }) {
   const tags = (fc.metadata as any)?.tags || [];
   const name = ((fc.product_name || fc.fc_name || '') + ' ' + (fc.subcategory || '')).toLowerCase();
   return tags.includes('premium') || tags.includes('signature')
@@ -44,20 +44,20 @@ export function isPremiumGroup(fc: { product_name?: string; subcategory?: string
 export { PREMIUM_MAX_DISCOUNT };
 
 /**
- * Fetch clearance history from the pre-aggregated view.
+ * Fetch clearance history by product_name (matching inv_family_codes.fc_name).
  */
-export function useClearanceHistory(sku?: string) {
+export function useClearanceHistory(productName?: string) {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['clearance-history', tenantId, sku],
+    queryKey: ['clearance-history', tenantId, productName],
     queryFn: async () => {
       let query = buildQuery('v_clearance_history_by_product' as any)
         .order('sale_month', { ascending: false })
         .limit(500);
 
-      if (sku) {
-        query = query.eq('sku', sku);
+      if (productName) {
+        query = query.eq('product_name', productName);
       }
 
       const { data, error } = await query;
@@ -69,15 +69,15 @@ export function useClearanceHistory(sku?: string) {
 }
 
 /**
- * Fetch clearance candidates by joining markdown risk with products + health + cash lock.
+ * Fetch clearance candidates by joining markdown risk with inv_family_codes + health + cash lock.
  */
 export function useClearanceCandidates() {
-  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildQuery, buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['clearance-candidates', tenantId],
     queryFn: async () => {
-      // 1. Get high markdown risk products
+      // 1. Get high markdown risk products (product_id = inv_family_codes.id)
       const { data: riskData, error: riskError } = await buildQuery('state_markdown_risk_daily' as any)
         .select('product_id, markdown_risk_score, markdown_eta_days, reason')
         .gte('markdown_risk_score', 50)
@@ -89,12 +89,14 @@ export function useClearanceCandidates() {
 
       const productIds = (riskData as any[]).map(r => r.product_id);
 
-      // 2. Fetch product details for these IDs
-      const { data: products, error: prodError } = await buildQuery('products' as any)
-        .select('id, name, sku, category, subcategory, cost_price, selling_price, current_stock')
+      // 2. Fetch family code details (NOT products table)
+      const { data: fcData, error: fcError } = await buildSelectQuery(
+        'inv_family_codes',
+        'id, fc_code, fc_name, category, season, metadata'
+      )
         .in('id', productIds);
 
-      if (prodError) throw prodError;
+      if (fcError) throw fcError;
 
       // 3. Fetch health scores
       const { data: healthData } = await buildQuery('state_size_health_daily' as any)
@@ -107,9 +109,16 @@ export function useClearanceCandidates() {
         .select('product_id, cash_locked_value, inventory_value')
         .in('product_id', productIds);
 
+      // 5. Fetch stock from inv_state_positions
+      const { data: stockData } = await buildSelectQuery(
+        'inv_state_positions',
+        'fc_id, on_hand'
+      )
+        .in('fc_id', productIds);
+
       // Build lookup maps
-      const productMap = new Map<string, any>();
-      for (const p of (products || []) as any[]) productMap.set(p.id, p);
+      const fcMap = new Map<string, any>();
+      for (const f of (fcData || []) as any[]) fcMap.set(f.id, f);
 
       const healthMap = new Map<string, any>();
       for (const h of (healthData || []) as any[]) healthMap.set(h.product_id, h);
@@ -117,29 +126,37 @@ export function useClearanceCandidates() {
       const cashMap = new Map<string, any>();
       for (const c of (cashData || []) as any[]) cashMap.set(c.product_id, c);
 
+      // Aggregate stock by fc_id
+      const stockMap = new Map<string, number>();
+      for (const s of (stockData || []) as any[]) {
+        stockMap.set(s.fc_id, (stockMap.get(s.fc_id) || 0) + Number(s.on_hand || 0));
+      }
+
       // Combine
       const candidates: ClearanceCandidate[] = (riskData as any[]).map(r => {
-        const prod = productMap.get(r.product_id);
+        const fc = fcMap.get(r.product_id);
         const health = healthMap.get(r.product_id);
         const cash = cashMap.get(r.product_id);
-        const costPrice = Number(prod?.cost_price || 0);
-        const stock = Number(prod?.current_stock || 0);
+        const stock = stockMap.get(r.product_id) || 0;
 
         return {
           product_id: r.product_id,
-          product_name: prod?.name || '—',
-          sku: prod?.sku || '—',
-          category: prod?.category || null,
-          subcategory: prod?.subcategory || null,
+          product_name: fc?.fc_name || '—',
+          fc_code: fc?.fc_code || '—',
+          category: fc?.category || null,
+          season: fc?.season || null,
           markdown_risk_score: r.markdown_risk_score,
           markdown_eta_days: r.markdown_eta_days,
           reason: r.reason,
           health_score: health?.size_health_score ?? null,
           curve_state: health?.curve_state || null,
           current_stock: stock,
-          inventory_value: cash?.inventory_value ?? (costPrice * stock),
+          inventory_value: cash?.inventory_value ?? 0,
           cash_locked: cash?.cash_locked_value ?? 0,
-          cost_price: costPrice,
+          is_premium: isPremiumGroup({
+            fc_name: fc?.fc_name,
+            metadata: fc?.metadata,
+          }),
         };
       });
 

@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { Tags, AlertTriangle, TrendingDown, Store, Search, ShieldAlert } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Tags, AlertTriangle, TrendingDown, Store, Search, ShieldAlert, ArrowLeft, Calendar, Package } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -13,14 +14,209 @@ import {
   useClearanceByChannel,
   isPremiumGroup,
   PREMIUM_MAX_DISCOUNT,
+  type ClearanceCandidate,
 } from '@/hooks/inventory/useClearanceIntelligence';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// ─── Product Detail Panel ───
+function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandidate; onBack: () => void }) {
+  const { data: history, isLoading } = useClearanceHistory(candidate.product_name);
+
+  const grouped = useMemo(() => {
+    if (!history) return [];
+    const map = new Map<string, { band: string; channel: string; units: number; revenue: number; discount: number; months: Set<string> }>();
+    history.forEach(h => {
+      const key = `${h.discount_band}|${h.channel}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.units += h.units_sold;
+        existing.revenue += h.revenue_collected;
+        existing.discount += h.total_discount_given;
+        existing.months.add(h.sale_month);
+      } else {
+        map.set(key, {
+          band: h.discount_band,
+          channel: h.channel,
+          units: h.units_sold,
+          revenue: h.revenue_collected,
+          discount: h.total_discount_given,
+          months: new Set([h.sale_month]),
+        });
+      }
+    });
+    const bandOrder = ['0-20%', '20-30%', '30-50%', '>50%'];
+    return Array.from(map.values())
+      .sort((a, b) => bandOrder.indexOf(a.band) - bandOrder.indexOf(b.band));
+  }, [history]);
+
+  // Summary by channel
+  const channelSummary = useMemo(() => {
+    if (!history) return [];
+    const map = new Map<string, { channel: string; units: number; revenue: number; avgDiscount: number; count: number }>();
+    history.forEach(h => {
+      const existing = map.get(h.channel);
+      if (existing) {
+        existing.units += h.units_sold;
+        existing.revenue += h.revenue_collected;
+        existing.count += 1;
+      } else {
+        map.set(h.channel, { channel: h.channel, units: h.units_sold, revenue: h.revenue_collected, avgDiscount: 0, count: 1 });
+      }
+    });
+    map.forEach(ch => {
+      const rows = history.filter(h => h.channel === ch.channel);
+      ch.avgDiscount = rows.length > 0 ? Math.round(rows.reduce((s, r) => s + r.avg_discount_pct, 0) / rows.length) : 0;
+    });
+    return Array.from(map.values()).sort((a, b) => b.units - a.units);
+  }, [history]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-4"
+    >
+      <Button variant="ghost" size="sm" onClick={onBack} className="gap-1">
+        <ArrowLeft className="h-4 w-4" /> Quay lại
+      </Button>
+
+      {/* Product header */}
+      <Card>
+        <CardContent className="pt-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">{candidate.product_name}</h2>
+              <p className="text-sm text-muted-foreground">Mã FC: {candidate.fc_code}</p>
+              {candidate.season && <Badge variant="outline" className="mt-1">{candidate.season}</Badge>}
+            </div>
+            {candidate.is_premium && (
+              <Badge variant="outline" className="border-amber-500 text-amber-600">
+                <ShieldAlert className="h-3 w-3 mr-1" />
+                Premium - Max {PREMIUM_MAX_DISCOUNT}%
+              </Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="bg-muted/50 p-2 rounded">
+              <span className="text-muted-foreground block text-xs">Tồn kho</span>
+              <span className="font-mono font-bold">{formatNumber(candidate.current_stock)}</span>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <span className="text-muted-foreground block text-xs">Giá trị tồn</span>
+              <span className="font-mono font-bold">{formatCurrency(candidate.inventory_value)}</span>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <span className="text-muted-foreground block text-xs">Health Score</span>
+              <Badge variant={candidate.health_score != null && candidate.health_score < 40 ? 'destructive' : 'secondary'}>
+                {candidate.health_score != null ? Math.round(candidate.health_score) : '—'}
+              </Badge>
+            </div>
+            <div className="bg-muted/50 p-2 rounded">
+              <span className="text-muted-foreground block text-xs">MD Risk</span>
+              <Badge variant={candidate.markdown_risk_score >= 80 ? 'destructive' : 'secondary'}>
+                {candidate.markdown_risk_score}
+              </Badge>
+            </div>
+          </div>
+          {candidate.reason && (
+            <p className="text-xs text-muted-foreground italic">Lý do: {candidate.reason}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Clearance history by discount band & channel */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            Lịch sử giảm giá theo mức & kênh
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : grouped.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có lịch sử giảm giá cho sản phẩm này</p>
+          ) : (
+            <div className="rounded-lg border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Mức giảm</TableHead>
+                    <TableHead>Kênh</TableHead>
+                    <TableHead className="text-right">SL clear</TableHead>
+                    <TableHead className="text-right">Doanh thu</TableHead>
+                    <TableHead className="text-right">Discount</TableHead>
+                    <TableHead className="text-right">Số tháng</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grouped.map((g, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Badge variant={g.band === '>50%' ? 'destructive' : 'secondary'}>{g.band}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{g.channel}</TableCell>
+                      <TableCell className="text-right font-mono">{formatNumber(g.units)}</TableCell>
+                      <TableCell className="text-right font-mono">{formatCurrency(g.revenue)}</TableCell>
+                      <TableCell className="text-right font-mono text-destructive">{formatCurrency(g.discount)}</TableCell>
+                      <TableCell className="text-right">{g.months.size}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Channel summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Store className="h-4 w-4 text-muted-foreground" />
+            Hiệu quả theo kênh
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {channelSummary.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Chưa có dữ liệu</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {channelSummary.map(ch => (
+                <div key={ch.channel} className="bg-muted/50 rounded-lg p-3 space-y-1">
+                  <div className="font-medium text-sm">{ch.channel}</div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Đã clear</span>
+                    <span className="font-mono">{formatNumber(ch.units)} units</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Doanh thu</span>
+                    <span className="font-mono">{formatCurrency(ch.revenue)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Avg discount</span>
+                    <Badge variant={ch.avgDiscount > 40 ? 'destructive' : 'secondary'} className="text-xs h-5">
+                      {ch.avgDiscount}%
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
 
 // ─── Tab 1: Clearance Candidates ───
 function ClearanceCandidatesTab() {
   const { data: candidates, isLoading } = useClearanceCandidates();
   const [search, setSearch] = useState('');
+  const [selectedCandidate, setSelectedCandidate] = useState<ClearanceCandidate | null>(null);
 
   const filtered = useMemo(() => {
     if (!candidates) return [];
@@ -28,12 +224,16 @@ function ClearanceCandidatesTab() {
     const q = search.toLowerCase();
     return candidates.filter(c =>
       c.product_name.toLowerCase().includes(q) ||
-      c.sku.toLowerCase().includes(q)
+      c.fc_code.toLowerCase().includes(q)
     );
   }, [candidates, search]);
 
   if (isLoading) {
     return <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>;
+  }
+
+  if (selectedCandidate) {
+    return <ProductDetailPanel candidate={selectedCandidate} onBack={() => setSelectedCandidate(null)} />;
   }
 
   return (
@@ -71,50 +271,51 @@ function ClearanceCandidatesTab() {
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((item) => {
-                const premium = isPremiumGroup({ product_name: item.product_name, subcategory: item.subcategory });
-                return (
-                  <TableRow key={item.product_id} className="hover:bg-muted/30">
-                    <TableCell>
-                      <div>
-                        <span className="font-medium text-sm">{item.product_name}</span>
-                        <span className="text-xs text-muted-foreground block">{item.sku}</span>
-                      </div>
-                      {premium && (
-                        <Badge variant="outline" className="text-xs mt-1 border-amber-500 text-amber-600">
-                          <ShieldAlert className="h-3 w-3 mr-1" />
-                          Premium - Max {PREMIUM_MAX_DISCOUNT}%
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">{formatNumber(item.current_stock)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(item.inventory_value)}</TableCell>
-                    <TableCell className="text-center">
-                      {item.health_score != null ? (
-                        <Badge variant={item.health_score < 40 ? 'destructive' : item.health_score < 60 ? 'secondary' : 'default'}>
-                          {Math.round(item.health_score)}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={item.markdown_risk_score >= 80 ? 'destructive' : 'secondary'}>
-                        {item.markdown_risk_score}
+              filtered.map((item) => (
+                <TableRow
+                  key={item.product_id}
+                  className="hover:bg-muted/30 cursor-pointer"
+                  onClick={() => setSelectedCandidate(item)}
+                >
+                  <TableCell>
+                    <div>
+                      <span className="font-medium text-sm">{item.product_name}</span>
+                      <span className="text-xs text-muted-foreground block">{item.fc_code}</span>
+                    </div>
+                    {item.is_premium && (
+                      <Badge variant="outline" className="text-xs mt-1 border-amber-500 text-amber-600">
+                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        Premium
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.curve_state ? (
-                        <Badge variant={item.curve_state === 'broken' ? 'destructive' : 'secondary'}>
-                          {item.curve_state}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">{formatNumber(item.current_stock)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(item.inventory_value)}</TableCell>
+                  <TableCell className="text-center">
+                    {item.health_score != null ? (
+                      <Badge variant={item.health_score < 40 ? 'destructive' : item.health_score < 60 ? 'secondary' : 'default'}>
+                        {Math.round(item.health_score)}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant={item.markdown_risk_score >= 80 ? 'destructive' : 'secondary'}>
+                      {item.markdown_risk_score}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {item.curve_state ? (
+                      <Badge variant={item.curve_state === 'broken' ? 'destructive' : 'secondary'}>
+                        {item.curve_state}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -161,7 +362,7 @@ function MarkdownHistoryTab() {
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Nhập SKU để xem lịch sử..."
+          placeholder="Nhập tên sản phẩm để xem lịch sử..."
           value={searchSku}
           onChange={e => setSearchSku(e.target.value)}
           className="pl-9"
@@ -171,7 +372,7 @@ function MarkdownHistoryTab() {
       {!searchSku && (
         <Alert>
           <TrendingDown className="h-4 w-4" />
-          <AlertDescription>Nhập SKU hoặc tên sản phẩm để xem lịch sử markdown theo thời gian và kênh.</AlertDescription>
+          <AlertDescription>Nhập tên sản phẩm để xem lịch sử markdown theo thời gian và kênh. Hoặc click sản phẩm trong tab "Cần Clearance".</AlertDescription>
         </Alert>
       )}
 
@@ -179,7 +380,7 @@ function MarkdownHistoryTab() {
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
       ) : searchSku && grouped.length === 0 ? (
         <Alert>
-          <AlertDescription>Không tìm thấy lịch sử giảm giá cho SKU này.</AlertDescription>
+          <AlertDescription>Không tìm thấy lịch sử giảm giá cho sản phẩm này.</AlertDescription>
         </Alert>
       ) : searchSku ? (
         <div className="rounded-lg border overflow-hidden">
