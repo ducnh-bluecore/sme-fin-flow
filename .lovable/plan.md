@@ -1,141 +1,102 @@
 
-# Danh gia hien trang Bluecore Command & Phuong an toi uu
 
-## TONG QUAN DANH GIA
+# Phase 4: Strategic — Markdown Memory Engine (Moat Feature)
 
-Bluecore Command hien tai la mot he thong **Level 2 Financial Operating** rat vung chac voi kien truc ro rang, doc v2.1 day du, va 9 modules hoat dong. Tuy nhien, co 3 van de PERFORMANCE, 4 van de ARCHITECTURE, va 3 co hoi STRATEGIC can xu ly.
+## Tai sao lam cai nay truoc?
 
----
+Theo danh gia chien luoc, **Markdown Memory** la "signature feature candidate" vi:
+- Can historical behavioral data de hoat dong — moat = time
+- La nen tang cho Clearance Intelligence hien tai (dang thieu du lieu lich su)
+- Nuoi truc tiep Capital Misallocation Score (da co KPI card, nhung chua co markdown history data feed)
 
-## A. DIEM MANH (giu nguyen, khong sua)
-
-| Module | Danh gia | Ly do |
-|--------|---------|-------|
-| Size Control Tower (Assortment) | **9/10** | 3 tang UI (HealthStrip + DecisionFeed + Tabs), summary views bypass 1000-row, pagination qua RPC `fn_size_health_details` |
-| Growth Simulator Engine | **8/10** | 726 dong logic, HeroScore 4 thanh phan, Risk Flags, GrowthShape, server-side via Edge Function |
-| Decision Queue + Outcomes | **8/10** | Vong doi day du: PROPOSED → APPROVED/REJECTED → Outcome tracking + Override Learning |
-| Doc v2.1 | **9/10** | Route Contracts, Grain Invariants, Scoring Spec — du de AI + dev khong drift |
+Thu tu uu tien: Markdown Memory > Capital Misallocation Score nang cao > Buy Depth Engine
 
 ---
 
-## B. VAN DE CAN TOI UU
+## Thay doi chi tiet
 
-### B1. PERFORMANCE — 3 diem nong
+### 1. Database: 3 tables moi
 
-**[P1] AssortmentPage: Waterfall queries trong Evidence Drawer**
-- File: `AssortmentPage.tsx` (dong 124-240)
-- Van de: Khi mo Evidence Drawer, chay **4 queries** tuần tu:
-  1. `kpi_size_completeness` (missing sizes)
-  2. `inv_sku_fc_mapping` (all sizes)
-  3. `inv_sku_fc_mapping` (problematic SKUs)
-  4. `inv_state_positions` (surplus stores) + `inv_stores` (names)
-- Tac dong: 200-500ms per query x 4 = UI lag 1-2s khi click vao 1 style
-- **Fix**: Gop thanh 1 RPC `fn_evidence_pack_by_fc(p_tenant_id, p_fc_id)` tra ve tat ca data trong 1 call
+**`inv_markdown_events`** — Ghi lai moi su kien giam gia cua SKU
+- `fc_id`, `sku`, `channel`, `discount_pct`, `units_sold`, `revenue_collected`, `event_date`
+- Muc dich: Accumulate behavioral data — moi lan off gia la 1 event
 
-**[P2] ClearancePage: N+1 query trong useClearanceCandidates**
-- File: `useClearanceIntelligence.ts` (dong 81-203)
-- Van de: Fetch 200 risk rows, roi query **5 bang khac** (health, cash, stock, demand, collections) voi `Promise.all` — tot, nhung van la 6 round-trip
-- Tac dong: Voi 200+ FCs, moi query van lay du lieu cho tat ca 200 IDs cung luc (OK), nhung tong thoi gian van ~2-3s
-- **Fix**: Tao 1 RPC `fn_clearance_candidates(p_tenant_id, p_min_risk)` join tat ca tables server-side, tra ve `ClearanceCandidate[]` truc tiep
+**`sem_markdown_ladders`** — Hieu qua thoat hang theo tung bac giam gia
+- `fc_id`, `channel`, `discount_step` (10/20/30/40/50), `clearability_score`, `avg_days_to_clear`, `total_units_cleared`
+- Muc dich: Tra loi "off 30% tren Shopee → clear duoc bao nhieu?"
 
-**[P3] useRebalanceSuggestions: Pagination loop client-side**
-- File: `useRebalanceSuggestions.ts` (dong 47-65)
-- Van de: While loop `hasMore` voi PAGE_SIZE=1000 — neu co 5000 suggestions se chay 5 round-trips
-- Tac dong: Hiem gap, nhung khi xay ra se block UI
-- **Fix**: Them server-side pagination voi `limit + offset` qua params, hoac tao RPC aggregate
+**`sem_markdown_caps`** — Gioi han giam gia theo nhom san pham
+- `fc_id` hoac `category`, `max_discount_pct`, `reason`, `override_by`
+- Muc dich: Enforce Premium Guardrail tu database (hien tai chi check client-side)
 
----
+RLS policies cho ca 3 tables: tenant-isolated reads/writes.
 
-### B2. ARCHITECTURE — 4 diem can chinh
+### 2. RPC: `fn_markdown_ladder_summary`
 
-**[A1] Type Safety: `as any` abuse**
-- Hien trang: Hau het moi query deu cast `as any`:
-  ```typescript
-  buildQuery('inv_family_codes' as any)
-  buildQuery('state_markdown_risk_daily' as any)
-  ```
-- Van de: Supabase types khong nhan dien cac bang nay → mat autocomplete, mat type-check
-- **Fix**: Cap nhat `supabase/types.ts` (tu dong tu schema) hoac tao local type definitions cho cac bang inventory
+- Input: `p_tenant_id`, `p_fc_id` (optional)
+- Output: Aggregated ladder data — clearability score per channel per discount step
+- Thay the client-side aggregation hien tai trong `MarkdownHistoryTab`
 
-**[A2] AssortmentPage: 600 dong trong 1 file**
-- Van de: AssortmentPage.tsx = 597 dong, chua ca Evidence Drawer logic, surplus store queries, transfer grouping
-- **Fix**: Tach thanh:
-  - `EvidenceDrawer.tsx` (~200 dong)
-  - `useEvidenceDrawerData.ts` (custom hook cho 4 queries)
-  - Giu AssortmentPage chi ~300 dong (layout + tabs)
+### 3. Frontend: Nang cap ClearancePage
 
-**[A3] ClearancePage: 728 dong, 5 components inline**
-- Van de: `WhyClearCard`, `ProductDetailPanel`, `CollectionGroupHeader`, `CandidateTableRows` tat ca nam trong 1 file
-- **Fix**: Tach thanh thu muc `src/components/command/Clearance/`
+**Tab "Lich Su Markdown" nang cap:**
+- Hien thi **Markdown Ladder visualization**: 5 bac (10% → 50%), moi bac hien clearability score + avg days
+- Them **Channel comparison**: cung 1 muc giam gia, kenh nao clear tot nhat?
+- Them **"Next Step Recommendation"**: Dua tren ladder data, de xuat muc giam gia tiep theo
 
-**[A4] CommandOverviewPage: Khong co "Capital Misallocation" metric**
-- Van de: Overview hien tai chi co 4 KPIs co ban (Ton Kho, Von Bi Khoa, Lech Chuan, Cho Quyet Dinh)
-- Thieu: **Total Capital Misallocation** — 1 con so duy nhat aggregate Lost Revenue + Cash Lock + Margin Leak
-- **Fix**: Them 1 KPI card "Von Dat Sai Cho" = sum(lost_revenue + cash_locked + margin_leak) tu summary views
+**ProductDetailPanel nang cap:**
+- Them section "Markdown History" hien thi timeline cac lan giam gia truoc do
+- Them "Recommended Next Discount Step" dua tren `sem_markdown_ladders`
 
----
+**WhyClearCard nang cap:**
+- Them "Markdown Memory" section: "San pham nay da off X% tren kenh Y, clear duoc Z units trong N ngay"
 
-### B3. DATA FLOW — 2 diem rui ro
+### 4. Hook moi: `useMarkdownLadder`
 
-**[D1] useSizeIntelligence: Van query raw rows**
-- File: `useSizeIntelligence.ts` (dong 85-175)
-- Van de: Query `state_size_health_daily.limit(2000)`, `state_lost_revenue_daily.limit(500)` — **van hit 1000-row default**
-- Da co: `useSizeIntelligenceSummary` dung DB views → dung
-- **Fix**: Remove hoac deprecate `useSizeIntelligence` summary logic. Chi giu Maps (healthMap, lostRevenueMap...) cho drill-down. AssortmentPage da dung `useSizeControlTower` (dung), nhung `useSizeIntelligence` van duoc import cho `evidencePackMap` va `sizeTransfers`
+- Wrap RPC `fn_markdown_ladder_summary`
+- staleTime: 5 phut (state data)
+- Return: ladder steps, channel comparison, next-step recommendation
 
-**[D2] staleTime khong nhat quan**
-- `CommandOverviewPage`: staleTime = 30s/60s
-- `useSizeIntelligenceSummary`: staleTime = khong set (default 0)
-- `useClearanceIntelligence`: staleTime = khong set
-- **Fix**: Chuan hoa: state_* data = staleTime 5 phut (computed daily, khong can refresh lien tuc), dec_* data = staleTime 30s (can realtime hon)
+### 5. Cap nhat types
+
+Them interfaces vao `src/types/inventory.ts`:
+- `InvMarkdownEvent`
+- `SemMarkdownLadder`  
+- `SemMarkdownCap`
+
+### 6. Cap nhat plan.md
+
+Them Phase 4 vao plan voi status tracking.
 
 ---
 
-## C. PHUONG AN TOI UU — THU TU UU TIEN
+## Khong thay doi
 
-### Phase 1: Quick Wins (1-2 ngay) ✅ DONE
-
-| # | Viec | Impact | Effort | Status |
-|---|------|--------|--------|--------|
-| 1 | Them staleTime chuan: state=5min, dec=30s, kpi=2min | Giam 60% API calls | Thap | ✅ |
-| 2 | Them KPI "Von Dat Sai Cho" vao CommandOverviewPage | CEO impact truc tiep | Thap | ✅ |
-| 3 | Fix `days_to_clear = null` → `9999` trong ClearancePage (dong 193) | Consistency voi Scoring Spec | Thap | ✅ |
-
-### Phase 2: Performance (3-5 ngay) ✅ DONE
-
-| # | Viec | Impact | Effort | Status |
-|---|------|--------|--------|--------|
-| 4 | Tao RPC `fn_evidence_pack_by_fc` — gop 4 queries | -75% latency Evidence Drawer | Trung binh | ✅ |
-| 5 | Tao RPC `fn_clearance_candidates` — gop 6 queries | -60% latency ClearancePage | Trung binh | ✅ |
-| 6 | Deprecate `useSizeIntelligence` summary logic, chi giu Maps | Giam confusion, giam queries | Thap | ✅ |
-
-### Phase 3: Architecture (5-7 ngay) ✅ DONE
-
-| # | Viec | Impact | Effort | Status |
-|---|------|--------|--------|--------|
-| 7 | Tach AssortmentPage → EvidenceDrawer component | Maintainability | Trung binh | ✅ |
-| 8 | Tach ClearancePage → 5 components (Clearance/) | Maintainability | Trung binh | ✅ |
-| 9 | Tao src/types/inventory.ts local type definitions | Type safety | Cao | ✅ |
+- Growth Simulator Engine — giu nguyen
+- AssortmentPage — khong thay doi
+- CommandOverviewPage — khong thay doi (Capital Misallocation KPI da co)
+- Decision Queue logic — khong thay doi
 
 ---
 
-## D. STRATEGIC — CO HOI MOI (khong code ngay, chi ghi nhan)
+## Thu tu implement
 
-| Co hoi | Mo ta | Level |
-|--------|-------|-------|
-| Capital Misallocation Score | 1 metric aggregate: Lost Rev + Cash Lock + Margin Leak + Markdown Risk | Level 2→3 bridge |
-| Buy Depth Engine | expected cash yield per SKU — evolve tu Growth Simulator | Level 3 |
-| Markdown Memory | inv_markdown_events + clearability by channel — moat feature | Level 2 signature |
+| # | Viec | Effort |
+|---|------|--------|
+| 1 | Database migration: 3 tables + indexes + RLS | Trung binh |
+| 2 | RPC `fn_markdown_ladder_summary` | Thap |
+| 3 | Types trong `inventory.ts` | Thap |
+| 4 | Hook `useMarkdownLadder` | Thap |
+| 5 | Nang cap MarkdownHistoryTab — ladder visualization | Trung binh |
+| 6 | Nang cap ProductDetailPanel — markdown timeline | Trung binh |
+| 7 | Cap nhat plan.md | Thap |
 
 ---
 
-## TOM TAT
+## Gia tri chien luoc
 
-```text
-MANH:  Kien truc 3-brain, Doc v2.1, Size Control Tower, Growth Engine
-YEU:   Performance (waterfall queries), File size (600-700 dong/file), Type safety
-NGUY:  useSizeIntelligence van query raw → co the sai tren data lon
-CO HOI: Capital Misallocation Score (CEO-facing), RPC consolidation (UX)
-```
+- **Moat**: Data accumulate theo thoi gian — competitor khong co lich su nay
+- **Decision quality**: Tu "giam gia bao nhieu?" thanh "giam bao nhieu, tren kenh nao, trong bao lau"
+- **Premium protection**: Guardrail tu database, khong chi client-side
+- **Feed Control Tower**: Markdown events → trigger alerts khi discount vuot cap
 
-De xuat: Bat dau tu Phase 1 (Quick Wins) vi impact cao, effort thap. Phase 2 (RPC consolidation) la muc tieu chinh de Clearance + Assortment "muot" hon.
