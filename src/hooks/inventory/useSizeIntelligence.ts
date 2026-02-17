@@ -96,6 +96,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as SizeHealthRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const storeHealth = useQuery({
@@ -109,6 +110,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as SizeHealthRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const lostRevenue = useQuery({
@@ -121,6 +123,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as LostRevenueRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const markdownRisk = useQuery({
@@ -133,6 +136,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as MarkdownRiskRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const sizeTransfers = useQuery({
@@ -145,6 +149,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as SizeTransferRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const cashLock = useQuery({
@@ -157,6 +162,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as CashLockRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const marginLeak = useQuery({
@@ -169,6 +175,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as MarginLeakRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const evidencePacks = useQuery({
@@ -181,6 +188,7 @@ export function useSizeIntelligence() {
       return (data || []) as unknown as EvidencePackRow[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Aggregated summary

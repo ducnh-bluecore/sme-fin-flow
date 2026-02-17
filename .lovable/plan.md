@@ -93,13 +93,13 @@ Bluecore Command hien tai la mot he thong **Level 2 Financial Operating** rat vu
 
 ## C. PHUONG AN TOI UU — THU TU UU TIEN
 
-### Phase 1: Quick Wins (1-2 ngay)
+### Phase 1: Quick Wins (1-2 ngay) ✅ DONE
 
-| # | Viec | Impact | Effort |
-|---|------|--------|--------|
-| 1 | Them staleTime chuan: state=5min, dec=30s, kpi=2min | Giam 60% API calls | Thap |
-| 2 | Them KPI "Von Dat Sai Cho" vao CommandOverviewPage | CEO impact truc tiep | Thap |
-| 3 | Fix `days_to_clear = null` → `9999` trong ClearancePage (dong 193) | Consistency voi Scoring Spec | Thap |
+| # | Viec | Impact | Effort | Status |
+|---|------|--------|--------|--------|
+| 1 | Them staleTime chuan: state=5min, dec=30s, kpi=2min | Giam 60% API calls | Thap | ✅ |
+| 2 | Them KPI "Von Dat Sai Cho" vao CommandOverviewPage | CEO impact truc tiep | Thap | ✅ |
+| 3 | Fix `days_to_clear = null` → `9999` trong ClearancePage (dong 193) | Consistency voi Scoring Spec | Thap | ✅ |
 
 ### Phase 2: Performance (3-5 ngay)
 
