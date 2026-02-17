@@ -82,62 +82,12 @@ export interface EvidencePackRow {
   created_at: string;
 }
 
+/**
+ * Provides Maps for drill-down lookups and transfer/evidence data.
+ * Summary logic is DEPRECATED — use useSizeIntelligenceSummary instead.
+ */
 export function useSizeIntelligence() {
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
-
-  const sizeHealth = useQuery({
-    queryKey: ['size-health', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_size_health_daily' as any)
-        .is('store_id', null)
-        .order('as_of_date', { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return (data || []) as unknown as SizeHealthRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const storeHealth = useQuery({
-    queryKey: ['store-size-health', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_size_health_daily' as any)
-        .not('store_id', 'is', null)
-        .order('size_health_score', { ascending: true })
-        .limit(2000);
-      if (error) throw error;
-      return (data || []) as unknown as SizeHealthRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const lostRevenue = useQuery({
-    queryKey: ['lost-revenue', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_lost_revenue_daily' as any)
-        .order('lost_revenue_est', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return (data || []) as unknown as LostRevenueRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const markdownRisk = useQuery({
-    queryKey: ['markdown-risk', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_markdown_risk_daily' as any)
-        .order('markdown_risk_score', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return (data || []) as unknown as MarkdownRiskRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
 
   const sizeTransfers = useQuery({
     queryKey: ['size-transfers', tenantId],
@@ -147,32 +97,6 @@ export function useSizeIntelligence() {
         .limit(200);
       if (error) throw error;
       return (data || []) as unknown as SizeTransferRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const cashLock = useQuery({
-    queryKey: ['cash-lock', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_cash_lock_daily' as any)
-        .order('cash_locked_value', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return (data || []) as unknown as CashLockRow[];
-    },
-    enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const marginLeak = useQuery({
-    queryKey: ['margin-leak', tenantId],
-    queryFn: async () => {
-      const { data, error } = await buildQuery('state_margin_leak_daily' as any)
-        .order('margin_leak_value', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return (data || []) as unknown as MarginLeakRow[];
     },
     enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
@@ -191,75 +115,13 @@ export function useSizeIntelligence() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Aggregated summary
-  const healthRows = sizeHealth.data || [];
-  const lostRows = lostRevenue.data || [];
-  const riskRows = markdownRisk.data || [];
-  const transferRows = sizeTransfers.data || [];
-  const cashLockRows = cashLock.data || [];
-  const marginLeakRows = marginLeak.data || [];
-
-  const summary = {
-    avgHealthScore: healthRows.length > 0
-      ? healthRows.reduce((s, r) => s + r.size_health_score, 0) / healthRows.length
-      : null,
-    brokenCount: healthRows.filter(r => r.curve_state === 'broken').length,
-    riskCount: healthRows.filter(r => r.curve_state === 'risk').length,
-    watchCount: healthRows.filter(r => r.curve_state === 'watch').length,
-    healthyCount: healthRows.filter(r => r.curve_state === 'healthy').length,
-    totalLostRevenue: lostRows.reduce((s, r) => s + r.lost_revenue_est, 0),
-    totalLostUnits: lostRows.reduce((s, r) => s + r.lost_units_est, 0),
-    highMarkdownRiskCount: riskRows.filter(r => r.markdown_risk_score >= 60).length,
-    criticalMarkdownCount: riskRows.filter(r => r.markdown_risk_score >= 80).length,
-    transferOpportunities: transferRows.length,
-    totalTransferNetBenefit: transferRows.reduce((s, r) => s + r.net_benefit, 0),
-    // Phase 3
-    totalCashLocked: cashLockRows.reduce((s, r) => s + r.cash_locked_value, 0),
-    totalInventoryValue: cashLockRows.reduce((s, r) => s + r.inventory_value, 0),
-    totalMarginLeak: marginLeakRows.reduce((s, r) => s + r.margin_leak_value, 0),
-    marginLeakBySizeBreak: marginLeakRows.filter(r => r.leak_driver === 'size_break').reduce((s, r) => s + r.margin_leak_value, 0),
-    marginLeakByMarkdown: marginLeakRows.filter(r => r.leak_driver === 'markdown_risk').reduce((s, r) => s + r.margin_leak_value, 0),
-    evidencePackCount: (evidencePacks.data || []).length,
-    criticalEvidenceCount: (evidencePacks.data || []).filter(r => r.severity === 'critical').length,
-  };
-
-  // Maps for quick lookup by product_id
-  const healthMap = new Map<string, SizeHealthRow>();
-  for (const r of healthRows) healthMap.set(r.product_id, r);
-
-  const lostRevenueMap = new Map<string, LostRevenueRow>();
-  for (const r of lostRows) lostRevenueMap.set(r.product_id, r);
-
-  const markdownRiskMap = new Map<string, MarkdownRiskRow>();
-  for (const r of riskRows) markdownRiskMap.set(r.product_id, r);
-
-  const cashLockMap = new Map<string, CashLockRow>();
-  for (const r of cashLockRows) cashLockMap.set(r.product_id, r);
-
-  const marginLeakMap = new Map<string, number>();
-  for (const r of marginLeakRows) {
-    marginLeakMap.set(r.product_id, (marginLeakMap.get(r.product_id) || 0) + r.margin_leak_value);
-  }
-
   const evidencePackMap = new Map<string, EvidencePackRow>();
   for (const r of (evidencePacks.data || [])) evidencePackMap.set(r.product_id, r);
 
   return {
-    sizeHealth,
-    storeHealth,
-    lostRevenue,
-    markdownRisk,
     sizeTransfers,
-    cashLock,
-    marginLeak,
     evidencePacks,
-    summary,
-    healthMap,
-    lostRevenueMap,
-    markdownRiskMap,
-    cashLockMap,
-    marginLeakMap,
     evidencePackMap,
-    isLoading: sizeHealth.isLoading || lostRevenue.isLoading || markdownRisk.isLoading || sizeTransfers.isLoading || cashLock.isLoading || marginLeak.isLoading,
+    isLoading: sizeTransfers.isLoading,
   };
 }

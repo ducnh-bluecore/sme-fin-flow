@@ -76,129 +76,50 @@ export function useClearanceHistory(fcId?: string) {
 }
 
 /**
- * Fetch clearance candidates by joining markdown risk with inv_family_codes + health + cash lock.
+ * Fetch clearance candidates via server-side RPC fn_clearance_candidates.
+ * Replaces 6 client-side queries with 1 server call.
  */
 export function useClearanceCandidates() {
-  const { buildQuery, buildSelectQuery, client, tenantId, isReady } = useTenantQueryBuilder();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['clearance-candidates', tenantId],
     queryFn: async () => {
-      // 1. Get high markdown risk products (product_id = inv_family_codes.id)
-      const { data: riskData, error: riskError } = await buildQuery('state_markdown_risk_daily' as any)
-        .select('product_id, markdown_risk_score, markdown_eta_days, reason')
-        .gte('markdown_risk_score', 50)
-        .order('markdown_risk_score', { ascending: false })
-        .limit(200);
-
-      if (riskError) throw riskError;
-      if (!riskData || riskData.length === 0) return [];
-
-      const productIds = (riskData as any[]).map(r => r.product_id);
-
-      // 2. Fetch family code details with collection_id
-      const { data: fcData, error: fcError } = await buildSelectQuery(
-        'inv_family_codes',
-        'id, fc_code, fc_name, category, season, metadata, collection_id'
-      )
-        .in('id', productIds);
-
-      if (fcError) throw fcError;
-
-      // 3-6: Parallel fetches for health, cash, stock, demand, collections
-      const [healthRes, cashRes, stockRes, demandRes] = await Promise.all([
-        buildQuery('state_size_health_daily' as any)
-          .select('product_id, size_health_score, curve_state')
-          .in('product_id', productIds)
-          .is('store_id', null),
-        buildQuery('state_cash_lock_daily' as any)
-          .select('product_id, cash_locked_value, inventory_value')
-          .in('product_id', productIds),
-        client.rpc('fn_clearance_stock_by_fc', {
-          p_tenant_id: tenantId,
-          p_fc_ids: productIds,
-        }),
-        client.rpc('fn_clearance_demand_by_fc', {
-          p_tenant_id: tenantId,
-          p_fc_ids: productIds,
-        }),
-      ]);
-
-      // Collect unique collection IDs and fetch collection names
-      const fcMap = new Map<string, any>();
-      for (const f of (fcData || []) as any[]) fcMap.set(f.id, f);
-
-      const collectionIds = [...new Set(
-        (fcData || []).map((f: any) => f.collection_id).filter(Boolean)
-      )] as string[];
-
-      let collectionMap = new Map<string, { name: string }>();
-      if (collectionIds.length > 0) {
-        const { data: collData } = await buildSelectQuery(
-          'inv_collections',
-          'id, collection_name'
-        ).in('id', collectionIds);
-        for (const c of (collData || []) as any[]) {
-          collectionMap.set(c.id, { name: c.collection_name });
-        }
-      }
-
-      const healthMap = new Map<string, any>();
-      for (const h of (healthRes.data || []) as any[]) healthMap.set(h.product_id, h);
-
-      const cashMap = new Map<string, any>();
-      for (const c of (cashRes.data || []) as any[]) cashMap.set(c.product_id, c);
-
-      const stockMap = new Map<string, number>();
-      for (const s of (stockRes.data || []) as any[]) {
-        stockMap.set(s.fc_id, Number(s.total_on_hand || 0));
-      }
-
-      const demandMap = new Map<string, any>();
-      for (const d of (demandRes.data || []) as any[]) {
-        demandMap.set(d.fc_id, d);
-      }
-
-      // Combine
-      const candidates: ClearanceCandidate[] = (riskData as any[]).map(r => {
-        const fc = fcMap.get(r.product_id);
-        const health = healthMap.get(r.product_id);
-        const cash = cashMap.get(r.product_id);
-        const stock = stockMap.get(r.product_id) || 0;
-        const demand = demandMap.get(r.product_id);
-        const avgDaily = Number(demand?.avg_daily_sales || 0);
-        const collId = fc?.collection_id || null;
-
-        return {
-          product_id: r.product_id,
-          product_name: fc?.fc_name || '—',
-          fc_code: fc?.fc_code || '—',
-          category: fc?.category || null,
-          season: fc?.season || null,
-          markdown_risk_score: r.markdown_risk_score,
-          markdown_eta_days: r.markdown_eta_days,
-          reason: r.reason,
-          health_score: health?.size_health_score ?? null,
-          curve_state: health?.curve_state || null,
-          current_stock: stock,
-          inventory_value: cash?.inventory_value ?? 0,
-          cash_locked: cash?.cash_locked_value ?? 0,
-          is_premium: isPremiumGroup({
-            fc_name: fc?.fc_name,
-            metadata: fc?.metadata,
-          }),
-          avg_daily_sales: avgDaily,
-          sales_velocity: Number(demand?.sales_velocity || 0),
-          trend: demand?.trend || null,
-          days_to_clear: avgDaily > 0 ? Math.round(stock / avgDaily) : 9999,
-          collection_id: collId,
-          collection_name: collId ? (collectionMap.get(collId)?.name || null) : null,
-        };
+      const { data, error } = await client.rpc('fn_clearance_candidates', {
+        p_tenant_id: tenantId,
+        p_min_risk: 50,
       });
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
 
-      return candidates;
+      return (data as any[]).map(r => ({
+        product_id: r.product_id,
+        product_name: r.product_name || '—',
+        fc_code: r.fc_code || '—',
+        category: r.category || null,
+        season: r.season || null,
+        markdown_risk_score: r.markdown_risk_score,
+        markdown_eta_days: r.markdown_eta_days,
+        reason: r.reason,
+        health_score: r.health_score ?? null,
+        curve_state: r.curve_state || null,
+        current_stock: Number(r.current_stock || 0),
+        inventory_value: r.inventory_value ?? 0,
+        cash_locked: r.cash_locked ?? 0,
+        is_premium: isPremiumGroup({
+          fc_name: r.product_name,
+          metadata: r.metadata,
+        }) || r.is_premium === true,
+        avg_daily_sales: Number(r.avg_daily_sales || 0),
+        sales_velocity: Number(r.sales_velocity || 0),
+        trend: r.trend || null,
+        days_to_clear: r.days_to_clear ?? 9999,
+        collection_id: r.collection_id || null,
+        collection_name: r.collection_name || null,
+      } as ClearanceCandidate));
     },
     enabled: isReady && !!tenantId,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -120,124 +120,36 @@ export default function AssortmentPage() {
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
   const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
 
-  // Size data for selected product in drawer (store-level aggregation)
-  const { data: drawerSizeData } = useQuery({
-    queryKey: ['drawer-size-data', tenantId, evidenceProductId],
+  // Evidence Drawer data via single RPC fn_evidence_pack_by_fc
+  const { data: drawerPackData } = useQuery({
+    queryKey: ['drawer-evidence-pack', tenantId, evidenceProductId],
     queryFn: async () => {
-      if (!evidenceProductId) return { missing: [] as string[], present: [] as string[], partial: [] as string[] };
-      const order = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL'];
-      const sortSizes = (arr: string[]) => arr.sort((a, b) => {
-        const ia = order.indexOf(a), ib = order.indexOf(b);
-        if (ia !== -1 && ib !== -1) return ia - ib;
-        if (ia !== -1) return -1;
-        if (ib !== -1) return 1;
-        return a.localeCompare(b);
+      if (!evidenceProductId) return null;
+      const { data, error } = await supabase.rpc('fn_evidence_pack_by_fc' as any, {
+        p_tenant_id: tenantId,
+        p_fc_id: evidenceProductId,
       });
-
-      // Per-store missing sizes
-      const { data: compData } = await buildQuery('kpi_size_completeness' as any)
-        .select('style_id,store_id,missing_sizes')
-        .eq('style_id', evidenceProductId)
-        .limit(500);
-      
-      let totalStores = 0;
-      const sizeMissCount = new Map<string, number>();
-      for (const row of (compData || []) as any[]) {
-        totalStores++;
-        const sizes = row.missing_sizes as string[];
-        if (!sizes) continue;
-        for (const s of sizes) sizeMissCount.set(s, (sizeMissCount.get(s) || 0) + 1);
-      }
-      if (totalStores === 0) totalStores = 1;
-
-      // All expected sizes
-      const { data: skuData } = await buildQuery('inv_sku_fc_mapping' as any)
-        .select('size')
-        .eq('fc_id', evidenceProductId)
-        .eq('is_active', true)
-        .limit(100);
-      const allSizes: string[] = [];
-      for (const row of (skuData || []) as any[]) {
-        if (row.size && !allSizes.includes(row.size)) allSizes.push(row.size);
-      }
-
-      const missing: string[] = [];
-      const partial: string[] = [];
-      const present: string[] = [];
-      for (const size of allSizes) {
-        const missCount = sizeMissCount.get(size) || 0;
-        if (missCount >= totalStores) missing.push(size);
-        else if (missCount > 0) partial.push(size);
-        else present.push(size);
-      }
-      return { missing: sortSizes(missing), present: sortSizes(present), partial: sortSizes(partial) };
+      if (error) throw error;
+      return data as {
+        all_sizes: string[];
+        missing: string[];
+        partial: string[];
+        present: string[];
+        total_stores: number;
+        surplus_stores: { store_id: string; store_name: string; sizes: Record<string, number>; totalQty: number }[];
+      } | null;
     },
     enabled: !!tenantId && isReady && !!evidenceProductId,
   });
 
-  // Fetch stores with surplus of missing/partial sizes (potential transfer sources)
-  const problematicSizes = useMemo(() => {
-    if (!drawerSizeData) return [] as string[];
-    return [...(drawerSizeData.missing || []), ...(drawerSizeData.partial || [])];
-  }, [drawerSizeData]);
+  // Derive drawerSizeData and surplusStores from single RPC result
+  const drawerSizeData = drawerPackData ? {
+    missing: drawerPackData.missing || [],
+    partial: drawerPackData.partial || [],
+    present: drawerPackData.present || [],
+  } : null;
 
-  const { data: surplusStores } = useQuery({
-    queryKey: ['drawer-surplus-stores', tenantId, evidenceProductId, problematicSizes.join(',')],
-    queryFn: async () => {
-      if (!evidenceProductId || problematicSizes.length === 0) return [];
-      // Get SKUs for the problematic sizes
-      const { data: skuRows } = await buildQuery('inv_sku_fc_mapping' as any)
-        .select('sku,size')
-        .eq('fc_id', evidenceProductId)
-        .eq('is_active', true)
-        .in('size', problematicSizes)
-        .limit(50);
-      if (!skuRows || skuRows.length === 0) return [];
-
-      const skuToSize = new Map<string, string>();
-      for (const r of skuRows as any[]) skuToSize.set(r.sku, r.size);
-      const skus = [...skuToSize.keys()];
-
-      // Get positions with on_hand > 0 for these SKUs
-      const { data: posRows } = await buildQuery('inv_state_positions' as any)
-        .select('store_id,sku,on_hand')
-        .eq('fc_id', evidenceProductId)
-        .in('sku', skus)
-        .gt('on_hand', 0)
-        .limit(500);
-
-      // Aggregate by store
-      const storeMap = new Map<string, { store_id: string; sizes: Map<string, number> }>();
-      for (const r of (posRows || []) as any[]) {
-        const size = skuToSize.get(r.sku);
-        if (!size) continue;
-        if (!storeMap.has(r.store_id)) storeMap.set(r.store_id, { store_id: r.store_id, sizes: new Map() });
-        const entry = storeMap.get(r.store_id)!;
-        entry.sizes.set(size, (entry.sizes.get(size) || 0) + (r.on_hand || 0));
-      }
-
-      // Fetch store names
-      const storeIds = [...storeMap.keys()];
-      if (storeIds.length === 0) return [];
-      const { data: nameRows } = await buildQuery('inv_stores' as any)
-        .select('id,store_name')
-        .in('id', storeIds)
-        .limit(50);
-      const nameMap = new Map<string, string>();
-      for (const r of (nameRows || []) as any[]) nameMap.set(r.id, r.store_name);
-
-      return [...storeMap.values()]
-        .map(s => ({
-          store_id: s.store_id,
-          store_name: nameMap.get(s.store_id) || s.store_id.slice(0, 12),
-          sizes: Object.fromEntries(s.sizes),
-          totalQty: [...s.sizes.values()].reduce((a, b) => a + b, 0),
-        }))
-        .sort((a, b) => b.totalQty - a.totalQty)
-        .slice(0, 10);
-    },
-    enabled: !!tenantId && isReady && !!evidenceProductId && problematicSizes.length > 0,
-  });
+  const surplusStores = drawerPackData?.surplus_stores || [];
 
   const enrichedTransferByDest = useMemo(() => {
     return transferByDest.map((d: any) => ({
