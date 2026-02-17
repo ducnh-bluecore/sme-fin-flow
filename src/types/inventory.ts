@@ -217,6 +217,63 @@ export interface VClearanceHistoryByFc {
   avg_discount_pct: number;
 }
 
+// ─── Markdown Memory Engine ───
+
+export interface InvMarkdownEvent {
+  id: string;
+  tenant_id: string;
+  fc_id: string;
+  sku: string;
+  channel: string;
+  discount_pct: number;
+  original_price: number | null;
+  selling_price: number | null;
+  units_sold: number;
+  revenue_collected: number;
+  event_date: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface SemMarkdownLadder {
+  id: string;
+  tenant_id: string;
+  fc_id: string;
+  channel: string;
+  discount_step: number;
+  clearability_score: number;
+  avg_days_to_clear: number | null;
+  total_units_cleared: number;
+  total_revenue: number;
+  sample_count: number;
+  last_computed_at: string;
+  created_at: string;
+}
+
+export interface SemMarkdownCap {
+  id: string;
+  tenant_id: string;
+  fc_id: string | null;
+  category: string | null;
+  max_discount_pct: number;
+  reason: string | null;
+  override_by: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarkdownLadderStep {
+  fc_id: string;
+  channel: string;
+  discount_step: number;
+  clearability_score: number;
+  avg_days_to_clear: number | null;
+  total_units_cleared: number;
+  total_revenue: number;
+  sample_count: number;
+}
+
 // ─── KPI ───
 
 export interface KpiSizeCompleteness {

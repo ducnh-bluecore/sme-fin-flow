@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Tags, AlertTriangle, TrendingDown, Store, Search, ChevronDown } from 'lucide-react';
+import { Tags, AlertTriangle, Store, Search, ChevronDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,6 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  useClearanceHistory,
   useClearanceCandidates,
   useClearanceByChannel,
   PREMIUM_MAX_DISCOUNT,
@@ -21,6 +20,7 @@ import { formatCurrency, formatNumber } from '@/lib/format';
 import ProductDetailPanel from '@/components/command/Clearance/ProductDetailPanel';
 import CollectionGroupHeader, { type CollectionGroup } from '@/components/command/Clearance/CollectionGroupHeader';
 import CandidateTableRows from '@/components/command/Clearance/CandidateTableRows';
+import MarkdownHistoryTab from '@/components/command/Clearance/MarkdownHistoryTab';
 
 // ─── Tab 1: Clearance Candidates ───
 function ClearanceCandidatesTab() {
@@ -107,58 +107,7 @@ function ClearanceCandidatesTab() {
   );
 }
 
-// ─── Tab 2: Markdown History ───
-function MarkdownHistoryTab() {
-  const [searchSku, setSearchSku] = useState('');
-  const { data: history, isLoading } = useClearanceHistory(searchSku || undefined);
-
-  const grouped = useMemo(() => {
-    if (!history) return [];
-    const map = new Map<string, { band: string; channel: string; units: number; revenue: number; discount: number; months: string[] }>();
-    history.forEach(h => {
-      const key = `${h.discount_band}|${h.channel}`;
-      const existing = map.get(key);
-      if (existing) { existing.units += h.units_sold; existing.revenue += h.revenue_collected; existing.discount += h.total_discount_given; if (!existing.months.includes(h.sale_month)) existing.months.push(h.sale_month); }
-      else { map.set(key, { band: h.discount_band, channel: h.channel, units: h.units_sold, revenue: h.revenue_collected, discount: h.total_discount_given, months: [h.sale_month] }); }
-    });
-    const bandOrder = ['0-20%', '20-30%', '30-50%', '>50%'];
-    return Array.from(map.values()).sort((a, b) => bandOrder.indexOf(a.band) - bandOrder.indexOf(b.band));
-  }, [history]);
-
-  return (
-    <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Nhập tên sản phẩm để xem lịch sử..." value={searchSku} onChange={e => setSearchSku(e.target.value)} className="pl-9" />
-      </div>
-      {!searchSku && <Alert><TrendingDown className="h-4 w-4" /><AlertDescription>Nhập tên sản phẩm để xem lịch sử markdown theo thời gian và kênh. Hoặc click sản phẩm trong tab "Cần Clearance".</AlertDescription></Alert>}
-      {isLoading ? (
-        <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-      ) : searchSku && grouped.length === 0 ? (
-        <Alert><AlertDescription>Không tìm thấy lịch sử giảm giá cho sản phẩm này.</AlertDescription></Alert>
-      ) : searchSku ? (
-        <div className="rounded-lg border overflow-hidden">
-          <Table>
-            <TableHeader><TableRow className="bg-muted/50"><TableHead>Mức giảm</TableHead><TableHead>Kênh</TableHead><TableHead className="text-right">Số lượng clear</TableHead><TableHead className="text-right">Doanh thu thu về</TableHead><TableHead className="text-right">Tổng discount</TableHead><TableHead className="text-right">Số tháng</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {grouped.map((g, i) => (
-                <TableRow key={i}>
-                  <TableCell><Badge variant={g.band === '>50%' ? 'destructive' : 'secondary'}>{g.band}</Badge></TableCell>
-                  <TableCell className="font-medium">{g.channel}</TableCell>
-                  <TableCell className="text-right font-mono">{formatNumber(g.units)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(g.revenue)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(g.discount)}</TableCell>
-                  <TableCell className="text-right">{g.months.length}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
+// ─── Tab 3: Channel Analysis ───
 // ─── Tab 3: Channel Analysis ───
 function ChannelAnalysisTab() {
   const { data: channels, isLoading } = useClearanceByChannel();
