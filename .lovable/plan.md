@@ -109,13 +109,13 @@ Bluecore Command hien tai la mot he thong **Level 2 Financial Operating** rat vu
 | 5 | Tao RPC `fn_clearance_candidates` — gop 6 queries | -60% latency ClearancePage | Trung binh | ✅ |
 | 6 | Deprecate `useSizeIntelligence` summary logic, chi giu Maps | Giam confusion, giam queries | Thap | ✅ |
 
-### Phase 3: Architecture (5-7 ngay)
+### Phase 3: Architecture (5-7 ngay) ✅ DONE
 
-| # | Viec | Impact | Effort |
-|---|------|--------|--------|
-| 7 | Tach AssortmentPage → EvidenceDrawer + hook | Maintainability | Trung binh |
-| 8 | Tach ClearancePage → 5 components rieng | Maintainability | Trung binh |
-| 9 | Fix `as any` — tao local type definitions | Type safety | Cao |
+| # | Viec | Impact | Effort | Status |
+|---|------|--------|--------|--------|
+| 7 | Tach AssortmentPage → EvidenceDrawer component | Maintainability | Trung binh | ✅ |
+| 8 | Tach ClearancePage → 5 components (Clearance/) | Maintainability | Trung binh | ✅ |
+| 9 | Tao src/types/inventory.ts local type definitions | Type safety | Cao | ✅ |
 
 ---
 
