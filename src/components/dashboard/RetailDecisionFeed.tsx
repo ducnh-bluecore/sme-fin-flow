@@ -4,7 +4,7 @@ import { useFinanceTruthSnapshot } from '@/hooks/useFinanceTruthSnapshot';
 import { useInventoryAging } from '@/hooks/useInventoryAging';
 import { useAllChannelsPL } from '@/hooks/useAllChannelsPL';
 import { useRetailHealthScore } from '@/hooks/useRetailHealthScore';
-import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
+import { useSizeIntelligenceSummary } from '@/hooks/inventory/useSizeIntelligenceSummary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
@@ -26,7 +26,7 @@ export function RetailDecisionFeed() {
   const { summary, agingBuckets, isLoading: inventoryLoading } = useInventoryAging();
   const { data: channelData, isLoading: channelLoading } = useAllChannelsPL();
   const { data: healthScore } = useRetailHealthScore();
-  const { summary: siSummary, lostRevenue, isLoading: siLoading } = useSizeIntelligence();
+  const { summary: siSummary, isLoading: siLoading } = useSizeIntelligenceSummary();
 
   const decisions = useMemo((): NarrativeDecision[] => {
     const items: NarrativeDecision[] = [];

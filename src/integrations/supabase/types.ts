@@ -40793,6 +40793,32 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_clearance_candidates: {
+        Args: { p_min_risk?: number; p_tenant_id: string }
+        Returns: {
+          avg_daily_sales: number
+          cash_locked: number
+          category: string
+          collection_id: string
+          collection_name: string
+          current_stock: number
+          curve_state: string
+          days_to_clear: number
+          fc_code: string
+          health_score: number
+          inventory_value: number
+          is_premium: boolean
+          markdown_eta_days: number
+          markdown_risk_score: number
+          metadata: Json
+          product_id: string
+          product_name: string
+          reason: string
+          sales_velocity: number
+          season: string
+          trend: string
+        }[]
+      }
       fn_clearance_demand_by_fc: {
         Args: { p_fc_ids: string[]; p_tenant_id: string }
         Returns: {
@@ -40808,6 +40834,10 @@ export type Database = {
           fc_id: string
           total_on_hand: number
         }[]
+      }
+      fn_evidence_pack_by_fc: {
+        Args: { p_fc_id: string; p_tenant_id: string }
+        Returns: Json
       }
       fn_inv_overview_stats: {
         Args: { p_tenant_id: string }

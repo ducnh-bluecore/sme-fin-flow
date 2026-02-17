@@ -101,13 +101,13 @@ Bluecore Command hien tai la mot he thong **Level 2 Financial Operating** rat vu
 | 2 | Them KPI "Von Dat Sai Cho" vao CommandOverviewPage | CEO impact truc tiep | Thap | ✅ |
 | 3 | Fix `days_to_clear = null` → `9999` trong ClearancePage (dong 193) | Consistency voi Scoring Spec | Thap | ✅ |
 
-### Phase 2: Performance (3-5 ngay)
+### Phase 2: Performance (3-5 ngay) ✅ DONE
 
-| # | Viec | Impact | Effort |
-|---|------|--------|--------|
-| 4 | Tao RPC `fn_evidence_pack_by_fc` — gop 4 queries | -75% latency Evidence Drawer | Trung binh |
-| 5 | Tao RPC `fn_clearance_candidates` — gop 6 queries | -60% latency ClearancePage | Trung binh |
-| 6 | Deprecate `useSizeIntelligence` summary logic, chi giu Maps | Giam confusion, giam queries | Thap |
+| # | Viec | Impact | Effort | Status |
+|---|------|--------|--------|--------|
+| 4 | Tao RPC `fn_evidence_pack_by_fc` — gop 4 queries | -75% latency Evidence Drawer | Trung binh | ✅ |
+| 5 | Tao RPC `fn_clearance_candidates` — gop 6 queries | -60% latency ClearancePage | Trung binh | ✅ |
+| 6 | Deprecate `useSizeIntelligence` summary logic, chi giu Maps | Giam confusion, giam queries | Thap | ✅ |
 
 ### Phase 3: Architecture (5-7 ngay)
 
