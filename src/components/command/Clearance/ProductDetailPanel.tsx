@@ -1,19 +1,104 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, Store, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { TrendingDown, Store, ArrowLeft, ShieldAlert, Clock, Zap, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useClearanceHistory,
   PREMIUM_MAX_DISCOUNT,
   type ClearanceCandidate,
 } from '@/hooks/inventory/useClearanceIntelligence';
+import { useMarkdownLadder } from '@/hooks/inventory/useMarkdownLadder';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import TrendBadge from './TrendBadge';
 import WhyClearCard from './WhyClearCard';
+
+const LADDER_STEPS = [10, 20, 30, 40, 50];
+
+function MarkdownLadderSection({ fcId }: { fcId: string }) {
+  const { data, isLoading } = useMarkdownLadder(fcId);
+
+  if (isLoading) return <Skeleton className="h-24 w-full" />;
+  if (!data || data.steps.length === 0) {
+    return <p className="text-sm text-muted-foreground py-3 text-center">Chưa có dữ liệu Markdown Ladder cho sản phẩm này.</p>;
+  }
+
+  const channels = [...new Set(data.steps.map(s => s.channel))];
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="w-24">Kênh</TableHead>
+              {LADDER_STEPS.map(step => (
+                <TableHead key={step} className="text-center text-xs">{step}%</TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {channels.map(ch => {
+              const chSteps = data.steps.filter(s => s.channel === ch);
+              return (
+                <TableRow key={ch}>
+                  <TableCell className="font-medium text-xs">{ch}</TableCell>
+                  {LADDER_STEPS.map(step => {
+                    const found = chSteps.find(s => s.discount_step === step);
+                    if (!found) return <TableCell key={step} className="text-center text-muted-foreground text-xs">—</TableCell>;
+                    const score = found.clearability_score;
+                    const color = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-destructive';
+                    return (
+                      <TableCell key={step} className="text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="space-y-0.5">
+                                <span className={`text-xs font-mono font-bold ${color}`}>{score}</span>
+                                <span className="text-[10px] text-muted-foreground block">{formatNumber(found.total_units_cleared)}u</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div className="text-xs space-y-0.5">
+                                <div>Clearability: {score}/100</div>
+                                <div>Avg days: {found.avg_days_to_clear ?? '—'}</div>
+                                <div>Revenue: {formatCurrency(found.total_revenue)}</div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {data.recommendations.length > 0 && (
+        <div className="space-y-1.5">
+          {data.recommendations.map((rec, i) => (
+            <div key={i} className="flex items-center gap-2 bg-blue-500/5 rounded p-2 text-xs">
+              <Zap className="h-3 w-3 text-blue-600 shrink-0" />
+              <Badge variant="outline" className="text-[10px] h-5">{rec.channel}</Badge>
+              <span className="font-mono">{rec.currentStep}%</span>
+              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              <span className="font-mono font-bold text-blue-600">{rec.nextStep}%</span>
+              <span className="text-muted-foreground ml-auto">Clearability: {rec.expectedClearability}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandidate; onBack: () => void }) {
   const { data: history, isLoading } = useClearanceHistory(candidate.product_id);
@@ -87,6 +172,18 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
       </Card>
 
       <WhyClearCard candidate={candidate} />
+
+      {/* Markdown Ladder — Recommended Next Discount Step */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4 text-muted-foreground" />Markdown Ladder — Hiệu quả theo bậc giảm giá
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MarkdownLadderSection fcId={candidate.product_id} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

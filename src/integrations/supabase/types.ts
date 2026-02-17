@@ -18563,6 +18563,83 @@ export type Database = {
           },
         ]
       }
+      inv_markdown_events: {
+        Row: {
+          channel: string
+          created_at: string
+          discount_pct: number
+          event_date: string
+          fc_id: string
+          id: string
+          notes: string | null
+          original_price: number | null
+          revenue_collected: number
+          selling_price: number | null
+          sku: string
+          tenant_id: string
+          units_sold: number
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          discount_pct?: number
+          event_date?: string
+          fc_id: string
+          id?: string
+          notes?: string | null
+          original_price?: number | null
+          revenue_collected?: number
+          selling_price?: number | null
+          sku: string
+          tenant_id: string
+          units_sold?: number
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          discount_pct?: number
+          event_date?: string
+          fc_id?: string
+          id?: string
+          notes?: string | null
+          original_price?: number | null
+          revenue_collected?: number
+          selling_price?: number | null
+          sku?: string
+          tenant_id?: string
+          units_sold?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_markdown_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_markdown_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_markdown_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_markdown_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inv_rebalance_runs: {
         Row: {
           completed_at: string | null
@@ -27482,6 +27559,148 @@ export type Database = {
           },
           {
             foreignKeyName: "sem_allocation_policies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      sem_markdown_caps: {
+        Row: {
+          category: string | null
+          created_at: string
+          fc_id: string | null
+          id: string
+          is_active: boolean
+          max_discount_pct: number
+          override_by: string | null
+          reason: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          fc_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_pct?: number
+          override_by?: string | null
+          reason?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          fc_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_discount_pct?: number
+          override_by?: string | null
+          reason?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_markdown_caps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_caps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_caps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_caps_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      sem_markdown_ladders: {
+        Row: {
+          avg_days_to_clear: number | null
+          channel: string
+          clearability_score: number
+          created_at: string
+          discount_step: number
+          fc_id: string
+          id: string
+          last_computed_at: string
+          sample_count: number
+          tenant_id: string
+          total_revenue: number
+          total_units_cleared: number
+        }
+        Insert: {
+          avg_days_to_clear?: number | null
+          channel: string
+          clearability_score?: number
+          created_at?: string
+          discount_step: number
+          fc_id: string
+          id?: string
+          last_computed_at?: string
+          sample_count?: number
+          tenant_id: string
+          total_revenue?: number
+          total_units_cleared?: number
+        }
+        Update: {
+          avg_days_to_clear?: number | null
+          channel?: string
+          clearability_score?: number
+          created_at?: string
+          discount_step?: number
+          fc_id?: string
+          id?: string
+          last_computed_at?: string
+          sample_count?: number
+          tenant_id?: string
+          total_revenue?: number
+          total_units_cleared?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_markdown_ladders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_ladders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_ladders_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_markdown_ladders_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -40863,6 +41082,19 @@ export type Database = {
         Returns: {
           store_id: string
           total_on_hand: number
+        }[]
+      }
+      fn_markdown_ladder_summary: {
+        Args: { p_fc_id?: string; p_tenant_id: string }
+        Returns: {
+          avg_days_to_clear: number
+          channel: string
+          clearability_score: number
+          discount_step: number
+          fc_id: string
+          sample_count: number
+          total_revenue: number
+          total_units_cleared: number
         }[]
       }
       fn_size_health_details: {

@@ -1,8 +1,44 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { ClearanceCandidate } from '@/hooks/inventory/useClearanceIntelligence';
+import { useMarkdownLadder } from '@/hooks/inventory/useMarkdownLadder';
+import { formatNumber } from '@/lib/format';
+
+function MarkdownMemorySection({ fcId }: { fcId: string }) {
+  const { data, isLoading } = useMarkdownLadder(fcId);
+
+  if (isLoading) return <Skeleton className="h-16 w-full" />;
+  if (!data || data.steps.length === 0) return null;
+
+  // Find best performing channel/step combo
+  const best = data.steps.reduce((a, b) => a.clearability_score > b.clearability_score ? a : b);
+  const rec = data.recommendations[0];
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-border/50">
+      <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <Clock className="h-3 w-3" /> Markdown Memory
+      </div>
+      <div className="bg-muted/50 rounded-lg p-2.5 space-y-1.5 text-xs">
+        <div>
+          Đã off <span className="font-mono font-bold">{best.discount_step}%</span> trên{' '}
+          <span className="font-medium">{best.channel}</span>, clear được{' '}
+          <span className="font-mono font-bold">{formatNumber(best.total_units_cleared)} units</span>
+          {best.avg_days_to_clear ? ` trong ~${best.avg_days_to_clear} ngày` : ''}
+        </div>
+        {rec && (
+          <div className="text-blue-600 dark:text-blue-400">
+            → Đề xuất: tăng lên <span className="font-mono font-bold">{rec.nextStep}%</span> trên{' '}
+            <span className="font-medium">{rec.channel}</span> (clearability: {rec.expectedClearability})
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function WhyClearCard({ candidate }: { candidate: ClearanceCandidate }) {
   const factors: { label: string; value: string | number; severity: 'high' | 'medium' | 'low'; pct?: number }[] = [];
@@ -32,8 +68,8 @@ export default function WhyClearCard({ candidate }: { candidate: ClearanceCandid
     factors.push({ label: 'Thời gian tới markdown', value: `${candidate.markdown_eta_days} ngày`, severity: candidate.markdown_eta_days < 14 ? 'high' : candidate.markdown_eta_days < 30 ? 'medium' : 'low' });
   }
 
-  const severityColor = { high: 'text-red-600 bg-red-500/10', medium: 'text-amber-600 bg-amber-500/10', low: 'text-emerald-600 bg-emerald-500/10' };
-  const progressColor = { high: '[&>div]:bg-red-500', medium: '[&>div]:bg-amber-500', low: '[&>div]:bg-emerald-500' };
+  const severityColor = { high: 'text-destructive bg-destructive/10', medium: 'text-amber-600 bg-amber-500/10', low: 'text-emerald-600 bg-emerald-500/10' };
+  const progressColor = { high: '[&>div]:bg-destructive', medium: '[&>div]:bg-amber-500', low: '[&>div]:bg-emerald-500' };
 
   return (
     <Card className="border-amber-500/30">
@@ -60,6 +96,7 @@ export default function WhyClearCard({ candidate }: { candidate: ClearanceCandid
             </div>
           ))}
         </div>
+        <MarkdownMemorySection fcId={candidate.product_id} />
       </CardContent>
     </Card>
   );
