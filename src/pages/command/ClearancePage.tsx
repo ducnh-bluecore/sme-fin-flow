@@ -71,12 +71,21 @@ function WhyClearCard({ candidate }: { candidate: ClearanceCandidate }) {
   });
 
   // Days to clear
-  if (candidate.days_to_clear != null) {
-    factors.push({
-      label: 'Số ngày để clear hết',
-      value: `${candidate.days_to_clear} ngày`,
-      severity: candidate.days_to_clear > 180 ? 'high' : candidate.days_to_clear > 90 ? 'medium' : 'low',
-    });
+  {
+    const dtc = candidate.days_to_clear;
+    if (dtc != null && dtc < 9999) {
+      factors.push({
+        label: 'Số ngày để clear hết',
+        value: `${dtc} ngày`,
+        severity: dtc > 180 ? 'high' : dtc > 90 ? 'medium' : 'low',
+      });
+    } else {
+      factors.push({
+        label: 'Số ngày để clear hết',
+        value: 'Không có nhu cầu',
+        severity: 'high' as const,
+      });
+    }
   }
 
   // ETA
@@ -233,7 +242,7 @@ function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandida
             </div>
             <div className="bg-muted/50 p-2 rounded">
               <span className="text-muted-foreground block text-xs">Ngày để clear hết</span>
-              <span className="font-mono font-bold">{candidate.days_to_clear != null ? `${candidate.days_to_clear}` : '∞'}</span>
+              <span className="font-mono font-bold">{candidate.days_to_clear != null && candidate.days_to_clear < 9999 ? `${candidate.days_to_clear}` : '∞'}</span>
             </div>
             <div className="bg-muted/50 p-2 rounded">
               <span className="text-muted-foreground block text-xs">MD Risk</span>

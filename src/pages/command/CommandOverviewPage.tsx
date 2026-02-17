@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Crosshair, Package, DollarSign, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
+import { Crosshair, Package, DollarSign, AlertTriangle, Clock, ArrowRight, TrendingDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,10 +8,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { supabase } from '@/integrations/supabase/client';
 import { formatVNDCompact } from '@/lib/formatters';
+import { useSizeIntelligenceSummary } from '@/hooks/inventory/useSizeIntelligenceSummary';
 
 export default function CommandOverviewPage() {
   const navigate = useNavigate();
   const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { summary: siSummary } = useSizeIntelligenceSummary();
 
   // Aggregate inventory stats via RPC (no row limit)
   const { data: invStats } = useQuery({
@@ -23,7 +25,7 @@ export default function CommandOverviewPage() {
       return { totalUnits: Number(row.total_units) || 0, lockedCash: Number(row.locked_cash) || 0 };
     },
     enabled: !!tenantId && isReady,
-    staleTime: 60_000,
+    staleTime: 2 * 60 * 1000,
   });
 
   // Fetch pending decision packages
@@ -38,7 +40,7 @@ export default function CommandOverviewPage() {
       return data || [];
     },
     enabled: !!tenantId && isReady,
-    staleTime: 30_000,
+    staleTime: 30 * 1000,
   });
 
   // Fetch distortion summary
@@ -55,8 +57,11 @@ export default function CommandOverviewPage() {
       return { avgScore, totalLockedCash };
     },
     enabled: !!tenantId && isReady,
-    staleTime: 60_000,
+    staleTime: 2 * 60 * 1000,
   });
+
+  // Capital Misallocation = Lost Revenue + Cash Locked + Margin Leak
+  const capitalMisallocation = (siSummary?.totalLostRevenue || 0) + (siSummary?.totalCashLocked || 0) + (siSummary?.totalMarginLeak || 0);
 
   const kpiCards = [
     { 
@@ -87,6 +92,13 @@ export default function CommandOverviewPage() {
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-500/10',
     },
+    { 
+      label: 'Vốn Đặt Sai Chỗ', 
+      value: capitalMisallocation > 0 ? formatVNDCompact(capitalMisallocation) : '—',
+      icon: TrendingDown,
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-500/10',
+    },
   ];
 
   return (
@@ -109,7 +121,7 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {kpiCards.map((kpi, idx) => (
           <motion.div
             key={kpi.label}

@@ -18,6 +18,7 @@ export function useSizeIntelligenceSummary() {
       return (data?.[0] || null) as any;
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const lostRevSummary = useQuery({
@@ -30,6 +31,7 @@ export function useSizeIntelligenceSummary() {
       return (data?.[0] || null) as any;
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const mdRiskSummary = useQuery({
@@ -42,6 +44,7 @@ export function useSizeIntelligenceSummary() {
       return (data?.[0] || null) as any;
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const transferByDest = useQuery({
@@ -54,6 +57,7 @@ export function useSizeIntelligenceSummary() {
       return (data || []) as any[];
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const cashLockSummary = useQuery({
@@ -66,6 +70,7 @@ export function useSizeIntelligenceSummary() {
       return (data?.[0] || null) as any;
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   const marginLeakSummary = useQuery({
@@ -78,6 +83,7 @@ export function useSizeIntelligenceSummary() {
       return (data?.[0] || null) as any;
     },
     enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Build summary from DB-aggregated data

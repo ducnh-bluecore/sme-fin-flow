@@ -190,7 +190,7 @@ export function useClearanceCandidates() {
           avg_daily_sales: avgDaily,
           sales_velocity: Number(demand?.sales_velocity || 0),
           trend: demand?.trend || null,
-          days_to_clear: avgDaily > 0 ? Math.round(stock / avgDaily) : null,
+          days_to_clear: avgDaily > 0 ? Math.round(stock / avgDaily) : 9999,
           collection_id: collId,
           collection_name: collId ? (collectionMap.get(collId)?.name || null) : null,
         };
