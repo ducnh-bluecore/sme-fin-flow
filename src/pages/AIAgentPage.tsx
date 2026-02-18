@@ -59,14 +59,12 @@ export default function AIAgentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [input, setInput] = useState('');
   const [showScenarios, setShowScenarios] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { client, tenantId } = useTenantQueryBuilder();
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -176,6 +174,14 @@ export default function AIAgentPage() {
       toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra');
       setMessages(prev => prev.slice(0, -1));
     } finally {
+      // Guard: nếu không nhận được content, xóa assistant message rỗng
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.content) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
       setIsLoading(false);
     }
   }, [messages, tenantId, client]);
@@ -258,7 +264,7 @@ export default function AIAgentPage() {
 
       {/* Chat Area */}
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full p-6" ref={scrollRef}>
+      <ScrollArea className="h-full p-6">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center min-h-[300px]">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -306,6 +312,7 @@ export default function AIAgentPage() {
                   </div>
                 </div>
               )}
+              <div ref={bottomRef} />
             </div>
           )}
         </ScrollArea>
