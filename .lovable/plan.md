@@ -1,191 +1,190 @@
 
-# Redesign Toàn Bộ Project: Dark Theme Glassmorphism
+# Biến AI Agent thành Production Feature
 
-## Hiểu đúng vấn đề
+## Hiện trạng thực tế (sau khi đọc code)
 
-Project hiện tại có **7 layouts + 70+ pages**. Nếu đổi từng file sẽ tốn hàng trăm lần chỉnh sửa. Cách đúng: **thay đổi tại gốc — CSS Design Tokens trong `src/index.css`** và **Tailwind config**. Khi đó toàn bộ project tự động đổi màu theo.
+**`AIAgentTestPage.tsx`** hiện tại:
+- Route: `/ai-agent` — standalone, không có layout
+- Badge "Test" trong header — rõ ràng là dev artifact
+- Không nằm trong sidebar nào
+- Gọi thẳng edge function `cdp-qa` (vẫn dùng tên "cdp-qa" nhưng thực chất đã là full multi-domain agent)
+- UI: tự render header riêng, không dùng `DashboardLayout`
 
-Kiến trúc hiện tại dùng CSS variables (`--background`, `--card`, `--foreground`, `--sidebar-background`...) được dùng ở KHẮP NƠI. Đây là điểm đòn bẩy duy nhất.
+**Edge Function `cdp-qa/index.ts`** — đây là điểm mạnh lớn:
+- Architecture: **2-pass reasoning** (Pass 1: Tool-calling với temperature 0.1, Pass 2: Streaming answer với temperature 0.4)
+- 11 tools đã production-ready: Revenue, Profitability, Channel, Marketing, Products, Inventory, Alerts, Customer, Cohort, Channel P&L, Custom SQL
+- System prompt rất mature: schema catalog 20 bảng, metric classification (cumulative/average/snapshot), VND formatting, chart output
+- Model: `google/gemini-2.5-pro` — top tier
+- Retry logic: 5 lần với exponential backoff khi 429
+
+**Vấn đề cần giải quyết để production-ready:**
+
+| # | Vấn đề | Mức độ |
+|---|--------|--------|
+| 1 | Không có layout — standalone page | Cao |
+| 2 | Badge "Test" — không chuyên nghiệp | Cao |
+| 3 | Không có entry point trong sidebar | Cao |
+| 4 | Tên route `/ai-agent` ổn, tên file "TestPage" cần đổi | Trung bình |
+| 5 | SCENARIO_GROUPS dùng label kỹ thuật (L3 KPI, L2 Orders) — không phù hợp CEO/CFO | Trung bình |
+| 6 | Không có conversation history persistence | Thấp (có thể phase 2) |
+| 7 | Edge function vẫn tên `cdp-qa` — misleading | Thấp |
 
 ---
 
-## Phân tích template bạn upload
+## Chiến lược: Promote, không viết lại
 
-Template Aniq/Next.js dùng:
-- **Background**: `#0a0a0a` / `#111111` (near-black)
-- **Cards**: `rgba(255,255,255,0.04)` — glass trên nền dark
-- **Borders**: `rgba(255,255,255,0.08)` — subtle white borders
-- **Text primary**: `#ffffff` / `#f0f0f0`
-- **Text muted**: `rgba(255,255,255,0.45)`
-- **Accent**: Gradient blue `#3b82f6` → indigo `#6366f1`
-- **Success**: Emerald `#10b981`
-- **Warning**: Amber `#f59e0b`
-- **Danger**: Rose `#f43f5e`
-
----
-
-## Chiến lược thay đổi: 3 tầng
-
-```text
-TẦNG 1 — CSS Variables (1 file, ảnh hưởng 100% project)
-  src/index.css → đổi :root dark theme
-
-TẦNG 2 — Layout Shells (7 files, ảnh hưởng sidebar/header)
-  DashboardLayout → Sidebar, Header
-  ControlTowerLayout → sidebar dark glass
-  BluecoreCommandLayout → sidebar dark glass
-  MDPLayout → sidebar dark glass
-  CDPLayout → sidebar dark glass
-  AuthPage → dark glassmorphism card
-
-TẦNG 3 — Portal Hub (1 file, trang quan trọng nhất)
-  PortalPage → full dark immersive redesign
-```
+Logic AI đã production-ready. Chỉ cần **thay đổi visual layer và integration** — không đụng vào edge function.
 
 ---
 
 ## Thay đổi cụ thể
 
-### TẦNG 1: `src/index.css` — Dark Design System
+### 1. Đổi tên file: `AIAgentTestPage.tsx` → `AIAgentPage.tsx`
 
-Đổi `:root` từ light sang dark:
+Rename component và cập nhật import trong `App.tsx`:
+```tsx
+// App.tsx
+const AIAgentPage = lazy(() => import("./pages/AIAgentPage"));
+// ...
+<Route path="/ai-agent" element={
+  <ProtectedRoute>
+    <AIAgentPage />
+  </ProtectedRoute>
+} />
+```
 
-```css
-:root {
-  /* Background: near-black slate */
-  --background: 222 47% 7%;        /* #0c1120 — deep navy-black */
-  --foreground: 213 31% 91%;       /* #dce4f0 — soft white */
+### 2. Wrap vào `DashboardLayout`
 
-  /* Cards: dark glass */
-  --card: 222 40% 10%;             /* #111827 — elevated dark */
-  --card-foreground: 213 31% 91%;
+Hiện tại page tự render header riêng. Cần đặt trong layout để có sidebar + header nhất quán:
 
-  /* Sidebar: deeper dark */
-  --sidebar-background: 222 50% 5%;  /* #07090f */
-  --sidebar-foreground: 213 31% 80%;
+```tsx
+// AIAgentPage.tsx
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
-  /* Primary: Bluecore signature blue */
-  --primary: 221 83% 63%;           /* #4f8ef7 — brighter for dark bg */
-  --primary-foreground: 0 0% 100%;
-
-  /* Borders: subtle white glass */
-  --border: 222 30% 18%;            /* rgba white ~8% */
-  --input: 222 30% 15%;
-
-  /* Muted: dark gray */
-  --muted: 222 35% 13%;
-  --muted-foreground: 213 20% 55%;
-
-  /* Success, Warning, Danger — brighter for dark bg */
-  --success: 152 70% 45%;
-  --warning: 38 95% 55%;
-  --destructive: 0 80% 62%;
+export default function AIAgentPage() {
+  return (
+    <DashboardLayout>
+      <div className="h-[calc(100vh-4rem)] flex flex-col">
+        {/* Nội dung chat */}
+      </div>
+    </DashboardLayout>
+  );
 }
 ```
 
-Bổ sung utility classes mới trong `@layer components`:
-```css
-/* Glass card — dùng thay cho bg-card thông thường */
-.glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-}
+Xóa: custom header div với badge "Test", border-b riêng.
+Giữ: toàn bộ chat logic, streaming, SSE parsing, sendMessage callback.
 
-/* Glass card hover */
-.glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.14);
-}
+### 3. Cập nhật header trong page
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #60a5fa, #818cf8, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+```tsx
+// Thay: standalone header card
+// Thành: page-level header nhất quán với các pages khác
+<div className="flex items-center justify-between mb-4">
+  <div>
+    <h1 className="text-xl font-semibold flex items-center gap-2">
+      <Sparkles className="h-5 w-5 text-primary" />
+      Bluecore AI Analyst
+      {/* Bỏ badge "Test" */}
+    </h1>
+    <p className="text-sm text-muted-foreground">
+      Hỏi bất kỳ câu hỏi về doanh thu, KPIs, alerts, khách hàng — AI tự truy vấn SSOT và phân tích.
+    </p>
+  </div>
+  {messages.length > 0 && <Button variant="outline" size="sm" onClick={clearMessages}>...</Button>}
+</div>
 ```
 
-### TẦNG 2A: `src/components/layout/Sidebar.tsx` — Dark Sidebar
+### 4. Thay SCENARIO_GROUPS: từ kỹ thuật → business questions
 
-Sidebar hiện dùng `bg-card border-r border-border` — sau khi đổi CSS vars sẽ tự thành dark. Cần thêm:
-- Logo area: gradient icon
-- Nav active state: `bg-white/8 text-white` thay vì `bg-primary/10 text-primary`
-- Nav hover: `hover:bg-white/5`
-- Group headers: `text-white/40` uppercase tracking
-- Child links: `text-white/60 hover:text-white`
-- Bottom section: glass divider
+```tsx
+// Từ:
+{ label: 'L3 KPI', questions: ['Tổng doanh thu 30 ngày...'] }
+{ label: 'L2 Orders', questions: ['Top 10 sản phẩm...'] }
+{ label: 'L4 Alerts', questions: [...] }
+{ label: 'CDP Equity', questions: [...] }
 
-### TẦNG 2B: `src/components/layout/Header.tsx` — Dark Header
+// Thành (CEO/CFO language):
+{ label: '💰 Doanh Thu & Lợi Nhuận', questions: [
+  'Doanh thu tháng này so với tháng trước thế nào?',
+  'Kênh nào đang lỗ hay lãi ít nhất?',
+  'Margin tổng thể đang ở mức bao nhiêu?',
+]}
+{ label: '📦 Sản Phẩm & Tồn Kho', questions: [
+  'Top 10 sản phẩm bán chạy nhất tháng này?',
+  'Sản phẩm nào đang tồn kho nhiều nhất?',
+]}
+{ label: '⚠️ Rủi Ro & Cảnh Báo', questions: [
+  'Hiện tại có vấn đề gì nghiêm trọng cần xử lý?',
+  'Có bao nhiêu cảnh báo đang mở?',
+]}
+{ label: '👥 Khách Hàng', questions: [
+  'Top khách hàng theo giá trị LTV?',
+  'Cohort nào có giá trị tốt nhất?',
+]}
+```
 
-Hiện: `bg-card border-b border-border` → sau CSS vars tự dark.
-Thêm: `backdrop-blur-xl bg-background/80` cho sticky header effect.
+### 5. Thêm AI Agent vào FDP Sidebar (nhóm [5] Kế Hoạch & Quyết Định)
 
-### TẦNG 2C: `src/components/layout/ControlTowerLayout.tsx`
+Trong `src/components/layout/Sidebar.tsx`, thêm vào nhóm `nav.planSimulation`:
 
-Sidebar: `bg-card border-r` → tự dark.
-Nav active: đổi `bg-primary/10 text-primary border border-primary/20` → `bg-white/8 text-white border border-white/10`.
+```tsx
+// [5] KẾ HOẠCH & QUYẾT ĐỊNH — thêm AI Agent
+{
+  labelKey: 'nav.planSimulation',
+  icon: Target,
+  children: [
+    { labelKey: 'nav.aiAgent', href: '/ai-agent' }, // ← THÊM VÀO ĐẦU
+    { labelKey: 'nav.scenario', href: '/scenario' },
+    { labelKey: 'nav.rollingForecast', href: '/rolling-forecast' },
+    { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
+    { labelKey: 'nav.riskDashboard', href: '/risk-dashboard' },
+    { labelKey: 'nav.decisionSupport', href: '/decision-support' },
+    { labelKey: 'nav.decisionCenter', href: '/decision-center' },
+  ],
+},
+```
 
-### TẦNG 2D: `src/components/layout/BluecoreCommandLayout.tsx`
+### 6. Thêm label vào `LanguageContext.tsx`
 
-Tương tự ControlTower — cập nhật active/hover states.
+```ts
+// Tiếng Việt
+'nav.aiAgent': 'AI Analyst',
 
-### TẦNG 2E: `src/components/layout/MDPLayout.tsx`
-
-Cập nhật active/hover states trong sidebar navigation.
-
-### TẦNG 2F: `src/pages/AuthPage.tsx` — Dark Login
-
-Đổi background: `from-background via-background to-primary/5` → giữ nguyên (sẽ tự dark).
-Card: thêm `glass-card` class.
-Input fields: `bg-white/5 border-white/10 text-white placeholder:text-white/30`.
-
-### TẦNG 3: `src/pages/PortalPage.tsx` — Dark Hub Redesign
-
-Full redesign như đã plan trước:
-- Background: ambient gradient radial
-- Hero tagline section
-- Module cards: glassmorphism với per-module glow
-- Data Warehouse hub: dark glass với glow ring
-- System overview: dark glass panel
-- Footer: principles strip
+// Tiếng Anh
+'nav.aiAgent': 'AI Analyst',
+```
 
 ---
 
-## Files cần thay đổi (theo thứ tự)
+## Không thay đổi
 
-| # | File | Loại thay đổi | Impact |
-|---|------|---------------|--------|
-| 1 | `src/index.css` | CSS Variables dark theme | **100% project** |
-| 2 | `src/components/layout/Sidebar.tsx` | Nav active/hover states | FDP sidebar |
-| 3 | `src/components/layout/Header.tsx` | Backdrop blur, icon states | FDP header |
-| 4 | `src/components/layout/ControlTowerLayout.tsx` | Nav states | CT sidebar |
-| 5 | `src/components/layout/BluecoreCommandLayout.tsx` | Nav states | Command sidebar |
-| 6 | `src/components/layout/MDPLayout.tsx` | Nav states | MDP sidebar |
-| 7 | `src/pages/AuthPage.tsx` | Glass card, dark inputs | Login page |
-| 8 | `src/pages/PortalPage.tsx` | Full dark redesign | Portal hub |
-
-**Không cần sửa**: CDPLayout (ít dùng), tất cả 70+ page files (tự thay đổi qua CSS vars), DashboardLayout (wrapper chỉ).
+- Edge function `cdp-qa/index.ts` — không đụng gì, đã production-ready
+- Route `/ai-agent` — giữ nguyên
+- Toàn bộ streaming/SSE logic trong component
+- `sendMessage` callback và auth flow
+- `AIMessageContent` component (markdown + chart rendering)
 
 ---
 
-## Kết quả trực quan
+## Files thay đổi
+
+| # | File | Thay đổi |
+|---|------|----------|
+| 1 | `src/pages/AIAgentTestPage.tsx` | Rename → `AIAgentPage.tsx`, bỏ standalone header, wrap vào DashboardLayout, đổi SCENARIO_GROUPS |
+| 2 | `src/App.tsx` | Cập nhật import và lazy load |
+| 3 | `src/components/layout/Sidebar.tsx` | Thêm `nav.aiAgent` vào nhóm [5] |
+| 4 | `src/contexts/LanguageContext.tsx` | Thêm label `nav.aiAgent` |
+
+---
+
+## Kết quả
 
 | Trước | Sau |
 |-------|-----|
-| `bg-background` = `hsl(220 20% 97%)` — light gray | `bg-background` = `hsl(222 47% 7%)` — near-black |
-| `bg-card` = `hsl(0 0% 100%)` — white | `bg-card` = `hsl(222 40% 10%)` — dark glass |
-| `border-border` = light gray | `border-border` = subtle white ~8% |
-| `text-muted-foreground` = gray | `text-muted-foreground` = white/55% |
-| Sidebar: dark navy (sidebar-background) | Sidebar: deeper dark |
-| Cards: white with shadows | Cards: dark glass with glow |
+| `/ai-agent` — standalone, không sidebar | Nằm trong FDP sidebar, nhóm "Kế Hoạch & Quyết Định" |
+| Badge "Test" trong header | Không còn badge, tên "Bluecore AI Analyst" |
+| Header tự render riêng | Dùng DashboardLayout nhất quán |
+| Scenario labels kỹ thuật (L3 KPI, L2 Orders) | Business language (Doanh Thu & Lợi Nhuận, Rủi Ro & Cảnh Báo) |
+| Không tìm được từ navigation | Accessible từ sidebar chính |
 
----
-
-## Lưu ý quan trọng
-
-- **Tất cả data/logic/hooks**: Giữ nguyên 100% — chỉ thay visual layer
-- **CDPLayout**: Có layout riêng nhưng ít critical — có thể update sau
-- **AdminLayout**: Ít người dùng — cũng có thể update sau
-- **Charts/Recharts**: Sẽ tự adapt theo text color từ CSS vars
-- **Shadcn components** (Button, Card, Badge, Input...): Tất cả dùng CSS vars → tự dark
