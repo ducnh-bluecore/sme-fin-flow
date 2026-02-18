@@ -108,7 +108,7 @@ const ProductForecastPage = lazy(() => import("./pages/cdp/ProductForecastPage")
 // Legacy CDP pages (keep for backwards compatibility)
 const ValueDistributionPage = lazy(() => import("./pages/cdp/ValueDistributionPage"));
 const TrendEnginePage = lazy(() => import("./pages/cdp/TrendEnginePage"));
-const AIAgentTestPage = lazy(() => import("./pages/AIAgentTestPage"));
+const AIAgentPage = lazy(() => import("./pages/AIAgentPage"));
 
 
 // Strategy & Decision pages
@@ -419,10 +419,10 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      {/* AI Agent Test */}
+      {/* AI Agent */}
       <Route path="/ai-agent" element={
         <ProtectedRoute>
-          <AIAgentTestPage />
+          <AIAgentPage />
         </ProtectedRoute>
       } />
 

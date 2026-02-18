@@ -85,6 +85,7 @@ const vi: Record<string, string> = {
   'nav.revenue': 'Doanh thu',
 
   'nav.planSimulation': 'Kế Hoạch & Quyết Định',
+  'nav.aiAgent': 'AI Analyst',
   'nav.scenario': 'Kịch bản & What-If',
   'nav.rollingForecast': 'Rolling Forecast',
   'nav.strategicInitiatives': 'Sáng kiến chiến lược',
@@ -1790,6 +1791,7 @@ const en: Record<string, string> = {
   'nav.revenue': 'Revenue',
 
   'nav.planSimulation': 'Planning & Decisions',
+  'nav.aiAgent': 'AI Analyst',
   'nav.scenario': 'Scenario & What-If',
   'nav.rollingForecast': 'Rolling Forecast',
   'nav.strategicInitiatives': 'Strategic Initiatives',

@@ -105,6 +105,7 @@ const navItems: NavItem[] = [
     labelKey: 'nav.planSimulation',
     icon: Target,
     children: [
+      { labelKey: 'nav.aiAgent', href: '/ai-agent' },
       { labelKey: 'nav.scenario', href: '/scenario' },
       { labelKey: 'nav.rollingForecast', href: '/rolling-forecast' },
       { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
