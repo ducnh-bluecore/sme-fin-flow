@@ -237,8 +237,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                     <button
                       onClick={() => toggleExpand(item.labelKey)}
                       className={cn(
-                        'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted',
-                        hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground'
+                        'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5',
+                        hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
                       )}
                     >
                       <div className="flex items-center gap-3">
@@ -260,7 +260,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden"
                         >
-                          <div className="ml-6 mt-1 space-y-0.5 border-l border-border pl-3">
+                          <div className="ml-6 mt-1 space-y-0.5 border-l border-border/50 pl-3">
                             {item.children.map((child) => (
                               <NavLink
                                 key={child.href}
@@ -270,8 +270,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                   cn(
                                     'block py-2 px-3 rounded-md text-sm transition-colors',
                                     isActive
-                                      ? 'bg-primary/10 text-primary font-medium'
-                                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                      ? 'bg-primary/15 text-primary font-medium'
+                                      : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                                   )
                                 }
                               >
@@ -290,8 +290,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                       cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                         isActive 
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                          ? 'bg-primary/15 text-primary font-medium'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                       )
                     }
                   >
@@ -310,18 +310,18 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                     onClick={() => toggleExpand(superAdminItems.labelKey)}
                     className={cn(
                       'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors',
-                      'bg-red-50 hover:bg-red-100',
-                      hasActiveChild(superAdminItems.children) ? 'text-red-700 font-medium' : 'text-red-600'
+                      'bg-destructive/10 hover:bg-destructive/15',
+                      hasActiveChild(superAdminItems.children) ? 'text-destructive font-medium' : 'text-destructive/80'
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <superAdminItems.icon className="w-4 h-4 text-red-600" />
+                      <superAdminItems.icon className="w-4 h-4 text-destructive/80" />
                       <span>{t(superAdminItems.labelKey)}</span>
                     </div>
                     {expandedItems.includes(superAdminItems.labelKey) ? (
-                      <ChevronDown className="w-4 h-4 text-red-600" />
+                      <ChevronDown className="w-4 h-4 text-destructive/80" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-red-600" />
+                      <ChevronRight className="w-4 h-4 text-destructive/80" />
                     )}
                   </button>
                   <AnimatePresence>
@@ -333,7 +333,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="ml-6 mt-1 space-y-0.5 border-l border-red-200 pl-3">
+                        <div className="ml-6 mt-1 space-y-0.5 border-l border-destructive/20 pl-3">
                           {superAdminItems.children.map((child) => (
                             <NavLink
                               key={child.href}
@@ -342,8 +342,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                                 cn(
                                   'block py-2 px-3 rounded-md text-sm transition-colors',
                                   isActive
-                                    ? 'bg-red-100 text-red-700 font-medium'
-                                    : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                                    ? 'bg-destructive/15 text-destructive font-medium'
+                                    : 'text-destructive/70 hover:text-destructive hover:bg-destructive/10'
                                 )
                               }
                             >
@@ -368,7 +368,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors mb-2',
-                'bg-primary/10 hover:bg-primary/20',
+                'bg-primary/15 hover:bg-primary/20',
                 isActive ? 'text-primary font-medium' : 'text-primary'
               )
             }
@@ -382,8 +382,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                 <button
                   onClick={() => toggleExpand(item.labelKey)}
                   className={cn(
-                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-muted',
-                    hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground'
+                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5',
+                    hasActiveChild(item.children) ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -405,7 +405,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="ml-6 mt-1 space-y-0.5 border-l border-border pl-3">
+                      <div className="ml-6 mt-1 space-y-0.5 border-l border-border/50 pl-3">
                         {item.children.map((child) => (
                           <NavLink
                             key={child.href}
@@ -415,8 +415,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                               cn(
                                 'block py-2 px-3 rounded-md text-sm transition-colors',
                                 isActive
-                                  ? 'bg-primary/10 text-primary font-medium'
-                                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                  ? 'bg-primary/15 text-primary font-medium'
+                                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                               )
                             }
                           >
@@ -437,8 +437,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
                   cn(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                     isActive 
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      ? 'bg-primary/15 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                   )
                 }
               >

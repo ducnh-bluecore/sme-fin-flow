@@ -163,8 +163,8 @@ export function MDPLayout() {
         cn(
           'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
           active || isActive(item.href!)
-            ? 'bg-primary/10 text-primary font-medium'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            ? 'bg-primary/15 text-primary font-medium'
+            : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
         )
       }
     >
@@ -173,7 +173,7 @@ export function MDPLayout() {
       {item.badge && item.badge > 0 && (
         <Badge 
           variant="secondary" 
-          className="h-5 min-w-5 text-xs bg-amber-100 text-amber-700 border-amber-200"
+          className="h-5 min-w-5 text-xs bg-warning/15 text-warning border-warning/20"
         >
           {item.badge}
         </Badge>
@@ -198,8 +198,8 @@ export function MDPLayout() {
       onClick={() => toggleSection(section)}
       className={cn(
         'w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors',
-        'hover:bg-muted',
-        hasActive ? 'text-foreground font-medium' : 'text-muted-foreground'
+        'hover:bg-white/5',
+        hasActive ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
       )}
     >
       <div className="flex items-center gap-3">

@@ -69,7 +69,7 @@ interface Workspace {
   badgeCount?: number;
 }
 
-// Compact App Module Card for radial layout
+// Compact App Module Card — Dark Glassmorphism
 function CompactModuleCard({ 
   module, 
   onClick,
@@ -82,107 +82,99 @@ function CompactModuleCard({
   isActive?: boolean;
 }) {
   return (
-    <Card 
-      className={`
-        relative overflow-hidden transition-all duration-300 h-full
-        ${isActive 
-          ? 'cursor-pointer hover:shadow-elevated hover:-translate-y-1' 
-          : 'opacity-60 cursor-not-allowed bg-muted/30'}
-      `}
+    <motion.div
+      whileHover={isActive ? { y: -6, transition: { duration: 0.2 } } : {}}
+      className={`group relative p-5 rounded-2xl border cursor-pointer transition-all duration-300 h-full flex flex-col ${
+        isActive 
+          ? 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.07] hover:border-white/[0.14]'
+          : 'bg-white/[0.02] border-white/[0.05] opacity-50 cursor-not-allowed'
+      }`}
       style={{
-        borderTopWidth: '3px',
-        borderTopColor: isActive ? module.color : 'hsl(var(--border))'
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
       }}
       onClick={() => isActive && onClick(module)}
     >
-      <CardHeader className="pb-2 pt-4">
-        <div className="flex items-center justify-between">
-          <div 
-            className={`p-2 rounded-lg ${!isActive ? 'grayscale' : ''}`}
-            style={{ 
-              backgroundColor: isActive ? module.bgColor : 'hsl(var(--muted))',
-              border: `1px solid ${isActive ? module.borderColor : 'hsl(var(--border))'}`
-            }}
-          >
-            <module.icon 
-              className="h-5 w-5" 
-              style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}
-            />
-          </div>
-          <Badge 
-            variant={isActive ? "default" : "secondary"}
-            className="text-[10px] font-medium"
-            style={isActive ? { 
-              backgroundColor: module.color,
-              color: '#fff'
-            } : undefined}
-          >
-            {isActive ? module.shortName : (
-              <span className="flex items-center gap-1">
-                <Lock className="h-3 w-3" />
-                Inactive
-              </span>
-            )}
-          </Badge>
-        </div>
-        <div className="mt-2">
-          <CardTitle className={`text-base font-semibold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-            {module.name}
-          </CardTitle>
-          <CardDescription className="text-[11px] mt-0.5" style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}>
-            {module.tagline}
-          </CardDescription>
-        </div>
-      </CardHeader>
+      {/* Per-module hover glow */}
+      {isActive && (
+        <div 
+          className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+          style={{ background: `radial-gradient(circle at 50% 0%, ${module.color}18, transparent 70%)` }} 
+        />
+      )}
       
-      <CardContent className="pt-0 pb-4">
-        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-          {module.description}
+      {/* Icon + Badge */}
+      <div className="flex items-start justify-between mb-4 relative">
+        <div 
+          className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ 
+            background: `linear-gradient(135deg, ${module.color}35, ${module.color}15)`,
+            border: `1px solid ${module.color}30`
+          }}
+        >
+          <module.icon className="h-5 w-5" style={{ color: module.color }} />
+        </div>
+        <span 
+          className="text-[10px] uppercase tracking-widest font-semibold px-2 py-1 rounded-full"
+          style={{ 
+            color: isActive ? module.color : 'hsl(var(--muted-foreground))',
+            background: isActive ? `${module.color}15` : 'transparent',
+            border: `1px solid ${isActive ? module.color + '25' : 'transparent'}`
+          }}
+        >
+          {isActive ? module.shortName : <span className="flex items-center gap-1"><Lock className="h-3 w-3" />Inactive</span>}
+        </span>
+      </div>
+
+      {/* Name + Tagline */}
+      <div className="mb-3 relative flex-1">
+        <h3 className="font-semibold text-sm text-foreground mb-0.5">{module.name}</h3>
+        <p className="text-[10px] uppercase tracking-wide mb-2" style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}>
+          {module.tagline}
         </p>
-        
-        {isActive && module.metrics && (
-          <div className="grid grid-cols-2 gap-1.5 mb-3">
-            {module.metrics.slice(0, 2).map((metric, i) => (
-              <div key={i} className="bg-muted/50 rounded-md px-2 py-1.5">
-                <div className="text-[10px] text-muted-foreground">{metric.label}</div>
-                <div className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  {isLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    metric.value
-                  )}
-                </div>
+        <p className="text-[11px] text-muted-foreground line-clamp-2">{module.description}</p>
+      </div>
+
+      {/* Metrics */}
+      {isActive && module.metrics && (
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          {module.metrics.slice(0, 2).map((metric, i) => (
+            <div key={i} className="bg-white/[0.05] rounded-lg px-2 py-1.5 border border-white/[0.08]">
+              <div className="text-[9px] text-muted-foreground">{metric.label}</div>
+              <div className="text-xs font-semibold text-foreground flex items-center gap-1">
+                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : metric.value}
               </div>
-            ))}
-          </div>
-        )}
-        
-        {!isActive && (
-          <div className="grid grid-cols-2 gap-1.5 mb-3">
-            <div className="bg-muted/30 rounded-md px-2 py-1.5">
-              <div className="text-[10px] text-muted-foreground">Status</div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {!isActive && (
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          {[0,1].map(i => (
+            <div key={i} className="bg-white/[0.03] rounded-lg px-2 py-1.5 border border-white/[0.05]">
+              <div className="text-[9px] text-muted-foreground">—</div>
               <div className="text-xs font-semibold text-muted-foreground">—</div>
             </div>
-            <div className="bg-muted/30 rounded-md px-2 py-1.5">
-              <div className="text-[10px] text-muted-foreground">—</div>
-              <div className="text-xs font-semibold text-muted-foreground">—</div>
-            </div>
-          </div>
-        )}
-        
+          ))}
+        </div>
+      )}
+
+      {/* CTA */}
+      <div className="flex items-center text-xs font-medium mt-auto" style={{ color: isActive ? module.color : 'hsl(var(--muted-foreground))' }}>
         {isActive ? (
-          <div className="flex items-center text-xs font-medium" style={{ color: module.color }}>
+          <>
             <span>Open {module.shortName}</span>
-            <ArrowRight className="h-3 w-3 ml-1" />
-          </div>
+            <ArrowRight className="h-3 w-3 ml-1 group-hover:translate-x-1 transition-transform" />
+          </>
         ) : (
-          <div className="flex items-center text-xs font-medium text-muted-foreground">
+          <>
             <Lock className="h-3 w-3 mr-1" />
             <span>Upgrade to access</span>
-          </div>
+          </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </motion.div>
   );
 }
 
@@ -191,10 +183,11 @@ function WorkspaceLink({ workspace, onClick }: { workspace: Workspace; onClick: 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:bg-accent/50 hover:border-accent transition-all duration-200 group text-left"
+      className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] hover:border-white/[0.14] transition-all duration-200 group text-left"
+      style={{ backdropFilter: 'blur(8px)' }}
     >
-      <div className="p-2 rounded-md bg-muted">
-        <workspace.icon className="h-4 w-4 text-muted-foreground" />
+      <div className="p-2 rounded-lg bg-white/[0.06] border border-white/[0.08]">
+        <workspace.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-foreground">{workspace.name}</div>
@@ -209,6 +202,7 @@ function WorkspaceLink({ workspace, onClick }: { workspace: Workspace; onClick: 
     </button>
   );
 }
+
 
 export default function PortalPage() {
   const navigate = useNavigate();
@@ -468,7 +462,14 @@ export default function PortalPage() {
         <meta name="description" content="Enterprise-grade Finance & Decision Intelligence Platform for CEOs, CFOs, and COOs" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background relative overflow-hidden">
+        {/* Ambient background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full blur-[100px]" style={{ background: 'radial-gradient(ellipse, hsl(var(--primary)/0.08) 0%, transparent 70%)' }} />
+          <div className="absolute bottom-0 right-0 w-96 h-96 rounded-full blur-[80px]" style={{ background: 'radial-gradient(ellipse, hsl(var(--chart-5)/0.05) 0%, transparent 70%)' }} />
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)', backgroundSize: '48px 48px', opacity: 0.25 }} />
+        </div>
+
         {debugEnabled && (
           <div className="fixed left-4 top-4 z-[9998] w-[min(520px,calc(100vw-2rem))] rounded-xl border border-border bg-card/95 backdrop-blur p-3 shadow-elevated">
             <div className="text-xs font-semibold text-foreground">Portal Debug</div>
@@ -484,30 +485,70 @@ export default function PortalPage() {
         )}
 
         {/* Header */}
-        <header className="border-b border-border bg-card">
-          <div className="max-w-7xl mx-auto px-6 py-5">
+        <header className="relative z-20 border-b border-white/[0.08] bg-background/80 backdrop-blur-xl sticky top-0">
+          <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                  Bluecore
-                </h1>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Finance & Decision Intelligence Platform
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-chart-5 flex items-center justify-center">
+                  <BarChart3 className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-foreground tracking-tight">Bluecore</h1>
+                  <p className="text-[10px] text-muted-foreground -mt-0.5">Finance & Decision Intelligence</p>
+                </div>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto px-6 py-8">
-          {/* Alert Setup Banner - Show when tenant has no alert configs */}
+        <main className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+          {/* Alert Setup Banner */}
           {needsAlertSetup && (
             <AlertSetupBanner 
               onInitialize={() => initializeDefaults.mutate()} 
               isLoading={initializeDefaults.isPending}
             />
           )}
-          
+
+          {/* Hero Tagline */}
+          <section className="text-center pt-4 pb-10">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex justify-center gap-2 mb-5"
+            >
+              {['Not BI', 'Not ERP', 'Not Accounting'].map((badge) => (
+                <span 
+                  key={badge}
+                  className="px-3 py-1 text-[10px] rounded-full border text-muted-foreground uppercase tracking-widest"
+                  style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.10)' }}
+                >
+                  {badge}
+                </span>
+              ))}
+            </motion.div>
+            <motion.h2
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-3xl md:text-4xl font-bold text-foreground mb-2"
+            >
+              Finance & Decision{' '}
+              <span className="gradient-text-emerald">Intelligence Platform</span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-muted-foreground text-sm max-w-lg mx-auto"
+            >
+              {language === 'vi'
+                ? 'Giúp CEO & CFO ra quyết định nhanh hơn, chính xác hơn — dựa trên sự thật tài chính.'
+                : 'Helping CEOs & CFOs decide faster and more accurately — based on financial truth.'}
+            </motion.p>
+          </section>
+
           {/* Hub and Spoke Layout */}
           <section className="mb-10">
             {/* Central Data Warehouse Hub */}
@@ -517,100 +558,70 @@ export default function PortalPage() {
               transition={{ duration: 0.5 }}
               className="flex justify-center mb-8"
             >
-              <Card 
-                className="w-full max-w-md cursor-pointer hover:shadow-elevated transition-all duration-300 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10"
+              <div 
+                className="w-full max-w-md cursor-pointer rounded-2xl border transition-all duration-300 p-6 text-center"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  borderColor: 'hsl(var(--primary)/0.35)',
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 0 60px -10px hsl(var(--primary)/0.25)',
+                }}
                 onClick={handleDataWarehouseClick}
               >
-                <CardContent className="p-6">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-                      <Database className="h-10 w-10 text-primary" />
-                    </div>
-                    <h2 className="text-xl font-bold text-foreground mb-1">Data Warehouse</h2>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {language === 'vi' 
-                        ? 'Trung tâm dữ liệu - Single Source of Truth' 
-                        : 'Central Data Hub - Single Source of Truth'}
-                    </p>
-                    <div className="grid grid-cols-3 gap-4 w-full mb-4">
-                      <div className="bg-card rounded-lg p-2 border">
-                        <div className="text-[10px] text-muted-foreground uppercase">Tables</div>
-                        <div className="text-lg font-bold text-foreground">
-                          {dbStatsLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                          ) : (
-                            dbStats?.totalTables || 50
-                          )}
-                        </div>
-                      </div>
-                      <div className="bg-card rounded-lg p-2 border">
-                        <div className="text-[10px] text-muted-foreground uppercase">Sync</div>
-                        <div className="text-lg font-bold text-success">Live</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-2 border">
-                        <div className="text-[10px] text-muted-foreground uppercase">Records</div>
-                        <div className="text-lg font-bold text-foreground">
-                          {dbStatsLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                          ) : (
-                            formatRecordCount(dbStats?.totalRecords || 0)
-                          )}
-                        </div>
+                <div 
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ 
+                    background: 'linear-gradient(135deg, hsl(var(--primary)/0.25), hsl(var(--chart-5)/0.15))',
+                    border: '1px solid hsl(var(--primary)/0.30)',
+                    boxShadow: '0 0 30px -5px hsl(var(--primary)/0.3)'
+                  }}
+                >
+                  <Database className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground mb-1">Data Warehouse</h2>
+                <p className="text-sm text-muted-foreground mb-5">
+                  {language === 'vi' ? 'Trung tâm dữ liệu — Single Source of Truth' : 'Central Data Hub — Single Source of Truth'}
+                </p>
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  {[
+                    { label: 'Tables', value: dbStatsLoading ? null : (dbStats?.totalTables || 50) },
+                    { label: 'Sync', value: 'Live', isSuccess: true },
+                    { label: 'Records', value: dbStatsLoading ? null : formatRecordCount(dbStats?.totalRecords || 0) },
+                  ].map((stat, i) => (
+                    <div key={i} className="rounded-xl p-2.5 border" style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}>
+                      <div className="text-[10px] text-muted-foreground uppercase mb-1">{stat.label}</div>
+                      <div className={`text-base font-bold ${stat.isSuccess ? 'text-success' : 'text-foreground'}`}>
+                        {stat.value === null ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : stat.value}
                       </div>
                     </div>
-                    <Button variant="default" size="sm" className="gap-2">
-                      <span>Open Data Warehouse</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                  ))}
+                </div>
+                <Button variant="default" size="sm" className="gap-2 w-full">
+                  <span>Open Data Warehouse</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </motion.div>
 
             {/* Connection Lines Visual */}
             <div className="relative">
-              {/* Decorative connecting lines - hidden on mobile */}
               <div className="hidden lg:block absolute inset-x-0 -top-4 h-8">
                 <svg className="w-full h-full" viewBox="0 0 1000 32" preserveAspectRatio="none">
-                  <path 
-                    d="M125 32 L125 16 L500 16 L500 0" 
-                    stroke="hsl(var(--border))" 
-                    strokeWidth="2" 
-                    fill="none"
-                    strokeDasharray="4 4"
-                  />
-                  <path 
-                    d="M375 32 L375 16 L500 16 L500 0" 
-                    stroke="hsl(var(--border))" 
-                    strokeWidth="2" 
-                    fill="none"
-                    strokeDasharray="4 4"
-                  />
-                  <path 
-                    d="M625 32 L625 16 L500 16 L500 0" 
-                    stroke="hsl(var(--border))" 
-                    strokeWidth="2" 
-                    fill="none"
-                    strokeDasharray="4 4"
-                  />
-                  <path 
-                    d="M875 32 L875 16 L500 16 L500 0" 
-                    stroke="hsl(var(--border))" 
-                    strokeWidth="2" 
-                    fill="none"
-                    strokeDasharray="4 4"
-                  />
+                  {['125', '375', '625', '875'].map((x) => (
+                    <path key={x} d={`M${x} 32 L${x} 16 L500 16 L500 0`} stroke="hsl(var(--border))" strokeWidth="1.5" fill="none" strokeDasharray="4 4" />
+                  ))}
                 </svg>
               </div>
 
-              {/* Application Cards Grid */}
+              {/* Module Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {appModules.map((module, index) => (
                   <motion.div
                     key={module.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + index * 0.1, duration: 0.4 }}
+                    transition={{ delay: 0.2 + index * 0.08, duration: 0.4 }}
+                    className="h-full"
                   >
                     <CompactModuleCard 
                       module={module} 
@@ -626,10 +637,10 @@ export default function PortalPage() {
 
           {/* Bottom Section: Workspaces + System Overview */}
           <div className={`grid grid-cols-1 ${isSuperAdmin ? 'lg:grid-cols-3' : ''} gap-6`}>
-            {/* Workspaces - Only visible for Super Admins */}
+            {/* Workspaces - Super Admin only */}
             {isSuperAdmin && (
               <section className="lg:col-span-1">
-                <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Workspaces</h2>
+                <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-widest">Workspaces</h2>
                 <div className="space-y-2">
                   {workspaces.map((workspace) => (
                     <WorkspaceLink 
@@ -644,66 +655,72 @@ export default function PortalPage() {
 
             {/* System Overview */}
             <section className={isSuperAdmin ? "lg:col-span-2" : "lg:col-span-1"}>
-              <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">System Overview</h2>
-              <Card className="p-5">
+              <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-widest">System Overview</h2>
+              <div 
+                className="rounded-2xl border p-5"
+                style={{ background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}
+              >
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                      Data Freshness
-                    </div>
-                    <div className="text-lg font-semibold text-foreground">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Data Freshness</div>
+                    <div className="text-base font-semibold text-foreground">
                       {financeSnapshot?.isStale ? 'Stale' : 'Real-time'}
                     </div>
-                    <div className={`text-[11px] mt-0.5 ${financeSnapshot?.isStale ? 'text-warning' : 'text-success'}`}>
-                      {financeSnapshot?.isStale ? '● Refresh needed' : '● All systems synced'}
+                    <div className={`flex items-center gap-1.5 mt-1 text-[11px] ${financeSnapshot?.isStale ? 'text-warning' : 'text-success'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${financeSnapshot?.isStale ? 'bg-warning' : 'bg-success animate-pulse'}`} />
+                      {financeSnapshot?.isStale ? 'Refresh needed' : 'All systems synced'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                      Active Alerts
-                    </div>
-                    <div className="text-lg font-semibold text-foreground">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Active Alerts</div>
+                    <div className="text-base font-semibold text-foreground">
                       {alertsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : alertStats?.active || 0}
                     </div>
-                    <div className="text-[11px] text-warning mt-0.5">
-                      {alertStats?.bySeverity?.critical || 0} critical, {(alertStats?.active || 0) - (alertStats?.bySeverity?.critical || 0)} pending
+                    <div className="text-[11px] text-warning mt-1">
+                      {alertStats?.bySeverity?.critical || 0} critical
                     </div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                      Pending Decisions
-                    </div>
-                    <div className="text-lg font-semibold text-foreground">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Pending Decisions</div>
+                    <div className="text-base font-semibold text-foreground">
                       {alertStats?.active || 0}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Awaiting action</div>
+                    <div className="text-[11px] text-muted-foreground mt-1">Awaiting action</div>
                   </div>
                   <div>
-                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                      Cash Position
-                    </div>
-                    <div className="text-lg font-semibold text-foreground">
+                    <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">Cash Position</div>
+                    <div className="text-base font-semibold text-foreground">
                       {financeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : formatVND(financeSnapshot?.cashToday)}
                     </div>
-                    <div className="text-[11px] text-success mt-0.5">
+                    <div className="text-[11px] text-success mt-1">
                       {financeSnapshot?.cash7dForecast && financeSnapshot.cashToday ? (
                         <>
                           {financeSnapshot.cash7dForecast > financeSnapshot.cashToday ? '↑' : '↓'}{' '}
                           {Math.abs(((financeSnapshot.cash7dForecast - financeSnapshot.cashToday) / financeSnapshot.cashToday) * 100).toFixed(1)}% next 7d
                         </>
-                      ) : (
-                        '—'
-                      )}
+                      ) : '—'}
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
             </section>
           </div>
 
-          {/* Footer Note */}
-          <footer className="mt-10 pt-6 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center">
+          {/* Footer */}
+          <footer className="mt-12 pt-6 border-t border-white/[0.08]">
+            <div className="flex items-center justify-center gap-8 mb-3">
+              {[
+                { color: 'bg-success', label: 'Real Cash' },
+                { color: 'bg-primary', label: 'Truth First' },
+                { color: 'bg-warning', label: 'Action Now' },
+              ].map(({ color, label }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
+                  <span className="text-muted-foreground text-xs">{label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground/50 text-center">
               {language === 'vi' 
                 ? 'Nếu không khiến quyết định rõ ràng hơn → hệ thống đã thất bại.'
                 : 'If the system doesn\'t make decisions clearer → it has failed.'}
