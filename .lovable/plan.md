@@ -1,142 +1,191 @@
 
-# Sắp xếp lại FDP Sidebar: Từ 12 nhóm → 5 nhóm logic
+# Redesign Toàn Bộ Project: Dark Theme Glassmorphism
 
-## Hiện trạng thực tế (đã quan sát trực tiếp)
+## Hiểu đúng vấn đề
 
-Sidebar hiện tại nhìn từ giao diện có các nhóm sau:
+Project hiện tại có **7 layouts + 70+ pages**. Nếu đổi từng file sẽ tốn hàng trăm lần chỉnh sửa. Cách đúng: **thay đổi tại gốc — CSS Design Tokens trong `src/index.css`** và **Tailwind config**. Khi đó toàn bộ project tự động đổi màu theo.
 
-1. **Quyết định hôm nay** (standalone item — lạc lõng)
-2. **Tổng quan CFO** → Dashboard, Vị thế tiền mặt, Cash Flow Forecast, Dòng tiền trực tiếp, Vốn lưu động & CCC
-3. **Chiến lược & Quyết định** → Executive Summary, Risk Dashboard, Decision Support
-4. **Báo cáo tài chính** → P&L, Analysis, Performance, Board Reports, Expenses, Revenue
-5. **Kế hoạch & Mô phỏng** → Scenario, Rolling Forecast, Strategic Initiatives
-6. **AR/AP** → Quản lý hóa đơn, AR Operations, AP Overview, CN/DN, Đối soát, Exceptions
-7. **Vận hành bán lẻ** → Inventory Aging, Allocation, Promotion ROI, Supplier Payments
-8. **Kênh bán hàng** → Phân tích kênh, Unit Economics
-9. **Data Hub** → Data Center, Data Warehouse, ETL Rules, Chart of Accounts, Bank Connections
-10. **Thuế & Tuân thủ** → Tax Compliance, Covenant Tracking
-11. **Alerts** (standalone — trùng Control Tower)
-12. **Admin** → Company, Members, RBAC, Audit Log
-13. **API** (standalone)
-
-**Vấn đề rõ ràng:**
-- "Expenses" bị đặt trong "Báo cáo tài chính" — sai logic (expenses là nhập liệu, không phải báo cáo)
-- "Supplier Payments" bị đặt trong "Vận hành bán lẻ" — nên ở nhóm nhập liệu
-- "Kênh bán hàng" chỉ có 2 items — quá nhỏ, gộp vào Phân tích
-- "Chiến lược & Quyết định" và "Kế hoạch & Mô phỏng" có thể gộp thành 1 nhóm
-- "Thuế & Tuân thủ" quá niche, ít dùng
-- "Alerts" standalone trùng với Control Tower
+Kiến trúc hiện tại dùng CSS variables (`--background`, `--card`, `--foreground`, `--sidebar-background`...) được dùng ở KHẮP NƠI. Đây là điểm đòn bẩy duy nhất.
 
 ---
 
-## Cấu trúc 5 nhóm mới
+## Phân tích template bạn upload
+
+Template Aniq/Next.js dùng:
+- **Background**: `#0a0a0a` / `#111111` (near-black)
+- **Cards**: `rgba(255,255,255,0.04)` — glass trên nền dark
+- **Borders**: `rgba(255,255,255,0.08)` — subtle white borders
+- **Text primary**: `#ffffff` / `#f0f0f0`
+- **Text muted**: `rgba(255,255,255,0.45)`
+- **Accent**: Gradient blue `#3b82f6` → indigo `#6366f1`
+- **Success**: Emerald `#10b981`
+- **Warning**: Amber `#f59e0b`
+- **Danger**: Rose `#f43f5e`
+
+---
+
+## Chiến lược thay đổi: 3 tầng
 
 ```text
-[1] TỔNG QUAN
-    Dashboard
-    Vị thế tiền mặt
-    Cash Flow Forecast
-    Dòng tiền trực tiếp
-    Vốn lưu động & CCC
+TẦNG 1 — CSS Variables (1 file, ảnh hưởng 100% project)
+  src/index.css → đổi :root dark theme
 
-[2] PHÂN TÍCH TÀI CHÍNH
-    Báo cáo P&L
-    Phân tích tổng hợp
-    Phân tích hiệu quả
-    Phân tích kênh         ← từ "Kênh bán hàng"
-    Unit Economics         ← từ "Kênh bán hàng"
-    Doanh thu
+TẦNG 2 — Layout Shells (7 files, ảnh hưởng sidebar/header)
+  DashboardLayout → Sidebar, Header
+  ControlTowerLayout → sidebar dark glass
+  BluecoreCommandLayout → sidebar dark glass
+  MDPLayout → sidebar dark glass
+  CDPLayout → sidebar dark glass
+  AuthPage → dark glassmorphism card
 
-[3] ĐỐI SOÁT & CÔNG NỢ
-    AR Operations
-    AP Overview (Hóa đơn mua)
-    Đối soát đơn hàng
-    Exception Board
-    CN/DN Tracking
-
-[4] NHẬP LIỆU & CẤU HÌNH
-    Chi phí                ← từ "Báo cáo tài chính"
-    Thanh toán NCC         ← từ "Vận hành bán lẻ"
-    Kết nối ngân hàng
-    Hệ thống tài khoản
-    Data Center
-    Data Warehouse
-
-[5] KẾ HOẠCH & QUYẾT ĐỊNH
-    Kịch bản & What-If
-    Rolling Forecast
-    Executive Summary      ← từ "Chiến lược"
-    Risk Dashboard         ← từ "Chiến lược"
-    Hỗ trợ quyết định     ← từ "Chiến lược"
-    Quyết định hôm nay    ← standalone item
+TẦNG 3 — Portal Hub (1 file, trang quan trọng nhất)
+  PortalPage → full dark immersive redesign
 ```
 
 ---
 
-## Items bị ẩn khỏi sidebar (giữ routes, không xóa pages)
+## Thay đổi cụ thể
 
-| Item hiện tại | Lý do ẩn |
-|---|---|
-| `nav.alerts` standalone | Control Tower đã có alerts hoàn chỉnh hơn |
-| `nav.boardReports` | Trùng với Executive Summary |
-| `nav.strategicInitiatives` | Ít dùng |
-| `nav.inventoryAging` | Đã có trong Bluecore Command |
-| `nav.inventoryAllocation` | Đã có trong Bluecore Command |
-| `nav.promotionROI` | Đã có trong MDP |
-| `nav.taxTracking` | Ẩn vào cuối hoặc Settings |
-| `nav.covenantTracking` | Ẩn vào cuối hoặc Settings |
-| `nav.etlRules` | Kỹ thuật — gộp vào Data Center |
-| `nav.invoiceManagement` | Gộp vào AR Operations |
-| `nav.api` standalone | Đưa xuống bottom nav |
+### TẦNG 1: `src/index.css` — Dark Design System
+
+Đổi `:root` từ light sang dark:
+
+```css
+:root {
+  /* Background: near-black slate */
+  --background: 222 47% 7%;        /* #0c1120 — deep navy-black */
+  --foreground: 213 31% 91%;       /* #dce4f0 — soft white */
+
+  /* Cards: dark glass */
+  --card: 222 40% 10%;             /* #111827 — elevated dark */
+  --card-foreground: 213 31% 91%;
+
+  /* Sidebar: deeper dark */
+  --sidebar-background: 222 50% 5%;  /* #07090f */
+  --sidebar-foreground: 213 31% 80%;
+
+  /* Primary: Bluecore signature blue */
+  --primary: 221 83% 63%;           /* #4f8ef7 — brighter for dark bg */
+  --primary-foreground: 0 0% 100%;
+
+  /* Borders: subtle white glass */
+  --border: 222 30% 18%;            /* rgba white ~8% */
+  --input: 222 30% 15%;
+
+  /* Muted: dark gray */
+  --muted: 222 35% 13%;
+  --muted-foreground: 213 20% 55%;
+
+  /* Success, Warning, Danger — brighter for dark bg */
+  --success: 152 70% 45%;
+  --warning: 38 95% 55%;
+  --destructive: 0 80% 62%;
+}
+```
+
+Bổ sung utility classes mới trong `@layer components`:
+```css
+/* Glass card — dùng thay cho bg-card thông thường */
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+/* Glass card hover */
+.glass-card-hover:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #60a5fa, #818cf8, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+```
+
+### TẦNG 2A: `src/components/layout/Sidebar.tsx` — Dark Sidebar
+
+Sidebar hiện dùng `bg-card border-r border-border` — sau khi đổi CSS vars sẽ tự thành dark. Cần thêm:
+- Logo area: gradient icon
+- Nav active state: `bg-white/8 text-white` thay vì `bg-primary/10 text-primary`
+- Nav hover: `hover:bg-white/5`
+- Group headers: `text-white/40` uppercase tracking
+- Child links: `text-white/60 hover:text-white`
+- Bottom section: glass divider
+
+### TẦNG 2B: `src/components/layout/Header.tsx` — Dark Header
+
+Hiện: `bg-card border-b border-border` → sau CSS vars tự dark.
+Thêm: `backdrop-blur-xl bg-background/80` cho sticky header effect.
+
+### TẦNG 2C: `src/components/layout/ControlTowerLayout.tsx`
+
+Sidebar: `bg-card border-r` → tự dark.
+Nav active: đổi `bg-primary/10 text-primary border border-primary/20` → `bg-white/8 text-white border border-white/10`.
+
+### TẦNG 2D: `src/components/layout/BluecoreCommandLayout.tsx`
+
+Tương tự ControlTower — cập nhật active/hover states.
+
+### TẦNG 2E: `src/components/layout/MDPLayout.tsx`
+
+Cập nhật active/hover states trong sidebar navigation.
+
+### TẦNG 2F: `src/pages/AuthPage.tsx` — Dark Login
+
+Đổi background: `from-background via-background to-primary/5` → giữ nguyên (sẽ tự dark).
+Card: thêm `glass-card` class.
+Input fields: `bg-white/5 border-white/10 text-white placeholder:text-white/30`.
+
+### TẦNG 3: `src/pages/PortalPage.tsx` — Dark Hub Redesign
+
+Full redesign như đã plan trước:
+- Background: ambient gradient radial
+- Hero tagline section
+- Module cards: glassmorphism với per-module glow
+- Data Warehouse hub: dark glass với glow ring
+- System overview: dark glass panel
+- Footer: principles strip
 
 ---
 
-## Thay đổi label (LanguageContext.tsx)
+## Files cần thay đổi (theo thứ tự)
 
-Cập nhật tên 5 nhóm trong cả tiếng Việt và tiếng Anh:
+| # | File | Loại thay đổi | Impact |
+|---|------|---------------|--------|
+| 1 | `src/index.css` | CSS Variables dark theme | **100% project** |
+| 2 | `src/components/layout/Sidebar.tsx` | Nav active/hover states | FDP sidebar |
+| 3 | `src/components/layout/Header.tsx` | Backdrop blur, icon states | FDP header |
+| 4 | `src/components/layout/ControlTowerLayout.tsx` | Nav states | CT sidebar |
+| 5 | `src/components/layout/BluecoreCommandLayout.tsx` | Nav states | Command sidebar |
+| 6 | `src/components/layout/MDPLayout.tsx` | Nav states | MDP sidebar |
+| 7 | `src/pages/AuthPage.tsx` | Glass card, dark inputs | Login page |
+| 8 | `src/pages/PortalPage.tsx` | Full dark redesign | Portal hub |
 
-| Key | Tiếng Việt mới | Tiếng Anh mới |
-|---|---|---|
-| `nav.cfoOverview` | **Tổng Quan** | **Overview** |
-| `nav.financialReports` | **Phân Tích Tài Chính** | **Financial Analysis** |
-| `nav.arAp` | **Đối Soát & Công Nợ** | **Reconciliation & AR/AP** |
-| `nav.dataHub` | **Nhập Liệu & Cấu Hình** | **Data Input & Config** |
-| `nav.planSimulation` | **Kế Hoạch & Quyết Định** | **Planning & Decisions** |
-
----
-
-## Phạm vi thay đổi kỹ thuật
-
-**File 1: `src/components/layout/Sidebar.tsx`** (thay đổi chính)
-- Rewrite `navItems` array (lines 52–168): từ 12 entries → 5 entries với children mới
-- Xóa: standalone `nav.decisionCenter`, standalone `nav.alerts`, standalone `nav.api` khỏi navItems
-- Thêm `nav.decisionCenter` vào cuối nhóm [5]
-- Giữ nguyên: `superAdminItems`, `bottomNavItems`, toàn bộ render logic (không đổi)
-- Cập nhật `expandedItems` default: `['nav.cfoOverview']` (đã đúng)
-
-**File 2: `src/contexts/LanguageContext.tsx`** (cập nhật labels)
-- Cập nhật 5 label nhóm (tiếng Việt + tiếng Anh)
-- Thêm 2 label mới nếu thiếu: `nav.dataInput` và `nav.planningDecisions`
+**Không cần sửa**: CDPLayout (ít dùng), tất cả 70+ page files (tự thay đổi qua CSS vars), DashboardLayout (wrapper chỉ).
 
 ---
 
-## Kết quả sau khi thực hiện
+## Kết quả trực quan
 
 | Trước | Sau |
-|---|---|
-| 12 nhóm + 1 standalone "Quyết định" | 5 nhóm, logic rõ ràng |
-| "Expenses" trong "Báo cáo tài chính" | "Chi phí" trong "Nhập Liệu & Cấu Hình" |
-| "Supplier Payments" trong "Vận hành bán lẻ" | "Thanh toán NCC" trong "Nhập Liệu & Cấu Hình" |
-| "Kênh bán hàng" chỉ 2 items | Gộp vào "Phân Tích Tài Chính" |
-| Inventory items trùng Command | Ẩn khỏi FDP sidebar |
-| Alerts trùng Control Tower | Ẩn khỏi FDP sidebar |
-| Scroll dài, nhiễu | Gọn, tối đa ~25 items hiển thị |
+|-------|-----|
+| `bg-background` = `hsl(220 20% 97%)` — light gray | `bg-background` = `hsl(222 47% 7%)` — near-black |
+| `bg-card` = `hsl(0 0% 100%)` — white | `bg-card` = `hsl(222 40% 10%)` — dark glass |
+| `border-border` = light gray | `border-border` = subtle white ~8% |
+| `text-muted-foreground` = gray | `text-muted-foreground` = white/55% |
+| Sidebar: dark navy (sidebar-background) | Sidebar: deeper dark |
+| Cards: white with shadows | Cards: dark glass with glow |
 
 ---
 
-## Rủi ro và lưu ý
+## Lưu ý quan trọng
 
-- **Không có rủi ro route**: Tất cả routes giữ nguyên — chỉ ẩn khỏi sidebar navigation
-- **Admin section**: Giữ nguyên, không thay đổi
-- **Bottom nav** (Settings, Help, Portal, Guide): Giữ nguyên
-- **Active state**: Logic `isActive` và `hasActiveChild` không thay đổi — sẽ tự hoạt động đúng với navItems mới
+- **Tất cả data/logic/hooks**: Giữ nguyên 100% — chỉ thay visual layer
+- **CDPLayout**: Có layout riêng nhưng ít critical — có thể update sau
+- **AdminLayout**: Ít người dùng — cũng có thể update sau
+- **Charts/Recharts**: Sẽ tự adapt theo text color từ CSS vars
+- **Shadcn components** (Button, Card, Badge, Input...): Tất cả dùng CSS vars → tự dark
