@@ -50,11 +50,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  {
-    labelKey: 'nav.decisionCenter',
-    icon: Zap,
-    href: '/decision-center',
-  },
+  // [1] TỔNG QUAN
   {
     labelKey: 'nav.cfoOverview',
     icon: LayoutDashboard,
@@ -66,15 +62,7 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.workingCapitalHub', href: '/working-capital-hub' },
     ],
   },
-  {
-    labelKey: 'nav.strategyDecision',
-    icon: Target,
-    children: [
-      { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
-      { labelKey: 'nav.riskDashboard', href: '/risk-dashboard' },
-      { labelKey: 'nav.decisionSupport', href: '/decision-support' },
-    ],
-  },
+  // [2] PHÂN TÍCH TÀI CHÍNH
   {
     labelKey: 'nav.financialReports',
     icon: BarChart3,
@@ -82,74 +70,50 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.plReport', href: '/pl-report' },
       { labelKey: 'nav.analysis', href: '/financial-reports' },
       { labelKey: 'nav.performanceAnalysis', href: '/performance-analysis' },
-      { labelKey: 'nav.boardReports', href: '/board-reports' },
-      { labelKey: 'nav.expenses', href: '/expenses' },
+      { labelKey: 'nav.channelAnalytics', href: '/channel-analytics' },
+      { labelKey: 'nav.unitEconomics', href: '/unit-economics' },
       { labelKey: 'nav.revenue', href: '/revenue' },
     ],
   },
-  {
-    labelKey: 'nav.planSimulation',
-    icon: FlaskConical,
-    children: [
-      { labelKey: 'nav.scenario', href: '/scenario' },
-      { labelKey: 'nav.rollingForecast', href: '/rolling-forecast' },
-      { labelKey: 'nav.strategicInitiatives', href: '/strategic-initiatives' },
-    ],
-  },
+  // [3] ĐỐI SOÁT & CÔNG NỢ
   {
     labelKey: 'nav.arAp',
     icon: Receipt,
     children: [
-      { labelKey: 'nav.invoiceManagement', href: '/invoice/tracking' },
       { labelKey: 'nav.arOperations', href: '/ar-operations' },
       { labelKey: 'nav.apOverview', href: '/bills' },
-      { labelKey: 'nav.creditDebitNotes', href: '/credit-debit-notes' },
       { labelKey: 'nav.reconciliation', href: '/reconciliation' },
       { labelKey: 'nav.exceptions', href: '/exceptions' },
+      { labelKey: 'nav.creditDebitNotes', href: '/credit-debit-notes' },
     ],
   },
-  {
-    labelKey: 'nav.retailOps',
-    icon: Package,
-    children: [
-      { labelKey: 'nav.inventoryAging', href: '/inventory-aging' },
-      { labelKey: 'nav.inventoryAllocation', href: '/inventory-allocation' },
-      { labelKey: 'nav.promotionROI', href: '/promotion-roi' },
-      { labelKey: 'nav.supplierPayments', href: '/supplier-payments' },
-    ],
-  },
-  {
-    labelKey: 'nav.salesChannels',
-    icon: TrendingUp,
-    children: [
-      { labelKey: 'nav.channelAnalytics', href: '/channel-analytics' },
-      { labelKey: 'nav.unitEconomics', href: '/unit-economics' },
-    ],
-  },
+  // [4] NHẬP LIỆU & CẤU HÌNH
   {
     labelKey: 'nav.dataHub',
     icon: Database,
     children: [
+      { labelKey: 'nav.expenses', href: '/expenses' },
+      { labelKey: 'nav.supplierPayments', href: '/supplier-payments' },
+      { labelKey: 'nav.bankConnections', href: '/bank-connections' },
+      { labelKey: 'nav.chartOfAccounts', href: '/chart-of-accounts' },
       { labelKey: 'nav.dataCenter', href: '/data-hub' },
       { labelKey: 'nav.dataWarehouse', href: '/data-warehouse' },
-      { labelKey: 'nav.etlRules', href: '/etl-rules' },
-      { labelKey: 'nav.chartOfAccounts', href: '/chart-of-accounts' },
-      { labelKey: 'nav.bankConnections', href: '/bank-connections' },
     ],
   },
+  // [5] KẾ HOẠCH & QUYẾT ĐỊNH
   {
-    labelKey: 'nav.taxCompliance',
-    icon: Shield,
+    labelKey: 'nav.planSimulation',
+    icon: Target,
     children: [
-      { labelKey: 'nav.taxTracking', href: '/tax-compliance' },
-      { labelKey: 'nav.covenantTracking', href: '/covenant-tracking' },
+      { labelKey: 'nav.scenario', href: '/scenario' },
+      { labelKey: 'nav.rollingForecast', href: '/rolling-forecast' },
+      { labelKey: 'nav.executiveSummary', href: '/executive-summary' },
+      { labelKey: 'nav.riskDashboard', href: '/risk-dashboard' },
+      { labelKey: 'nav.decisionSupport', href: '/decision-support' },
+      { labelKey: 'nav.decisionCenter', href: '/decision-center' },
     ],
   },
-  {
-    labelKey: 'nav.alerts',
-    icon: Bell,
-    href: '/alerts',
-  },
+  // Admin — chỉ hiện khi admin (render logic xử lý riêng)
   {
     labelKey: 'nav.admin',
     icon: Users,
@@ -159,11 +123,6 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.rbac', href: '/rbac' },
       { labelKey: 'nav.auditLog', href: '/audit-log' },
     ],
-  },
-  {
-    labelKey: 'nav.api',
-    icon: Plug,
-    href: '/api',
   },
 ];
 

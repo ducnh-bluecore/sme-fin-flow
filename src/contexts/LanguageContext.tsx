@@ -52,7 +52,7 @@ const vi: Record<string, string> = {
   'header.low': 'Thấp',
 
   // Sidebar - Main navigation
-  'nav.cfoOverview': 'Tổng quan CFO',
+  'nav.cfoOverview': 'Tổng Quan',
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
 'nav.cashFlowDirect': 'Dòng tiền trực tiếp',
@@ -74,7 +74,7 @@ const vi: Record<string, string> = {
   'nav.riskDashboard': 'Risk Dashboard',
   'nav.decisionSupport': 'Hỗ trợ quyết định',
 
-  'nav.financialReports': 'Báo cáo tài chính',
+  'nav.financialReports': 'Phân Tích Tài Chính',
   'nav.plReport': 'Báo cáo P&L',
   'nav.analysis': 'Phân tích tổng hợp',
   'nav.budgetVsActual': 'Budget vs Actual',
@@ -84,12 +84,12 @@ const vi: Record<string, string> = {
   'nav.expenses': 'Chi phí',
   'nav.revenue': 'Doanh thu',
 
-  'nav.planSimulation': 'Kế hoạch & Mô phỏng',
+  'nav.planSimulation': 'Kế Hoạch & Quyết Định',
   'nav.scenario': 'Kịch bản & What-If',
   'nav.rollingForecast': 'Rolling Forecast',
   'nav.strategicInitiatives': 'Sáng kiến chiến lược',
 
-  'nav.arAp': 'AR/AP',
+  'nav.arAp': 'Đối Soát & Công Nợ',
   'nav.invoiceManagement': 'Quản lý hóa đơn',
   'nav.arOperations': 'AR Operations',
   'nav.apOverview': 'AP Overview',
@@ -101,7 +101,7 @@ const vi: Record<string, string> = {
   'nav.unitEconomics': 'Unit Economics',
   'nav.mdp': 'Marketing Data Platform',
 
-  'nav.dataHub': 'Data Hub',
+  'nav.dataHub': 'Nhập Liệu & Cấu Hình',
   'nav.dataCenter': 'Trung tâm dữ liệu',
   'nav.dataWarehouse': 'Data Warehouse',
   'nav.etlRules': 'Quy tắc ETL',
@@ -1763,7 +1763,7 @@ const en: Record<string, string> = {
   'header.low': 'Low',
 
   // Sidebar - Main navigation
-  'nav.cfoOverview': 'CFO Overview',
+  'nav.cfoOverview': 'Overview',
   'nav.dashboard': 'Dashboard',
   'nav.cashForecast': 'Cash Flow Forecast',
 'nav.workingCapital': 'Working Capital Optimization',
@@ -1779,7 +1779,7 @@ const en: Record<string, string> = {
   'nav.riskDashboard': 'Risk Dashboard',
   'nav.decisionSupport': 'Decision Support',
 
-  'nav.financialReports': 'Financial Reports',
+  'nav.financialReports': 'Financial Analysis',
   'nav.plReport': 'P&L Report',
   'nav.analysis': 'Comprehensive Analysis',
   'nav.budgetVsActual': 'Budget vs Actual',
@@ -1789,12 +1789,12 @@ const en: Record<string, string> = {
   'nav.expenses': 'Expenses',
   'nav.revenue': 'Revenue',
 
-  'nav.planSimulation': 'Planning & Simulation',
+  'nav.planSimulation': 'Planning & Decisions',
   'nav.scenario': 'Scenario & What-If',
   'nav.rollingForecast': 'Rolling Forecast',
   'nav.strategicInitiatives': 'Strategic Initiatives',
 
-  'nav.arAp': 'AR/AP',
+  'nav.arAp': 'Reconciliation & AR/AP',
   'nav.invoiceManagement': 'Invoice Management',
   'nav.arOperations': 'AR Operations',
   'nav.apOverview': 'AP Overview',
@@ -1813,7 +1813,7 @@ const en: Record<string, string> = {
   'nav.supplierPayments': 'Supplier Payments',
   'nav.cashFlowDirect': 'Direct Cash Flow',
 
-  'nav.dataHub': 'Data Hub',
+  'nav.dataHub': 'Data Input & Config',
   'nav.dataCenter': 'Data Center',
   'nav.dataWarehouse': 'Data Warehouse',
   'nav.etlRules': 'ETL Rules',
