@@ -7,8 +7,9 @@
 @layer base {
   :root {
     /* ═══════════════════════════════════════════════════════════════════
-       BLUECORE LIGHT PROFESSIONAL DESIGN SYSTEM
+       BLUECORE DARK GLASSMORPHISM DESIGN SYSTEM
        Finance-grade visual discipline. Decision-first. CFO-ready.
+       Dark immersive theme inspired by Aniq UI template.
        ═══════════════════════════════════════════════════════════════════ */
     
     /* ─── Bluecore Brand Palette ─── */
@@ -23,80 +24,80 @@
     --bluecore-800: 224 68% 30%;
     --bluecore-900: 224 60% 22%;
     
-    /* ─── Semantic Surfaces ─── */
-    --background: 220 20% 97%;
-    --foreground: 224 50% 15%;
+    /* ─── Semantic Surfaces (Dark) ─── */
+    --background: 222 47% 7%;
+    --foreground: 213 31% 91%;
     
-    --card: 0 0% 100%;
-    --card-foreground: 224 50% 15%;
+    --card: 222 40% 10%;
+    --card-foreground: 213 31% 91%;
     
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 50% 15%;
+    --popover: 222 44% 9%;
+    --popover-foreground: 213 31% 91%;
     
-    /* ─── Primary Action (Bluecore Blue) ─── */
-    --primary: 221 65% 50%;
+    /* ─── Primary Action (Bluecore Blue — brighter for dark bg) ─── */
+    --primary: 221 83% 65%;
     --primary-foreground: 0 0% 100%;
     
-    /* ─── Secondary (Subtle) ─── */
-    --secondary: 220 20% 94%;
-    --secondary-foreground: 224 50% 25%;
+    /* ─── Secondary (Subtle dark) ─── */
+    --secondary: 222 35% 15%;
+    --secondary-foreground: 213 25% 75%;
     
-    /* ─── Muted (De-emphasized) ─── */
-    --muted: 220 15% 93%;
-    --muted-foreground: 220 15% 45%;
+    /* ─── Muted (Dark gray) ─── */
+    --muted: 222 35% 13%;
+    --muted-foreground: 213 20% 55%;
     
-    /* ─── Accent (Highlight) ─── */
-    --accent: 220 40% 92%;
-    --accent-foreground: 222 70% 45%;
+    /* ─── Accent (Dark highlight) ─── */
+    --accent: 222 38% 16%;
+    --accent-foreground: 213 31% 88%;
     
-    /* ─── Severity System (Finance-grade discipline) ─── */
+    /* ─── Severity System (Finance-grade discipline, bright for dark) ─── */
     /* DESTRUCTIVE: Irreversible or high-confidence financial risk ONLY */
-    --destructive: 0 72% 51%;
+    --destructive: 0 75% 60%;
     --destructive-foreground: 0 0% 100%;
     
     /* SUCCESS: Resolved / Confirmed safe */
-    --success: 152 60% 36%;
+    --success: 152 70% 45%;
     --success-foreground: 0 0% 100%;
     
     /* WARNING: Pending / Probabilistic */
-    --warning: 38 92% 50%;
-    --warning-foreground: 38 92% 15%;
+    --warning: 38 95% 55%;
+    --warning-foreground: 38 95% 12%;
     
     /* INFO: Neutral information */
-    --info: 210 80% 52%;
+    --info: 210 83% 60%;
     --info-foreground: 0 0% 100%;
     
-    /* ─── Borders & Inputs ─── */
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 221 65% 50%;
+    /* ─── Borders & Inputs (Subtle white glass) ─── */
+    --border: 222 30% 18%;
+    --input: 222 30% 15%;
+    --ring: 221 83% 65%;
     
     --radius: 0.5rem;
     
-    /* ─── Sidebar (Per-module, kept as subtle dark) ─── */
-    --sidebar-background: 224 50% 12%;
-    --sidebar-foreground: 220 20% 90%;
-    --sidebar-primary: 221 65% 55%;
+    /* ─── Sidebar (Deep dark) ─── */
+    --sidebar-background: 222 50% 5%;
+    --sidebar-foreground: 213 25% 75%;
+    --sidebar-primary: 221 83% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 45% 18%;
-    --sidebar-accent-foreground: 220 20% 98%;
-    --sidebar-border: 224 40% 20%;
-    --sidebar-ring: 221 65% 55%;
+    --sidebar-accent: 222 40% 12%;
+    --sidebar-accent-foreground: 213 31% 91%;
+    --sidebar-border: 222 35% 14%;
+    --sidebar-ring: 221 83% 65%;
     
-    /* ─── Chart Colors (Professional, restrained) ─── */
-    --chart-1: 221 65% 50%;
-    --chart-2: 152 60% 40%;
-    --chart-3: 38 85% 52%;
-    --chart-4: 0 65% 55%;
-    --chart-5: 270 55% 55%;
+    /* ─── Chart Colors (Professional, visible on dark) ─── */
+    --chart-1: 221 83% 65%;
+    --chart-2: 152 70% 48%;
+    --chart-3: 38 90% 58%;
+    --chart-4: 0 72% 62%;
+    --chart-5: 270 60% 65%;
     
-    /* ─── Shadows (Soft, restrained) ─── */
-    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.06);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
-    --shadow-elevated: 0 4px 12px -2px rgb(0 0 0 / 0.08);
+    /* ─── Shadows (Deeper for dark bg) ─── */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.35), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.25);
+    --shadow-elevated: 0 4px 20px -2px rgb(0 0 0 / 0.5);
   }
 }
 
@@ -115,6 +116,44 @@
 }
 
 @layer components {
+  /* ─── Glass Card (Dark Glassmorphism) ─── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .glass-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  /* ─── Gradient Text ─── */
+  .gradient-text {
+    background: linear-gradient(135deg, #60a5fa, #818cf8, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-emerald {
+    background: linear-gradient(135deg, #34d399, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Ambient Glow ─── */
+  .glow-primary {
+    box-shadow: 0 0 40px -10px hsl(var(--primary) / 0.4);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 40px -10px hsl(var(--success) / 0.4);
+  }
+
+
   /* ═══════════════════════════════════════════════════════════════════
      DECISION CARD SYSTEM
      Core UI object for Bluecore - Decision-first, not dashboard-first

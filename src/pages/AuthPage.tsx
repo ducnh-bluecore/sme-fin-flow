@@ -152,11 +152,14 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-accent/10 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Ambient background gradients */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-primary/8 rounded-full blur-[80px]" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-[60px]" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-chart-5/5 rounded-full blur-[60px]" />
+        {/* Subtle grid */}
+        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)', backgroundSize: '40px 40px', opacity: 0.3 }} />
       </div>
 
       <motion.div
@@ -165,7 +168,7 @@ export default function AuthPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md relative z-10"
       >
-        <Card className="border-border/50 shadow-2xl backdrop-blur-sm bg-card/95">
+        <Card className="border-border/40 shadow-2xl backdrop-blur-xl bg-card/80 glass-card">
           <CardHeader className="space-y-4 text-center pb-2">
             <motion.div 
               className="flex items-center justify-center gap-2"
@@ -173,7 +176,7 @@ export default function AuthPage() {
               animate={{ scale: 1 }}
               transition={{ duration: 0.3 }}
             >
-              <div className="p-2 rounded-xl bg-primary/10">
+              <div className="p-2 rounded-xl bg-primary/15 border border-primary/20">
                 <TrendingUp className="h-8 w-8 text-primary" />
               </div>
               <span className="text-2xl font-bold text-foreground">Bluecore</span>
