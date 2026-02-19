@@ -38,6 +38,8 @@ export interface PromotionROIData {
   promotion: PromotionCampaign;
   totalRevenue: number;
   totalDiscount: number;
+  netRevenue: number;
+  discountEfficiency: number; // Net revenue per 1 VND discount
   totalOrders: number;
   roi: number;
   roas: number;
@@ -48,11 +50,24 @@ export interface PromotionROIData {
   acos: number;
 }
 
+// KiotViet discount summary from cdp_orders
+export interface KiotVietDiscountSummary {
+  channel: string;
+  total_orders: number;
+  orders_with_discount: number;
+  total_gross_revenue: number;
+  total_discount: number;
+  net_revenue: number;
+  avg_discount_per_order: number;
+}
+
 export interface PromotionSummary {
   totalCampaigns: number;
   activeCampaigns: number;
   totalSpend: number;
   totalRevenue: number;
+  totalDiscount: number;
+  netRevenue: number;
   totalBudget: number;
   totalOrders: number;
   totalImpressions: number;
@@ -91,11 +106,15 @@ export const usePromotionROI = () => {
     const actualCost = camp.actual_cost || 0;
     const totalRevenue = camp.total_revenue || 0;
     const totalOrders = camp.total_orders || 0;
+    const totalDiscount = camp.total_discount_given || 0;
+    const netRevenue = totalRevenue - totalDiscount;
     
     return {
       promotion: camp,
       totalRevenue,
-      totalDiscount: camp.total_discount_given || 0,
+      totalDiscount,
+      netRevenue,
+      discountEfficiency: totalDiscount > 0 ? netRevenue / totalDiscount : 0,
       totalOrders,
       roi: actualCost > 0 
         ? ((totalRevenue - actualCost) / actualCost) * 100 
@@ -113,6 +132,8 @@ export const usePromotionROI = () => {
   const totalSpend = campaigns.reduce((sum, c) => sum + (c.actual_cost || 0), 0);
   const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
   const totalRevenue = campaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+  const totalDiscount = campaigns.reduce((sum, c) => sum + (c.total_discount_given || 0), 0);
+  const netRevenue = totalRevenue - totalDiscount;
   const totalOrders = campaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0);
   const totalImpressions = campaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
   const totalClicks = campaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
@@ -125,6 +146,8 @@ export const usePromotionROI = () => {
     totalSpend,
     totalBudget,
     totalRevenue,
+    totalDiscount,
+    netRevenue,
     totalOrders,
     totalImpressions,
     totalClicks,

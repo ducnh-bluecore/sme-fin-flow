@@ -1,6 +1,6 @@
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Percent, TrendingUp, DollarSign, ShoppingCart, Target, Award, Users, MousePointer, Eye } from 'lucide-react';
+import { Percent, TrendingUp, DollarSign, ShoppingCart, Target, Award, Users, MousePointer, Eye, Tag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { LoadingState, EmptyState } from '@/components/shared';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PromotionDecisionCards } from '@/components/promotion/PromotionDecisionCards';
+
 
 const CHANNEL_COLORS: Record<string, string> = {
   'Facebook Ads': '#1877f2',
@@ -122,6 +123,20 @@ export default function PromotionROIPage() {
             </CardContent>
           </Card>
 
+          {/* New: Total Discount KPI */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Tag className="w-8 h-8 text-orange-500" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Tổng Discount</p>
+                  <p className="text-xl font-bold text-orange-600">{formatCurrency(summary.totalDiscount)}</p>
+                  <p className="text-xs text-muted-foreground">Net: {formatCurrency(summary.netRevenue)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -131,18 +146,6 @@ export default function PromotionROIPage() {
                   <p className={`text-xl font-bold ${getROASColor(summary.avgROAS)}`}>
                     {summary.avgROAS.toFixed(2)}x
                   </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Eye className="w-8 h-8 text-purple-500" />
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('promo.impressions')}</p>
-                  <p className="text-xl font-bold">{formatNumber(summary.totalImpressions)}</p>
                 </div>
               </div>
             </CardContent>
@@ -272,7 +275,7 @@ export default function PromotionROIPage() {
                 <CardTitle>{t('promo.programDetails')}</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
+              <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('promo.programName')}</TableHead>
@@ -280,6 +283,8 @@ export default function PromotionROIPage() {
                       <TableHead>{t('promo.status')}</TableHead>
                       <TableHead className="text-right">{t('promo.cost')}</TableHead>
                       <TableHead className="text-right">{t('promo.revenue')}</TableHead>
+                      <TableHead className="text-right">Discount</TableHead>
+                      <TableHead className="text-right">Net Revenue</TableHead>
                       <TableHead className="text-right">ROAS</TableHead>
                       <TableHead className="text-right">CTR</TableHead>
                       <TableHead className="text-right">{t('promo.orders')}</TableHead>
@@ -305,6 +310,12 @@ export default function PromotionROIPage() {
                         <TableCell>{getStatusBadge(r.promotion.status)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(r.promotion.actual_cost)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(r.totalRevenue)}</TableCell>
+                        <TableCell className="text-right text-orange-600">
+                          {r.totalDiscount > 0 ? `-${formatCurrency(r.totalDiscount)}` : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-green-700">
+                          {formatCurrency(r.netRevenue)}
+                        </TableCell>
                         <TableCell className={`text-right font-bold ${getROASColor(r.roas)}`}>
                           {r.roas.toFixed(2)}x
                         </TableCell>

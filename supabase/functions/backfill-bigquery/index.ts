@@ -208,18 +208,21 @@ const ORDER_SOURCES = [
   {
     channel: 'kiotviet',
     dataset: 'olvboutique',
-    table: 'raw_kiotviet_Orders',
+    table: 'raw_kiotviet_Invoice',
     mapping: {
-      order_key: 'OrderId',
+      order_key: 'Id',
       order_at: 'PurchaseDate',
-      status: 'Status',
-      customer_id: 'CusId',
+      status: 'StatusValue',
+      customer_id: 'CustomerId',
       customer_name: 'CustomerName',
-      customer_phone: 'deliveryContactNumber',
+      customer_phone: 'CustomerTel',
       gross_revenue: 'Total',
-      discount: 'discount',
-      sale_channel_id: 'SaleChannelId',  // For marketplace dedup filtering
-      order_code: 'OrderCode',            // For traceability (DHHRV-, DHLZD_, etc.)
+      discount_amount: 'Discount',          // KiotViet invoice-level discount
+      voucher_discount: 'VoucherDiscount',  // Voucher/coupon discount
+      voucher_code: 'VoucherCode',          // Voucher code for attribution
+      discount_ratio: 'DiscountRatio',      // Discount % for metadata
+      sale_channel_id: 'SaleChannelId',     // For marketplace dedup filtering
+      order_code: 'Code',                   // Invoice code for traceability
     }
   }
 ];
@@ -1227,28 +1230,47 @@ async function syncOrders(
           console.log(`[kiotviet dedup] Filtered ${rows.length - filteredRows.length}/${rows.length} marketplace orders in batch at offset ${offset}`);
         }
         
-        const orders = filteredRows.map(row => ({
-          tenant_id: tenantId,
-          integration_id: integrationId,
-          order_key: String(row[source.mapping.order_key]),
-          channel: source.channel,
-          order_at: row[source.mapping.order_at],
-          status: row[source.mapping.status],
-          customer_name: row[source.mapping.customer_name],
-          customer_phone: row[source.mapping.customer_phone] || null,
-          buyer_id: row[source.mapping.customer_id] ? String(row[source.mapping.customer_id]) : null,
-          gross_revenue: parseFloat(row[source.mapping.gross_revenue] || '0'),
-          net_revenue: parseFloat(row[source.mapping.net_revenue] || row[source.mapping.gross_revenue] || '0'),
-          currency: 'VND',
-          payment_method: row[source.mapping.payment_method],
-          // Store SaleChannelId + OrderCode in raw_data for KiotViet traceability
-          ...(source.channel === 'kiotviet' ? {
-            raw_data: {
-              SaleChannelId: row[source.mapping.sale_channel_id],
-              OrderCode: row[source.mapping.order_code],
-            }
-          } : {}),
-        }));
+        const orders = filteredRows.map(row => {
+          const grossRevenue = parseFloat(row[source.mapping.gross_revenue] || '0');
+          // KiotViet discount fields from raw_kiotviet_Invoice
+          const discountAmount = source.channel === 'kiotviet'
+            ? parseFloat(row[source.mapping.discount_amount] || '0')
+            : 0;
+          const voucherDiscount = source.channel === 'kiotviet'
+            ? parseFloat(row[source.mapping.voucher_discount] || '0')
+            : 0;
+          const totalDiscount = discountAmount + voucherDiscount;
+          const netRevenue = parseFloat(
+            row[source.mapping.net_revenue] || '0'
+          ) || (grossRevenue - totalDiscount);
+
+          return {
+            tenant_id: tenantId,
+            integration_id: integrationId,
+            order_key: String(row[source.mapping.order_key]),
+            channel: source.channel,
+            order_at: row[source.mapping.order_at],
+            status: row[source.mapping.status],
+            customer_name: row[source.mapping.customer_name],
+            customer_phone: row[source.mapping.customer_phone] || null,
+            buyer_id: row[source.mapping.customer_id] ? String(row[source.mapping.customer_id]) : null,
+            gross_revenue: grossRevenue,
+            discount_amount: discountAmount,
+            voucher_discount: voucherDiscount,
+            net_revenue: netRevenue,
+            currency: 'VND',
+            payment_method: row[source.mapping.payment_method],
+            // Store discount details + SaleChannelId + OrderCode in raw_data for KiotViet traceability
+            ...(source.channel === 'kiotviet' ? {
+              raw_data: {
+                SaleChannelId: row[source.mapping.sale_channel_id],
+                OrderCode: row[source.mapping.order_code],
+                DiscountRatio: row[source.mapping.discount_ratio],
+                VoucherCode: row[source.mapping.voucher_code],
+              }
+            } : {}),
+          };
+        });
         
         const { error, count } = await supabase
           .from('cdp_orders')
