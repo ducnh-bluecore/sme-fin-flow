@@ -38716,18 +38716,21 @@ export type Database = {
       v_mdp_campaign_attribution: {
         Row: {
           attributed_customers: number | null
+          attributed_gross_revenue: number | null
           attributed_margin: number | null
           attributed_orders: number | null
           attributed_revenue: number | null
           cac: number | null
           channel: string | null
           clicks: number | null
+          discount_efficiency: number | null
           impressions: number | null
           period: string | null
           profit_roas: number | null
           roas: number | null
           spend: number | null
           tenant_id: string | null
+          total_discount: number | null
         }
         Relationships: [
           {
