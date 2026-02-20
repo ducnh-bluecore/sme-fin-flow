@@ -208,21 +208,18 @@ const ORDER_SOURCES = [
   {
     channel: 'kiotviet',
     dataset: 'olvboutique',
-    table: 'raw_kiotviet_Invoice',
+    table: 'raw_kiotviet_Orders',
     mapping: {
-      order_key: 'Id',
+      order_key: 'OrderId',
       order_at: 'PurchaseDate',
       status: 'StatusValue',
-      customer_id: 'CustomerId',
+      customer_id: 'CusId',
       customer_name: 'CustomerName',
-      customer_phone: 'CustomerTel',
       gross_revenue: 'Total',
-      discount_amount: 'Discount',          // KiotViet invoice-level discount
-      voucher_discount: 'VoucherDiscount',  // Voucher/coupon discount
-      voucher_code: 'VoucherCode',          // Voucher code for attribution
-      discount_ratio: 'DiscountRatio',      // Discount % for metadata
+      discount_amount: 'discount',          // KiotViet order-level discount (lowercase in BQ)
+      net_revenue: 'TotalPayment',          // Total after discount
       sale_channel_id: 'SaleChannelId',     // For marketplace dedup filtering
-      order_code: 'Code',                   // Invoice code for traceability
+      order_code: 'Code',                   // Order code for traceability
     }
   }
 ];
@@ -1232,17 +1229,13 @@ async function syncOrders(
         
         const orders = filteredRows.map(row => {
           const grossRevenue = parseFloat(row[source.mapping.gross_revenue] || '0');
-          // KiotViet discount fields from raw_kiotviet_Invoice
-          const discountAmount = source.channel === 'kiotviet'
+          // KiotViet discount from raw_kiotviet_Orders
+          const discountAmount = source.channel === 'kiotviet' && source.mapping.discount_amount
             ? parseFloat(row[source.mapping.discount_amount] || '0')
             : 0;
-          const voucherDiscount = source.channel === 'kiotviet'
-            ? parseFloat(row[source.mapping.voucher_discount] || '0')
-            : 0;
-          const totalDiscount = discountAmount + voucherDiscount;
-          const netRevenue = parseFloat(
-            row[source.mapping.net_revenue] || '0'
-          ) || (grossRevenue - totalDiscount);
+          const netRevenue = source.channel === 'kiotviet' && source.mapping.net_revenue
+            ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
+            : parseFloat(row[source.mapping.net_revenue] || '0') || grossRevenue;
 
           return {
             tenant_id: tenantId,
@@ -1256,17 +1249,14 @@ async function syncOrders(
             buyer_id: row[source.mapping.customer_id] ? String(row[source.mapping.customer_id]) : null,
             gross_revenue: grossRevenue,
             discount_amount: discountAmount,
-            voucher_discount: voucherDiscount,
             net_revenue: netRevenue,
             currency: 'VND',
             payment_method: row[source.mapping.payment_method],
-            // Store discount details + SaleChannelId + OrderCode in raw_data for KiotViet traceability
+            // Store SaleChannelId + OrderCode in raw_data for KiotViet traceability
             ...(source.channel === 'kiotviet' ? {
               raw_data: {
                 SaleChannelId: row[source.mapping.sale_channel_id],
                 OrderCode: row[source.mapping.order_code],
-                DiscountRatio: row[source.mapping.discount_ratio],
-                VoucherCode: row[source.mapping.voucher_code],
               }
             } : {}),
           };
@@ -2977,7 +2967,7 @@ serve(async (req) => {
     if (!params.tenant_id) {
       throw new Error('tenant_id is required');
     }
-    if (!params.model_type) {
+    if (!params.model_type && params.action !== 'schema_check') {
       throw new Error('model_type is required');
     }
 
@@ -3031,6 +3021,27 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         jobs: jobsWithProgress,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Schema check action - query BigQuery INFORMATION_SCHEMA
+    if (params.action === 'schema_check') {
+      const accessToken = await getAccessToken(serviceAccount);
+      const dataset = params.options?.dataset || 'olvboutique';
+      const tableName = params.options?.table_name;
+      
+      let query: string;
+      if (tableName) {
+        query = `SELECT column_name, data_type FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.COLUMNS\` WHERE table_name = '${tableName}' ORDER BY ordinal_position`;
+      } else {
+        query = `SELECT table_name FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.TABLES\` ORDER BY table_name`;
+      }
+      
+      const { rows } = await queryBigQuery(accessToken, projectId, query);
+      return new Response(JSON.stringify({
+        success: true,
+        query,
+        rows,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
