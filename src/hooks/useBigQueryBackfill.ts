@@ -23,13 +23,14 @@ export type BackfillModelType =
   | 'campaigns'
   | 'ad_spend';
 
-export type BackfillAction = 'start' | 'continue' | 'status' | 'cancel';
+export type BackfillAction = 'start' | 'continue' | 'status' | 'cancel' | 'update_discounts';
 
 export interface BackfillOptions {
   source_table?: string;
   batch_size?: number;
   date_from?: string;
   date_to?: string;
+  offset?: number;
 }
 
 export interface BackfillJob {
@@ -64,6 +65,13 @@ export interface BackfillResult {
   jobs?: BackfillJob[];
   error?: string;
   message?: string;
+  // update_discounts fields
+  updated?: number;
+  errors?: number;
+  offset?: number;
+  next_offset?: number;
+  total_bq_rows?: number;
+  completed?: boolean;
 }
 
 // ============= Main Hook =============
@@ -228,11 +236,45 @@ export function useBigQueryBackfill() {
     },
   });
 
+  // Update discounts from BigQuery (bulk operation)
+  const updateDiscounts = useMutation({
+    mutationFn: async (options?: { batch_size?: number; offset?: number }): Promise<BackfillResult> => {
+      if (!tenantId) throw new Error('No active tenant');
+
+      const { data, error } = await client.functions.invoke('backfill-bigquery', {
+        body: {
+          action: 'update_discounts',
+          tenant_id: tenantId,
+          options: {
+            batch_size: options?.batch_size || 500,
+            offset: options?.offset || 0,
+          },
+        },
+      });
+
+      if (error) throw new Error(error.message || 'Failed to update discounts');
+      return data as BackfillResult;
+    },
+    onSuccess: (data) => {
+      if (data.completed) {
+        toast.success('Cập nhật discount hoàn tất', {
+          description: `Updated: ${data.updated} orders`,
+        });
+      } else {
+        toast.info(`Discount batch done — ${data.updated} updated, next offset: ${data.next_offset}`);
+      }
+    },
+    onError: (error) => {
+      toast.error('Update discounts failed', { description: error.message });
+    },
+  });
+
   return {
     startBackfill,
     continueBackfill,
     cancelBackfill,
     deleteBackfillJob,
+    updateDiscounts,
     isReady,
     tenantId,
   };
