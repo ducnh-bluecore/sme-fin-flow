@@ -3122,7 +3122,7 @@ serve(async (req) => {
             .select('id, gross_revenue')
             .eq('tenant_id', params.tenant_id)
             .eq('channel', 'kiotviet')
-            .eq('external_order_id', orderId)
+            .eq('order_key', orderId)
             .maybeSingle();
           
           if (!existingOrder) continue;
