@@ -1,28 +1,60 @@
 
 
-# Fix Bug: Update Discounts - Sai tên cột
+# Fix: Chuyển Update Discounts sang bảng RAW thay vì BDM
 
-## Vấn đề
+## Vấn đề hiện tại
 
-Edge function `update_discounts` đang query bằng `.eq('external_order_id', orderId)` nhưng bảng `cdp_orders` **KHÔNG CÓ cột `external_order_id`**. Cột đúng là `order_key`.
+Logic `update_discounts` đang query từ bảng BDM (`bdm_Tbl_KOV_Orderslineitem`) — đây là bảng tổng hợp từ nhiều bảng khác. Cách này:
+- Không triệt để: BDM là data đã qua xử lý, có thể sai hoặc thiếu
+- Phức tạp không cần thiết: phải GROUP BY và tính toán lại discount từ line items
+- Chậm: BDM table có nhiều cột thừa và logic aggregate phức tạp
 
-Kết quả: Mỗi batch 500 orders từ BigQuery đều trả về `updated: 0` vì không tìm thấy record nào.
+## Giải pháp: Truy vấn trực tiếp `raw_kiotviet_Orders`
 
-## Sửa lỗi
+Bảng `raw_kiotviet_Orders` có **1,079,515 records** — khớp với số đơn KiotViet trong database. Schema đã xác nhận:
+- `OrderId` (INTEGER) -- key
+- `discount` (FLOAT) -- giảm giá trực tiếp, không cần tính toán
+- `TotalPayment` (FLOAT) -- net revenue đã trừ discount
 
-Thay đổi duy nhất trong file `supabase/functions/backfill-bigquery/index.ts`:
+Thay đổi duy nhất: đổi BigQuery query trong action `update_discounts`.
 
-**Dòng 3125**: Đổi `external_order_id` thành `order_key`
+## Chi tiết kỹ thuật
 
+File: `supabase/functions/backfill-bigquery/index.ts` (khu vực dòng 3058-3070)
+
+**TRUOC (BDM - phức tạp, gián tiếp):**
+```sql
+SELECT 
+  CAST(OrderId AS STRING) as order_id,
+  SUM(IFNULL(order_discount, 0)) as total_order_discount,
+  SUM(IFNULL(Discount, 0)) as total_line_discount,
+  SUM(IFNULL(TotalPayment, 0)) as total_payment
+FROM bdm_Tbl_KOV_Orderslineitem
+GROUP BY OrderId
+HAVING SUM(...) > 0 OR SUM(...) > 0
 ```
-// TRƯỚC (sai):
-.eq('external_order_id', orderId)
 
-// SAU (đúng):
-.eq('order_key', orderId)
+**SAU (RAW - trực tiếp, đơn giản):**
+```sql
+SELECT 
+  CAST(OrderId AS STRING) as order_id,
+  IFNULL(discount, 0) as discount_amount,
+  IFNULL(TotalPayment, 0) as total_payment
+FROM raw_kiotviet_Orders
+WHERE discount > 0
+ORDER BY OrderId
+LIMIT ... OFFSET ...
 ```
 
-## Sau khi fix
+Ngoài ra cần cập nhật logic xử lý kết quả:
+- Bỏ logic `Math.max(orderDiscount, lineDiscount)` -- không cần vì raw đã có discount trực tiếp
+- Dùng `discount_amount` thẳng từ BigQuery
+- Tính `net_revenue = gross_revenue - discount_amount`
+- Cập nhật comment mô tả nguồn dữ liệu
 
-Deploy xong, bấm lại nút "Update Discount" trên trang Admin. Lần này mỗi batch sẽ thực sự update `discount_amount` và `net_revenue` cho các đơn KiotViet.
+## Lợi ích
 
+- Triệt để: Query trực tiếp từ nguồn gốc, không qua trung gian
+- Nhanh hơn: Không cần GROUP BY, không cần aggregate
+- Chính xác hơn: discount đã sẵn ở cấp order, không cần suy ngược từ line items
+- 1:1 mapping: 1,079,515 records BigQuery tuong ung 1,029,887 records cdp_orders
