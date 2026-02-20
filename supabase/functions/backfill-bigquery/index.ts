@@ -3046,7 +3046,7 @@ serve(async (req) => {
     }
 
     // ============= Update Discounts Action =============
-    // Queries BigQuery bdm_Tbl_KOV_Orderslineitem GROUP BY OrderId
+    // Queries RAW BigQuery raw_kiotviet_Orders directly (source of truth)
     // Then batch UPDATE cdp_orders.discount_amount and net_revenue
     if (params.action === 'update_discounts') {
       const accessToken = await getAccessToken(serviceAccount);
@@ -3055,16 +3055,14 @@ serve(async (req) => {
       
       console.log(`[update_discounts] Starting from offset=${offset}, batch=${batchSize}`);
       
-      // Query BQ: aggregate discount per order from line items
+      // Query RAW table directly — no GROUP BY needed, discount is per-order
       const bqQuery = `
         SELECT 
           CAST(OrderId AS STRING) as order_id,
-          SUM(IFNULL(order_discount, 0)) as total_order_discount,
-          SUM(IFNULL(Discount, 0)) as total_line_discount,
-          SUM(IFNULL(TotalPayment, 0)) as total_payment
-        FROM \`${projectId}.olvboutique.bdm_Tbl_KOV_Orderslineitem\`
-        GROUP BY OrderId
-        HAVING SUM(IFNULL(order_discount, 0)) > 0 OR SUM(IFNULL(Discount, 0)) > 0
+          IFNULL(discount, 0) as discount_amount,
+          IFNULL(TotalPayment, 0) as total_payment
+        FROM \`${projectId}.olvboutique.raw_kiotviet_Orders\`
+        WHERE discount > 0
         ORDER BY OrderId
         LIMIT ${batchSize} OFFSET ${offset}
       `;
@@ -3082,7 +3080,7 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
-      console.log(`[update_discounts] Got ${rows.length} orders with discounts from BQ (totalRows=${totalRows})`);
+      console.log(`[update_discounts] Got ${rows.length} orders with discounts from raw_kiotviet_Orders (totalRows=${totalRows})`);
       
       // Batch update cdp_orders
       let updatedCount = 0;
@@ -3105,14 +3103,10 @@ serve(async (req) => {
         
         const batch = rows.slice(i, i + updateBatchSize);
         
-        // Update each order individually (external_order_id match)
+        // Update each order — discount comes directly from raw source
         for (const row of batch) {
           const orderId = String(row.order_id);
-          const orderDiscount = parseFloat(row.total_order_discount || '0');
-          const lineDiscount = parseFloat(row.total_line_discount || '0');
-          // Use order-level discount (order_discount is per-order, not per-line-item sum)
-          // Take the MAX of order_discount (already per-order) vs line-level Discount sum
-          const discountAmount = Math.max(orderDiscount, lineDiscount);
+          const discountAmount = parseFloat(row.discount_amount || '0');
           
           if (discountAmount <= 0) continue;
           
