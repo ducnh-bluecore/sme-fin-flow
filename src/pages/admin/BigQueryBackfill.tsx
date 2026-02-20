@@ -5,7 +5,7 @@
  * Jobs split into Active / Completed / Failed tabs for easy monitoring.
  */
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   useBigQueryBackfill, 
   useAllBackfillJobs, 
@@ -26,7 +26,7 @@ import {
   Collapsible, CollapsibleContent, CollapsibleTrigger 
 } from '@/components/ui/collapsible';
 import { 
-  Play, RefreshCw, Loader2, ChevronDown, ChevronRight,
+  Play, RefreshCw, Loader2, ChevronDown, ChevronRight, Tag,
 } from 'lucide-react';
 import { BackfillJobTable, getStatusBadge } from '@/components/admin/BackfillJobTable';
 
@@ -38,7 +38,7 @@ const MODEL_TYPES: BackfillModelType[] = [
 const E2E_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 export default function BigQueryBackfillPage() {
-  const { startBackfill, continueBackfill, cancelBackfill, deleteBackfillJob, isReady, tenantId } = useBigQueryBackfill();
+  const { startBackfill, continueBackfill, cancelBackfill, deleteBackfillJob, updateDiscounts, isReady, tenantId } = useBigQueryBackfill();
   const { data: jobs, isLoading, refetch } = useAllBackfillJobs();
   
   const [selectedModel, setSelectedModel] = useState<BackfillModelType>('customers');
@@ -46,6 +46,12 @@ export default function BigQueryBackfillPage() {
   const [dateTo, setDateTo] = useState('');
   const [batchSize, setBatchSize] = useState('500');
   const [formOpen, setFormOpen] = useState(false);
+  
+  // Discount update state
+  const [discountOffset, setDiscountOffset] = useState(0);
+  const [discountTotal, setDiscountTotal] = useState(0);
+  const [discountUpdated, setDiscountUpdated] = useState(0);
+  const [discountRunning, setDiscountRunning] = useState(false);
   
   const effectiveTenantId = tenantId || E2E_TENANT_ID;
   const canStart = !!effectiveTenantId;
@@ -73,6 +79,34 @@ export default function BigQueryBackfillPage() {
   };
   const handleDelete = (jobId: string) => deleteBackfillJob.mutate(jobId);
 
+  // Auto-continuing discount update
+  const runDiscountBatch = useCallback(async (offset: number, totalSoFar: number) => {
+    setDiscountRunning(true);
+    try {
+      const result = await updateDiscounts.mutateAsync({ batch_size: 500, offset });
+      const newTotal = totalSoFar + (result.updated || 0);
+      setDiscountUpdated(newTotal);
+      setDiscountOffset(result.next_offset || offset);
+      if (result.total_bq_rows) setDiscountTotal(result.total_bq_rows);
+      
+      if (!result.completed && result.next_offset) {
+        // Auto-continue next batch
+        setTimeout(() => runDiscountBatch(result.next_offset!, newTotal), 1000);
+      } else {
+        setDiscountRunning(false);
+      }
+    } catch {
+      setDiscountRunning(false);
+    }
+  }, [updateDiscounts]);
+
+  const handleStartDiscountUpdate = () => {
+    setDiscountOffset(0);
+    setDiscountUpdated(0);
+    setDiscountTotal(0);
+    runDiscountBatch(0, 0);
+  };
+
   // Default to active tab if there are active jobs, otherwise completed
   const defaultTab = activeJobs.length > 0 ? 'active' : 'completed';
 
@@ -92,12 +126,11 @@ export default function BigQueryBackfillPage() {
         </Button>
       </div>
 
-      {/* Model Overview Cards - ALL 10 models */}
+      {/* Model Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {MODEL_TYPES.map((type) => {
           const typeJobs = allJobs.filter(j => j.model_type === type);
           const latestJob = typeJobs[0];
-
           return (
             <Card key={type} className="hover:border-primary/50 transition-colors">
               <CardContent className="pt-4 pb-3">
@@ -119,6 +152,47 @@ export default function BigQueryBackfillPage() {
         })}
       </div>
 
+      {/* KiotViet Discount Update */}
+      <Card className="border-amber-500/30 bg-amber-500/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Tag className="w-4 h-4 text-amber-500" />
+            Cập nhật Discount KiotViet từ BigQuery
+          </CardTitle>
+          <CardDescription>
+            Query trực tiếp <code>bdm_Tbl_KOV_Orderslineitem</code> GROUP BY OrderId → batch UPDATE discount_amount và net_revenue cho ~1M đơn KiotViet. Tự động chạy liên tục đến khi xong.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Button 
+              onClick={handleStartDiscountUpdate} 
+              disabled={discountRunning}
+              variant="default"
+            >
+              {discountRunning ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4 mr-2" />
+              )}
+              {discountRunning ? 'Đang chạy...' : 'Bắt đầu Update Discount'}
+            </Button>
+            
+            {(discountRunning || discountUpdated > 0) && (
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{discountUpdated.toLocaleString()}</span> orders updated
+                {discountTotal > 0 && (
+                  <span> / ~{discountTotal.toLocaleString()} total</span>
+                )}
+                {discountRunning && (
+                  <span className="ml-2">(offset: {discountOffset.toLocaleString()})</span>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Collapsible Start New Backfill */}
       <Collapsible open={formOpen} onOpenChange={setFormOpen}>
         <Card>
@@ -127,15 +201,9 @@ export default function BigQueryBackfillPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Start New Backfill</CardTitle>
-                  <CardDescription>
-                    Select a model and configure sync options
-                  </CardDescription>
+                  <CardDescription>Select a model and configure sync options</CardDescription>
                 </div>
-                {formOpen ? (
-                  <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                )}
+                {formOpen ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
               </div>
             </CardHeader>
           </CollapsibleTrigger>
@@ -144,13 +212,8 @@ export default function BigQueryBackfillPage() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>Model Type</Label>
-                  <Select 
-                    value={selectedModel} 
-                    onValueChange={(v) => setSelectedModel(v as BackfillModelType)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={selectedModel} onValueChange={(v) => setSelectedModel(v as BackfillModelType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {MODEL_TYPES.map((type) => (
                         <SelectItem key={type} value={type}>
@@ -175,11 +238,7 @@ export default function BigQueryBackfillPage() {
               </div>
               <div className="mt-4">
                 <Button onClick={handleStartBackfill} disabled={!canStart || startBackfill.isPending}>
-                  {startBackfill.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Play className="w-4 h-4 mr-2" />
-                  )}
+                  {startBackfill.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
                   Start Backfill
                 </Button>
               </div>
@@ -200,64 +259,26 @@ export default function BigQueryBackfillPage() {
               <TabsList>
                 <TabsTrigger value="active" className="gap-2">
                   Đang chạy
-                  {activeJobs.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                      {activeJobs.length}
-                    </Badge>
-                  )}
+                  {activeJobs.length > 0 && <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">{activeJobs.length}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="gap-2">
                   Hoàn thành
-                  {completedJobs.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
-                      {completedJobs.length}
-                    </Badge>
-                  )}
+                  {completedJobs.length > 0 && <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">{completedJobs.length}</Badge>}
                 </TabsTrigger>
                 <TabsTrigger value="failed" className="gap-2">
                   Lỗi
-                  {failedJobs.length > 0 && (
-                    <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">
-                      {failedJobs.length}
-                    </Badge>
-                  )}
+                  {failedJobs.length > 0 && <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-xs">{failedJobs.length}</Badge>}
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="active">
-                <BackfillJobTable
-                  jobs={activeJobs}
-                  onCancel={handleCancel}
-                  onContinue={handleContinue}
-                  onDelete={handleDelete}
-                  isContinuePending={continueBackfill.isPending}
-                  isDeletePending={deleteBackfillJob.isPending}
-                  emptyMessage="Không có job nào đang chạy."
-                />
+                <BackfillJobTable jobs={activeJobs} onCancel={handleCancel} onContinue={handleContinue} onDelete={handleDelete} isContinuePending={continueBackfill.isPending} isDeletePending={deleteBackfillJob.isPending} emptyMessage="Không có job nào đang chạy." />
               </TabsContent>
-
               <TabsContent value="completed">
-                <BackfillJobTable
-                  jobs={completedJobs}
-                  onCancel={handleCancel}
-                  onContinue={handleContinue}
-                  onDelete={handleDelete}
-                  isContinuePending={continueBackfill.isPending}
-                  isDeletePending={deleteBackfillJob.isPending}
-                  emptyMessage="Chưa có job nào hoàn thành."
-                />
+                <BackfillJobTable jobs={completedJobs} onCancel={handleCancel} onContinue={handleContinue} onDelete={handleDelete} isContinuePending={continueBackfill.isPending} isDeletePending={deleteBackfillJob.isPending} emptyMessage="Chưa có job nào hoàn thành." />
               </TabsContent>
-
               <TabsContent value="failed">
-                <BackfillJobTable
-                  jobs={failedJobs}
-                  onCancel={handleCancel}
-                  onContinue={handleContinue}
-                  onDelete={handleDelete}
-                  isContinuePending={continueBackfill.isPending}
-                  isDeletePending={deleteBackfillJob.isPending}
-                  emptyMessage="Không có job lỗi nào. 🎉"
-                />
+                <BackfillJobTable jobs={failedJobs} onCancel={handleCancel} onContinue={handleContinue} onDelete={handleDelete} isContinuePending={continueBackfill.isPending} isDeletePending={deleteBackfillJob.isPending} emptyMessage="Không có job lỗi nào. 🎉" />
               </TabsContent>
             </Tabs>
           )}

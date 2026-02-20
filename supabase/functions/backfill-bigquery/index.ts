@@ -32,7 +32,7 @@ type ModelType =
 // Legacy alias: UI may still send 'inventory_snapshots' but we handle it as 'inventory'
 type ModelTypeWithLegacy = ModelType | 'inventory_snapshots';
 
-type ActionType = 'start' | 'continue' | 'status' | 'cancel';
+type ActionType = 'start' | 'continue' | 'status' | 'cancel' | 'update_discounts' | 'schema_check';
 
 interface BackfillRequest {
   action: ActionType;
@@ -2967,7 +2967,7 @@ serve(async (req) => {
     if (!params.tenant_id) {
       throw new Error('tenant_id is required');
     }
-    if (!params.model_type && params.action !== 'schema_check') {
+    if (!params.model_type && params.action !== 'schema_check' && params.action !== 'update_discounts') {
       throw new Error('model_type is required');
     }
 
@@ -3042,6 +3042,123 @@ serve(async (req) => {
         success: true,
         query,
         rows,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ============= Update Discounts Action =============
+    // Queries BigQuery bdm_Tbl_KOV_Orderslineitem GROUP BY OrderId
+    // Then batch UPDATE cdp_orders.discount_amount and net_revenue
+    if (params.action === 'update_discounts') {
+      const accessToken = await getAccessToken(serviceAccount);
+      const batchSize = params.options?.batch_size || 500;
+      const offset = params.options?.offset || 0;
+      
+      console.log(`[update_discounts] Starting from offset=${offset}, batch=${batchSize}`);
+      
+      // Query BQ: aggregate discount per order from line items
+      const bqQuery = `
+        SELECT 
+          CAST(OrderId AS STRING) as order_id,
+          SUM(IFNULL(order_discount, 0)) as total_order_discount,
+          SUM(IFNULL(Discount, 0)) as total_line_discount,
+          SUM(IFNULL(TotalPayment, 0)) as total_payment
+        FROM \`${projectId}.olvboutique.bdm_Tbl_KOV_Orderslineitem\`
+        GROUP BY OrderId
+        HAVING SUM(IFNULL(order_discount, 0)) > 0 OR SUM(IFNULL(Discount, 0)) > 0
+        ORDER BY OrderId
+        LIMIT ${batchSize} OFFSET ${offset}
+      `;
+      
+      const { rows, totalRows } = await queryBigQuery(accessToken, projectId, bqQuery);
+      
+      if (rows.length === 0) {
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'No more discount records to process',
+          offset,
+          total_rows: totalRows,
+          updated: 0,
+          completed: true,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      
+      console.log(`[update_discounts] Got ${rows.length} orders with discounts from BQ (totalRows=${totalRows})`);
+      
+      // Batch update cdp_orders
+      let updatedCount = 0;
+      let errorCount = 0;
+      const updateBatchSize = 50; // Supabase update batch
+      
+      for (let i = 0; i < rows.length; i += updateBatchSize) {
+        if (shouldPause(startTime)) {
+          console.log(`[update_discounts] Time limit reached at i=${i}, updated=${updatedCount}`);
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Paused due to time limit',
+            offset: offset + i,
+            next_offset: offset + i,
+            updated: updatedCount,
+            errors: errorCount,
+            completed: false,
+          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        
+        const batch = rows.slice(i, i + updateBatchSize);
+        
+        // Update each order individually (external_order_id match)
+        for (const row of batch) {
+          const orderId = String(row.order_id);
+          const orderDiscount = parseFloat(row.total_order_discount || '0');
+          const lineDiscount = parseFloat(row.total_line_discount || '0');
+          // Use order-level discount (order_discount is per-order, not per-line-item sum)
+          // Take the MAX of order_discount (already per-order) vs line-level Discount sum
+          const discountAmount = Math.max(orderDiscount, lineDiscount);
+          
+          if (discountAmount <= 0) continue;
+          
+          // Get current gross_revenue to calculate net_revenue
+          const { data: existingOrder } = await supabase
+            .from('cdp_orders')
+            .select('id, gross_revenue')
+            .eq('tenant_id', params.tenant_id)
+            .eq('channel', 'kiotviet')
+            .eq('external_order_id', orderId)
+            .maybeSingle();
+          
+          if (!existingOrder) continue;
+          
+          const netRevenue = (existingOrder.gross_revenue || 0) - discountAmount;
+          
+          const { error } = await supabase
+            .from('cdp_orders')
+            .update({
+              discount_amount: discountAmount,
+              net_revenue: netRevenue,
+            })
+            .eq('id', existingOrder.id);
+          
+          if (error) {
+            errorCount++;
+            if (errorCount <= 3) console.error(`[update_discounts] Update error for order ${orderId}:`, error.message);
+          } else {
+            updatedCount++;
+          }
+        }
+      }
+      
+      const nextOffset = offset + rows.length;
+      const completed = rows.length < batchSize;
+      
+      console.log(`[update_discounts] Batch done. Updated: ${updatedCount}, Errors: ${errorCount}, Next offset: ${nextOffset}, Completed: ${completed}`);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        offset,
+        next_offset: nextOffset,
+        total_bq_rows: totalRows,
+        updated: updatedCount,
+        errors: errorCount,
+        completed,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
