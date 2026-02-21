@@ -1,60 +1,87 @@
 
 
-# Fix: Chuyển Update Discounts sang bảng RAW thay vì BDM
+# Fix: Update Discounts bị timeout — Tối ưu batch update
 
-## Vấn đề hiện tại
+## Vấn đề
 
-Logic `update_discounts` đang query từ bảng BDM (`bdm_Tbl_KOV_Orderslineitem`) — đây là bảng tổng hợp từ nhiều bảng khác. Cách này:
-- Không triệt để: BDM là data đã qua xử lý, có thể sai hoặc thiếu
-- Phức tạp không cần thiết: phải GROUP BY và tính toán lại discount từ line items
-- Chậm: BDM table có nhiều cột thừa và logic aggregate phức tạp
+Edge function `update_discounts` bị **timeout** sau khi fetch 500 orders từ BigQuery. Nguyên nhân:
+- Mỗi order cần 2 queries riêng biệt (1 SELECT để lấy `gross_revenue`, 1 UPDATE để ghi `discount_amount` + `net_revenue`)
+- 500 orders = 1000 queries tuần tự
+- Edge function chỉ có ~60 giây — không đủ thời gian
 
-## Giải pháp: Truy vấn trực tiếp `raw_kiotviet_Orders`
+## Giải pháp
 
-Bảng `raw_kiotviet_Orders` có **1,079,515 records** — khớp với số đơn KiotViet trong database. Schema đã xác nhận:
-- `OrderId` (INTEGER) -- key
-- `discount` (FLOAT) -- giảm giá trực tiếp, không cần tính toán
-- `TotalPayment` (FLOAT) -- net revenue đã trừ discount
+Thay đổi trong file `supabase/functions/backfill-bigquery/index.ts` (khu vực dòng 3090-3157):
 
-Thay đổi duy nhất: đổi BigQuery query trong action `update_discounts`.
+### 1. Giảm batch size xuống 100 (thay vì 500)
+Mỗi lần gọi edge function chỉ xử lý 100 orders. UI sẽ tự auto-continue cho đến khi hết.
 
-## Chi tiết kỹ thuật
+### 2. Dùng RPC / single query thay vì 2 queries per row
+Tạo một database function `update_order_discounts_batch` nhận mảng `{order_key, discount_amount}` và thực hiện UPDATE trong 1 query duy nhất:
 
-File: `supabase/functions/backfill-bigquery/index.ts` (khu vực dòng 3058-3070)
-
-**TRUOC (BDM - phức tạp, gián tiếp):**
 ```sql
-SELECT 
-  CAST(OrderId AS STRING) as order_id,
-  SUM(IFNULL(order_discount, 0)) as total_order_discount,
-  SUM(IFNULL(Discount, 0)) as total_line_discount,
-  SUM(IFNULL(TotalPayment, 0)) as total_payment
-FROM bdm_Tbl_KOV_Orderslineitem
-GROUP BY OrderId
-HAVING SUM(...) > 0 OR SUM(...) > 0
+CREATE OR REPLACE FUNCTION update_order_discounts_batch(
+  p_tenant_id UUID,
+  p_updates JSONB
+) RETURNS INT AS $$
+DECLARE
+  updated_count INT := 0;
+  item JSONB;
+BEGIN
+  FOR item IN SELECT * FROM jsonb_array_elements(p_updates)
+  LOOP
+    UPDATE cdp_orders 
+    SET 
+      discount_amount = (item->>'discount')::NUMERIC,
+      net_revenue = COALESCE(gross_revenue, 0) - (item->>'discount')::NUMERIC
+    WHERE tenant_id = p_tenant_id
+      AND channel = 'kiotviet'
+      AND order_key = item->>'order_key';
+    
+    IF FOUND THEN
+      updated_count := updated_count + 1;
+    END IF;
+  END LOOP;
+  
+  RETURN updated_count;
+END;
+$$ LANGUAGE plpgsql;
 ```
 
-**SAU (RAW - trực tiếp, đơn giản):**
-```sql
-SELECT 
-  CAST(OrderId AS STRING) as order_id,
-  IFNULL(discount, 0) as discount_amount,
-  IFNULL(TotalPayment, 0) as total_payment
-FROM raw_kiotviet_Orders
-WHERE discount > 0
-ORDER BY OrderId
-LIMIT ... OFFSET ...
+### 3. Edge function gọi RPC 1 lần duy nhất thay vì loop
+
+Thay thế toàn bộ vòng lặp `for (const row of batch)` bằng:
+
+```typescript
+// Build batch payload
+const updates = rows
+  .filter(r => parseFloat(r.discount_amount || '0') > 0)
+  .map(r => ({
+    order_key: String(r.order_id),
+    discount: parseFloat(r.discount_amount),
+  }));
+
+// Single RPC call — 1 query thay vì 1000
+const { data: count, error } = await supabase
+  .rpc('update_order_discounts_batch', {
+    p_tenant_id: params.tenant_id,
+    p_updates: JSON.stringify(updates),
+  });
+
+updatedCount = count || 0;
 ```
 
-Ngoài ra cần cập nhật logic xử lý kết quả:
-- Bỏ logic `Math.max(orderDiscount, lineDiscount)` -- không cần vì raw đã có discount trực tiếp
-- Dùng `discount_amount` thẳng từ BigQuery
-- Tính `net_revenue = gross_revenue - discount_amount`
-- Cập nhật comment mô tả nguồn dữ liệu
+### 4. Giữ nguyên auto-continue logic trong UI
+Không cần thay đổi frontend — chỉ cần edge function trả về `completed: false` khi chưa hết data.
 
-## Lợi ích
+## Kết quả mong đợi
 
-- Triệt để: Query trực tiếp từ nguồn gốc, không qua trung gian
-- Nhanh hơn: Không cần GROUP BY, không cần aggregate
-- Chính xác hơn: discount đã sẵn ở cấp order, không cần suy ngược từ line items
-- 1:1 mapping: 1,079,515 records BigQuery tuong ung 1,029,887 records cdp_orders
+- Trước: 1000 queries/batch, timeout sau ~30 giây
+- Sau: 1 RPC call/batch, hoàn thành trong ~2-3 giây
+- Tổng thời gian cập nhật ~1M records: ~30 phút (thay vì không bao giờ xong)
+
+## Thay đổi cần thực hiện
+
+1. **Migration SQL**: Tạo function `update_order_discounts_batch`
+2. **Edge function**: Đổi logic update trong `supabase/functions/backfill-bigquery/index.ts` (dòng 3090-3157) — thay vòng lặp SELECT+UPDATE bằng 1 RPC call
+3. **Deploy**: Re-deploy edge function
