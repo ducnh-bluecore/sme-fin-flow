@@ -41859,6 +41859,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_order_discounts_batch: {
+        Args: { p_tenant_id: string; p_updates: Json }
+        Returns: number
+      }
       update_order_items_cogs: {
         Args: { p_tenant_id: string }
         Returns: number
