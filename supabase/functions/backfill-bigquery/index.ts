@@ -3050,19 +3050,18 @@ serve(async (req) => {
     // Then batch UPDATE cdp_orders.discount_amount and net_revenue
     if (params.action === 'update_discounts') {
       const accessToken = await getAccessToken(serviceAccount);
-      const batchSize = params.options?.batch_size || 100;  // Reduced from 500 for RPC stability
+      const batchSize = params.options?.batch_size || 500;  // Batch size for RPC
       const offset = params.options?.offset || 0;
       
       console.log(`[update_discounts] Starting from offset=${offset}, batch=${batchSize}`);
       
-      // Query RAW table directly — no GROUP BY needed, discount is per-order
+      // Query ALL orders from RAW table (not just discount > 0)
       const bqQuery = `
         SELECT 
           CAST(OrderId AS STRING) as order_id,
           IFNULL(discount, 0) as discount_amount,
           IFNULL(TotalPayment, 0) as total_payment
         FROM \`${projectId}.olvboutique.raw_kiotviet_Orders\`
-        WHERE discount > 0
         ORDER BY OrderId
         LIMIT ${batchSize} OFFSET ${offset}
       `;
@@ -3080,15 +3079,13 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       
-      console.log(`[update_discounts] Got ${rows.length} orders with discounts from raw_kiotviet_Orders (totalRows=${totalRows})`);
+      console.log(`[update_discounts] Got ${rows.length} orders from raw_kiotviet_Orders (totalRows=${totalRows})`);
       
-      // Build batch payload for single RPC call
-      const updates = rows
-        .filter(r => parseFloat(r.discount_amount || '0') > 0)
-        .map(r => ({
-          order_key: String(r.order_id),
-          discount: parseFloat(r.discount_amount),
-        }));
+      // Build batch payload for ALL orders (including discount = 0)
+      const updates = rows.map(r => ({
+        order_key: String(r.order_id),
+        discount: parseFloat(r.discount_amount || '0'),
+      }));
       
       let updatedCount = 0;
       let errorCount = 0;
