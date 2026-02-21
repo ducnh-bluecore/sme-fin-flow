@@ -6,6 +6,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
 import { 
   useBigQueryBackfill, 
   useAllBackfillJobs, 
@@ -79,8 +80,8 @@ export default function BigQueryBackfillPage() {
   };
   const handleDelete = (jobId: string) => deleteBackfillJob.mutate(jobId);
 
-  // Auto-continuing discount update
-  const runDiscountBatch = useCallback(async (offset: number, totalSoFar: number) => {
+  // Auto-continuing discount update with retry
+  const runDiscountBatch = useCallback(async (offset: number, totalSoFar: number, retryCount = 0) => {
     setDiscountRunning(true);
     try {
       const result = await updateDiscounts.mutateAsync({ batch_size: 500, offset });
@@ -91,12 +92,21 @@ export default function BigQueryBackfillPage() {
       
       if (!result.completed && result.next_offset) {
         // Auto-continue next batch
-        setTimeout(() => runDiscountBatch(result.next_offset!, newTotal), 1000);
+        setTimeout(() => runDiscountBatch(result.next_offset!, newTotal, 0), 1000);
       } else {
         setDiscountRunning(false);
       }
-    } catch {
-      setDiscountRunning(false);
+    } catch (err) {
+      if (retryCount < 3) {
+        // Retry after increasing delay (2s, 4s, 8s)
+        const delay = Math.pow(2, retryCount + 1) * 1000;
+        console.warn(`[discount] Batch offset=${offset} failed (retry ${retryCount + 1}/3), retrying in ${delay}ms...`, err);
+        setTimeout(() => runDiscountBatch(offset, totalSoFar, retryCount + 1), delay);
+      } else {
+        console.error(`[discount] Batch offset=${offset} failed after 3 retries`, err);
+        setDiscountRunning(false);
+        toast.error(`Batch thất bại tại offset ${offset}. Bấm "Resume" để tiếp tục.`);
+      }
     }
   }, [updateDiscounts]);
 
@@ -105,6 +115,11 @@ export default function BigQueryBackfillPage() {
     setDiscountUpdated(0);
     setDiscountTotal(0);
     runDiscountBatch(0, 0);
+  };
+
+  // Resume from last known offset
+  const handleResumeDiscountUpdate = () => {
+    runDiscountBatch(discountOffset, discountUpdated);
   };
 
   // Default to active tab if there are active jobs, otherwise completed
@@ -177,6 +192,13 @@ export default function BigQueryBackfillPage() {
               )}
               {discountRunning ? 'Đang chạy...' : 'Bắt đầu Update Discount'}
             </Button>
+
+            {!discountRunning && discountOffset > 0 && discountUpdated > 0 && (
+              <Button onClick={handleResumeDiscountUpdate} variant="outline">
+                <Play className="w-4 h-4 mr-2" />
+                Resume từ offset {discountOffset.toLocaleString()}
+              </Button>
+            )}
             
             {(discountRunning || discountUpdated > 0) && (
               <div className="text-sm text-muted-foreground">
