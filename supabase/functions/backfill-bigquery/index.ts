@@ -3098,7 +3098,7 @@ serve(async (req) => {
         const { data: count, error: rpcError } = await supabase
           .rpc('update_order_discounts_batch', {
             p_tenant_id: params.tenant_id,
-            p_updates: JSON.stringify(updates),
+            p_updates: updates,
           });
         
         if (rpcError) {
