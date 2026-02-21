@@ -3050,7 +3050,7 @@ serve(async (req) => {
     // Then batch UPDATE cdp_orders.discount_amount and net_revenue
     if (params.action === 'update_discounts') {
       const accessToken = await getAccessToken(serviceAccount);
-      const batchSize = params.options?.batch_size || 500;
+      const batchSize = params.options?.batch_size || 100;  // Reduced from 500 for RPC stability
       const offset = params.options?.offset || 0;
       
       console.log(`[update_discounts] Starting from offset=${offset}, batch=${batchSize}`);
@@ -3082,61 +3082,31 @@ serve(async (req) => {
       
       console.log(`[update_discounts] Got ${rows.length} orders with discounts from raw_kiotviet_Orders (totalRows=${totalRows})`);
       
-      // Batch update cdp_orders
+      // Build batch payload for single RPC call
+      const updates = rows
+        .filter(r => parseFloat(r.discount_amount || '0') > 0)
+        .map(r => ({
+          order_key: String(r.order_id),
+          discount: parseFloat(r.discount_amount),
+        }));
+      
       let updatedCount = 0;
       let errorCount = 0;
-      const updateBatchSize = 50; // Supabase update batch
       
-      for (let i = 0; i < rows.length; i += updateBatchSize) {
-        if (shouldPause(startTime)) {
-          console.log(`[update_discounts] Time limit reached at i=${i}, updated=${updatedCount}`);
-          return new Response(JSON.stringify({
-            success: true,
-            message: 'Paused due to time limit',
-            offset: offset + i,
-            next_offset: offset + i,
-            updated: updatedCount,
-            errors: errorCount,
-            completed: false,
-          }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
+      if (updates.length > 0) {
+        // Single RPC call — 1 query instead of 1000
+        const { data: count, error: rpcError } = await supabase
+          .rpc('update_order_discounts_batch', {
+            p_tenant_id: params.tenant_id,
+            p_updates: JSON.stringify(updates),
+          });
         
-        const batch = rows.slice(i, i + updateBatchSize);
-        
-        // Update each order — discount comes directly from raw source
-        for (const row of batch) {
-          const orderId = String(row.order_id);
-          const discountAmount = parseFloat(row.discount_amount || '0');
-          
-          if (discountAmount <= 0) continue;
-          
-          // Get current gross_revenue to calculate net_revenue
-          const { data: existingOrder } = await supabase
-            .from('cdp_orders')
-            .select('id, gross_revenue')
-            .eq('tenant_id', params.tenant_id)
-            .eq('channel', 'kiotviet')
-            .eq('order_key', orderId)
-            .maybeSingle();
-          
-          if (!existingOrder) continue;
-          
-          const netRevenue = (existingOrder.gross_revenue || 0) - discountAmount;
-          
-          const { error } = await supabase
-            .from('cdp_orders')
-            .update({
-              discount_amount: discountAmount,
-              net_revenue: netRevenue,
-            })
-            .eq('id', existingOrder.id);
-          
-          if (error) {
-            errorCount++;
-            if (errorCount <= 3) console.error(`[update_discounts] Update error for order ${orderId}:`, error.message);
-          } else {
-            updatedCount++;
-          }
+        if (rpcError) {
+          console.error(`[update_discounts] RPC error:`, rpcError.message);
+          errorCount = updates.length;
+        } else {
+          updatedCount = count || 0;
+          console.log(`[update_discounts] RPC updated ${updatedCount} orders`);
         }
       }
       
