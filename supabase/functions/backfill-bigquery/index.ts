@@ -758,7 +758,7 @@ async function queryBigQuery(
     body: JSON.stringify({
       query,
       useLegacySql: false,
-      maxResults: MAX_BATCH_SIZE,
+      maxResults: 10000,
       timeoutMs: 60000,
     }),
   });
