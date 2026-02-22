@@ -1097,6 +1097,7 @@ async function syncCustomers(
       tags: c.tags,
       lifetime_value: c.lifetime_value,
       loyalty_points: c.loyalty_points,
+      source_created_at: c.created_at || null,
     }));
     
     const { error } = await supabase

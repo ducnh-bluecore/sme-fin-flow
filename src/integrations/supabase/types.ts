@@ -6649,6 +6649,7 @@ export type Database = {
           phone: string | null
           primary_device: string | null
           province: string | null
+          source_created_at: string | null
           status: string | null
           tags: string[] | null
           tenant_id: string
@@ -6673,6 +6674,7 @@ export type Database = {
           phone?: string | null
           primary_device?: string | null
           province?: string | null
+          source_created_at?: string | null
           status?: string | null
           tags?: string[] | null
           tenant_id: string
@@ -6697,6 +6699,7 @@ export type Database = {
           phone?: string | null
           primary_device?: string | null
           province?: string | null
+          source_created_at?: string | null
           status?: string | null
           tags?: string[] | null
           tenant_id?: string

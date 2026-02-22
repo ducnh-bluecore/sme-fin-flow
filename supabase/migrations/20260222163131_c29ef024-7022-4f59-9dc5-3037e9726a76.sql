@@ -1,0 +1,1 @@
+ALTER TABLE public.cdp_customers ADD COLUMN IF NOT EXISTS source_created_at TIMESTAMPTZ;
