@@ -220,20 +220,18 @@ export function BackfillJobTable({
                         </Button>
                       )}
 
-                      {job.status !== 'running' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            const ok = window.confirm('Xóa job này? (không thể hoàn tác)');
-                            if (ok) onDelete(job.id);
-                          }}
-                          disabled={isDeletePending}
-                          title="Xóa job"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const ok = window.confirm('Xóa job này? (không thể hoàn tác)');
+                          if (ok) onDelete(job.id);
+                        }}
+                        disabled={isDeletePending}
+                        title="Xóa job"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
 
                       {job.error_message && (
                         <span className="text-destructive text-xs max-w-[200px] truncate" title={job.error_message}>
