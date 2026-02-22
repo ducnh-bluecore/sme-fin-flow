@@ -99,23 +99,46 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {data.channels.map(ch => (
-                <div key={ch.channel} className="bg-muted/50 rounded-lg p-3 space-y-1.5">
-                  <div className="font-medium text-sm">{ch.channel}</div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Best clearability</span>
-                    <Badge variant={ch.avgClearability >= 70 ? 'default' : 'secondary'} className="text-xs h-5">{ch.avgClearability} @ {ch.bestStep}%</Badge>
+              {data.channels.map(ch => {
+                const clearabilityColor = ch.avgClearability >= 70 ? 'text-green-400' : ch.avgClearability >= 40 ? 'text-yellow-400' : 'text-red-400';
+                return (
+                  <div key={ch.channel} className="bg-muted/50 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium text-sm capitalize">{ch.channel}</div>
+                      <Badge variant="outline" className="text-[10px] h-4 text-muted-foreground">
+                        Giảm tốt nhất: {ch.bestStep}%
+                      </Badge>
+                    </div>
+
+                    {/* Clearability bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Điểm thoát hàng TB</span>
+                        <span className={`font-mono font-semibold ${clearabilityColor}`}>
+                          {ch.avgClearability.toFixed(1)}/100
+                        </span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${ch.avgClearability >= 70 ? 'bg-green-500' : ch.avgClearability >= 40 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                          style={{ width: `${Math.min(ch.avgClearability, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
+                      <div>
+                        <div className="text-[10px] text-muted-foreground">Đã thoát</div>
+                        <div className="text-xs font-mono font-medium">{formatNumber(ch.totalUnitsCleared)} sp</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-muted-foreground">Doanh thu</div>
+                        <div className="text-xs font-mono font-medium">{formatCurrency(ch.totalRevenue)}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Total cleared</span>
-                    <span className="font-mono">{formatNumber(ch.totalUnitsCleared)} units</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Revenue</span>
-                    <span className="font-mono">{formatCurrency(ch.totalRevenue)}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
