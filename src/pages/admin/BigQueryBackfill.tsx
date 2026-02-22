@@ -104,6 +104,8 @@ export default function BigQueryBackfillPage() {
         setTimeout(() => runDiscountBatch(offset, totalSoFar, retryCount + 1), delay);
       } else {
         console.error(`[discount] Batch offset=${offset} failed after 3 retries`, err);
+        setDiscountOffset(offset);
+        setDiscountUpdated(totalSoFar);
         setDiscountRunning(false);
         toast.error(`Batch thất bại tại offset ${offset}. Bấm "Resume" để tiếp tục.`);
       }
@@ -193,7 +195,7 @@ export default function BigQueryBackfillPage() {
               {discountRunning ? 'Đang chạy...' : 'Bắt đầu Update Discount'}
             </Button>
 
-            {!discountRunning && discountOffset > 0 && discountUpdated > 0 && (
+            {!discountRunning && (discountOffset > 0 || discountUpdated > 0) && (
               <Button onClick={handleResumeDiscountUpdate} variant="outline">
                 <Play className="w-4 h-4 mr-2" />
                 Resume từ offset {discountOffset.toLocaleString()}
