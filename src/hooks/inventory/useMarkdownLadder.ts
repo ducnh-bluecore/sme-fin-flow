@@ -36,28 +36,61 @@ export function useMarkdownLadder(fcId?: string) {
 
       const steps = (data || []) as unknown as MarkdownLadderStep[];
 
-      // Channel comparison: aggregate across discount steps
-      const channelMap = new Map<string, ChannelComparison>();
+      // Channel comparison: weighted average clearability by units cleared
+      const channelAgg = new Map<string, {
+        channel: string;
+        totalUnitsCleared: number;
+        totalRevenue: number;
+        weightedClearabilitySum: number; // sum(clearability * units)
+        stepMap: Map<number, { clearability: number; units: number; revenue: number }>;
+      }>();
       steps.forEach(s => {
-        const existing = channelMap.get(s.channel);
+        const existing = channelAgg.get(s.channel);
         if (existing) {
           existing.totalUnitsCleared += s.total_units_cleared;
           existing.totalRevenue += s.total_revenue;
-          if (s.clearability_score > existing.avgClearability) {
-            existing.avgClearability = s.clearability_score;
-            existing.bestStep = s.discount_step;
+          existing.weightedClearabilitySum += s.clearability_score * s.total_units_cleared;
+          const stepData = existing.stepMap.get(s.discount_step);
+          if (stepData) {
+            stepData.units += s.total_units_cleared;
+            stepData.revenue += s.total_revenue;
+            // weighted avg for step
+            stepData.clearability = (stepData.clearability * (stepData.units - s.total_units_cleared) + s.clearability_score * s.total_units_cleared) / stepData.units;
+          } else {
+            existing.stepMap.set(s.discount_step, { clearability: s.clearability_score, units: s.total_units_cleared, revenue: s.total_revenue });
           }
         } else {
-          channelMap.set(s.channel, {
+          const stepMap = new Map<number, { clearability: number; units: number; revenue: number }>();
+          stepMap.set(s.discount_step, { clearability: s.clearability_score, units: s.total_units_cleared, revenue: s.total_revenue });
+          channelAgg.set(s.channel, {
             channel: s.channel,
-            avgClearability: s.clearability_score,
             totalUnitsCleared: s.total_units_cleared,
             totalRevenue: s.total_revenue,
-            bestStep: s.discount_step,
+            weightedClearabilitySum: s.clearability_score * s.total_units_cleared,
+            stepMap,
           });
         }
       });
-      const channels = Array.from(channelMap.values()).sort((a, b) => b.avgClearability - a.avgClearability);
+      const channels: ChannelComparison[] = Array.from(channelAgg.values()).map(ch => {
+        // Best step = step with highest weighted clearability
+        let bestStep = 0;
+        let bestClearability = 0;
+        ch.stepMap.forEach((data, step) => {
+          if (data.clearability > bestClearability) {
+            bestClearability = data.clearability;
+            bestStep = step;
+          }
+        });
+        return {
+          channel: ch.channel,
+          avgClearability: ch.totalUnitsCleared > 0
+            ? Math.round((ch.weightedClearabilitySum / ch.totalUnitsCleared) * 100) / 100
+            : 0,
+          totalUnitsCleared: ch.totalUnitsCleared,
+          totalRevenue: ch.totalRevenue,
+          bestStep,
+        };
+      }).sort((a, b) => b.avgClearability - a.avgClearability);
 
       // Next step recommendations per channel
       const recommendations: NextStepRecommendation[] = [];
