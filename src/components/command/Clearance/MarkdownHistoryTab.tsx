@@ -17,6 +17,34 @@ const LADDER_STEPS = [10, 20, 30, 40, 50];
 function LadderVisualization({ fcId }: { fcId?: string }) {
   const { data, isLoading } = useMarkdownLadder(fcId);
 
+  // Aggregate steps by channel+discount_step (before early returns for hooks rules)
+  const channels = useMemo(() => data ? [...new Set(data.steps.map(s => s.channel))] : [], [data]);
+  const aggregatedSteps = useMemo(() => {
+    const map = new Map<string, { score: number; units: number; revenue: number; days: number | null; samples: number; weightSum: number }>();
+    if (!data) return map;
+    data.steps.forEach(s => {
+      const key = `${s.channel}|${s.discount_step}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.weightSum += s.clearability_score * s.total_units_cleared;
+        existing.units += s.total_units_cleared;
+        existing.revenue += s.total_revenue;
+        existing.samples += s.sample_count;
+        existing.score = existing.units > 0 ? existing.weightSum / existing.units : 0;
+      } else {
+        map.set(key, {
+          score: s.clearability_score,
+          units: s.total_units_cleared,
+          revenue: s.total_revenue,
+          days: s.avg_days_to_clear,
+          samples: s.sample_count,
+          weightSum: s.clearability_score * s.total_units_cleared,
+        });
+      }
+    });
+    return map;
+  }, [data]);
+
   if (isLoading) return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>;
   if (!data || data.steps.length === 0) {
     return (
@@ -25,8 +53,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
       </Alert>
     );
   }
-
-  const channels = [...new Set(data.steps.map(s => s.channel))];
 
   return (
     <div className="space-y-4">
@@ -47,44 +73,41 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {channels.map(ch => {
-                  const chSteps = data.steps.filter(s => s.channel === ch);
-                  return (
-                    <TableRow key={ch}>
-                      <TableCell className="font-medium text-sm">{ch}</TableCell>
-                      {LADDER_STEPS.map(step => {
-                        const found = chSteps.find(s => s.discount_step === step);
-                        if (!found) return <TableCell key={step} className="text-center text-muted-foreground text-xs">—</TableCell>;
-                        const score = found.clearability_score;
-                        const color = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
-                        const progressColor = score >= 70 ? '[&>div]:bg-emerald-500' : score >= 40 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500';
-                        return (
-                          <TableCell key={step} className="text-center">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="space-y-1">
-                                    <span className={`text-xs font-mono font-bold ${color}`}>{score}</span>
-                                    <Progress value={score} className={`h-1.5 ${progressColor}`} />
-                                    <span className="text-[10px] text-muted-foreground block">{formatNumber(found.total_units_cleared)} units</span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <div className="text-xs space-y-1">
-                                    <div>Clearability: {score}/100</div>
-                                    <div>Avg days: {found.avg_days_to_clear ?? '—'}</div>
-                                    <div>Revenue: {formatCurrency(found.total_revenue)}</div>
-                                    <div>Samples: {found.sample_count}</div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  );
-                })}
+                {channels.map(ch => (
+                  <TableRow key={ch}>
+                    <TableCell className="font-medium text-sm">{ch}</TableCell>
+                    {LADDER_STEPS.map(step => {
+                      const agg = aggregatedSteps.get(`${ch}|${step}`);
+                      if (!agg) return <TableCell key={step} className="text-center text-muted-foreground text-xs">—</TableCell>;
+                      const score = Math.round(agg.score * 10) / 10;
+                      const color = score >= 70 ? 'text-emerald-600' : score >= 40 ? 'text-amber-600' : 'text-red-600';
+                      const progressColor = score >= 70 ? '[&>div]:bg-emerald-500' : score >= 40 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500';
+                      return (
+                        <TableCell key={step} className="text-center">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="space-y-1">
+                                  <span className={`text-xs font-mono font-bold ${color}`}>{score}</span>
+                                  <Progress value={score} className={`h-1.5 ${progressColor}`} />
+                                  <span className="text-[10px] text-muted-foreground block">{formatNumber(agg.units)} sp</span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <div className="text-xs space-y-1">
+                                  <div>Clearability: {score}/100</div>
+                                  <div>Avg days: {agg.days ?? '—'}</div>
+                                  <div>Revenue: {formatCurrency(agg.revenue)}</div>
+                                  <div>Samples: {agg.samples} FC</div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
