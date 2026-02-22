@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, TrendingDown, ArrowRight, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -8,16 +8,96 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useMarkdownLadder } from '@/hooks/inventory/useMarkdownLadder';
 import { useClearanceHistory, type ClearanceHistoryItem } from '@/hooks/inventory/useClearanceIntelligence';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+import { useQuery } from '@tanstack/react-query';
 import { formatCurrency, formatNumber } from '@/lib/format';
 
 const LADDER_STEPS = [10, 20, 30, 40, 50];
 
+/** Search inv_family_codes by name, return id + fc_name */
+function useFcSearch(searchTerm: string) {
+  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const trimmed = searchTerm.trim();
+
+  return useQuery({
+    queryKey: ['fc-search', tenantId, trimmed],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_family_codes' as any)
+        .select('id, fc_code, fc_name')
+        .ilike('fc_name', `%${trimmed}%`)
+        .limit(20);
+      if (error) throw error;
+      return (data || []) as unknown as { id: string; fc_code: string; fc_name: string }[];
+    },
+    enabled: isReady && !!tenantId && trimmed.length >= 2,
+    staleTime: 30 * 1000,
+  });
+}
+
+/** Autocomplete input that searches FC by name and returns UUID */
+function FcSearchInput({ value, onChange, selectedName, onClear }: {
+  value: string;
+  onChange: (id: string, name: string) => void;
+  selectedName: string;
+  onClear: () => void;
+}) {
+  const [inputText, setInputText] = useState(selectedName);
+  const [open, setOpen] = useState(false);
+  const { data: results, isLoading } = useFcSearch(inputText);
+
+  useEffect(() => {
+    setInputText(selectedName);
+  }, [selectedName]);
+
+  return (
+    <Popover open={open && inputText.length >= 2 && !value} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Nhập tên sản phẩm để xem lịch sử..."
+            value={inputText}
+            onChange={e => {
+              setInputText(e.target.value);
+              if (value) onClear();
+              setOpen(true);
+            }}
+            className="pl-9"
+          />
+        </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-1 max-h-60 overflow-y-auto" align="start" onOpenAutoFocus={e => e.preventDefault()}>
+        {isLoading ? (
+          <div className="p-2 text-xs text-muted-foreground">Đang tìm...</div>
+        ) : results && results.length > 0 ? (
+          results.map(r => (
+            <button
+              key={r.id}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded-sm flex justify-between items-center"
+              onClick={() => {
+                onChange(r.id, r.fc_name);
+                setInputText(r.fc_name);
+                setOpen(false);
+              }}
+            >
+              <span>{r.fc_name}</span>
+              <span className="text-xs text-muted-foreground font-mono">{r.fc_code}</span>
+            </button>
+          ))
+        ) : inputText.length >= 2 ? (
+          <div className="p-2 text-xs text-muted-foreground">Không tìm thấy sản phẩm nào.</div>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function LadderVisualization({ fcId }: { fcId?: string }) {
   const { data, isLoading } = useMarkdownLadder(fcId);
 
-  // Aggregate steps by channel+discount_step (before early returns for hooks rules)
   const channels = useMemo(() => data ? [...new Set(data.steps.map(s => s.channel))] : [], [data]);
   const aggregatedSteps = useMemo(() => {
     const map = new Map<string, { score: number; units: number; revenue: number; days: number | null; samples: number; weightSum: number }>();
@@ -56,7 +136,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Ladder Steps Grid */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">Clearability theo bậc giảm giá</CardTitle>
@@ -114,7 +193,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
         </CardContent>
       </Card>
 
-      {/* Channel Comparison */}
       {data.channels.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -132,8 +210,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
                         Giảm tốt nhất: {ch.bestStep}%
                       </Badge>
                     </div>
-
-                    {/* Clearability bar */}
                     <div className="space-y-1">
                       <div className="flex justify-between text-xs">
                         <span className="text-muted-foreground">Điểm thoát hàng TB</span>
@@ -148,7 +224,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
                         />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
                       <div>
                         <div className="text-[10px] text-muted-foreground">Đã thoát</div>
@@ -167,7 +242,6 @@ function LadderVisualization({ fcId }: { fcId?: string }) {
         </Card>
       )}
 
-      {/* Next Step Recommendations */}
       {data.recommendations.length > 0 && (
         <Card className="border-blue-500/30">
           <CardHeader className="pb-2">
@@ -203,8 +277,9 @@ interface MarkdownHistoryTabProps {
 }
 
 export default function MarkdownHistoryTab({ initialFcId }: MarkdownHistoryTabProps) {
-  const [searchSku, setSearchSku] = useState(initialFcId || '');
-  const { data: history, isLoading } = useClearanceHistory(searchSku || undefined);
+  const [selectedFcId, setSelectedFcId] = useState(initialFcId || '');
+  const [selectedName, setSelectedName] = useState('');
+  const { data: history, isLoading } = useClearanceHistory(selectedFcId || undefined);
 
   const grouped = useMemo(() => {
     if (!history) return [];
@@ -221,20 +296,27 @@ export default function MarkdownHistoryTab({ initialFcId }: MarkdownHistoryTabPr
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Nhập tên sản phẩm để xem lịch sử..." value={searchSku} onChange={e => setSearchSku(e.target.value)} className="pl-9" />
-      </div>
+      <FcSearchInput
+        value={selectedFcId}
+        onChange={(id, name) => {
+          setSelectedFcId(id);
+          setSelectedName(name);
+        }}
+        selectedName={selectedName}
+        onClear={() => {
+          setSelectedFcId('');
+          setSelectedName('');
+        }}
+      />
 
-      {/* Markdown Ladder Section */}
-      <LadderVisualization fcId={searchSku || undefined} />
+      <LadderVisualization fcId={selectedFcId || undefined} />
 
-      {!searchSku && <Alert><TrendingDown className="h-4 w-4" /><AlertDescription>Nhập tên sản phẩm để xem lịch sử markdown theo thời gian và kênh.</AlertDescription></Alert>}
+      {!selectedFcId && <Alert><TrendingDown className="h-4 w-4" /><AlertDescription>Nhập tên sản phẩm để xem lịch sử markdown theo thời gian và kênh.</AlertDescription></Alert>}
       {isLoading ? (
         <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
-      ) : searchSku && grouped.length === 0 ? (
+      ) : selectedFcId && grouped.length === 0 ? (
         <Alert><AlertDescription>Không tìm thấy lịch sử giảm giá cho sản phẩm này.</AlertDescription></Alert>
-      ) : searchSku ? (
+      ) : selectedFcId ? (
         <div className="rounded-lg border overflow-hidden">
           <Table>
             <TableHeader><TableRow className="bg-muted/50"><TableHead>Mức giảm</TableHead><TableHead>Kênh</TableHead><TableHead className="text-right">Số lượng clear</TableHead><TableHead className="text-right">Doanh thu thu về</TableHead><TableHead className="text-right">Tổng discount</TableHead><TableHead className="text-right">Số tháng</TableHead></TableRow></TableHeader>
