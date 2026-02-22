@@ -221,6 +221,22 @@ const ORDER_SOURCES = [
       sale_channel_id: 'SaleChannelId',     // For marketplace dedup filtering
       order_code: 'Code',                   // Order code for traceability
     }
+  },
+  {
+    channel: 'haravan',
+    dataset: 'olvboutique',
+    table: 'raw_hrv_Orders',
+    mapping: {
+      order_key: 'OrderId',
+      order_at: 'Created_at',
+      status: 'Financial_status',
+      customer_name: 'billing_name',
+      customer_phone: 'billing_phone',
+      gross_revenue: 'Total_line_items_price',
+      discount_amount: 'Total_discounts',
+      net_revenue: 'Total_price',
+      order_code: 'Order_number',
+    }
   }
 ];
 
@@ -273,16 +289,31 @@ const ORDER_ITEM_SOURCES = [
   {
     channel: 'kiotviet',
     dataset: 'olvboutique',
-    table: 'bdm_kov_OrderLineItems',
+    table: 'raw_kiotviet_OrdersLineItems',
     mapping: {
       order_key: 'OrderId',
-      item_id: 'ProductID',
-      sku: 'Productcode',
-      name: 'Productname',
+      item_id: 'Id',
+      sku: 'ProductCode',
+      name: 'ProductName',
       quantity: 'Quantity',
-      unit_price: 'SubTotal',
+      unit_price: 'Price',
       discount: 'Discount',
-      total: 'Total',
+      total: 'SubTotal',
+    }
+  },
+  {
+    channel: 'haravan',
+    dataset: 'olvboutique',
+    table: 'raw_hrv_OrdersLineItems',
+    mapping: {
+      order_key: 'OrderId',
+      item_id: 'Id',
+      sku: 'Sku',
+      name: 'Title',
+      quantity: 'Quantity',
+      unit_price: 'Price_original',
+      discount: 'Total_discount',
+      total: 'Price',
     }
   }
 ];
@@ -1235,13 +1266,13 @@ async function syncOrders(
         
         const orders = filteredRows.map(row => {
           const grossRevenue = parseFloat(row[source.mapping.gross_revenue] || '0');
-          // KiotViet discount from raw_kiotviet_Orders
-          const discountAmount = source.channel === 'kiotviet' && source.mapping.discount_amount
+          // Discount from source (KiotViet + Haravan have explicit discount columns)
+          const discountAmount = source.mapping.discount_amount
             ? parseFloat(row[source.mapping.discount_amount] || '0')
             : 0;
-          const netRevenue = source.channel === 'kiotviet' && source.mapping.net_revenue
+          const netRevenue = source.mapping.net_revenue
             ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
-            : parseFloat(row[source.mapping.net_revenue] || '0') || grossRevenue;
+            : grossRevenue;
 
           return {
             tenant_id: tenantId,
@@ -1258,10 +1289,14 @@ async function syncOrders(
             net_revenue: netRevenue,
             currency: 'VND',
             payment_method: row[source.mapping.payment_method],
-            // Store SaleChannelId + OrderCode in raw_data for KiotViet traceability
+            // Store source-specific metadata for traceability
             ...(source.channel === 'kiotviet' ? {
               raw_data: {
                 SaleChannelId: row[source.mapping.sale_channel_id],
+                OrderCode: row[source.mapping.order_code],
+              }
+            } : source.mapping.order_code ? {
+              raw_data: {
                 OrderCode: row[source.mapping.order_code],
               }
             } : {}),
