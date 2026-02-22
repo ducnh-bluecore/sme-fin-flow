@@ -3048,77 +3048,101 @@ serve(async (req) => {
     // ============= Update Discounts Action =============
     // Queries RAW BigQuery raw_kiotviet_Orders directly (source of truth)
     // Then batch UPDATE cdp_orders.discount_amount and net_revenue
+    // LOOPS INTERNALLY to process many batches per invocation (~45s budget)
     if (params.action === 'update_discounts') {
       const accessToken = await getAccessToken(serviceAccount);
-      const batchSize = params.options?.batch_size || 500;  // Batch size for RPC
-      const offset = params.options?.offset || 0;
+      const batchSize = params.options?.batch_size || 2000;  // Larger batch per BQ query
+      let currentOffset = params.options?.offset || 0;
+      const startTime = Date.now();
+      const TIME_BUDGET_MS = 45_000; // 45s budget, leave 15s margin
       
-      console.log(`[update_discounts] Starting from offset=${offset}, batch=${batchSize}`);
+      let totalUpdated = 0;
+      let totalErrors = 0;
+      let totalBqRows = 0;
+      let batchesProcessed = 0;
+      let completed = false;
       
-      // Query ALL orders from RAW table (not just discount > 0)
-      const bqQuery = `
-        SELECT 
-          CAST(OrderId AS STRING) as order_id,
-          IFNULL(discount, 0) as discount_amount,
-          IFNULL(TotalPayment, 0) as total_payment
-        FROM \`${projectId}.olvboutique.raw_kiotviet_Orders\`
-        ORDER BY OrderId
-        LIMIT ${batchSize} OFFSET ${offset}
-      `;
+      console.log(`[update_discounts] Starting internal loop from offset=${currentOffset}, batchSize=${batchSize}`);
       
-      const { rows, totalRows } = await queryBigQuery(accessToken, projectId, bqQuery);
-      
-      if (rows.length === 0) {
-        return new Response(JSON.stringify({
-          success: true,
-          message: 'No more discount records to process',
-          offset,
-          total_rows: totalRows,
-          updated: 0,
-          completed: true,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-      
-      console.log(`[update_discounts] Got ${rows.length} orders from raw_kiotviet_Orders (totalRows=${totalRows})`);
-      
-      // Build batch payload for ALL orders (including discount = 0)
-      const updates = rows.map(r => ({
-        order_key: String(r.order_id),
-        discount: parseFloat(r.discount_amount || '0'),
-      }));
-      
-      let updatedCount = 0;
-      let errorCount = 0;
-      
-      if (updates.length > 0) {
-        // Single RPC call — 1 query instead of 1000
-        const { data: count, error: rpcError } = await supabase
-          .rpc('update_order_discounts_batch', {
-            p_tenant_id: params.tenant_id,
-            p_updates: updates,
-          });
+      while (Date.now() - startTime < TIME_BUDGET_MS) {
+        // Query batch from RAW table
+        const bqQuery = `
+          SELECT 
+            CAST(OrderId AS STRING) as order_id,
+            IFNULL(discount, 0) as discount_amount,
+            IFNULL(TotalPayment, 0) as total_payment
+          FROM \`${projectId}.olvboutique.raw_kiotviet_Orders\`
+          ORDER BY OrderId
+          LIMIT ${batchSize} OFFSET ${currentOffset}
+        `;
         
-        if (rpcError) {
-          console.error(`[update_discounts] RPC error:`, rpcError.message);
-          errorCount = updates.length;
-        } else {
-          updatedCount = count || 0;
-          console.log(`[update_discounts] RPC updated ${updatedCount} orders`);
+        let rows: any[];
+        let totalRows: number;
+        try {
+          const result = await queryBigQuery(accessToken, projectId, bqQuery);
+          rows = result.rows;
+          totalRows = result.totalRows;
+          totalBqRows = totalRows;
+        } catch (bqErr) {
+          console.error(`[update_discounts] BQ query failed at offset=${currentOffset}:`, bqErr);
+          // Return partial progress so frontend can resume
+          break;
         }
+        
+        if (rows.length === 0) {
+          completed = true;
+          console.log(`[update_discounts] All records processed at offset=${currentOffset}`);
+          break;
+        }
+        
+        // Build batch payload
+        const updates = rows.map(r => ({
+          order_key: String(r.order_id),
+          discount: parseFloat(r.discount_amount || '0'),
+        }));
+        
+        // RPC call
+        try {
+          const { data: count, error: rpcError } = await supabase
+            .rpc('update_order_discounts_batch', {
+              p_tenant_id: params.tenant_id,
+              p_updates: updates,
+            });
+          
+          if (rpcError) {
+            console.error(`[update_discounts] RPC error at offset=${currentOffset}:`, rpcError.message);
+            totalErrors += updates.length;
+          } else {
+            totalUpdated += (count || 0);
+          }
+        } catch (rpcErr) {
+          console.error(`[update_discounts] RPC exception at offset=${currentOffset}:`, rpcErr);
+          totalErrors += updates.length;
+        }
+        
+        currentOffset += rows.length;
+        batchesProcessed++;
+        
+        if (rows.length < batchSize) {
+          completed = true;
+          break;
+        }
+        
+        console.log(`[update_discounts] Batch #${batchesProcessed} done. offset=${currentOffset}, updated=${totalUpdated}, elapsed=${Date.now() - startTime}ms`);
       }
       
-      const nextOffset = offset + rows.length;
-      const completed = rows.length < batchSize;
-      
-      console.log(`[update_discounts] Batch done. Updated: ${updatedCount}, Errors: ${errorCount}, Next offset: ${nextOffset}, Completed: ${completed}`);
+      const elapsed = Date.now() - startTime;
+      console.log(`[update_discounts] Invocation done. Batches: ${batchesProcessed}, Updated: ${totalUpdated}, Errors: ${totalErrors}, Next offset: ${currentOffset}, Completed: ${completed}, Elapsed: ${elapsed}ms`);
       
       return new Response(JSON.stringify({
         success: true,
-        offset,
-        next_offset: nextOffset,
-        total_bq_rows: totalRows,
-        updated: updatedCount,
-        errors: errorCount,
+        offset: params.options?.offset || 0,
+        next_offset: currentOffset,
+        total_bq_rows: totalBqRows,
+        updated: totalUpdated,
+        errors: totalErrors,
+        batches_processed: batchesProcessed,
+        elapsed_ms: elapsed,
         completed,
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
