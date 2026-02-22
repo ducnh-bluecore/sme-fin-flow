@@ -81,33 +81,39 @@ export default function BigQueryBackfillPage() {
   const handleDelete = (jobId: string) => deleteBackfillJob.mutate(jobId);
 
   // Auto-continuing discount update with retry
+  // Each edge function call now processes multiple internal batches (~45s worth)
   const runDiscountBatch = useCallback(async (offset: number, totalSoFar: number, retryCount = 0) => {
     setDiscountRunning(true);
     try {
-      const result = await updateDiscounts.mutateAsync({ batch_size: 500, offset });
+      const result = await updateDiscounts.mutateAsync({ batch_size: 2000, offset });
       const newTotal = totalSoFar + (result.updated || 0);
       setDiscountUpdated(newTotal);
       setDiscountOffset(result.next_offset || offset);
       if (result.total_bq_rows) setDiscountTotal(result.total_bq_rows);
       
+      console.log(`[discount] Invocation done: batches=${(result as any).batches_processed}, updated=${result.updated}, next_offset=${result.next_offset}, elapsed=${(result as any).elapsed_ms}ms`);
+      
       if (!result.completed && result.next_offset) {
-        // Auto-continue next batch
-        setTimeout(() => runDiscountBatch(result.next_offset!, newTotal, 0), 1000);
+        // Short delay then next invocation (each invocation handles ~45s internally)
+        setTimeout(() => runDiscountBatch(result.next_offset!, newTotal, 0), 2000);
       } else {
         setDiscountRunning(false);
+        if (result.completed) {
+          toast.success(`Hoàn tất! Đã cập nhật ${newTotal.toLocaleString()} orders.`);
+        }
       }
     } catch (err) {
-      if (retryCount < 3) {
-        // Retry after increasing delay (2s, 4s, 8s)
-        const delay = Math.pow(2, retryCount + 1) * 1000;
-        console.warn(`[discount] Batch offset=${offset} failed (retry ${retryCount + 1}/3), retrying in ${delay}ms...`, err);
+      if (retryCount < 5) {
+        // More retries with longer backoff (3s, 6s, 12s, 24s, 48s)
+        const delay = Math.pow(2, retryCount + 1) * 1500;
+        console.warn(`[discount] Invocation offset=${offset} failed (retry ${retryCount + 1}/5), retrying in ${delay}ms...`, err);
         setTimeout(() => runDiscountBatch(offset, totalSoFar, retryCount + 1), delay);
       } else {
-        console.error(`[discount] Batch offset=${offset} failed after 3 retries`, err);
+        console.error(`[discount] Invocation offset=${offset} failed after 5 retries`, err);
         setDiscountOffset(offset);
         setDiscountUpdated(totalSoFar);
         setDiscountRunning(false);
-        toast.error(`Batch thất bại tại offset ${offset}. Bấm "Resume" để tiếp tục.`);
+        toast.error(`Thất bại tại offset ${offset}. Bấm "Resume" để tiếp tục.`);
       }
     }
   }, [updateDiscounts]);
