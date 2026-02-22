@@ -24887,6 +24887,7 @@ export type Database = {
           sales_velocity: number | null
           selling_price: number | null
           sku: string | null
+          source_created_at: string | null
           subcategory: string | null
           tenant_id: string
           unit: string | null
@@ -24914,6 +24915,7 @@ export type Database = {
           sales_velocity?: number | null
           selling_price?: number | null
           sku?: string | null
+          source_created_at?: string | null
           subcategory?: string | null
           tenant_id: string
           unit?: string | null
@@ -24941,6 +24943,7 @@ export type Database = {
           sales_velocity?: number | null
           selling_price?: number | null
           sku?: string | null
+          source_created_at?: string | null
           subcategory?: string | null
           tenant_id?: string
           unit?: string | null
