@@ -479,6 +479,7 @@ const PRODUCT_SOURCES = [
       selling_price: 'basePrice',
       current_stock: null,
       date_col: 'modifiedDate',
+      created_col: 'createdDate',
     }
   },
   {
@@ -495,6 +496,7 @@ const PRODUCT_SOURCES = [
       selling_price: 'price_info_original_price',
       current_stock: 'total_available_stock',
       date_col: 'dw_timestamp',
+      created_col: 'create_time',
     }
   },
   {
@@ -513,6 +515,7 @@ const PRODUCT_SOURCES = [
       selling_price: 'price',
       current_stock: 'quantity',
       date_col: 'dw_timestamp',
+      created_col: null,
     }
   },
   {
@@ -531,6 +534,7 @@ const PRODUCT_SOURCES = [
       selling_price: 'original_price',
       current_stock: null,
       date_col: 'dw_timestamp',
+      created_col: null,
     }
   },
   {
@@ -547,6 +551,7 @@ const PRODUCT_SOURCES = [
       selling_price: 'price',
       current_stock: null,
       date_col: 'dw_timestamp',
+      created_col: null,
     }
   },
 ] as const;
@@ -2114,10 +2119,13 @@ async function syncProducts(
       } else {
         // Standard: build from mapping
         const selectCols = Object.entries(source.mapping)
-          .filter(([k, v]) => v !== null && k !== 'date_col')
+          .filter(([k, v]) => v !== null && k !== 'date_col' && k !== 'created_col')
           .map(([_, v]) => `\`${v}\``)
           .join(', ');
-        query = `SELECT ${selectCols} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+        // Also select created_col if available
+        const createdCol = source.mapping.created_col;
+        const extraCols = createdCol ? `, \`${createdCol}\`` : '';
+        query = `SELECT ${selectCols}${extraCols} FROM \`${projectId}.${source.dataset}.${source.table}\``;
         if (options.date_from && source.mapping.date_col) {
           query += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
         }
@@ -2145,6 +2153,7 @@ async function syncProducts(
             cost_price: 0,
             selling_price: parseFloat(row.price || '0'),
             current_stock: parseFloat(row.quantity || '0'),
+            source_created_at: null,
           }));
         } else if (source.channel === 'tiktok') {
           products = rows.map(row => ({
@@ -2158,6 +2167,7 @@ async function syncProducts(
             cost_price: 0,
             selling_price: parseFloat(row.original_price || '0'),
             current_stock: 0,
+            source_created_at: null,
           }));
         } else {
           products = rows.map(row => ({
@@ -2171,6 +2181,7 @@ async function syncProducts(
             cost_price: source.mapping.cost_price ? parseFloat(row[source.mapping.cost_price] || '0') : 0,
             selling_price: source.mapping.selling_price ? parseFloat(row[source.mapping.selling_price] || '0') : 0,
             current_stock: source.mapping.current_stock ? parseFloat(row[source.mapping.current_stock] || '0') : 0,
+            source_created_at: source.mapping.created_col ? (row[source.mapping.created_col] || null) : null,
           }));
         }
 
