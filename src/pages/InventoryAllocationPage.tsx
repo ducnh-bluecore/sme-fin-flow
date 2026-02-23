@@ -2,13 +2,12 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown, Store, Wand2 } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
-import { RebalanceBoardTable } from '@/components/inventory/RebalanceBoardTable';
-import { InventoryFCDecisionCards } from '@/components/inventory/InventoryFCDecisionCards';
+import { DailyTransferOrder } from '@/components/inventory/DailyTransferOrder';
 import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPanel';
 import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulationTab';
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
@@ -28,8 +27,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
 export default function InventoryAllocationPage() {
-  const [activeTab, setActiveTab] = useState('all');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [activeTab, setActiveTab] = useState('transfer');
 
   const { data: latestRebalanceRun } = useLatestRebalanceRun();
   const { data: rebalanceSuggestions = [] } = useRebalanceSuggestions(latestRebalanceRun?.id);
@@ -67,12 +65,7 @@ export default function InventoryAllocationPage() {
     }));
   }, [allocRecs]);
 
-  // Combined suggestions for "all" tab
   const allSuggestions = useMemo(() => [...allocAsSuggestions, ...rebalanceSuggestions], [allocAsSuggestions, rebalanceSuggestions]);
-
-  // V1/V2 filtered from allocation recs
-  const v1Suggestions = useMemo(() => allocAsSuggestions.filter(s => s.reason?.startsWith('V1:')), [allocAsSuggestions]);
-  const v2Suggestions = useMemo(() => allocAsSuggestions.filter(s => s.reason?.startsWith('V2:')), [allocAsSuggestions]);
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
@@ -141,8 +134,6 @@ export default function InventoryAllocationPage() {
 
   const isRunning = runRebalance.isPending || runAllocate.isPending;
 
-  const showViewToggle = ['all', 'v1', 'v2', 'push', 'lateral'].includes(activeTab);
-
   return (
     <>
       <Helmet>
@@ -177,28 +168,7 @@ export default function InventoryAllocationPage() {
                 {isBackfilling ? 'Đang tách size...' : 'Tách theo Size'}
               </Button>
             )}
-            {showViewToggle && (
-              <div className="flex items-center border rounded-md">
-                <Button
-                  variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className="h-8 w-8 rounded-r-none"
-                  onClick={() => setViewMode('cards')}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className="h-8 w-8 rounded-l-none"
-                  onClick={() => setViewMode('table')}
-                >
-                  <Table2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
 
-            {/* Run Dropdown: V1, V2, V1+V2, Rebalance */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button disabled={isRunning} className="gap-2">
@@ -237,38 +207,13 @@ export default function InventoryAllocationPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
-            <TabsTrigger value="all" className="gap-1.5">
-              Tất cả
-              {allSuggestions.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{allSuggestions.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="v1" className="gap-1.5">
-              <Layers className="h-3.5 w-3.5" />
-              V1: Phủ nền
-              {v1Suggestions.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{v1Suggestions.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="v2" className="gap-1.5">
-              <Target className="h-3.5 w-3.5" />
-              V2: Nhu cầu
-              {v2Suggestions.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{v2Suggestions.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="push" className="gap-1.5">
-              <Package className="h-3.5 w-3.5" />
-              Từ kho tổng
-              {allocAsSuggestions.length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{allocAsSuggestions.length}</span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="lateral" className="gap-1.5">
-              <ArrowRightLeft className="h-3.5 w-3.5" />
-              Giữa các kho
-              {rebalanceSuggestions.filter(s => s.transfer_type === 'lateral').length > 0 && (
-                <span className="text-xs bg-primary/10 text-primary px-1.5 rounded-full">{rebalanceSuggestions.filter(s => s.transfer_type === 'lateral').length}</span>
+            <TabsTrigger value="transfer" className="gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Lệnh Điều Chuyển
+              {allSuggestions.filter(s => s.status === 'pending').length > 0 && (
+                <span className="text-xs bg-red-500/15 text-red-400 px-1.5 rounded-full font-semibold">
+                  {allSuggestions.filter(s => s.status === 'pending').length}
+                </span>
               )}
             </TabsTrigger>
             <TabsTrigger value="simulation" className="gap-1.5">
@@ -281,59 +226,19 @@ export default function InventoryAllocationPage() {
             </TabsTrigger>
             <TabsTrigger value="config" className="gap-1.5">
               <Settings2 className="h-3.5 w-3.5" />
-              Cấu hình
-            </TabsTrigger>
-            <TabsTrigger value="stores" className="gap-1.5">
-              <Store className="h-3.5 w-3.5" />
-              Cửa hàng
+              Cài đặt
             </TabsTrigger>
           </TabsList>
 
-          {/* All suggestions */}
-          <TabsContent value="all">
-            {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={allSuggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
-            ) : (
-              <RebalanceBoardTable suggestions={allSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
-            )}
+          <TabsContent value="transfer">
+            <DailyTransferOrder
+              suggestions={allSuggestions}
+              storeMap={storeMap}
+              fcNameMap={fcNameMap}
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
           </TabsContent>
-
-          {/* V1: Phủ nền */}
-          <TabsContent value="v1">
-            {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={v1Suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
-            ) : (
-              <RebalanceBoardTable suggestions={v1Suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
-            )}
-          </TabsContent>
-
-          {/* V2: Nhu cầu */}
-          <TabsContent value="v2">
-            {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={v2Suggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
-            ) : (
-              <RebalanceBoardTable suggestions={v2Suggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
-            )}
-          </TabsContent>
-
-          {/* Push from CW — uses allocAsSuggestions (allocation recommendations) */}
-          <TabsContent value="push">
-            {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={allocAsSuggestions} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
-            ) : (
-              <RebalanceBoardTable suggestions={allocAsSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="all" storeMap={storeMap} />
-            )}
-          </TabsContent>
-
-          {/* Lateral */}
-          <TabsContent value="lateral">
-            {viewMode === 'cards' ? (
-              <InventoryFCDecisionCards suggestions={rebalanceSuggestions.filter(s => s.transfer_type === 'lateral')} onApprove={handleApprove} onReject={handleReject} storeMap={storeMap} fcNameMap={fcNameMap} />
-            ) : (
-              <RebalanceBoardTable suggestions={rebalanceSuggestions} onApprove={handleApprove} onReject={handleReject} transferType="lateral" storeMap={storeMap} />
-            )}
-          </TabsContent>
-
           <TabsContent value="simulation">
             <RebalanceSimulationTab suggestions={allSuggestions} />
           </TabsContent>
@@ -341,10 +246,10 @@ export default function InventoryAllocationPage() {
             <RebalanceAuditLog />
           </TabsContent>
           <TabsContent value="config">
-            <RebalanceConfigPanel />
-          </TabsContent>
-          <TabsContent value="stores">
-            <StoreDirectoryTab />
+            <div className="space-y-6">
+              <RebalanceConfigPanel />
+              <StoreDirectoryTab />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
