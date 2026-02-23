@@ -1,57 +1,54 @@
 
+# Thay "Gói Quyết Định Chờ Duyệt" bằng Tổng quan Lệch Size + Thanh Lý
 
-# Tối ưu tốc độ load dữ liệu size tại kho đích
+## Mục tiêu
+Bỏ phần Decision Feed (hiện ít giá trị trên trang Overview) -- thay bằng 2 card tóm tắt giúp CEO/CFO scan nhanh tình trạng hàng lệch size và hàng cần thanh lý.
 
-## Vấn đề
+## Thay đổi UI
 
-Khi mở rộng (expand) 1 dòng trong bảng Đề Xuất Điều Chuyển, phần "Tồn kho size tại kho đích" hiện "Đang tải dữ liệu size..." lâu vì:
+Xoá toàn bộ block "Gói Quyết Định Chờ Duyệt" (lines 159-211) và thay bằng **2 card ngang hàng**:
 
-1. Hook `useDestinationSizeInventory` query bảng `inv_state_positions` (34K rows) mà **không filter theo `snapshot_date`** -- có thể trả về dữ liệu cũ lẫn mới.
-2. Supabase giới hạn mặc định 1000 rows/query -- kết quả có thể bị cắt.
-3. Client phải extract size từ SKU suffix rồi aggregate -- tốn thời gian xử lý.
+### Card 1: Hàng Lệch Size (Size Intelligence)
+- Nguon: `useSizeIntelligenceSummary` (da co san)
+- Hien thi:
+  - So style bi vo (brokenCount) / tong (totalProducts)
+  - Diem suc khoe trung binh (avgHealthScore)
+  - Doanh thu mat uoc tinh (totalLostRevenue)
+  - Von bi khoa (totalCashLocked)
+  - Nut "Xem Chi Tiet" navigate to `/command/assortment`
 
-## Giải pháp: Tạo RPC server-side
+### Card 2: Thanh Ly (Clearance Intelligence)
+- Nguon: `useClearanceCandidates` (da co san)
+- Hien thi:
+  - So FC can thanh ly (candidates.length)
+  - Tong gia tri ton kho cua hang can thanh ly (sum inventory_value)
+  - Von khoa trong hang can thanh ly (sum cash_locked)
+  - Diem rui ro markdown trung binh
+  - Nut "Xem Chi Tiet" navigate to `/command/clearance`
 
-Thay vì query raw rows rồi aggregate ở client, tạo 1 database function chuyên trả về dữ liệu size đã aggregate sẵn.
-
-### 1. Tạo database function `fn_dest_size_inventory`
-
-```sql
-CREATE OR REPLACE FUNCTION fn_dest_size_inventory(
-  p_tenant_id UUID,
-  p_store_id UUID,
-  p_fc_id UUID
-)
-RETURNS TABLE(size_code TEXT, on_hand BIGINT) AS $$
-  SELECT 
-    upper(regexp_replace(sku, '.*[0-9]', '')) as size_code,
-    SUM(on_hand)::BIGINT as on_hand
-  FROM inv_state_positions
-  WHERE tenant_id = p_tenant_id
-    AND store_id = p_store_id
-    AND fc_id = p_fc_id
-    AND snapshot_date = (
-      SELECT MAX(snapshot_date) FROM inv_state_positions 
-      WHERE tenant_id = p_tenant_id
-    )
-  GROUP BY size_code
-  HAVING SUM(on_hand) > 0 OR size_code IS NOT NULL
-  ORDER BY array_position(
-    ARRAY['XXS','XS','S','M','L','XL','XXL','2XL','3XL','FS'], 
-    upper(regexp_replace(sku, '.*[0-9]', ''))
-  );
-$$ LANGUAGE sql STABLE;
+## Bo cuc
+```text
++-----------------------------+-----------------------------+
+|   Hàng Lệch Size           |   Thanh Lý                  |
+|   307 style vỡ / 1,932     |   42 FC cần thanh lý        |
+|   Health: 54.2              |   Giá trị: 12.5B            |
+|   Mất DT: 8.2B             |   Vốn khóa: 2.1B           |
+|   Vốn khóa: 3.0B           |   Risk TB: 72.3             |
+|   [Xem Chi Tiết →]         |   [Xem Chi Tiết →]         |
++-----------------------------+-----------------------------+
 ```
 
-### 2. Sửa `useDestinationSizeInventory.ts`
+## Chi tiet ky thuat
 
-- Thay query raw `inv_state_positions` bang `callRpc('fn_dest_size_inventory', { p_tenant_id, p_store_id, p_fc_id })`.
-- Bỏ logic `extractSizeFromSku` và client-side aggregation.
-- Kết quả trả về đã sẵn format `{ size_code, on_hand }[]`, chỉ cần map vào `DestSizeEntry`.
+### File: `src/pages/command/CommandOverviewPage.tsx`
+1. Xoa query `pendingPackages` (dec_decision_packages) -- khong can nua
+2. Xoa KPI card "Cho Quyet Dinh"
+3. Import `useClearanceCandidates` tu `@/hooks/inventory/useClearanceIntelligence`
+4. Tinh toan summary tu clearance candidates: totalValue, totalCashLocked, avgRisk, count
+5. Thay block Decision Feed bang 2 card grid `lg:grid-cols-2`
+6. Moi card co icon, so lieu chinh, va Button navigate
 
-### 3. Kết quả mong đợi
-
-- Query nhanh hơn vì aggregate ở DB (dùng index `idx_inv_state_positions_lookup`).
-- Không bị giới hạn 1000 rows (RPC trả về kết quả đã group).
-- Filter đúng `snapshot_date` mới nhất, không lẫn dữ liệu cũ.
-
+### Dependencies
+- Khong can them bang hay RPC moi -- tat ca data da co san
+- `useSizeIntelligenceSummary` da duoc import
+- `useClearanceCandidates` da co san trong `useClearanceIntelligence.ts`
