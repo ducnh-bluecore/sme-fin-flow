@@ -66,19 +66,13 @@ export default function CommandOverviewPage() {
     { label: 'Giá Trị Tồn Kho', value: formatVNDCompact(invStats?.lockedCash || 0), icon: DollarSign, color: 'text-orange-600', bgColor: 'bg-orange-500/10' },
     { label: 'Vốn Bị Khóa', value: formatVNDCompact(siSummary?.totalCashLocked || 0), icon: DollarSign, color: 'text-red-600', bgColor: 'bg-red-500/10' },
     { label: 'Chỉ Số Lệch Chuẩn', value: clampedDistortion !== null ? clampedDistortion.toFixed(1) : '—', icon: AlertTriangle, color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
-    {
-      label: 'Vốn Đặt Sai Chỗ',
-      value: capitalMisallocation > 0 ? formatVNDCompact(capitalMisallocation) : '—',
-      icon: TrendingDown,
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-500/10',
-      breakdown: capitalMisallocation > 0 ? [
-        { name: 'Doanh Thu Mất', value: formatVNDCompact(siSummary?.totalLostRevenue || 0) },
-        { name: 'Vốn Khóa', value: formatVNDCompact(siSummary?.totalCashLocked || 0) },
-        { name: 'Rò Biên', value: formatVNDCompact(siSummary?.totalMarginLeak || 0) },
-      ] : undefined,
-    },
   ];
+
+  const misallocationBreakdown = capitalMisallocation > 0 ? [
+    { name: 'Doanh Thu Mất', value: formatVNDCompact(siSummary?.totalLostRevenue || 0) },
+    { name: 'Vốn Khóa', value: formatVNDCompact(siSummary?.totalCashLocked || 0) },
+    { name: 'Rò Biên', value: formatVNDCompact(siSummary?.totalMarginLeak || 0) },
+  ] : [];
 
   return (
     <div className="space-y-6">
@@ -94,35 +88,54 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {kpiCards.map((kpi, idx) => (
-            <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
-              <Card className="premium-card card-glow-hover group">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="metric-label">{kpi.label}</p>
-                      <p className="metric-value text-foreground mt-2">{kpi.value}</p>
-                    </div>
-                    <div className={`p-3 rounded-xl ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
-                      <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
-                    </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {kpiCards.map((kpi, idx) => (
+          <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
+            <Card className="premium-card card-glow-hover group">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="metric-label">{kpi.label}</p>
+                    <p className="metric-value text-foreground mt-2">{kpi.value}</p>
                   </div>
-                  {kpi.breakdown && (
-                    <div className="mt-3 pt-3 border-t border-border/40 space-y-1.5">
-                      {kpi.breakdown.map((item) => (
-                        <div key={item.name} className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{item.name}</span>
-                          <span className="font-semibold text-foreground">{item.value}</span>
-                        </div>
-                      ))}
+                  <div className={`p-3 rounded-xl ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
+                    <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Capital Misallocation Card */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <Card className="premium-card card-glow-hover group">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-6">
+              <div className="flex items-center gap-4 flex-1">
+                <div className="p-3 rounded-xl bg-rose-500/10 shrink-0">
+                  <TrendingDown className="h-5.5 w-5.5 text-rose-600" />
+                </div>
+                <div>
+                  <p className="metric-label">Vốn Đặt Sai Chỗ</p>
+                  <p className="metric-value text-foreground mt-1">{capitalMisallocation > 0 ? formatVNDCompact(capitalMisallocation) : '—'}</p>
+                </div>
+              </div>
+              {misallocationBreakdown.length > 0 && (
+                <div className="flex items-center gap-6 text-xs">
+                  {misallocationBreakdown.map((item) => (
+                    <div key={item.name} className="text-right">
+                      <p className="text-muted-foreground">{item.name}</p>
+                      <p className="font-semibold text-foreground mt-0.5">{item.value}</p>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Size Intelligence + Clearance Intelligence */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
