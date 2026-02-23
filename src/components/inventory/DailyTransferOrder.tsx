@@ -239,11 +239,55 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove
               </AccordionTrigger>
 
               <AccordionContent className="px-0 pb-0">
-                {/* Reason summary */}
-                <div className="px-4 py-2 bg-primary/5 border-t border-b text-sm text-muted-foreground flex items-center gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                  <span>{group.reasonSummary}</span>
-                </div>
+                {/* Store Summary Card */}
+                {(() => {
+                  const totalLogistics = group.suggestions.reduce((s, x) => s + (x.logistics_cost_estimate || 0), 0);
+                  const totalNet = group.suggestions.reduce((s, x) => s + (x.net_benefit || 0), 0);
+                  const sourceSet = new Set(group.suggestions.map(x => x.from_location_name));
+                  const priorityCounts: Record<string, number> = {};
+                  group.suggestions.forEach(x => {
+                    const p = normalizePriority(x.priority);
+                    priorityCounts[p] = (priorityCounts[p] || 0) + 1;
+                  });
+                  const avgFromCover = group.suggestions.reduce((s, x) => s + (x.from_weeks_cover || 0), 0) / (group.suggestions.length || 1);
+                  const avgToCover = group.suggestions.reduce((s, x) => s + (x.to_weeks_cover || 0), 0) / (group.suggestions.length || 1);
+
+                  return (
+                    <div className="px-4 py-3 bg-muted/20 border-t border-b space-y-2">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Tổng units</span>
+                          <p className="font-semibold text-foreground text-sm">{group.totalQty.toLocaleString('vi-VN')}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Nguồn cung</span>
+                          <p className="font-semibold text-foreground text-sm">{sourceSet.size} kho/cửa hàng</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Doanh thu tiềm năng</span>
+                          <p className="font-semibold text-emerald-400 text-sm">+{formatNumber(group.totalRevenue)}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Net benefit</span>
+                          <p className={`font-semibold text-sm ${totalNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {totalNet >= 0 ? '+' : ''}{formatNumber(totalNet)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3 text-amber-400" />
+                          {group.reasonSummary}
+                        </span>
+                        <span>Chi phí logistics: {formatNumber(totalLogistics)}</span>
+                        <span>Weeks cover: {avgToCover.toFixed(1)}w → {((avgFromCover + avgToCover) / 2).toFixed(1)}w (cân bằng)</span>
+                        {Object.entries(priorityCounts).map(([p, c]) => (
+                          <Badge key={p} variant="outline" className={`text-[10px] ${PRIORITY_BADGE_STYLES[p]}`}>{p}: {c}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Detail table */}
                 <div className="overflow-x-auto">
