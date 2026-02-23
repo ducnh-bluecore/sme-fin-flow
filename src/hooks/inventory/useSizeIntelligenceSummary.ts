@@ -108,6 +108,8 @@ export function useSizeIntelligenceSummary() {
     criticalMarkdownCount: md?.critical_count ?? 0,
     totalCashLocked: cl?.total_cash_locked ?? 0,
     totalInventoryValue: cl?.total_inventory_value ?? 0,
+    affectedProducts: cl?.affected_products ?? 0,
+    affectedUnits: cl?.total_units ?? 0,
     totalMarginLeak: ml?.total_margin_leak ?? 0,
     marginLeakBySizeBreak: ml?.leak_by_size_break ?? 0,
     marginLeakByMarkdown: ml?.leak_by_markdown ?? 0,

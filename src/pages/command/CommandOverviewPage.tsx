@@ -118,16 +118,16 @@ export default function CommandOverviewPage() {
             <CardContent className="px-6 pb-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Style Vỡ / Tổng</p>
+                  <p className="text-xs text-muted-foreground">FC Lệch Size / Tổng</p>
                   <p className="text-lg font-bold text-foreground mt-1">
-                    {siSummary?.brokenCount?.toLocaleString() || '0'}
+                    {(siSummary?.affectedProducts || siSummary?.brokenCount)?.toLocaleString() || '0'}
                     <span className="text-sm font-normal text-muted-foreground"> / {siSummary?.totalProducts?.toLocaleString() || '0'}</span>
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Sức Khoẻ TB</p>
+                  <p className="text-xs text-muted-foreground">Tồn Kho Lệch Size</p>
                   <p className="text-lg font-bold text-foreground mt-1">
-                    {siSummary?.avgHealthScore !== null ? Number(siSummary.avgHealthScore).toFixed(1) : '—'}
+                    {(siSummary?.affectedUnits || 0).toLocaleString()} <span className="text-sm font-normal text-muted-foreground">units</span>
                   </p>
                 </div>
                 <div>
