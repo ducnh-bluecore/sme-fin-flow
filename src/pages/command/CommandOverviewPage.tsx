@@ -121,23 +121,23 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
         {kpiCards.map((kpi, idx) => (
           <motion.div
             key={kpi.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.05 }}
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            <Card>
-              <CardContent className="pt-5 pb-4">
+            <Card className="premium-card card-glow-hover group">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{kpi.value}</p>
+                    <p className="metric-label">{kpi.label}</p>
+                    <p className="metric-value text-foreground mt-2">{kpi.value}</p>
                   </div>
-                  <div className={`p-2.5 rounded-lg ${kpi.bgColor}`}>
-                    <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
+                  <div className={`p-3 rounded-xl ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
+                    <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
                   </div>
                 </div>
               </CardContent>
@@ -147,28 +147,31 @@ export default function CommandOverviewPage() {
       </div>
 
       {/* Decision Feed */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="premium-card overflow-hidden">
+        <CardHeader className="pb-3 px-6 pt-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Gói Quyết Định Chờ Duyệt</CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/command/decisions')}>
-              Xem Tất Cả <ArrowRight className="ml-1 h-4 w-4" />
+            <CardTitle className="text-base font-semibold">Gói Quyết Định Chờ Duyệt</CardTitle>
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground transition-colors" onClick={() => navigate('/command/decisions')}>
+              Xem Tất Cả <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           {(!pendingPackages || pendingPackages.length === 0) ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="text-sm">Không có gói quyết định nào</p>
-              <p className="text-xs mt-1">Chạy engine phân bổ để tạo gói quyết định</p>
+            <div className="text-center py-10 text-muted-foreground">
+              <Package className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">Không có gói quyết định nào</p>
+              <p className="text-xs mt-1.5 text-muted-foreground/70">Chạy engine phân bổ để tạo gói quyết định</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {(pendingPackages as any[]).map((pkg: any) => (
-                <div 
+              {(pendingPackages as any[]).map((pkg: any, idx: number) => (
+                <motion.div
                   key={pkg.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.06 }}
+                  className="flex items-center justify-between p-4 rounded-xl border border-border/50 hover:bg-muted/30 hover:border-border cursor-pointer transition-all duration-300 group"
                   onClick={() => navigate('/command/decisions')}
                 >
                   <div className="flex items-center gap-3">
@@ -176,21 +179,21 @@ export default function CommandOverviewPage() {
                       {pkg.package_type}
                     </Badge>
                     <div>
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-semibold group-hover:text-foreground transition-colors">
                         {(pkg.scope_summary as any)?.description || pkg.package_type}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {(pkg.scope_summary as any)?.units?.toLocaleString() || '—'} đơn vị · {(pkg.scope_summary as any)?.skus || '—'} SKU
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-foreground">
+                    <p className="text-sm font-bold text-foreground">
                       {formatVNDCompact((pkg.impact_summary as any)?.revenue_protected || 0)}
                     </p>
-                    <p className="text-xs text-muted-foreground">bảo vệ được</p>
+                    <p className="text-[11px] text-muted-foreground">bảo vệ được</p>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
