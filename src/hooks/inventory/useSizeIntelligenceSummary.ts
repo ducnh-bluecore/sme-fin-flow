@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Fetches pre-aggregated summary data from DB views.
@@ -73,6 +74,18 @@ export function useSizeIntelligenceSummary() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const cashLockUnits = useQuery({
+    queryKey: ['si-cash-lock-units', tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_cash_lock_units', { p_tenant_id: tenantId });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      return Number(row?.affected_units || 0);
+    },
+    enabled: !!tenantId && isReady,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const marginLeakSummary = useQuery({
     queryKey: ['si-margin-leak-summary', tenantId],
     queryFn: async () => {
@@ -109,7 +122,7 @@ export function useSizeIntelligenceSummary() {
     totalCashLocked: cl?.total_cash_locked ?? 0,
     totalInventoryValue: cl?.total_inventory_value ?? 0,
     affectedProducts: cl?.affected_products ?? 0,
-    affectedUnits: cl?.total_units ?? 0,
+    affectedUnits: cashLockUnits.data ?? 0,
     totalMarginLeak: ml?.total_margin_leak ?? 0,
     marginLeakBySizeBreak: ml?.leak_by_size_break ?? 0,
     marginLeakByMarkdown: ml?.leak_by_markdown ?? 0,
