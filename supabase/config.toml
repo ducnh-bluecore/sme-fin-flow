@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.inventory-outcome-evaluator]
 verify_jwt = false
+
+[functions.inventory-backfill-size-split]
+verify_jwt = false

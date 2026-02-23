@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown, Store } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, LayoutGrid, Table2, ChevronDown, Layers, Target, Crown, Store, Wand2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
@@ -86,6 +86,31 @@ export default function InventoryAllocationPage() {
   const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
   const [isRecalcTier, setIsRecalcTier] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+
+  // Check if there are records missing size_breakdown
+  const hasMissingSize = useMemo(() => {
+    return allocRecs.some((r: any) => r.size_breakdown == null) || 
+           rebalanceSuggestions.some((s: any) => s.size_breakdown == null);
+  }, [allocRecs, rebalanceSuggestions]);
+
+  const handleBackfillSize = useCallback(async () => {
+    if (!tenantId) return;
+    setIsBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('inventory-backfill-size-split', {
+        body: { tenant_id: tenantId },
+      });
+      if (error) throw error;
+      toast.success(`Đã cập nhật size cho ${data?.updated_count || 0} đề xuất (${data?.skipped_count || 0} bỏ qua)`);
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-recs'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-rebalance-suggestions'] });
+    } catch (err: any) {
+      toast.error(`Lỗi backfill size: ${err.message}`);
+    } finally {
+      setIsBackfilling(false);
+    }
+  }, [tenantId, queryClient]);
 
   const handleRecalcTier = useCallback(async () => {
     if (!tenantId) return;
@@ -139,6 +164,18 @@ export default function InventoryAllocationPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {hasMissingSize && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackfillSize}
+                disabled={isBackfilling}
+                className="gap-2"
+              >
+                <Wand2 className={`h-4 w-4 ${isBackfilling ? 'animate-spin' : ''}`} />
+                {isBackfilling ? 'Đang tách size...' : 'Tách theo Size'}
+              </Button>
+            )}
             {showViewToggle && (
               <div className="flex items-center border rounded-md">
                 <Button
