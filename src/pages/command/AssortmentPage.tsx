@@ -34,12 +34,20 @@ export default function AssortmentPage() {
   const { data: fcNames } = useQuery({
     queryKey: ['command-fc-names', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id,fc_name,fc_code')
-        .limit(5000);
-      if (error) throw error;
       const map = new Map<string, string>();
-      for (const fc of (data || []) as any[]) {
-        map.set(String(fc.id), fc.fc_name || fc.fc_code || String(fc.id));
+      const PAGE = 1000;
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id,fc_name,fc_code')
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        const rows = (data || []) as any[];
+        for (const fc of rows) {
+          map.set(String(fc.id), fc.fc_name || fc.fc_code || String(fc.id));
+        }
+        hasMore = rows.length === PAGE;
+        offset += PAGE;
       }
       return map;
     },
