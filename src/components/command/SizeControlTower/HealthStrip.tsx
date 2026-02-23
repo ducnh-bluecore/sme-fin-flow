@@ -26,101 +26,93 @@ export default function HealthStrip({
     : healthStatus === 'WARNING' ? 'text-amber-500' 
     : healthStatus === 'GOOD' ? 'text-emerald-500' : 'text-muted-foreground';
   
-  const statusBg = healthStatus === 'CRITICAL' ? 'from-destructive/10 to-destructive/5 border-destructive/30'
-    : healthStatus === 'WARNING' ? 'from-amber-500/10 to-amber-500/5 border-amber-500/30'
-    : healthStatus === 'GOOD' ? 'from-emerald-500/10 to-emerald-500/5 border-emerald-500/30'
-    : 'from-muted/20 to-muted/10 border-border';
+  const stripBg = healthStatus === 'CRITICAL' ? 'severity-critical-bg'
+    : healthStatus === 'WARNING' ? 'severity-warning-bg'
+    : healthStatus === 'GOOD' ? 'severity-success-bg'
+    : '';
+
+  const damageMetrics = [
+    { icon: ShieldAlert, label: 'Lẻ Size', value: brokenCount, sub: riskCount > 0 ? `+${riskCount} rủi ro` : undefined, color: 'text-destructive', borderColor: 'border-l-destructive' },
+    { icon: DollarSign, label: 'DT Mất', value: totalLostRevenue > 0 ? formatVNDCompact(totalLostRevenue) : '—', color: 'text-destructive', borderColor: 'border-l-destructive' },
+    { icon: Lock, label: 'Vốn Khóa', value: totalCashLocked > 0 ? formatVNDCompact(totalCashLocked) : '—', color: 'text-orange-500', borderColor: 'border-l-orange-500' },
+    { icon: Flame, label: 'Rò Biên', value: totalMarginLeak > 0 ? formatVNDCompact(totalMarginLeak) : '—', color: 'text-red-500', borderColor: 'border-l-red-500' },
+  ];
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-xl border bg-gradient-to-r ${statusBg} p-5`}
+      initial={{ opacity: 0, y: -10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+      className={`premium-card rounded-xl border p-6 ${stripBg}`}
     >
-      <div className="grid grid-cols-12 gap-6 items-center">
-        {/* Health Score - Large */}
-        <div className="col-span-3 flex items-center gap-4">
-          <div className="relative">
-            <div className={`text-5xl font-black ${statusColor} tabular-nums`}>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+        {/* Left: Health Score — large & prominent */}
+        <div className="flex items-center gap-5 shrink-0">
+          <div>
+            <div className={`metric-value-lg ${statusColor} tabular-nums`}>
               {avgHealthScore !== null ? Math.round(avgHealthScore) : '—'}
             </div>
-            <div className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">
-              Sức Khỏe Size
-            </div>
+            <div className="metric-label mt-1">Sức Khỏe Size</div>
           </div>
-          <div className={`text-xs font-bold px-2 py-1 rounded ${
-            healthStatus === 'CRITICAL' ? 'bg-destructive/20 text-destructive' :
-            healthStatus === 'WARNING' ? 'bg-amber-500/20 text-amber-700' :
-            'bg-emerald-500/20 text-emerald-700'
+          <div className={`text-xs font-bold px-3 py-1.5 rounded-lg ${
+            healthStatus === 'CRITICAL' ? 'bg-destructive/20 text-destructive pulse-badge' :
+            healthStatus === 'WARNING' ? 'bg-amber-500/20 text-amber-500' :
+            'bg-emerald-500/20 text-emerald-500'
           }`}>
             {healthStatus === 'CRITICAL' ? '⚠️ NGUY HIỂM' :
              healthStatus === 'WARNING' ? '⚡ CẢNH BÁO' : '✅ TỐT'}
           </div>
         </div>
 
-        {/* Key Damage Metrics */}
-        <div className="col-span-5 grid grid-cols-4 gap-3">
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-              <ShieldAlert className="h-3 w-3" /> Lẻ Size
-            </div>
-            <div className="text-xl font-bold text-destructive">{brokenCount}</div>
-            {riskCount > 0 && <div className="text-[10px] text-muted-foreground">+{riskCount} rủi ro</div>}
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-              <DollarSign className="h-3 w-3" /> DT Mất
-            </div>
-            <div className="text-xl font-bold text-destructive">
-              {totalLostRevenue > 0 ? formatVNDCompact(totalLostRevenue) : '—'}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-              <Lock className="h-3 w-3" /> Vốn Khóa
-            </div>
-            <div className="text-xl font-bold text-orange-600">
-              {totalCashLocked > 0 ? formatVNDCompact(totalCashLocked) : '—'}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground mb-1">
-              <Flame className="h-3 w-3" /> Rò Biên
-            </div>
-            <div className="text-xl font-bold text-red-600">
-              {totalMarginLeak > 0 ? formatVNDCompact(totalMarginLeak) : '—'}
-            </div>
-          </div>
+        {/* Center: Damage Metrics — color-coded tiles */}
+        <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {damageMetrics.map((m, i) => (
+            <motion.div
+              key={m.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + i * 0.06 }}
+              className={`rounded-lg bg-card/50 border border-border/50 border-l-[3px] ${m.borderColor} p-3 transition-all duration-300 hover:bg-card/80`}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <m.icon className="h-3 w-3 text-muted-foreground" />
+                <span className="metric-label text-[10px]">{m.label}</span>
+              </div>
+              <div className={`text-lg font-bold ${m.color}`}>{m.value}</div>
+              {m.sub && <div className="text-[10px] text-muted-foreground mt-0.5">{m.sub}</div>}
+            </motion.div>
+          ))}
         </div>
 
-        {/* Projected Future */}
-        <div className="col-span-4 border-l border-border/50 pl-5">
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">
-            <TrendingUp className="h-3 w-3" /> Nếu Hành Động
+        {/* Right: Projected Future — card-in-card */}
+        <div className="shrink-0 lg:w-[260px] rounded-lg bg-card/60 border border-border/50 p-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+            <span className="metric-label text-emerald-500">Nếu Hành Động</span>
           </div>
           {projectedRecovery > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
-                <Activity className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-muted-foreground">Sức khỏe:</span>
-                <span className="font-bold">{Math.round(avgHealthScore || 0)}</span>
-                <span className="text-emerald-600 font-bold">→ {Math.round(projectedHealth || 0)}</span>
+                <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-muted-foreground text-xs">Sức khỏe:</span>
+                <span className="font-bold text-sm">{Math.round(avgHealthScore || 0)}</span>
+                <span className="text-emerald-500 font-bold text-sm">→ {Math.round(projectedHealth || 0)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <ArrowRightLeft className="h-3.5 w-3.5 text-amber-600" />
-                <span className="text-muted-foreground">Chuyển {transferUnits.toLocaleString()} đv</span>
-                <span className="text-emerald-600 font-semibold">→ Cứu {formatVNDCompact(projectedRecovery)}</span>
+                <ArrowRightLeft className="h-3.5 w-3.5 text-amber-500" />
+                <span className="text-muted-foreground text-xs">Chuyển {transferUnits.toLocaleString()} đv</span>
+                <span className="text-emerald-500 font-semibold text-sm">→ Cứu {formatVNDCompact(projectedRecovery)}</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1 border-t border-border/30">
                 <span>Fix {recoverableStyles} mẫu</span>
                 <span>·</span>
-                <span className={`font-semibold ${effortLevel === 'THẤP' ? 'text-emerald-600' : effortLevel === 'TRUNG BÌNH' ? 'text-amber-600' : 'text-destructive'}`}>
+                <span className={`font-semibold ${effortLevel === 'THẤP' ? 'text-emerald-500' : effortLevel === 'TRUNG BÌNH' ? 'text-amber-500' : 'text-destructive'}`}>
                   Effort: {effortLevel}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">Không có đề xuất điều chuyển</div>
+            <div className="text-sm text-muted-foreground/70">Không có đề xuất điều chuyển</div>
           )}
         </div>
       </div>

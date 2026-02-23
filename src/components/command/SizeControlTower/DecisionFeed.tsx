@@ -175,14 +175,14 @@ export default function DecisionFeed({ brokenDetails, onViewEvidence }: Decision
   if (signals.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
+    <Card className="premium-card overflow-hidden">
+      <CardHeader className="pb-2 px-5 pt-5">
         <CardTitle className="text-sm flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-500" /> Tín Hiệu Quan Trọng
           <Badge variant="secondary" className="text-[10px]">Top {signals.length}</Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 pt-0">
+      <CardContent className="space-y-2.5 pt-0 px-5 pb-5">
         {signals.map((signal) => {
           const severity = signal.size_health_score < 30 ? 'critical' :
             signal.size_health_score < 50 ? 'high' : 'medium';
@@ -194,15 +194,15 @@ export default function DecisionFeed({ brokenDetails, onViewEvidence }: Decision
           return (
             <div
               key={signal.product_id}
-              className={`rounded-lg border-l-4 transition-all ${
-                severity === 'critical' ? 'border-l-destructive bg-destructive/5' :
-                severity === 'high' ? 'border-l-orange-500 bg-orange-500/5' :
-                'border-l-amber-400 bg-amber-400/5'
+              className={`rounded-xl border-l-[3px] transition-all duration-300 ${
+                severity === 'critical' ? 'border-l-destructive severity-critical-bg' :
+                severity === 'high' ? 'border-l-orange-500 severity-warning-bg' :
+                'border-l-amber-400 severity-warning-bg'
               }`}
             >
               {/* Main card - clickable */}
               <div
-                className="p-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                className="p-4 cursor-pointer hover:bg-muted/20 transition-colors duration-300"
                 onClick={() => setExpandedId(prev => prev === signal.product_id ? null : signal.product_id)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -274,16 +274,15 @@ export default function DecisionFeed({ brokenDetails, onViewEvidence }: Decision
                       )}
                     </div>
 
-                    {/* AI Narrative */}
-                    <p className="text-[11px] text-muted-foreground mt-1.5 italic leading-relaxed">
+                    <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed border-l-2 border-primary/30 pl-2.5">
                       💡 {narrative}
                     </p>
                   </div>
 
                   {/* Health score */}
-                  <div className={`text-2xl font-black tabular-nums shrink-0 ${
-                    signal.size_health_score < 30 ? 'text-destructive' :
-                    signal.size_health_score < 50 ? 'text-orange-600' : 'text-amber-600'
+                  <div className={`text-2xl font-black tabular-nums shrink-0 rounded-lg w-12 h-12 flex items-center justify-center ${
+                    signal.size_health_score < 30 ? 'text-destructive bg-destructive/10' :
+                    signal.size_health_score < 50 ? 'text-orange-500 bg-orange-500/10' : 'text-amber-500 bg-amber-500/10'
                   }`}>
                     {Math.round(signal.size_health_score)}
                   </div>
@@ -292,7 +291,7 @@ export default function DecisionFeed({ brokenDetails, onViewEvidence }: Decision
 
               {/* Expanded detail panel */}
               {isExpanded && (
-                <div className="px-3 pb-3 border-t border-dashed border-muted-foreground/20 pt-2 space-y-3">
+                <div className="px-4 pb-4 border-t border-border/30 pt-3 space-y-3 bg-card/30 backdrop-blur-sm">
                   {/* Financial breakdown */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="rounded-md bg-background/60 p-2 text-center">
