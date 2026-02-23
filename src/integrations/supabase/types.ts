@@ -34559,6 +34559,7 @@ export type Database = {
           tenant_id: string | null
           total_cash_locked: number | null
           total_inventory_value: number | null
+          total_units: number | null
         }
         Relationships: []
       }
