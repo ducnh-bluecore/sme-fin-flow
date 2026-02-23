@@ -159,13 +159,17 @@ export default function AssortmentPage() {
 
         <TabsContent value="transfers">
           {transferByDest.length > 0 ? (
-            <TransferSuggestionsCard
-              transferByDest={transferByDest}
-              detailRows={transfersByDest}
-              storeNames={storeNames}
-              fcNames={fcNames}
-              totalOpportunities={summary.transferOpportunities}
-            />
+            fcNames ? (
+              <TransferSuggestionsCard
+                transferByDest={transferByDest}
+                detailRows={transfersByDest}
+                storeNames={storeNames}
+                fcNames={fcNames}
+                totalOpportunities={summary.transferOpportunities}
+              />
+            ) : (
+              <div className="text-center py-12 text-muted-foreground text-sm">Đang tải tên sản phẩm...</div>
+            )
           ) : (
             <div className="text-center py-12 text-muted-foreground text-sm">Chưa có đề xuất điều chuyển</div>
           )}
