@@ -1298,7 +1298,9 @@ function computeMarginLeak(
 
   // Driver 2: Markdown risk leak (projected margin loss if markdown happens)
   // Assume 35% average markdown discount on at-risk inventory
+  // Apply 50% probability factor — not all at-risk items will actually need markdown
   const MARKDOWN_DISCOUNT = 0.35;
+  const MARKDOWN_PROBABILITY = 0.5;
   const fcSkus = new Map<string, string[]>();
   for (const m of skuMapping) {
     if (!m.fc_id || !m.sku) continue;
@@ -1321,7 +1323,7 @@ function computeMarginLeak(
     const stock = fcStock.get(md.product_id) || 0;
     if (stock <= 0) continue;
     const unitPrice = fcPrice.get(md.product_id) || DEFAULT_UNIT_PRICE;
-    const projectedLoss = Math.round(stock * unitPrice * MARKDOWN_DISCOUNT * (md.markdown_risk_score / 100));
+    const projectedLoss = Math.round(stock * unitPrice * MARKDOWN_DISCOUNT * (md.markdown_risk_score / 100) * MARKDOWN_PROBABILITY);
 
     results.push({
       tenant_id: tenantId,
