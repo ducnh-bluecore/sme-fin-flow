@@ -57,6 +57,7 @@ export default function CommandOverviewPage() {
   const clCount = clCandidates.length;
   const clTotalValue = clCandidates.reduce((s, c) => s + (c.inventory_value || 0), 0);
   const clTotalCashLocked = clCandidates.reduce((s, c) => s + (c.cash_locked || 0), 0);
+  const clTotalStock = clCandidates.reduce((s, c) => s + (c.current_stock || 0), 0);
   const clAvgRisk = clCount > 0 ? clCandidates.reduce((s, c) => s + (c.markdown_risk_score || 0), 0) / clCount : 0;
 
   const kpiCards = [
@@ -130,12 +131,16 @@ export default function CommandOverviewPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Doanh Thu Mất</p>
-                  <p className="text-lg font-bold text-red-600 mt-1">{formatVNDCompact(siSummary?.totalLostRevenue || 0)}</p>
+                  <p className="text-xs text-muted-foreground">Tồn Kho Lệch Size</p>
+                  <p className="text-lg font-bold text-orange-600 mt-1">{formatVNDCompact(siSummary?.totalInventoryValue || 0)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Vốn Khóa</p>
                   <p className="text-lg font-bold text-red-600 mt-1">{formatVNDCompact(siSummary?.totalCashLocked || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Doanh Thu Mất</p>
+                  <p className="text-lg font-bold text-red-600 mt-1">{formatVNDCompact(siSummary?.totalLostRevenue || 0)}</p>
                 </div>
               </div>
               <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground w-full justify-center" onClick={() => navigate('/command/assortment')}>
@@ -165,6 +170,10 @@ export default function CommandOverviewPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Risk TB</p>
                   <p className="text-lg font-bold text-foreground mt-1">{clAvgRisk.toFixed(1)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tồn Kho Thanh Lý</p>
+                  <p className="text-lg font-bold text-orange-600 mt-1">{clTotalStock.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">units</span></p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Giá Trị Tồn Kho</p>
