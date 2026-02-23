@@ -310,11 +310,16 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           <TableCell className="font-medium text-sm max-w-[160px] truncate" title={s.fc_name || s.fc_id}>
                             {s.fc_name || s.fc_id}
                             {hasSizes && (
-                              <div className="flex gap-0.5 mt-0.5">
+                              <div className="flex flex-wrap gap-1 mt-1">
                                 {sizeBreakdown!.map(sz => (
-                                  <Badge key={sz.sku} variant="outline" className={cn("text-[9px] px-1 py-0 font-mono", sz.qty > 0 ? "border-emerald-500/30 text-emerald-500" : "border-red-500/30 text-red-400")}>
-                                    {sz.size}:{sz.qty}
-                                  </Badge>
+                                  <span key={sz.sku} className={cn(
+                                    "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-mono font-semibold border",
+                                    sz.qty > 0 
+                                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" 
+                                      : "border-red-500/40 bg-red-500/10 text-red-400"
+                                  )}>
+                                    {sz.size}<span className="opacity-60">:</span>{sz.qty}
+                                  </span>
                                 ))}
                               </div>
                             )}
@@ -360,21 +365,30 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                         </TableRow>
                         {/* Size breakdown sub-rows */}
                         {isSizeExpanded && hasSizes && sizeBreakdown!.map(sz => (
-                          <TableRow key={`${s.id}-${sz.sku}`} className="bg-muted/20 border-l-2 border-l-primary/30">
+                          <TableRow key={`${s.id}-${sz.sku}`} className="bg-primary/5 border-l-2 border-l-primary/50">
                             <TableCell />
                             <TableCell />
                             {showTypeCol && <TableCell />}
                             <TableCell className="pl-8" colSpan={2}>
-                              <div className="flex items-center gap-2 text-xs">
-                                <Badge variant="outline" className="font-mono text-[10px] px-1.5">{sz.size}</Badge>
-                                <span className="text-muted-foreground font-mono">{sz.sku}</span>
+                              <div className="flex items-center gap-3 text-sm">
+                                <span className={cn(
+                                  "inline-flex items-center justify-center rounded-md px-2.5 py-1 font-mono font-bold text-sm min-w-[40px] border",
+                                  sz.qty > 0 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" : "border-muted bg-muted text-muted-foreground"
+                                )}>
+                                  {sz.size}
+                                </span>
+                                <span className="text-muted-foreground font-mono text-sm">{sz.sku}</span>
                               </div>
                             </TableCell>
                             <TableCell />
                             <TableCell />
-                            <TableCell className="text-right font-mono font-bold text-xs">{sz.qty}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">
-                              Nguồn: {sz.source_on_hand ?? '-'} • Đích: {sz.dest_on_hand ?? '-'}
+                            <TableCell className="text-right font-mono font-bold text-sm">{sz.qty}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              <span className="inline-flex items-center gap-2">
+                                <span>Nguồn: <span className="font-mono font-medium text-foreground">{sz.source_on_hand ?? '-'}</span></span>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span>Đích: <span className="font-mono font-medium text-foreground">{sz.dest_on_hand ?? '-'}</span></span>
+                              </span>
                             </TableCell>
                             {showCostCols && <><TableCell /><TableCell /></>}
                             <TableCell />
