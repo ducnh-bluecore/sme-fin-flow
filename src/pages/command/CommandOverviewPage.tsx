@@ -63,6 +63,9 @@ export default function CommandOverviewPage() {
   // Capital Misallocation = Lost Revenue + Cash Locked + Margin Leak
   const capitalMisallocation = (siSummary?.totalLostRevenue || 0) + (siSummary?.totalCashLocked || 0) + (siSummary?.totalMarginLeak || 0);
 
+  // Distortion score clamped to [0, 100]
+  const clampedDistortion = distortionData?.avgScore ? Math.min(100, Math.max(0, distortionData.avgScore)) : null;
+
   const kpiCards = [
     { 
       label: 'Tồn Kho Mạng Lưới', 
@@ -72,18 +75,25 @@ export default function CommandOverviewPage() {
       bgColor: 'bg-blue-500/10',
     },
     { 
-      label: 'Vốn Bị Khóa', 
-      value: formatVNDCompact(invStats?.lockedCash || distortionData?.totalLockedCash || 0), 
+      label: 'Giá Trị Tồn Kho', 
+      value: formatVNDCompact(invStats?.lockedCash || 0), 
       icon: DollarSign,
       color: 'text-orange-600',
       bgColor: 'bg-orange-500/10',
     },
     { 
-      label: 'Chỉ Số Lệch Chuẩn', 
-      value: distortionData?.avgScore ? distortionData.avgScore.toFixed(2) : '—',
-      icon: AlertTriangle,
+      label: 'Vốn Bị Khóa', 
+      value: formatVNDCompact(siSummary?.totalCashLocked || 0), 
+      icon: DollarSign,
       color: 'text-red-600',
       bgColor: 'bg-red-500/10',
+    },
+    { 
+      label: 'Chỉ Số Lệch Chuẩn', 
+      value: clampedDistortion !== null ? clampedDistortion.toFixed(1) : '—',
+      icon: AlertTriangle,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-500/10',
     },
     { 
       label: 'Chờ Quyết Định', 
@@ -121,7 +131,7 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {kpiCards.map((kpi, idx) => (
           <motion.div
             key={kpi.label}
