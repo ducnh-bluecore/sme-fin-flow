@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export default function AssortmentPage() {
-  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildQuery, buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
   const [evidenceProductId, setEvidenceProductId] = useState<string | null>(null);
 
@@ -34,8 +34,7 @@ export default function AssortmentPage() {
   const { data: fcNames } = useQuery({
     queryKey: ['command-fc-names', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildQuery('inv_family_codes' as any)
-        .select('id,fc_name,fc_code')
+      const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id,fc_name,fc_code')
         .eq('is_active', true)
         .limit(5000);
       if (error) throw error;
@@ -51,8 +50,8 @@ export default function AssortmentPage() {
   const { data: storeNames } = useQuery({
     queryKey: ['command-store-names', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildQuery('inv_stores' as any)
-        .select('id,store_name,store_code')
+      const { data, error } = await buildSelectQuery('inv_stores' as any, 'id,store_name,store_code')
+        .eq('is_active', true)
         .eq('is_active', true)
         .limit(500);
       if (error) throw error;
