@@ -11,7 +11,6 @@ import TransferSuggestionsCard from '@/components/command/TransferSuggestionsCar
 import HealthStrip from '@/components/command/SizeControlTower/HealthStrip';
 import StoreHeatmap from '@/components/command/SizeControlTower/StoreHeatmap';
 import ActionImpactPanel from '@/components/command/SizeControlTower/ActionImpactPanel';
-import PrioritizedBreakdown from '@/components/command/SizeControlTower/PrioritizedBreakdown';
 import DecisionFeed from '@/components/command/SizeControlTower/DecisionFeed';
 import EvidenceDrawer from '@/components/command/EvidenceDrawer';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,18 +91,7 @@ export default function AssortmentPage() {
     onError: (err: any) => toast.error(`Engine failed: ${err.message}`),
   });
 
-  useEffect(() => {
-    const brokenGroup = groups.find(g => g.curve_state === 'broken');
-    if (brokenGroup && brokenGroup.style_count > 0 && !detailCache['broken']?.length && !loadingStates['broken']) {
-      loadGroupDetails('broken');
-    }
-  }, [groups, detailCache, loadingStates, loadGroupDetails]);
-
-  const brokenGroup = groups.find(g => g.curve_state === 'broken');
   const brokenDetails = detailCache['broken'] || [];
-  const brokenLoading = loadingStates['broken'] || false;
-  const brokenHasMore = brokenDetails.length < (brokenGroup?.style_count || 0) && brokenDetails.length >= PAGE_SIZE;
-
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
   const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
 
@@ -163,23 +151,11 @@ export default function AssortmentPage() {
 
       <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
 
-      <Tabs defaultValue="breakdown" className="w-full">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="breakdown">📋 Phân Tích SKU</TabsTrigger>
+      <Tabs defaultValue="transfers" className="w-full">
+        <TabsList className="w-full grid grid-cols-2">
           <TabsTrigger value="transfers">🔄 Đề Xuất Điều Chuyển</TabsTrigger>
           <TabsTrigger value="heatmap">🗺️ Heatmap & Impact</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="breakdown">
-          <PrioritizedBreakdown
-            details={brokenDetails}
-            isLoading={brokenLoading}
-            hasMore={brokenHasMore}
-            totalCount={brokenGroup?.style_count || 0}
-            onLoadMore={() => loadGroupDetails('broken', true)}
-            onViewEvidence={(pid) => setEvidenceProductId(pid)}
-          />
-        </TabsContent>
 
         <TabsContent value="transfers">
           {transferByDest.length > 0 ? (
