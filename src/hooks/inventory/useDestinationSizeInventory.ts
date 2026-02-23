@@ -1,28 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 export interface DestSizeEntry {
   size: string;
   on_hand: number;
-}
-
-// Standard size order for sorting
-const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', 'FS'];
-
-function sizeSort(a: string, b: string): number {
-  const ia = SIZE_ORDER.indexOf(a);
-  const ib = SIZE_ORDER.indexOf(b);
-  return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-}
-
-/**
- * Extract size code from SKU suffix.
- * Pattern: SKU ends with size code like "222011792M" -> "M", "222011792XL" -> "XL"
- */
-function extractSizeFromSku(sku: string): string | null {
-  if (!sku) return null;
-  const match = sku.match(/(XXS|XXL|2XL|3XL|XS|XL|FS|S|M|L)$/i);
-  return match ? match[1].toUpperCase() : null;
 }
 
 interface LookupKey {
@@ -32,62 +14,48 @@ interface LookupKey {
 
 /**
  * Fetches ALL size inventory for given product(s) at destination store(s)
- * from inv_state_positions, not just sizes in transfer suggestions.
+ * using server-side RPC fn_dest_size_inventory for performance.
  */
 export function useDestinationSizeInventory(lookups: LookupKey[]) {
-  const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
+  const { isReady, tenantId } = useTenantQueryBuilder();
 
-  // Group by dest_store_id to batch queries (1 query per store instead of 1 per product)
-  const storeGroups = new Map<string, Set<string>>();
-  for (const { product_id, dest_store_id } of lookups) {
-    if (!storeGroups.has(dest_store_id)) storeGroups.set(dest_store_id, new Set());
-    storeGroups.get(dest_store_id)!.add(product_id);
+  // Deduplicate lookups
+  const uniqueKeys = new Map<string, LookupKey>();
+  for (const lk of lookups) {
+    uniqueKeys.set(`${lk.product_id}__${lk.dest_store_id}`, lk);
   }
-
-  const storeIds = Array.from(storeGroups.keys()).sort();
+  const dedupedLookups = Array.from(uniqueKeys.values());
 
   return useQuery({
-    queryKey: ['dest-size-inventory', tenantId, storeIds],
+    queryKey: ['dest-size-inventory', tenantId, dedupedLookups.map(l => `${l.product_id}__${l.dest_store_id}`).sort()],
     queryFn: async () => {
       const result = new Map<string, DestSizeEntry[]>();
-      if (storeGroups.size === 0) return result;
+      if (dedupedLookups.length === 0 || !tenantId) return result;
 
-      // 1 query per destination store (batch all product_ids with .in())
-      const queries = Array.from(storeGroups.entries()).map(async ([storeId, productIds]) => {
-        const ids = Array.from(productIds);
-        const { data, error } = await buildSelectQuery('inv_state_positions', 'fc_id, sku, on_hand')
-          .eq('store_id', storeId)
-          .in('fc_id', ids);
+      const queries = dedupedLookups.map(async ({ product_id, dest_store_id }) => {
+        const { data, error } = await supabase.rpc('fn_dest_size_inventory', {
+          p_tenant_id: tenantId,
+          p_store_id: dest_store_id,
+          p_fc_id: product_id,
+        });
 
         if (error) {
-          console.error('Error fetching dest size inventory:', error);
+          console.error('Error fetching dest size inventory via RPC:', error);
           return;
         }
 
-        // Group results by fc_id (product_id)
-        const byProduct = new Map<string, Map<string, number>>();
-        ((data || []) as any[]).forEach(row => {
-          const size = extractSizeFromSku(row.sku || '');
-          if (!size) return;
-          const fcId = row.fc_id as string;
-          if (!byProduct.has(fcId)) byProduct.set(fcId, new Map());
-          const sizeMap = byProduct.get(fcId)!;
-          sizeMap.set(size, (sizeMap.get(size) || 0) + (row.on_hand || 0));
-        });
+        const entries: DestSizeEntry[] = ((data || []) as any[]).map(row => ({
+          size: row.size_code || '',
+          on_hand: Number(row.on_hand) || 0,
+        })).filter(e => e.size);
 
-        for (const pid of ids) {
-          const sizeMap = byProduct.get(pid) || new Map();
-          const entries: DestSizeEntry[] = Array.from(sizeMap.entries())
-            .map(([size, on_hand]) => ({ size, on_hand }))
-            .sort((a, b) => sizeSort(a.size, b.size));
-          result.set(`${pid}__${storeId}`, entries);
-        }
+        result.set(`${product_id}__${dest_store_id}`, entries);
       });
 
       await Promise.all(queries);
       return result;
     },
-    enabled: isReady && storeGroups.size > 0,
+    enabled: isReady && dedupedLookups.length > 0 && !!tenantId,
     staleTime: 60_000,
   });
 }
