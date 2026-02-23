@@ -72,7 +72,7 @@ async function backfillTable(
     .select(`id, fc_id, ${destColumn}, ${qtyColumn}`)
     .eq('tenant_id', tenantId)
     .is('size_breakdown', null)
-    .limit(500);
+    .limit(1000);
 
   if (runId) {
     query = query.eq('run_id', runId);
