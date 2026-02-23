@@ -309,11 +309,18 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove
                             <div className="font-medium text-foreground">{fcNameMap[s.fc_id] || s.fc_name || s.fc_id}</div>
                             {(s as any).size_breakdown && (
                               <div className="flex gap-1 mt-1 flex-wrap">
-                                {((s as any).size_breakdown as any[]).map((sz: any, i: number) => (
-                                  <span key={i} className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
-                                    {sz.size}×{sz.qty}
-                                  </span>
-                                ))}
+                                {(() => {
+                                  const raw = (s as any).size_breakdown as any[];
+                                  const agg: Record<string, number> = {};
+                                  for (const sz of raw) {
+                                    agg[sz.size] = (agg[sz.size] || 0) + (sz.qty || 1);
+                                  }
+                                  return Object.entries(agg).map(([size, qty]) => (
+                                    <span key={size} className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                                      {size}×{qty}
+                                    </span>
+                                  ));
+                                })()}
                               </div>
                             )}
                           </td>
