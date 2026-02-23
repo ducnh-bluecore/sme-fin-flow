@@ -1,25 +1,57 @@
 
-# Fix tên sản phẩm hiện UUID trong bảng Đề Xuất Điều Chuyển (Size Control Tower)
 
-## Nguyên nhân
+# Tối ưu tốc độ load dữ liệu size tại kho đích
 
-Bảng `state_size_transfer_daily` chỉ lưu `product_id` (UUID trỏ tới `inv_family_codes.id`), không có cột tên sản phẩm. Component `TransferSuggestionsCard` dùng `fcNames?.get(t.product_id)` để tra tên, nhưng khi `fcNames` map chưa load xong hoặc undefined, nó fallback sang hiện UUID thô.
+## Vấn đề
 
-## Giải pháp
+Khi mở rộng (expand) 1 dòng trong bảng Đề Xuất Điều Chuyển, phần "Tồn kho size tại kho đích" hiện "Đang tải dữ liệu size..." lâu vì:
 
-### 1. Sửa `TransferSuggestionsCard.tsx`
+1. Hook `useDestinationSizeInventory` query bảng `inv_state_positions` (34K rows) mà **không filter theo `snapshot_date`** -- có thể trả về dữ liệu cũ lẫn mới.
+2. Supabase giới hạn mặc định 1000 rows/query -- kết quả có thể bị cắt.
+3. Client phải extract size từ SKU suffix rồi aggregate -- tốn thời gian xử lý.
 
-- Thay vì chỉ dùng `fcNames?.get(t.product_id) || t.product_id`, thêm fallback rõ ràng hơn: hiện "Đang tải..." khi `fcNames` chưa sẵn sàng, hoặc hiện UUID rút gọn (8 ký tự đầu) thay vì full UUID.
+## Giải pháp: Tạo RPC server-side
 
-### 2. Sửa `AssortmentPage.tsx`
+Thay vì query raw rows rồi aggregate ở client, tạo 1 database function chuyên trả về dữ liệu size đã aggregate sẵn.
 
-- Truyền thêm loading state của `fcNames` vào `TransferSuggestionsCard` để component biết khi nào dữ liệu đã sẵn sàng.
-- Hoặc đơn giản hơn: chờ `fcNames` load xong mới render `TransferSuggestionsCard`, hiện skeleton/loading thay thế.
+### 1. Tạo database function `fn_dest_size_inventory`
 
-### 3. (Cải tiến thêm) Join tên FC vào view/query
+```sql
+CREATE OR REPLACE FUNCTION fn_dest_size_inventory(
+  p_tenant_id UUID,
+  p_store_id UUID,
+  p_fc_id UUID
+)
+RETURNS TABLE(size_code TEXT, on_hand BIGINT) AS $$
+  SELECT 
+    upper(regexp_replace(sku, '.*[0-9]', '')) as size_code,
+    SUM(on_hand)::BIGINT as on_hand
+  FROM inv_state_positions
+  WHERE tenant_id = p_tenant_id
+    AND store_id = p_store_id
+    AND fc_id = p_fc_id
+    AND snapshot_date = (
+      SELECT MAX(snapshot_date) FROM inv_state_positions 
+      WHERE tenant_id = p_tenant_id
+    )
+  GROUP BY size_code
+  HAVING SUM(on_hand) > 0 OR size_code IS NOT NULL
+  ORDER BY array_position(
+    ARRAY['XXS','XS','S','M','L','XL','XXL','2XL','3XL','FS'], 
+    upper(regexp_replace(sku, '.*[0-9]', ''))
+  );
+$$ LANGUAGE sql STABLE;
+```
 
-Tạo một DB view hoặc sửa query `state_size_transfer_daily` để JOIN với `inv_family_codes` lấy luôn `fc_name`, không phải phụ thuộc vào client-side lookup. Cách này triệt để nhất nhưng cần thêm migration.
+### 2. Sửa `useDestinationSizeInventory.ts`
 
-## Ưu tiên
+- Thay query raw `inv_state_positions` bang `callRpc('fn_dest_size_inventory', { p_tenant_id, p_store_id, p_fc_id })`.
+- Bỏ logic `extractSizeFromSku` và client-side aggregation.
+- Kết quả trả về đã sẵn format `{ size_code, on_hand }[]`, chỉ cần map vào `DestSizeEntry`.
 
-Giải pháp 2 (chờ fcNames load) là nhanh nhất và đủ hiệu quả. Giải pháp 3 (join DB) là lý tưởng nhất nhưng cần thêm bước.
+### 3. Kết quả mong đợi
+
+- Query nhanh hơn vì aggregate ở DB (dùng index `idx_inv_state_positions_lookup`).
+- Không bị giới hạn 1000 rows (RPC trả về kết quả đã group).
+- Filter đúng `snapshot_date` mới nhất, không lẫn dữ liệu cũ.
+
