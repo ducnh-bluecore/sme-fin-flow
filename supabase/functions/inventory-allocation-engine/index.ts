@@ -46,6 +46,7 @@ interface AllocationRec {
   stage: string;
   constraint_checks: Record<string, any>;
   explain_text: string;
+  size_breakdown: any | null;
 }
 
 // ─── Main Handler ────────────────────────────────────────────────
@@ -212,6 +213,29 @@ async function handleAllocate(
       );
       allRecs.push(...v2Recs);
     }
+
+    // ── Compute size breakdown for each rec ──
+    console.log(`[SIZE SPLIT] Computing size breakdown for ${allRecs.length} recs...`);
+    const SPLIT_BATCH = 20; // parallel RPC calls in batches
+    for (let i = 0; i < allRecs.length; i += SPLIT_BATCH) {
+      const batch = allRecs.slice(i, i + SPLIT_BATCH);
+      const splitResults = await Promise.all(
+        batch.map(rec =>
+          supabase.rpc("fn_allocate_size_split", {
+            p_tenant_id: tenantId,
+            p_fc_id: rec.fc_id,
+            p_source_store_id: null, // central warehouse
+            p_dest_store_id: rec.store_id,
+            p_total_qty: rec.recommended_qty,
+          }).then((r: any) => r.data || null)
+            .catch(() => null)
+        )
+      );
+      for (let j = 0; j < batch.length; j++) {
+        batch[j].size_breakdown = splitResults[j];
+      }
+    }
+    console.log(`[SIZE SPLIT] Done.`);
 
     // ── Persist ──
     if (!dryRun && allRecs.length > 0) {
@@ -394,6 +418,7 @@ function runV1(
         stage: "V1",
         constraint_checks: constraintChecks,
         explain_text: `V1 Phủ nền: FC ${fc.fc_name || fc.fc_code}, CH ${store.store_name} (tier ${store.tier}) cần min ${minQty} units, hiện có ${currentStock}, bổ sung ${allocQty}. CW còn ${cwAvailable - allocQty} sau chia.`,
+        size_breakdown: null,
       });
 
       cwAvailable -= allocQty;
@@ -592,6 +617,7 @@ function runV2(
       stage: "V2",
       constraint_checks: constraintChecks,
       explain_text: `V2 ${priorityLabel}: FC ${entry.fc.fc_name || entry.fc.fc_code}, CH ${entry.store.store_name} cần ${entry.demandQty} units (${entry.priorityType}), chia ${allocQty}. Cover sau: ${newCover.toFixed(1)}w. CW còn ${cwAvailable - allocQty}.`,
+      size_breakdown: null,
     });
 
     cwStock.set(entry.fcId, cwAvailable - allocQty);
