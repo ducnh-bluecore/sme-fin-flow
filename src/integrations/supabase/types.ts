@@ -18156,6 +18156,7 @@ export type Database = {
           recommended_qty: number
           run_id: string
           sales_velocity: number | null
+          size_breakdown: Json | null
           sku: string | null
           stage: string
           status: string
@@ -18181,6 +18182,7 @@ export type Database = {
           recommended_qty: number
           run_id: string
           sales_velocity?: number | null
+          size_breakdown?: Json | null
           sku?: string | null
           stage?: string
           status?: string
@@ -18206,6 +18208,7 @@ export type Database = {
           recommended_qty?: number
           run_id?: string
           sales_velocity?: number | null
+          size_breakdown?: Json | null
           sku?: string | null
           stage?: string
           status?: string
@@ -18740,6 +18743,7 @@ export type Database = {
           qty: number
           reason: string | null
           run_id: string
+          size_breakdown: Json | null
           status: string
           tenant_id: string
           to_location: string
@@ -18767,6 +18771,7 @@ export type Database = {
           qty: number
           reason?: string | null
           run_id: string
+          size_breakdown?: Json | null
           status?: string
           tenant_id: string
           to_location: string
@@ -18794,6 +18799,7 @@ export type Database = {
           qty?: number
           reason?: string | null
           run_id?: string
+          size_breakdown?: Json | null
           status?: string
           tenant_id?: string
           to_location?: string
@@ -41009,6 +41015,16 @@ export type Database = {
         Returns: string
       }
       fdp_push_ar_to_cdp: { Args: { p_tenant_id: string }; Returns: number }
+      fn_allocate_size_split: {
+        Args: {
+          p_dest_store_id: string
+          p_fc_id: string
+          p_source_store_id: string
+          p_tenant_id: string
+          p_total_qty: number
+        }
+        Returns: Json
+      }
       fn_auto_tier_stores: {
         Args: { p_tenant_id: string }
         Returns: {

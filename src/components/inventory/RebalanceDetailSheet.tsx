@@ -115,13 +115,15 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                   <TableHead className="text-xs">KV</TableHead>
                   <TableHead className="text-xs">Tier</TableHead>
                   <TableHead className="text-xs text-right">SL</TableHead>
+                  <TableHead className="text-xs">Size</TableHead>
                   <TableHead className="text-xs">Cover</TableHead>
-                  <TableHead className="text-xs">Lý do</TableHead>
                   <TableHead className="text-xs">TT</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {fcGroup.suggestions.map((s) => (
+                {fcGroup.suggestions.map((s) => {
+                  const sizeBreakdown = (s as any).size_breakdown as Array<{sku: string; size: string; qty: number; source_on_hand?: number; dest_on_hand?: number}> | null;
+                  return (
                   <TableRow key={s.id}>
                     <TableCell className="text-xs">
                       <div>{s.from_location_name}</div>
@@ -142,32 +144,27 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono font-bold">{s.qty}</TableCell>
                     <TableCell className="text-xs">
-                      <span className="text-muted-foreground">{s.from_weeks_cover?.toFixed(1)}w</span>
-                      <span className="mx-1">→</span>
-                      <span className="text-emerald-400 font-medium">{s.balanced_weeks_cover?.toFixed(1)}w</span>
-                    </TableCell>
-                    <TableCell className="text-xs max-w-[200px]">
-                      <div className="font-medium">{s.reason}</div>
-                      {(s as any).explain_text && (
-                        <div className="text-muted-foreground mt-1 whitespace-pre-wrap text-[11px] leading-relaxed">
-                          {(s as any).explain_text}
-                        </div>
-                      )}
-                      {(s as any).constraint_checks && (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {Object.entries((s as any).constraint_checks as Record<string, any>).map(([key, val]) => (
-                            <Badge key={key} variant="outline" className={cn("text-[9px] font-normal", val === true || val === 'pass' ? 'border-emerald-500/30 text-emerald-400' : 'border-red-500/30 text-red-400')}>
-                              {key}: {String(val)}
+                      {sizeBreakdown && sizeBreakdown.length > 0 ? (
+                        <div className="flex flex-wrap gap-0.5">
+                          {sizeBreakdown.map(sz => (
+                            <Badge key={sz.sku} variant="outline" className={cn("text-[9px] px-1 py-0 font-mono", sz.qty > 0 ? "border-emerald-500/30 text-emerald-500" : "border-muted text-muted-foreground")}>
+                              {sz.size}:{sz.qty}
                             </Badge>
                           ))}
                         </div>
-                      )}
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <span className="text-muted-foreground">{s.from_weeks_cover?.toFixed(1)}w</span>
+                      <span className="mx-1">→</span>
+                      <span className="text-emerald-400 font-medium">{s.balanced_weeks_cover?.toFixed(1)}w</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

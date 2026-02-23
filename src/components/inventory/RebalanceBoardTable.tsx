@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, X, HelpCircle, Download, ChevronRight, ChevronDown, Search, Edit2 } from 'lucide-react';
+import { Check, X, HelpCircle, Download, ChevronRight, ChevronDown, Search, Edit2, Layers } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { exportRebalanceToExcel } from '@/lib/inventory-export';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,15 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
   const [filterRegion, setFilterRegion] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedSizeRows, setExpandedSizeRows] = useState<Set<string>>(new Set());
+
+  const toggleSizeRow = (id: string) => {
+    setExpandedSizeRows(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const regions = useMemo(() => {
     const set = new Set<string>();
@@ -278,10 +287,19 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                     </TableRow>
                     {!isCollapsed && items.map(s => {
                       const delta = getDelta(s);
+                      const sizeBreakdown = (s as any).size_breakdown as Array<{sku: string; size: string; qty: number; source_on_hand?: number; dest_on_hand?: number; velocity?: number}> | null;
+                      const hasSizes = sizeBreakdown && sizeBreakdown.length > 0;
+                      const isSizeExpanded = expandedSizeRows.has(s.id);
                       return (
-                        <TableRow key={s.id} className={isEdited(s) ? 'bg-amber-50/50 dark:bg-amber-900/10' : ''}>
+                        <React.Fragment key={s.id}>
+                        <TableRow className={cn(isEdited(s) ? 'bg-amber-50/50 dark:bg-amber-900/10' : '', hasSizes && 'cursor-pointer')} onClick={() => hasSizes && toggleSizeRow(s.id)}>
                           <TableCell>
-                            {s.status === 'pending' && <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={() => toggleSelect(s.id)} />}
+                            <div className="flex items-center gap-1">
+                              {s.status === 'pending' && <Checkbox checked={selectedIds.has(s.id)} onCheckedChange={(e) => { e && typeof e === 'object'; toggleSelect(s.id); }} onClick={(e) => e.stopPropagation()} />}
+                              {hasSizes && (
+                                <Layers className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", isSizeExpanded && "text-primary")} />
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${priorityColors[s.priority] || ''}`}>{s.priority}</span>
@@ -289,7 +307,18 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           {showTypeCol && (
                             <TableCell><Badge variant="outline" className="text-xs">{s.transfer_type === 'push' ? 'Push' : 'Lateral'}</Badge></TableCell>
                           )}
-                          <TableCell className="font-medium text-sm max-w-[160px] truncate" title={s.fc_name || s.fc_id}>{s.fc_name || s.fc_id}</TableCell>
+                          <TableCell className="font-medium text-sm max-w-[160px] truncate" title={s.fc_name || s.fc_id}>
+                            {s.fc_name || s.fc_id}
+                            {hasSizes && (
+                              <div className="flex gap-0.5 mt-0.5">
+                                {sizeBreakdown!.map(sz => (
+                                  <Badge key={sz.sku} variant="outline" className={cn("text-[9px] px-1 py-0 font-mono", sz.qty > 0 ? "border-emerald-500/30 text-emerald-500" : "border-red-500/30 text-red-400")}>
+                                    {sz.size}:{sz.qty}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell>
                             <div className="text-sm">{s.to_location_name}</div>
                             <div className="text-xs text-muted-foreground">{s.to_location_type}</div>
@@ -305,7 +334,7 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           </TableCell>
                           <TableCell className="text-right">
                             {s.status === 'pending' ? (
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                                 <Input type="number" value={getDisplayQty(s)} onChange={e => setEditedQty(prev => ({ ...prev, [s.id]: Number(e.target.value) || 0 }))} className="h-7 w-16 text-right font-mono font-bold text-sm" min={0} />
                                 {delta !== 0 && <span className={`text-xs font-mono ${delta > 0 ? 'text-emerald-600' : 'text-red-500'}`}>{delta > 0 ? `+${delta}` : delta}</span>}
                               </div>
@@ -322,13 +351,38 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           <TableCell><span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs ${statusColors[s.status] || ''}`}>{s.status}</span></TableCell>
                           <TableCell>
                             {s.status === 'pending' && (
-                              <div className="flex gap-0.5">
+                              <div className="flex gap-0.5" onClick={(e) => e.stopPropagation()}>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => handleSingleApprove(s.id)}><Check className="h-3.5 w-3.5" /></Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-red-500" onClick={() => onReject([s.id])}><X className="h-3.5 w-3.5" /></Button>
                               </div>
                             )}
                           </TableCell>
                         </TableRow>
+                        {/* Size breakdown sub-rows */}
+                        {isSizeExpanded && hasSizes && sizeBreakdown!.map(sz => (
+                          <TableRow key={`${s.id}-${sz.sku}`} className="bg-muted/20 border-l-2 border-l-primary/30">
+                            <TableCell />
+                            <TableCell />
+                            {showTypeCol && <TableCell />}
+                            <TableCell className="pl-8" colSpan={2}>
+                              <div className="flex items-center gap-2 text-xs">
+                                <Badge variant="outline" className="font-mono text-[10px] px-1.5">{sz.size}</Badge>
+                                <span className="text-muted-foreground font-mono">{sz.sku}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell />
+                            <TableCell />
+                            <TableCell className="text-right font-mono font-bold text-xs">{sz.qty}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              Nguồn: {sz.source_on_hand ?? '-'} • Đích: {sz.dest_on_hand ?? '-'}
+                            </TableCell>
+                            {showCostCols && <><TableCell /><TableCell /></>}
+                            <TableCell />
+                            <TableCell />
+                            <TableCell />
+                          </TableRow>
+                        ))}
+                        </React.Fragment>
                       );
                     })}
                   </React.Fragment>
