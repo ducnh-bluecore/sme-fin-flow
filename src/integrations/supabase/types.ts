@@ -41079,6 +41079,13 @@ export type Database = {
           total_on_hand: number
         }[]
       }
+      fn_dest_size_inventory: {
+        Args: { p_fc_id: string; p_store_id: string; p_tenant_id: string }
+        Returns: {
+          on_hand: number
+          size_code: string
+        }[]
+      }
       fn_evidence_pack_by_fc: {
         Args: { p_fc_id: string; p_tenant_id: string }
         Returns: Json
