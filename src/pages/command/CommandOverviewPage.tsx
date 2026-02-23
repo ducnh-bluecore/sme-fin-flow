@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Crosshair, Package, DollarSign, AlertTriangle, TrendingDown, ArrowRight, Scissors, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -65,7 +66,18 @@ export default function CommandOverviewPage() {
     { label: 'Giá Trị Tồn Kho', value: formatVNDCompact(invStats?.lockedCash || 0), icon: DollarSign, color: 'text-orange-600', bgColor: 'bg-orange-500/10' },
     { label: 'Vốn Bị Khóa', value: formatVNDCompact(siSummary?.totalCashLocked || 0), icon: DollarSign, color: 'text-red-600', bgColor: 'bg-red-500/10' },
     { label: 'Chỉ Số Lệch Chuẩn', value: clampedDistortion !== null ? clampedDistortion.toFixed(1) : '—', icon: AlertTriangle, color: 'text-amber-600', bgColor: 'bg-amber-500/10' },
-    { label: 'Vốn Đặt Sai Chỗ', value: capitalMisallocation > 0 ? formatVNDCompact(capitalMisallocation) : '—', icon: TrendingDown, color: 'text-rose-600', bgColor: 'bg-rose-500/10' },
+    {
+      label: 'Vốn Đặt Sai Chỗ',
+      value: capitalMisallocation > 0 ? formatVNDCompact(capitalMisallocation) : '—',
+      icon: TrendingDown,
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-500/10',
+      tooltip: capitalMisallocation > 0 ? [
+        { name: 'Doanh Thu Mất', value: formatVNDCompact(siSummary?.totalLostRevenue || 0) },
+        { name: 'Vốn Khóa (Lẻ Size)', value: formatVNDCompact(siSummary?.totalCashLocked || 0) },
+        { name: 'Rò Biên (Markdown Risk)', value: formatVNDCompact(siSummary?.totalMarginLeak || 0) },
+      ] : undefined,
+    },
   ];
 
   return (
@@ -82,25 +94,46 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {kpiCards.map((kpi, idx) => (
-          <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
-            <Card className="premium-card card-glow-hover group">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="metric-label">{kpi.label}</p>
-                    <p className="metric-value text-foreground mt-2">{kpi.value}</p>
+      <TooltipProvider delayDuration={200}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {kpiCards.map((kpi, idx) => {
+            const cardContent = (
+              <Card className="premium-card card-glow-hover group">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="metric-label">{kpi.label}</p>
+                      <p className="metric-value text-foreground mt-2">{kpi.value}</p>
+                    </div>
+                    <div className={`p-3 rounded-xl ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
+                      <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
+                    </div>
                   </div>
-                  <div className={`p-3 rounded-xl ${kpi.bgColor} transition-transform duration-300 group-hover:scale-110`}>
-                    <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </div>
+                </CardContent>
+              </Card>
+            );
+
+            return (
+              <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
+                {kpi.tooltip ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
+                    <TooltipContent side="bottom" className="p-3 space-y-1.5 max-w-[240px]">
+                      <p className="text-xs font-semibold text-foreground mb-2">Phân tách Vốn Đặt Sai Chỗ</p>
+                      {kpi.tooltip.map((item) => (
+                        <div key={item.name} className="flex items-center justify-between text-xs gap-4">
+                          <span className="text-muted-foreground">{item.name}</span>
+                          <span className="font-semibold text-foreground">{item.value}</span>
+                        </div>
+                      ))}
+                    </TooltipContent>
+                  </Tooltip>
+                ) : cardContent}
+              </motion.div>
+            );
+          })}
+        </div>
+      </TooltipProvider>
 
       {/* Size Intelligence + Clearance Intelligence */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
