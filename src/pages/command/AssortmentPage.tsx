@@ -35,7 +35,6 @@ export default function AssortmentPage() {
     queryKey: ['command-fc-names', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id,fc_name,fc_code')
-        .eq('is_active', true)
         .limit(5000);
       if (error) throw error;
       const map = new Map<string, string>();
@@ -51,8 +50,6 @@ export default function AssortmentPage() {
     queryKey: ['command-store-names', tenantId],
     queryFn: async () => {
       const { data, error } = await buildSelectQuery('inv_stores' as any, 'id,store_name,store_code')
-        .eq('is_active', true)
-        .eq('is_active', true)
         .limit(500);
       if (error) throw error;
       const map = new Map<string, string>();
