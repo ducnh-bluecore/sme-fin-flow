@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+// Tabs removed — unified view
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -53,15 +53,6 @@ function translateReason(reason: string): string[] {
 
 type PurposeKey = 'broken_size' | 'stockout' | 'high_velocity' | 'rebalance';
 
-function getPurposeBadge(reason: string): { label: string; className: string } {
-  const r = (reason || '').toLowerCase();
-  if (r.includes('core_size') || r.includes('broken_size')) return { label: 'Lẻ size', className: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800' };
-  if (r.includes('stockout')) return { label: 'Hết hàng', className: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800' };
-  if (r.includes('high_velocity')) return { label: 'Bán nhanh', className: 'bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800' };
-  if (r.includes('excess_source') || r.includes('low_stock')) return { label: 'Cân bằng kho', className: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' };
-  return { label: 'Tối ưu', className: 'bg-muted text-muted-foreground border-border' };
-}
-
 function getPurposeKey(reason: string): PurposeKey {
   const r = (reason || '').toLowerCase();
   if (r.includes('core_size') || r.includes('broken_size')) return 'broken_size';
@@ -70,14 +61,20 @@ function getPurposeKey(reason: string): PurposeKey {
   return 'rebalance';
 }
 
-const TAB_CONFIG: Record<PurposeKey, { label: string; icon: string; activeClass: string }> = {
-  broken_size: { label: 'Lẻ size', icon: '🟣', activeClass: 'data-[state=active]:bg-purple-600 data-[state=active]:text-white' },
-  stockout: { label: 'Hết hàng', icon: '🔴', activeClass: 'data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground' },
-  high_velocity: { label: 'Bán nhanh', icon: '🟠', activeClass: 'data-[state=active]:bg-orange-600 data-[state=active]:text-white' },
-  rebalance: { label: 'Cân bằng kho', icon: '🔵', activeClass: 'data-[state=active]:bg-blue-600 data-[state=active]:text-white' },
+function getPurposeBadge(reason: string): { label: string; className: string } {
+  const key = getPurposeKey(reason);
+  const config = PURPOSE_CONFIG[key];
+  return { label: config.label, className: config.className };
+}
+
+const PURPOSE_CONFIG: Record<PurposeKey, { label: string; icon: string; className: string }> = {
+  broken_size: { label: 'Lẻ size', icon: '🟣', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  stockout: { label: 'Hết hàng', icon: '🔴', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  high_velocity: { label: 'Bán nhanh', icon: '🟠', className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  rebalance: { label: 'Cân bằng kho', icon: '🔵', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
 };
 
-const TAB_ORDER: PurposeKey[] = ['broken_size', 'stockout', 'high_velocity', 'rebalance'];
+const PURPOSE_ORDER: PurposeKey[] = ['broken_size', 'stockout', 'high_velocity', 'rebalance'];
 
 export default function TransferSuggestionsCard({ transferByDest, detailRows, storeNames, fcNames, totalOpportunities }: Props) {
   const [expandedDest, setExpandedDest] = useState<Set<string>>(new Set());
@@ -87,70 +84,54 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
   const [confirmAction, setConfirmAction] = useState<{ action: 'approved' | 'rejected'; ids: string[]; destId?: string } | null>(null);
   const approveTransfer = useApproveTransfer();
 
-  // Categorize all transfers by purpose
-  const tabData = useMemo(() => {
-    const result: Record<PurposeKey, { groups: TransferGroup[]; detailRows: Map<string, any[]>; totalCount: number; totalBenefit: number }> = {
-      broken_size: { groups: [], detailRows: new Map(), totalCount: 0, totalBenefit: 0 },
-      stockout: { groups: [], detailRows: new Map(), totalCount: 0, totalBenefit: 0 },
-      high_velocity: { groups: [], detailRows: new Map(), totalCount: 0, totalBenefit: 0 },
-      rebalance: { groups: [], detailRows: new Map(), totalCount: 0, totalBenefit: 0 },
+  // Unified groups — all purposes merged, each row keeps its purpose badge
+  const { unifiedGroups, unifiedDetailRows, purposeCounts } = useMemo(() => {
+    const groups: TransferGroup[] = [];
+    const unified = new Map<string, any[]>();
+    const counts: Record<PurposeKey, { count: number; benefit: number }> = {
+      broken_size: { count: 0, benefit: 0 },
+      stockout: { count: 0, benefit: 0 },
+      high_velocity: { count: 0, benefit: 0 },
+      rebalance: { count: 0, benefit: 0 },
     };
 
-    // Group detail rows by purpose and dest
+    // Merge all detail rows by dest, regardless of purpose
     for (const [destId, rows] of detailRows) {
-      const byPurpose: Record<PurposeKey, any[]> = { broken_size: [], stockout: [], high_velocity: [], rebalance: [] };
+      if (!unified.has(destId)) unified.set(destId, []);
+      unified.get(destId)!.push(...rows);
       for (const row of rows) {
-        byPurpose[getPurposeKey(row.reason)].push(row);
-      }
-
-      for (const key of TAB_ORDER) {
-        const purposeRows = byPurpose[key];
-        if (purposeRows.length === 0) continue;
-        result[key].detailRows.set(destId, purposeRows);
-        result[key].totalCount += purposeRows.length;
-        const totalBenefit = purposeRows.reduce((s: number, r: any) => s + (r.net_benefit || 0), 0);
-        result[key].totalBenefit += totalBenefit;
-        const totalQty = purposeRows.reduce((s: number, r: any) => s + (r.transfer_qty || 0), 0);
-        const uniqueProducts = new Set(purposeRows.map((r: any) => r.product_id)).size;
-
-        // Find or create group for this dest
-        const existingGroup = result[key].groups.find(g => g.dest_store_id === destId);
-        if (existingGroup) {
-          existingGroup.transfer_count += purposeRows.length;
-          existingGroup.total_qty += totalQty;
-          existingGroup.unique_products = Math.max(existingGroup.unique_products, uniqueProducts);
-          existingGroup.total_net_benefit += totalBenefit;
-        } else {
-          result[key].groups.push({
-            dest_store_id: destId,
-            transfer_count: purposeRows.length,
-            total_qty: totalQty,
-            unique_products: uniqueProducts,
-            total_net_benefit: totalBenefit,
-          });
-        }
+        const pk = getPurposeKey(row.reason);
+        counts[pk].count++;
+        counts[pk].benefit += row.net_benefit || 0;
       }
     }
 
-    // Also categorize groups that have no detail rows yet
+    // Build groups per dest
+    for (const [destId, rows] of unified) {
+      const totalQty = rows.reduce((s: number, r: any) => s + (r.transfer_qty || 0), 0);
+      const totalBenefit = rows.reduce((s: number, r: any) => s + (r.net_benefit || 0), 0);
+      const uniqueProducts = new Set(rows.map((r: any) => r.product_id)).size;
+      groups.push({
+        dest_store_id: destId,
+        transfer_count: rows.length,
+        total_qty: totalQty,
+        unique_products: uniqueProducts,
+        total_net_benefit: totalBenefit,
+      });
+    }
+
+    // Include groups with no detail rows
     for (const group of transferByDest) {
-      // Check if this group is already covered
-      const covered = TAB_ORDER.some(k => result[k].groups.some(g => g.dest_store_id === group.dest_store_id));
-      if (!covered) {
-        // Put in rebalance as default
-        result.rebalance.groups.push(group);
-        result.rebalance.totalCount += group.transfer_count;
-        result.rebalance.totalBenefit += group.total_net_benefit;
+      if (!unified.has(group.dest_store_id)) {
+        groups.push(group);
       }
     }
 
-    return result;
-  }, [transferByDest, detailRows]);
+    // Sort by net benefit desc
+    groups.sort((a, b) => (b.total_net_benefit || 0) - (a.total_net_benefit || 0));
 
-  // Find default tab (first one with items)
-  const defaultTab = useMemo(() => {
-    return TAB_ORDER.find(k => tabData[k].totalCount > 0) || 'broken_size';
-  }, [tabData]);
+    return { unifiedGroups: groups, unifiedDetailRows: unified, purposeCounts: counts };
+  }, [transferByDest, detailRows]);
 
   // Build lookups for destination size inventory — only for the expanded row
   const sizeLookups = useMemo(() => {
@@ -532,50 +513,32 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
               Chưa có đề xuất điều chuyển
             </div>
           ) : (
-            <Tabs defaultValue={defaultTab} className="w-full">
-              <TabsList className="w-full grid grid-cols-4 h-auto p-1">
-                {TAB_ORDER.map(key => {
-                  const config = TAB_CONFIG[key];
-                  const data = tabData[key];
+            <div className="space-y-3">
+              {/* Purpose summary bar */}
+              <div className="flex flex-wrap gap-2">
+                {PURPOSE_ORDER.map(key => {
+                  const config = PURPOSE_CONFIG[key];
+                  const data = purposeCounts[key];
+                  if (data.count === 0) return null;
                   return (
-                    <TabsTrigger
-                      key={key}
-                      value={key}
-                      className={`flex items-center gap-1 text-xs py-2 ${config.activeClass}`}
-                    >
+                    <Badge key={key} variant="outline" className={`text-xs gap-1 ${config.className}`}>
                       <span>{config.icon}</span>
-                      <span className="hidden sm:inline">{config.label}</span>
-                      <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
-                        {data.totalCount}
-                      </Badge>
-                      {data.totalBenefit > 0 && (
-                        <span className="text-[10px] opacity-70 hidden md:inline">
-                          {formatVNDCompact(data.totalBenefit)}
-                        </span>
-                      )}
-                    </TabsTrigger>
+                      <span>{config.label}</span>
+                      <strong>{data.count}</strong>
+                      {data.benefit > 0 && <span className="opacity-70">{formatVNDCompact(data.benefit)}</span>}
+                    </Badge>
                   );
                 })}
-              </TabsList>
+              </div>
 
-              {TAB_ORDER.map(key => {
-                const data = tabData[key];
-                return (
-                  <TabsContent key={key} value={key} className="mt-3 space-y-2">
-                    {data.groups.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground text-xs">
-                        Không có đề xuất trong nhóm này
-                      </div>
-                    ) : (
-                      data.groups.map(group => {
-                        const rows = data.detailRows.get(group.dest_store_id) || [];
-                        return renderDestGroup(group, rows);
-                      })
-                    )}
-                  </TabsContent>
-                );
-              })}
-            </Tabs>
+              {/* Unified list of destination groups */}
+              <div className="space-y-2">
+                {unifiedGroups.map(group => {
+                  const rows = unifiedDetailRows.get(group.dest_store_id) || [];
+                  return renderDestGroup(group, rows);
+                })}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
