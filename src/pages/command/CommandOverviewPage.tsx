@@ -131,10 +131,6 @@ export default function CommandOverviewPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Tồn Kho Lệch Size</p>
-                  <p className="text-lg font-bold text-orange-600 mt-1">{formatVNDCompact(siSummary?.totalInventoryValue || 0)}</p>
-                </div>
-                <div>
                   <p className="text-xs text-muted-foreground">Vốn Khóa</p>
                   <p className="text-lg font-bold text-red-600 mt-1">{formatVNDCompact(siSummary?.totalCashLocked || 0)}</p>
                 </div>
