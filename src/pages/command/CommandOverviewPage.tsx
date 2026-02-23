@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Crosshair, Package, DollarSign, AlertTriangle, TrendingDown, ArrowRight, Scissors, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -72,10 +72,10 @@ export default function CommandOverviewPage() {
       icon: TrendingDown,
       color: 'text-rose-600',
       bgColor: 'bg-rose-500/10',
-      tooltip: capitalMisallocation > 0 ? [
+      breakdown: capitalMisallocation > 0 ? [
         { name: 'Doanh Thu Mất', value: formatVNDCompact(siSummary?.totalLostRevenue || 0) },
-        { name: 'Vốn Khóa (Lẻ Size)', value: formatVNDCompact(siSummary?.totalCashLocked || 0) },
-        { name: 'Rò Biên (Markdown Risk)', value: formatVNDCompact(siSummary?.totalMarginLeak || 0) },
+        { name: 'Vốn Khóa', value: formatVNDCompact(siSummary?.totalCashLocked || 0) },
+        { name: 'Rò Biên', value: formatVNDCompact(siSummary?.totalMarginLeak || 0) },
       ] : undefined,
     },
   ];
@@ -94,10 +94,9 @@ export default function CommandOverviewPage() {
       </motion.div>
 
       {/* KPI Cards */}
-      <TooltipProvider delayDuration={200}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {kpiCards.map((kpi, idx) => {
-            const cardContent = (
+          {kpiCards.map((kpi, idx) => (
+            <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
               <Card className="premium-card card-glow-hover group">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -109,31 +108,21 @@ export default function CommandOverviewPage() {
                       <kpi.icon className={`h-5.5 w-5.5 ${kpi.color}`} />
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-
-            return (
-              <motion.div key={kpi.label} initial={{ opacity: 0, y: 16, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: idx * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }}>
-                {kpi.tooltip ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
-                    <TooltipContent side="bottom" className="p-3 space-y-1.5 max-w-[240px]">
-                      <p className="text-xs font-semibold text-foreground mb-2">Phân tách Vốn Đặt Sai Chỗ</p>
-                      {kpi.tooltip.map((item) => (
-                        <div key={item.name} className="flex items-center justify-between text-xs gap-4">
+                  {kpi.breakdown && (
+                    <div className="mt-3 pt-3 border-t border-border/40 space-y-1.5">
+                      {kpi.breakdown.map((item) => (
+                        <div key={item.name} className="flex items-center justify-between text-xs">
                           <span className="text-muted-foreground">{item.name}</span>
                           <span className="font-semibold text-foreground">{item.value}</span>
                         </div>
                       ))}
-                    </TooltipContent>
-                  </Tooltip>
-                ) : cardContent}
-              </motion.div>
-            );
-          })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </div>
-      </TooltipProvider>
 
       {/* Size Intelligence + Clearance Intelligence */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
