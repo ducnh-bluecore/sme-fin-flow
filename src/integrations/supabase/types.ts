@@ -34559,7 +34559,6 @@ export type Database = {
           tenant_id: string | null
           total_cash_locked: number | null
           total_inventory_value: number | null
-          total_units: number | null
         }
         Relationships: []
       }
@@ -41036,6 +41035,12 @@ export type Database = {
           store_id: string
           store_name: string
           total_sold: number
+        }[]
+      }
+      fn_cash_lock_units: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          affected_units: number
         }[]
       }
       fn_clearance_candidates: {
