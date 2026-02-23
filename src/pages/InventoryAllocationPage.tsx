@@ -63,6 +63,7 @@ export default function InventoryAllocationPage() {
       approved_by: r.approved_by,
       approved_at: r.approved_at,
       created_at: r.created_at,
+      size_breakdown: r.size_breakdown,
     }));
   }, [allocRecs]);
 
