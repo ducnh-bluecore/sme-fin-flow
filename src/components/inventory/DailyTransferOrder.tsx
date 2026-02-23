@@ -253,36 +253,36 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove
                   const avgToCover = group.suggestions.reduce((s, x) => s + (x.to_weeks_cover || 0), 0) / (group.suggestions.length || 1);
 
                   return (
-                    <div className="px-4 py-3 bg-muted/20 border-t border-b space-y-2">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                        <div>
-                          <span className="text-muted-foreground">Tổng units</span>
-                          <p className="font-semibold text-foreground text-sm">{group.totalQty.toLocaleString('vi-VN')}</p>
+                    <div className="px-5 py-4 bg-muted/20 border-t border-b space-y-3">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Tổng units</span>
+                          <p className="font-bold text-foreground text-lg">{group.totalQty.toLocaleString('vi-VN')}</p>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Nguồn cung</span>
-                          <p className="font-semibold text-foreground text-sm">{sourceSet.size} kho/cửa hàng</p>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Nguồn cung</span>
+                          <p className="font-bold text-foreground text-lg">{sourceSet.size} <span className="text-sm font-normal text-muted-foreground">kho/CH</span></p>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Doanh thu tiềm năng</span>
-                          <p className="font-semibold text-emerald-400 text-sm">+{formatNumber(group.totalRevenue)}</p>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Doanh thu tiềm năng</span>
+                          <p className="font-bold text-emerald-400 text-lg">+{formatNumber(group.totalRevenue)}</p>
                         </div>
-                        <div>
-                          <span className="text-muted-foreground">Net benefit</span>
-                          <p className={`font-semibold text-sm ${totalNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <div className="space-y-1">
+                          <span className="text-xs text-muted-foreground">Net benefit</span>
+                          <p className={`font-bold text-lg ${totalNet >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                             {totalNet >= 0 ? '+' : ''}{formatNumber(totalNet)}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3 text-amber-400" />
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap pt-1 border-t border-border/50">
+                        <span className="flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
                           {group.reasonSummary}
                         </span>
-                        <span>Chi phí logistics: {formatNumber(totalLogistics)}</span>
-                        <span>Weeks cover: {avgToCover.toFixed(1)}w → {((avgFromCover + avgToCover) / 2).toFixed(1)}w (cân bằng)</span>
+                        <span>Logistics: {formatNumber(totalLogistics)}</span>
+                        <span>Weeks cover: {avgToCover.toFixed(1)}w → {((avgFromCover + avgToCover) / 2).toFixed(1)}w</span>
                         {Object.entries(priorityCounts).map(([p, c]) => (
-                          <Badge key={p} variant="outline" className={`text-[10px] ${PRIORITY_BADGE_STYLES[p]}`}>{p}: {c}</Badge>
+                          <Badge key={p} variant="outline" className={`text-[11px] ${PRIORITY_BADGE_STYLES[p]}`}>{p}: {c}</Badge>
                         ))}
                       </div>
                     </div>
