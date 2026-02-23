@@ -284,7 +284,7 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                 </TableHeader>
                 <TableBody>
                   {rows.map((t: any) => {
-                    const name = fcNames?.get(t.product_id) || t.product_id;
+                    const name = fcNames?.get(t.product_id) || (t.product_id?.slice(0, 8) + '…');
                     const srcName = storeNames?.get(t.source_store_id) || t.source_store_id?.slice(0, 8);
                     const isApproved = t.status === 'approved';
                     const isRejected = t.status === 'rejected';
