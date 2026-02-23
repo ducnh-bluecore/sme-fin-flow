@@ -224,6 +224,11 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove
                     )}
                   </div>
 
+                  {/* Reason summary inline */}
+                  <span className="text-xs text-muted-foreground truncate max-w-[280px] hidden md:inline">
+                    {group.reasonSummary}
+                  </span>
+
                   {/* Stats */}
                   <div className="flex items-center gap-3 ml-auto mr-4 text-xs text-muted-foreground whitespace-nowrap">
                     <span className="font-mono font-semibold text-foreground">{group.totalQty} units</span>
