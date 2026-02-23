@@ -311,8 +311,8 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                             {s.fc_name || s.fc_id}
                             {hasSizes && (
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {sizeBreakdown!.map(sz => (
-                                  <span key={sz.sku} className={cn(
+                                {sizeBreakdown!.map((sz, idx) => (
+                                  <span key={`${sz.size}-${idx}`} className={cn(
                                     "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-mono font-semibold border",
                                     sz.qty > 0 
                                       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" 
@@ -364,8 +364,8 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
                           </TableCell>
                         </TableRow>
                         {/* Size breakdown sub-rows */}
-                        {isSizeExpanded && hasSizes && sizeBreakdown!.map(sz => (
-                          <TableRow key={`${s.id}-${sz.sku}`} className="bg-primary/5 border-l-2 border-l-primary/50">
+                        {isSizeExpanded && hasSizes && sizeBreakdown!.map((sz, idx) => (
+                          <TableRow key={`${s.id}-sz-${idx}`} className="bg-primary/5 border-l-2 border-l-primary/50">
                             <TableCell />
                             <TableCell />
                             {showTypeCol && <TableCell />}
