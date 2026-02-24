@@ -1,88 +1,83 @@
 
 
-# Store Intelligence - Goc nhin tong hop cua hang
+# Toi uu AI Agent: Toc do & Linh hoat
 
-## Muc tieu
-Xay dung tab "Store Intelligence" moi trong trang Allocation (`/command/allocation`) de cung cap goc nhin toan dien ve tung cua hang: tier, so luong ban, va phan tich **demand space**, **size distribution** ban nhieu nhat tai cua hang do.
+## Van de hien tai
 
-**Luu y**: Cot `color` trong `inv_sku_fc_mapping` hien tai chua co du lieu (0/4,383 rows), nen se hien thi "Chua co du lieu mau" thay vi bo qua -- san sang khi du lieu duoc nhap.
+### 1. Cham (Latency)
+Kien truc hien tai dung **2 buoc tuong tu** (2-pass), moi buoc deu goi `google/gemini-2.5-pro` - model nang nhat:
+- **Pass 1** (Tool-calling): Goi Gemini 2.5 Pro de chon tool va truy van data (non-streaming, co the lap lai 2 lan)
+- **Pass 2** (Synthesis): Goi Gemini 2.5 Pro lan nua de phan tich va tra loi (streaming)
 
-## Thiet ke giao dien
+Tong thoi gian: ~15-30 giay vi phai doi 2-3 lan goi AI model lon + truy van database.
 
-### 1. Tab moi "Store Intel" trong InventoryAllocationPage
-- Them tab thu 5 ben canh Lenh Dieu Chuyen / Mo phong / Lich su / Cai dat
-- Icon: `Store` + label "Store Intel"
+### 2. May moc (Rigid)
+- System prompt qua chi tiet (213 dong), ep AI theo mot khuon cung nhac
+- Cau hoi goi y la cau hoi co dinh, khong thay doi theo context
+- AI bi ep phai luon tra loi theo format "phan tich + hanh dong" ke ca khi nguoi dung chi hoi don gian
 
-### 2. Trang Store Intel gom 2 phan:
+---
 
-**Phan A - Bang tong quan cua hang** (table view)
-- Cot: Ten CH | Tier | Khu vuc | Da ban (units) | Ton kho | Velocity | DT uoc tinh
-- Click vao 1 dong -> mo panel chi tiet ben duoi
+## Giai phap de xuat
 
-**Phan B - Panel chi tiet cua hang** (khi chon 1 store)
-Hien thi 3 card ngang:
+### A. Toi uu toc do
 
-1. **Demand Space Breakdown** - Bieu do thanh ngang (horizontal bar)
-   - Gop `inv_state_demand` JOIN `inv_sku_fc_mapping` JOIN `inv_family_codes`
-   - Group by `demand_space`, SUM `total_sold`
-   - VD: EverydayComfort 45%, Travel 20%, FastTrendFashion 15%...
+**A1. Doi Pass 1 sang model nhanh hon**
+- Pass 1 chi can chon tool va parse tham so - khong can model lon
+- Doi tu `google/gemini-2.5-pro` sang `google/gemini-2.5-flash` cho Pass 1
+- Giu `google/gemini-2.5-pro` cho Pass 2 (phan tich sau)
+- Du kien giam 40-60% thoi gian Pass 1
 
-2. **Size Distribution** - Bieu do thanh ngang
-   - Gop `inv_state_demand` JOIN `inv_sku_fc_mapping`
-   - Group by `size`, SUM `total_sold`
-   - VD: M 35%, S 33%, L 17%, FS 12%...
+**A2. Giam max_tokens Pass 1**
+- Hien tai: `max_tokens: 4096` cho Pass 1 (chi can chon tool)
+- Doi thanh `max_tokens: 1024` - du de chon tool va parse arguments
 
-3. **Color Distribution** - Bieu do thanh ngang (hoac thong bao "Chua co du lieu")
-   - Tuong tu, group by `color`
-   - Neu tat ca null -> hien thong bao
+**A3. Cau hoi don gian → Skip Pass 1**
+- Neu nguoi dung chao hoi hoac hoi cau khong can data → bo qua Pass 1, stream thang Pass 2
+- Tiet kiem 1 lan goi AI hoan toan
+
+### B. Linh hoat hon
+
+**B1. Tinh gon system prompt**
+- Giu nguyen cac quy tac quan trong (metric classification, VND format)
+- Bo bot cac vi du lap lai va chi tiet qua muc
+- Them huong dan "tra loi tu nhien, than thien" thay vi chi "ngan gon, decision-grade"
+
+**B2. System prompt phan biet loai cau hoi**
+- Them huong dan cho AI phan biet:
+  - Cau hoi nhanh (don gian) → tra loi ngan, truc tiep
+  - Cau hoi phan tich (phuc tap) → tra loi day du voi chart
+  - Tro chuyen/chao hoi → tra loi tu nhien, khong can data
+
+**B3. Cau hoi goi y dong hon**
+- Them mot so cau hoi mo hon, tu nhien hon ben canh cac cau ky thuat
+- Vi du: "Tinh hinh kinh doanh tuan nay the nao?", "Co gi can chu y khong?"
+
+---
 
 ## Chi tiet ky thuat
 
-### Database View moi
-Tao 1 view `v_inv_store_profile` de gom du lieu san, tranh query nang tren client:
+### File thay doi
 
-```sql
-CREATE VIEW v_inv_store_profile AS
-SELECT
-  d.tenant_id,
-  d.store_id,
-  m.size,
-  m.color,
-  f.demand_space,
-  SUM(d.total_sold) AS units_sold
-FROM inv_state_demand d
-JOIN inv_sku_fc_mapping m ON m.sku = d.sku
-JOIN inv_family_codes f ON f.id = m.fc_id
-GROUP BY d.tenant_id, d.store_id, m.size, m.color, f.demand_space;
-```
+**1. `supabase/functions/cdp-qa/index.ts`**
+- Dong 370: Doi model Pass 1 tu `google/gemini-2.5-pro` → `google/gemini-2.5-flash`
+- Dong 446: Giam `max_tokens` Pass 1 tu `4096` → `1024`
+- Dong 88-213: Tinh gon system prompt, them huong dan tra loi linh hoat theo loai cau hoi
+- Dong 426-433: Them logic detect cau hoi don gian de skip Pass 1
 
-### Hook moi: `useStoreProfile(storeId)`
-- Query `v_inv_store_profile` filtered by `store_id`
-- Client-side aggregate thanh 3 breakdowns: by demand_space, by size, by color
-- Return: `{ demandSpace: {label, units}[], sizeBreakdown: {label, units}[], colorBreakdown: {label, units}[], isLoading }`
+**2. `src/pages/AIAgentPage.tsx`**
+- Dong 19-55: Cap nhat SCENARIO_GROUPS them cau hoi tu nhien hon
 
-### Component moi: `StoreIntelligenceTab.tsx`
-- Su dung `useStoreMetrics()` co san (tu `StoreDirectoryTab`) cho bang tong quan
-- State `selectedStoreId` de dieu khien panel chi tiet
-- Khi chon store -> fetch `useStoreProfile(storeId)` -> render 3 card breakdown
-- Moi card dung horizontal bar chart (Recharts `BarChart` hoac don gian la div bars giong `StoreHeatmap`)
+### Khong thay doi
+- Kien truc 2-pass van giu nguyen (chi toi uu model/params)
+- Tool definitions van giu nguyen
+- Frontend streaming logic van giu nguyen
+- Cac tool execution functions van giu nguyen
 
-### Files can thay doi
+---
 
-| File | Thay doi |
-|------|----------|
-| **Migration SQL** | Tao view `v_inv_store_profile` |
-| **`src/hooks/inventory/useStoreProfile.ts`** | Hook moi fetch + aggregate profile data |
-| **`src/components/inventory/StoreIntelligenceTab.tsx`** | Component moi: table + detail panel |
-| **`src/pages/InventoryAllocationPage.tsx`** | Them tab "Store Intel" |
-
-### Filter & Sort
-- Ke thua filter Tier / Khu vuc tu `StoreDirectoryTab`
-- Sort mac dinh theo Tier (S > A > B > C), sau do theo doanh thu
-
-### UX
-- Bang cua hang compact, click row highlight va cuon xuong panel chi tiet
-- Bar charts don gian (div-based, khong can Recharts) de nhe va nhanh
-- Demand Space dung mau rieng cho moi loai (EverydayComfort = xanh la, LuxuryParty = tim, v.v.)
-- Responsive: mobile stack 3 card doc, desktop hien ngang
+## Ket qua ky vong
+- **Toc do**: Giam tu 15-30s xuong con 8-15s cho cau hoi can data
+- **Linh hoat**: AI tra loi tu nhien hon, phan biet duoc cau don gian va phuc tap
+- **Khong anh huong**: Chat luong phan tich Pass 2 van dung Gemini 2.5 Pro
 
