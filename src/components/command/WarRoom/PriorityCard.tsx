@@ -39,16 +39,32 @@ const URGENCY_STYLE: Record<WarRoomPriority['urgency'], string> = {
 };
 
 const VERDICT_STYLE: Record<ClearanceHint['verdict'], { icon: string; color: string }> = {
-  fast_clear: { icon: '🟢', color: 'text-emerald-500' },
-  balanced: { icon: '🟡', color: 'text-amber-500' },
-  margin_dead: { icon: '🔴', color: 'text-destructive' },
+  effective: { icon: '🟢', color: 'text-emerald-500' },
+  marginal: { icon: '🟡', color: 'text-amber-500' },
+  not_worth: { icon: '🔴', color: 'text-destructive' },
+  dead_stock: { icon: '⚫', color: 'text-muted-foreground' },
 };
 
 function hintLabel(h: ClearanceHint): string {
-  if (h.verdict === 'margin_dead') {
-    return `OFF ${h.discountStep}% → margin chết (clearability ${Math.round(h.clearability)}%, không đáng)`;
+  if (h.verdict === 'dead_stock') {
+    return `${h.channel} → hàng tồn ${h.baselineDays ?? '?'} ngày, giảm giá không cứu được. Cần thanh lý hoặc chuyển kho`;
   }
-  return `${h.channel} OFF ${h.discountStep}% → clearability ${Math.round(h.clearability)}% (${h.unitsCleared.toLocaleString()} units đã clear)`;
+  if (h.verdict === 'not_worth') {
+    if (h.speedChange !== null && h.speedChange < 0) {
+      return `${h.channel} → giảm giá làm CHẬM hơn (${h.baselineDays} → ${h.avgDaysToClear} ngày). Nên transfer thay vì giảm giá`;
+    }
+    if (h.discountStep >= 50) {
+      return `${h.channel} OFF ${h.discountStep}% → margin chết, không đáng`;
+    }
+    return `${h.channel} OFF ${h.discountStep}% → clearability không tăng (uplift ${h.uplift > 0 ? '+' : ''}${Math.round(h.uplift)} điểm)`;
+  }
+  // effective or marginal
+  const upliftStr = `+${Math.round(h.uplift)} điểm (${Math.round(h.baselineClearability)}% → ${Math.round(h.clearability)}%)`;
+  const speedStr = h.speedChange !== null && h.speedChange > 0
+    ? ` | Nhanh hơn ${h.speedChange} ngày`
+    : '';
+  const unitsStr = h.unitsCleared > 0 ? ` | ${h.unitsCleared.toLocaleString()} units` : '';
+  return `${h.channel} OFF ${h.discountStep}% → ${upliftStr}${speedStr}${unitsStr}`;
 }
 
 interface Props {
