@@ -66,17 +66,32 @@ export function useDeadStock() {
   return useQuery({
     queryKey: ['dead-stock', tenantId],
     queryFn: async () => {
-      // Fetch clearance candidates + sales history in parallel
-      const [candidatesRes, historyRes] = await Promise.all([
-        client.rpc('fn_clearance_candidates', { p_tenant_id: tenantId, p_min_risk: 0 }),
-        buildQuery('v_clearance_history_by_product' as any).limit(5000),
-      ]);
-
+      // Step 1: Fetch clearance candidates
+      const candidatesRes = await client.rpc('fn_clearance_candidates', { p_tenant_id: tenantId, p_min_risk: 0 });
       if (candidatesRes.error) throw candidatesRes.error;
-      if (historyRes.error) throw historyRes.error;
-
       const all = (candidatesRes.data || []) as any[];
-      const history = (historyRes.data || []) as any[];
+
+      // Step 2: Get unique product names from candidates that qualify (days_to_clear >= 90 or zero velocity)
+      const qualifiedNames = [...new Set(
+        all
+          .filter(r => (r.days_to_clear ?? 9999) >= 90 || Number(r.avg_daily_sales || 0) <= 0)
+          .map(r => r.product_name as string)
+          .filter(Boolean)
+      )];
+
+      // Step 3: Fetch history only for qualified products (batch in chunks to avoid query size limits)
+      const CHUNK_SIZE = 50;
+      const historyResults: any[] = [];
+      for (let i = 0; i < qualifiedNames.length; i += CHUNK_SIZE) {
+        const chunk = qualifiedNames.slice(i, i + CHUNK_SIZE);
+        const res = await buildQuery('v_clearance_history_by_product' as any)
+          .in('product_name', chunk)
+          .limit(10000);
+        if (res.error) throw res.error;
+        historyResults.push(...(res.data || []));
+      }
+
+      const history = historyResults;
 
       // Build sales history map: product_name → channel → aggregated info
       // Uses product_name matching (works for KiotViet; online channels have different names)
