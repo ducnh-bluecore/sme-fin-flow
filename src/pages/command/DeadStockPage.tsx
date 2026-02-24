@@ -174,7 +174,7 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                 </span>
                 <span className="flex items-center gap-1">
                   <TrendingDown className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Velocity TB:</span>
+                  <span className="text-muted-foreground" title="Tốc độ bán trung bình tính từ lúc nhập hàng đến nay">Velocity TB (từ lúc nhập):</span>
                   <span className={cn('font-semibold', item.avg_daily_sales <= 0 ? 'text-destructive' : 'text-foreground')}>
                     {item.avg_daily_sales <= 0 ? '0 — không bán được' : `${item.avg_daily_sales.toFixed(1)}/ngày`}
                   </span>
@@ -182,7 +182,7 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                 {item.recentVelocity !== null && (
                   <span className="flex items-center gap-1">
                     <Zap className="h-3 w-3 text-amber-500" />
-                    <span className="text-muted-foreground">Gần đây:</span>
+                    <span className="text-muted-foreground" title="Tốc độ bán quanh lần bán cuối cùng — phản ánh sức mua thực tế gần đây">Velocity gần đây (quanh lần bán cuối):</span>
                     <span className={cn('font-semibold', item.recentVelocity > 0.5 ? 'text-emerald-600' : item.recentVelocity > 0 ? 'text-amber-500' : 'text-destructive')}>
                       {item.recentVelocity.toFixed(1)}/ngày
                     </span>
