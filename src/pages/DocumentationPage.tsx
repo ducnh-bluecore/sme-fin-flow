@@ -9,6 +9,7 @@ import {
   DollarSign,
   Target,
   Bell,
+  Package,
   BarChart3,
   Wallet,
   FileText,
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { FDPDocumentation } from '@/components/docs/FDPDocumentation';
 import { MDPDocumentation } from '@/components/docs/MDPDocumentation';
 import { ControlTowerDocumentation } from '@/components/docs/ControlTowerDocumentation';
+import { CommandDocumentation } from '@/components/docs/CommandDocumentation';
 
 export default function DocumentationPage() {
   const navigate = useNavigate();
@@ -76,6 +78,17 @@ export default function DocumentationPage() {
       bgColor: 'bg-amber-500/10',
       borderColor: 'border-amber-500/30',
       features: 8,
+    },
+    {
+      id: 'command',
+      name: 'Command — Retail Inventory OS',
+      shortName: 'CMD',
+      description: 'Decision Stack cho tồn kho: Size Intelligence, Clearance, Growth Simulator',
+      icon: Package,
+      color: 'text-orange-500',
+      bgColor: 'bg-orange-500/10',
+      borderColor: 'border-orange-500/30',
+      features: 9,
     },
   ];
 
@@ -147,7 +160,7 @@ export default function DocumentationPage() {
         {/* Module Tabs */}
         <div className="container mx-auto px-4 py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid grid-cols-3 h-auto p-1 bg-muted/50">
+            <TabsList className="grid grid-cols-4 h-auto p-1 bg-muted/50">
               {modules.map((module) => {
                 const Icon = module.icon;
                 return (
@@ -199,6 +212,7 @@ export default function DocumentationPage() {
                     {module.id === 'fdp' && <FDPDocumentation searchQuery={searchQuery} />}
                     {module.id === 'mdp' && <MDPDocumentation searchQuery={searchQuery} />}
                     {module.id === 'control-tower' && <ControlTowerDocumentation searchQuery={searchQuery} />}
+                    {module.id === 'command' && <CommandDocumentation searchQuery={searchQuery} />}
                   </ScrollArea>
                 </TabsContent>
               ))}
