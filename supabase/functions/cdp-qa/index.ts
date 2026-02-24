@@ -114,7 +114,8 @@ Khi KHÔNG có tool chuyên dụng phù hợp:
 1. Gọi discover_schema("từ_khóa") để tìm bảng/view
 2. NGAY LẬP TỨC gọi query_database với SQL dựa trên schema vừa tìm được — KHÔNG DỪNG LẠI sau bước 1.
 
-⚠️ TUYỆT ĐỐI KHÔNG narrate quá trình discovery cho user. KHÔNG viết "[HỆ THỐNG]", "Đang gọi discover_schema", "print(...)". Chỉ trả lời KẾT QUẢ cuối cùng.
+⚠️ KHI CHỌN BẢNG: Luôn ƯU TIÊN views (v_*) hơn bảng gốc vì views đã pre-aggregated và có data đầy đủ hơn. VD: dùng v_inv_store_revenue thay vì store_daily_metrics.
+⚠️ TUYỆT ĐỐI KHÔNG narrate quá trình discovery. KHÔNG viết SQL code, tên bảng, hay "[HỆ THỐNG]" trong câu trả lời. Chỉ trả lời KẾT QUẢ KINH DOANH cuối cùng.
 
 KHÔNG BAO GIỜ nói "không có dữ liệu" trước khi thử discover_schema.
 
@@ -280,16 +281,16 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
     case 'discover_schema': {
       const searchTerm = (args.search_term || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
       if (!searchTerm) return { data: null, source: 'information_schema', rows: 0, note: 'search_term is required' };
-      const schemaQuery = `SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name ILIKE '%${searchTerm}%' ORDER BY table_name, ordinal_position LIMIT 500`;
-      const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: schemaQuery });
-      if (error) return { data: null, source: 'information_schema', rows: 0, note: `Error: ${error.message}` };
+      const { data, error } = await supabase.rpc('discover_schema', { search_term: searchTerm });
+      if (error) {
+        console.error('[cdp-qa] discover_schema error:', error.message);
+        return { data: null, source: 'information_schema', rows: 0, note: `Error: ${error.message}` };
+      }
       const result = Array.isArray(data) ? data : [];
-      // Group by table for readability
       const grouped: Record<string, string[]> = {};
       for (const row of result) {
-        const tbl = row.table_name;
-        if (!grouped[tbl]) grouped[tbl] = [];
-        grouped[tbl].push(`${row.column_name} (${row.data_type})`);
+        if (!grouped[row.table_name]) grouped[row.table_name] = [];
+        grouped[row.table_name].push(`${row.column_name} (${row.data_type})`);
       }
       return { data: grouped, source: 'information_schema', rows: result.length, note: `Found ${Object.keys(grouped).length} tables/views matching "${searchTerm}". Use query_database to query them with tenant_id = '${tenantId}'.` };
     }
