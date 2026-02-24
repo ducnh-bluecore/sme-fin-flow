@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Bot, User, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Send, Bot, User, Sparkles, RefreshCw, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AIMessageContent from '@/components/ai/AIMessageContent';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  responseTimeMs?: number;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cdp-qa`;
@@ -76,6 +77,7 @@ export default function AIAgentPage() {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setShowScenarios(false);
+    const startTime = performance.now();
 
     try {
       const { data: { session } } = await client.auth.getSession();
@@ -174,11 +176,18 @@ export default function AIAgentPage() {
       toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra');
       setMessages(prev => prev.slice(0, -1));
     } finally {
+      const elapsed = Math.round(performance.now() - startTime);
       // Guard: nếu không nhận được content, xóa assistant message rỗng
+      // Otherwise stamp response time
       setMessages(prev => {
         const last = prev[prev.length - 1];
         if (last?.role === 'assistant' && !last.content) {
           return prev.slice(0, -1);
+        }
+        if (last?.role === 'assistant') {
+          const n = [...prev];
+          n[n.length - 1] = { ...last, responseTimeMs: elapsed };
+          return n;
         }
         return prev;
       });
@@ -290,7 +299,19 @@ export default function AIAgentPage() {
                     msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                   )}>
                     {msg.role === 'assistant' ? (
-                      <AIMessageContent content={msg.content} />
+                      <>
+                        <AIMessageContent content={msg.content} />
+                        {msg.responseTimeMs && (
+                          <div className="flex items-center gap-1 mt-2 pt-1.5 border-t border-border/50">
+                            <Clock className="h-3 w-3 text-muted-foreground/60" />
+                            <span className="text-[10px] text-muted-foreground/60">
+                              {msg.responseTimeMs < 1000
+                                ? `${msg.responseTimeMs}ms`
+                                : `${(msg.responseTimeMs / 1000).toFixed(1)}s`}
+                            </span>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className="text-sm">{msg.content}</p>
                     )}
