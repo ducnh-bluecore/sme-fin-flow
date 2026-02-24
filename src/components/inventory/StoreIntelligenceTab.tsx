@@ -98,17 +98,17 @@ export function StoreIntelligenceTab() {
   const showDetail = !!selectedStoreId && !!selectedStore;
 
   return (
-    <div className="grid gap-4" style={{ gridTemplateColumns: showDetail ? '280px 1fr' : '1fr' }}>
+    <div className="grid gap-4 h-[calc(100vh-220px)]" style={{ gridTemplateColumns: showDetail ? '300px 1fr' : '1fr' }}>
       {/* Left: Store list */}
-      <Card className="overflow-hidden">
-        <CardHeader className="py-3 px-4">
+      <Card className="overflow-hidden flex flex-col min-h-0">
+        <CardHeader className="py-3 px-4 shrink-0">
           <CardTitle className="text-sm flex items-center gap-2">
             <Store className="h-4 w-4" />
             Cửa hàng ({sortedStores.length})
           </CardTitle>
         </CardHeader>
-        <ScrollArea className="h-[calc(100vh-240px)]">
-          <div className="px-1">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-1 pb-2">
             {sortedStores.map((s: any) => {
               const isSelected = selectedStoreId === s.id;
               return (
@@ -134,120 +134,100 @@ export function StoreIntelligenceTab() {
 
       {/* Right: Detail panel */}
       {showDetail && (
-        <div className="space-y-3 animate-in fade-in duration-200">
-          {/* Header + metrics */}
-          <Card>
-            <CardHeader className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 rounded-md bg-primary/10">
-                    <Store className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-base leading-tight">{selectedStore.store_name}</CardTitle>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant="outline" className={`text-[10px] ${TIER_COLORS[selectedStore.tier] || TIER_COLORS.C}`}>
-                        Tier {selectedStore.tier || 'C'}
-                      </Badge>
-                      {selectedStore.region && (
-                        <span className="text-xs text-muted-foreground">{selectedStore.region}</span>
-                      )}
+        <ScrollArea className="min-h-0">
+          <div className="space-y-3 animate-in fade-in duration-200 pr-2">
+            {/* Header + metrics */}
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-md bg-primary/10">
+                      <Store className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base leading-tight">{selectedStore.store_name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className={`text-[10px] ${TIER_COLORS[selectedStore.tier] || TIER_COLORS.C}`}>
+                          Tier {selectedStore.tier || 'C'}
+                        </Badge>
+                        {selectedStore.region && (
+                          <span className="text-xs text-muted-foreground">{selectedStore.region}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedStoreId(null)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedStoreId(null)}>
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 pt-0">
-              <div className="grid grid-cols-4 gap-2">
-                <MetricCard
-                  icon={Package}
-                  label="Tồn kho"
-                  value={`${(selectedStore.total_on_hand || 0).toLocaleString('vi-VN')}`}
-                  iconClass="text-blue-400"
-                />
-                <MetricCard
-                  icon={DollarSign}
-                  label="Giá trị tồn"
-                  value={`${((selectedStore.total_on_hand || 0) * AVG_UNIT_COST / 1_000_000).toFixed(1)}M`}
-                  sub={`@${(AVG_UNIT_COST / 1000).toFixed(0)}k/unit`}
-                  iconClass="text-amber-400"
-                />
-                <MetricCard
-                  icon={BarChart3}
-                  label="Capacity"
-                  value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`}
-                  sub={`${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}% sử dụng`}
-                  iconClass="text-emerald-400"
-                />
-                <MetricCard
-                  icon={TrendingUp}
-                  label="Đã bán"
-                  value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`}
-                  iconClass="text-pink-400"
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Breakdown charts - 2 columns for Demand + Size, Color below or side */}
-          <div className="grid grid-cols-3 gap-3">
-            <Card>
-              <CardHeader className="pb-1.5 pt-3 px-3">
-                <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                  <ShoppingBag className="h-3.5 w-3.5 text-emerald-400" />
-                  Demand Space
-                </CardTitle>
               </CardHeader>
-              <CardContent className="px-3 pb-3">
-                {profileLoading ? (
-                  <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                ) : (
-                  <HorizontalBarChart items={profile?.demandSpace || []} type="ds" />
-                )}
+              <CardContent className="px-4 pb-4 pt-0">
+                <div className="grid grid-cols-4 gap-2">
+                  <MetricCard icon={Package} label="Tồn kho" value={`${(selectedStore.total_on_hand || 0).toLocaleString('vi-VN')}`} iconClass="text-blue-400" />
+                  <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((selectedStore.total_on_hand || 0) * AVG_UNIT_COST / 1_000_000).toFixed(1)}M`} sub={`@${(AVG_UNIT_COST / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
+                  <MetricCard icon={BarChart3} label="Capacity" value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`} sub={`${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}% sử dụng`} iconClass="text-emerald-400" />
+                  <MetricCard icon={TrendingUp} label="Đã bán" value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} iconClass="text-pink-400" />
+                </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-1.5 pt-3 px-3">
-                <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                  <Ruler className="h-3.5 w-3.5 text-blue-400" />
-                  Size Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                {profileLoading ? (
-                  <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                ) : (
-                  <HorizontalBarChart items={profile?.sizeBreakdown || []} type="size" />
-                )}
-              </CardContent>
-            </Card>
+            {/* Breakdown charts */}
+            <div className="grid grid-cols-3 gap-3">
+              <Card>
+                <CardHeader className="pb-1.5 pt-3 px-3">
+                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                    <ShoppingBag className="h-3.5 w-3.5 text-emerald-400" />
+                    Demand Space
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-3">
+                  {profileLoading ? (
+                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                  ) : (
+                    <HorizontalBarChart items={profile?.demandSpace || []} type="ds" />
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="pb-1.5 pt-3 px-3">
-                <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                  <Palette className="h-3.5 w-3.5 text-violet-400" />
-                  Color Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                {profileLoading ? (
-                  <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                ) : profile?.hasColorData ? (
-                  <HorizontalBarChart items={profile.colorBreakdown} type="color" />
-                ) : (
-                  <div className="py-3 text-center">
-                    <Palette className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
-                    <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader className="pb-1.5 pt-3 px-3">
+                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                    <Ruler className="h-3.5 w-3.5 text-blue-400" />
+                    Size Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-3">
+                  {profileLoading ? (
+                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                  ) : (
+                    <HorizontalBarChart items={profile?.sizeBreakdown || []} type="size" />
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-1.5 pt-3 px-3">
+                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                    <Palette className="h-3.5 w-3.5 text-violet-400" />
+                    Color Distribution
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-3">
+                  {profileLoading ? (
+                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                  ) : profile?.hasColorData ? (
+                    <HorizontalBarChart items={profile.colorBreakdown} type="color" />
+                  ) : (
+                    <div className="py-3 text-center">
+                      <Palette className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
+                      <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        </ScrollArea>
       )}
     </div>
   );
