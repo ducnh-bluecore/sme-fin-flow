@@ -1,79 +1,127 @@
 
 
-# War Room: Them Markdown Ladder Insight vao Priority Card
+# Fix Clearance Hints: Them Toc Do Ban + Phat Hien "Giam Gia Vo Tac Dung"
 
-## Muc tieu
+## Van de
 
-Khi card hien thi "Ro bien do markdown risk", them 1 section nho cho thay:
-- OFF bao nhieu % thi clear nhanh nhat (kenh nao)?
-- OFF bao nhieu % thi margin chet?
-- Kha nang clear hang (clearability score) o tung muc giam gia
+Logic hien tai chi xet clearability tuyet doi, khong xet:
+1. **Toc do ban** (avg_days_to_clear) -- OFF 10% nhung mat 220 ngay moi clear thi vo nghia
+2. **So sanh voi baseline** -- OFF 0% da clear 132 ngay, OFF 10% lai mat 220 ngay -> giam gia lam CHAM hon
+3. **Hang "chet"** -- neu avg_days > 90 ngay o moi muc giam gia -> giam gia khong cuu duoc, can phuong an khac
 
-## Data co san
+## Data thuc te trong database
 
-Bang `sem_markdown_ladders` da co du lieu thuc te:
-
-| Kenh | OFF % | Units Cleared | Clearability |
-|------|-------|---------------|-------------|
-| Shopee | 30% | 1,967 | 42% |
-| KiotViet | 0% | 19,198 | 31% |
-| TikTok | 10% | 10,558 | 29% |
-
-RPC `fn_markdown_ladder_summary` da ton tai va duoc su dung boi `useMarkdownLadder()`.
-
-## Thay doi cu the
-
-### 1. Hook moi: `src/hooks/command/useWarRoomClearanceHint.ts`
-
-Hook gon nhe chi lay top 3 "clearance path" tot nhat tu markdown ladder data (khong can fc_id cu the -- lay aggregate toan bo).
-
+```text
+Kenh       | OFF % | Days to Clear | Clearability | Units
+-----------|-------|---------------|-------------|------
+KiotViet   | 0%    | 132 ngay      | 31%         | 19,198
+KiotViet   | 10%   | 220 ngay      | 20%         | 2,342  --> CHAM HON baseline!
+KiotViet   | 50%   | 249 ngay      | 21%         | 170    --> margin chet + van cham
+Shopee     | 0%    | null          | 12%         | 43
+Shopee     | 30%   | null          | 42%         | 1,967  --> clearability tang nhung days null
+TikTok     | 0%    | 251 ngay      | 21%         | 1,749
+TikTok     | 10%   | 175 ngay      | 29%         | 10,558 --> NHANH HON baseline
+Lazada     | 0%    | 287 ngay      | 20%         | 54     --> hang chet, giam gia khong cuu
 ```
-interface ClearanceHint {
-  channel: string       // "shopee", "tiktok", "kiotviet"  
-  discountStep: number  // 0, 10, 20, 30, 50
-  clearability: number  // 0-100
+
+## Giai phap
+
+### 1. Interface ClearanceHint moi
+
+```text
+ClearanceHint {
+  channel: string
+  discountStep: number          // chi > 0
+  clearability: number
+  avgDaysToClear: number | null // MOI: toc do ban
+  baselineClearability: number  // MOI: clearability tai OFF 0%
+  baselineDays: number | null   // MOI: days to clear tai OFF 0%
+  uplift: number                // MOI: clearability - baseline
+  speedChange: number | null    // MOI: baseline_days - current_days (>0 = nhanh hon)
   unitsCleared: number
-  verdict: 'fast_clear' | 'margin_dead' | 'balanced'
+  verdict: 'effective' | 'marginal' | 'not_worth' | 'dead_stock'  // MOI: them dead_stock
 }
 ```
 
-Logic:
-- Goi `fn_markdown_ladder_summary` (khong truyen fc_id -> lay tat ca)
-- Group theo channel + discount_step
-- Tinh verdict: clearability >= 40 = `fast_clear`, discount >= 50 = `margin_dead`, con lai = `balanced`
-- Tra ve top 3 hints sap xep theo clearability DESC
+### 2. Logic verdict moi (4 loai)
 
-### 2. Update `PriorityCard.tsx` -- Them section "Clearance Hint"
+```text
+1. dead_stock:
+   - baseline avg_days >= 120 ngay (4 thang)
+   - VA giam gia khong lam nhanh hon (speedChange <= 0 hoac days van > 90)
+   -> "Hang chet -- giam gia khong cuu duoc, can transfer/liquidate"
 
-Chi hien thi khi `priority.type === 'markdown_risk'` (hoac type lien quan den clearance).
+2. not_worth:
+   - discount >= 50% (margin chet)
+   - HOAC uplift <= 0 (clearability khong tang)
+   - HOAC speedChange < 0 (giam gia lam CHAM hon)
 
-Layout moi ben duoi section "Thiet hai thuc te":
+3. effective:
+   - uplift > 5 diem
+   - VA (speedChange > 0 HOAC speedChange = null nhung clearability tang manh)
+   -> "Giam gia thuc su giup ban nhanh hon"
 
+4. marginal:
+   - uplift > 0 nhung nho, hoac speed khong doi nhieu
 ```
-📊 KHUYẾN NGHỊ THOÁT HÀNG
-   🟢 Shopee OFF 30% → clearability 42% (1,967 units da clear)
-   🟡 TikTok OFF 10% → clearability 29% (10,558 units)
-   🔴 OFF 50% → margin chết (clearability thấp, không đáng)
+
+### 3. Output mau (tu data thuc)
+
+```text
+KHUYEN NGHI THOAT HANG
+
+🟢 TikTok OFF 10% -> clearability +8 diem (21% -> 29%)
+   Nhanh hon 76 ngay (251 -> 175 ngay) | 10,558 units da clear
+
+🟢 Shopee OFF 30% -> clearability +30 diem (12% -> 42%)  
+   1,967 units da clear
+
+🔴 KiotViet -> giam gia lam CHAM hon (132 -> 220 ngay)
+   Nen transfer hoac liquidate thay vi giam gia
+
+⚫ Lazada -> hang ton 287 ngay, giam gia khong cuu duoc
+   Can thanh ly hoac chuyen kho
 ```
 
-Mau sac:
-- `fast_clear` (clearability >= 35): xanh la (text-emerald-500)
-- `balanced` (20-35): vang (text-amber-500)
-- `margin_dead` (discount >= 50 va clearability thap): do (text-destructive)
+### 4. Mau sac moi (4 verdicts)
 
-### 3. Update `WarRoomPage.tsx` -- Truyen clearance hints xuong
+```text
+effective  -> 🟢 xanh la (text-emerald-500)
+marginal   -> 🟡 vang (text-amber-500)
+not_worth  -> 🔴 do (text-destructive)
+dead_stock -> ⚫ xam dam (text-muted-foreground) -- nhan manh "khong phai van de giam gia"
+```
 
-Goi `useWarRoomClearanceHint()` o page level va truyen xuong PriorityCard qua prop.
+### 5. Chon top hints
 
-## Files thay doi
+1. Moi kenh: chon discount_step co uplift + speedChange tot nhat
+2. Loai bo discount_step = 0 (khong phai thoat hang)
+3. Them cac kenh "dead_stock" hoac "not_worth" (de canh bao)
+4. Sort: effective truoc, roi dead_stock (canh bao), roi marginal
+5. Toi da 4 hints (2 effective + 2 canh bao)
 
-1. **Tao moi**: `src/hooks/command/useWarRoomClearanceHint.ts`
-2. **Sua**: `src/components/command/WarRoom/PriorityCard.tsx` -- them section clearance hint
-3. **Sua**: `src/pages/command/WarRoomPage.tsx` -- goi hook va truyen prop
+## Thay doi ky thuat
+
+### File 1: `src/hooks/command/useWarRoomClearanceHint.ts`
+
+- Tinh baseline (OFF 0%) cho moi kenh: `baselineClearability` + `baselineDays`
+- Chi xet discount_step > 0 cho hints
+- Tinh `uplift`, `speedChange`
+- Verdict logic 4 cap: dead_stock / not_worth / effective / marginal
+- Sort va chon top hints thong minh hon
+
+### File 2: `src/components/command/WarRoom/PriorityCard.tsx`
+
+- Cap nhat VERDICT_STYLE them `dead_stock` (icon ⚫, text-muted-foreground)
+- Viet lai `hintLabel()` hien thi:
+  - effective: "+X diem, nhanh hon Y ngay"
+  - not_worth: "giam gia lam CHAM hon / khong giup gi"
+  - dead_stock: "hang ton X ngay, can thanh ly"
+- Them dong canh bao khi co dead_stock: "Nen transfer hoac liquidate"
 
 ## Khong thay doi
 
-- Database: khong can migration (dung RPC da co)
-- Cac man hinh/hook khac: giu nguyen
-- Logic priority scoring: giu nguyen
+- Database / RPC: giu nguyen (avg_days_to_clear da co san trong sem_markdown_ladders)
+- WarRoomPage.tsx: giu nguyen
+- Cac file khac: giu nguyen
 
