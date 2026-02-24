@@ -8,21 +8,28 @@ export function useInventoryStores() {
   return useQuery({
     queryKey: ['inv-stores', tenantId],
     queryFn: async () => {
-      // Fetch stores and position aggregates in parallel
-      const [storesRes, posRes] = await Promise.all([
-        buildSelectQuery('inv_stores', '*')
-          .eq('is_active', true)
-          .order('store_name')
-          .limit(500),
-        buildSelectQuery('inv_state_positions', 'store_id, on_hand')
-          .limit(50000),
-      ]);
+      // Fetch stores
+      const storesRes = await buildSelectQuery('inv_stores', '*')
+        .eq('is_active', true)
+        .order('store_name')
+        .limit(500);
       if (storesRes.error) throw storesRes.error;
-      
-      // Aggregate on_hand per store
+
+      // Paginated fetch for positions to avoid 1000-row limit
+      const PAGE_SIZE = 1000;
       const onHandMap = new Map<string, number>();
-      for (const p of (posRes.data || []) as any[]) {
-        onHandMap.set(p.store_id, (onHandMap.get(p.store_id) || 0) + (p.on_hand || 0));
+      let from = 0;
+
+      while (true) {
+        const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, on_hand')
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        for (const p of data as any[]) {
+          onHandMap.set(p.store_id, (onHandMap.get(p.store_id) || 0) + (p.on_hand || 0));
+        }
+        if (data.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
       }
 
       return ((storesRes.data || []) as any[]).map((s: any) => ({
