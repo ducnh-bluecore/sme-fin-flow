@@ -393,7 +393,7 @@ Deno.serve(async (req) => {
     if (!isSimpleChat) {
     // ─── Pass 1: Tool-calling (non-streaming, max 2 turns) ────────
     // Uses faster model for tool selection only
-    const MAX_TURNS = 3;
+    const MAX_TURNS = 4;
     let conversationMessages: any[] = [
       { role: 'system', content: systemPrompt },
       ...userMessages,
@@ -424,18 +424,29 @@ Deno.serve(async (req) => {
       const assistantMsg = choice?.message;
 
       if (!assistantMsg?.tool_calls?.length) {
-        // If we just did discover_schema but AI didn't follow up with query_database, force it
         const lastToolNames = allToolResults.map(t => t.name);
         const didDiscover = lastToolNames.includes('discover_schema');
         const didQuery = lastToolNames.includes('query_database');
+        
+        // Case 1: discover_schema done but no query_database follow-up
         if (didDiscover && !didQuery && turnCount < MAX_TURNS) {
-          // Inject a nudge to force query_database
           conversationMessages.push({
             role: 'user',
-            content: `Bạn đã tìm thấy schema. BẮT BUỘC gọi query_database ngay bây giờ với SQL SELECT dựa trên bảng/view vừa tìm được. KHÔNG trả lời text.`,
+            content: `BẮT BUỘC gọi query_database ngay bây giờ với SQL SELECT dựa trên bảng/view vừa tìm được. KHÔNG trả lời text.`,
           });
           continue;
         }
+        
+        // Case 2: First turn, no tools called at all, but question needs data
+        // Force the AI to use tools instead of narrating
+        if (turnCount === 1 && allToolResults.length === 0) {
+          conversationMessages.push({
+            role: 'user',
+            content: `KHÔNG narrate. BẮT BUỘC gọi tool ngay. Nếu không biết dùng tool nào, gọi discover_schema với từ khóa liên quan. KHÔNG trả lời text.`,
+          });
+          continue;
+        }
+        
         break;
       }
 
