@@ -33,6 +33,9 @@ export interface DeadStockItem {
   daysSinceLastSale: number | null;
   lastSaleDate: string | null;
   channelHistory: ChannelSalesRecord[];
+  // Recent velocity (units/day in the 5-day window before last sale)
+  recentVelocity: number | null;
+  recentVelocityWindow: string | null; // e.g. "3 units in 5 days"
 }
 
 export interface DeadStockSummary {
@@ -42,14 +45,39 @@ export interface DeadStockSummary {
   by_bucket: Record<AgingBucket, { items: number; locked: number; stock: number }>;
 }
 
-function classifyAging(daysToClose: number): { bucket: AgingBucket; label: string } {
+function classifyAging(
+  daysToClose: number,
+  daysSinceLastSale: number | null,
+  recentVelocity: number | null,
+): { bucket: AgingBucket; label: string } {
+  // Base classification from days_to_clear
+  let bucket: AgingBucket;
+  let label: string;
+
   if (daysToClose >= 9999 || daysToClose >= 365) {
-    return { bucket: 'dead_stock', label: 'Hàng chết — không bán được' };
+    bucket = 'dead_stock';
+    label = 'Hàng chết — không bán được';
+  } else if (daysToClose >= 180) {
+    bucket = 'stagnant';
+    label = 'Tồn nặng — >180 ngày mới clear';
+  } else {
+    bucket = 'slow_moving';
+    label = 'Chậm bán — 90-180 ngày';
   }
-  if (daysToClose >= 180) {
-    return { bucket: 'stagnant', label: 'Tồn nặng — >180 ngày mới clear' };
+
+  // Reclassify: if sold recently AND has recent velocity, cap at lower severity
+  // "Recently" = within last 60 days (covers Tết/holiday pauses)
+  if (daysSinceLastSale !== null && daysSinceLastSale < 60 && recentVelocity !== null && recentVelocity > 0) {
+    if (bucket === 'dead_stock') {
+      bucket = 'stagnant';
+      label = 'Tồn nặng — có bán gần đây, velocity thấp';
+    } else if (bucket === 'stagnant') {
+      bucket = 'slow_moving';
+      label = 'Chậm bán — có bán gần đây';
+    }
   }
-  return { bucket: 'slow_moving', label: 'Chậm bán — 90-180 ngày' };
+
+  return { bucket, label };
 }
 
 function monthsToDate(monthStr: string): Date {
@@ -130,16 +158,18 @@ export function useDeadStock() {
         })
         .map(r => {
           const dtc = r.days_to_clear ?? 9999;
-          const { bucket, label } = classifyAging(dtc);
 
           // Enrich with sales history (match by product_name)
           const productHistory = historyMap.get(r.product_name);
           let daysSinceLastSale: number | null = null;
           let lastSaleDate: string | null = null;
           const channelHistory: ChannelSalesRecord[] = [];
+          let recentVelocity: number | null = null;
+          let recentVelocityWindow: string | null = null;
 
           if (productHistory) {
             let overallLastMonth = '';
+            let lastMonthTotalUnits = 0;
             productHistory.forEach((chData, channel) => {
               if (chData.lastMonth > overallLastMonth) overallLastMonth = chData.lastMonth;
               channelHistory.push({
@@ -154,10 +184,21 @@ export function useDeadStock() {
               const lastDate = monthsToDate(overallLastMonth);
               daysSinceLastSale = daysBetween(lastDate, now);
               lastSaleDate = overallLastMonth.slice(0, 7);
+
+              // Calculate recent velocity: total units sold across all channels
+              // in the last sale month, divided by 5 (simulating 5-day window)
+              productHistory.forEach((chData) => {
+                if (chData.lastMonth === overallLastMonth) {
+                  lastMonthTotalUnits += chData.totalUnits;
+                }
+              });
+              recentVelocity = lastMonthTotalUnits / 5;
+              recentVelocityWindow = `${lastMonthTotalUnits} units gần lần bán cuối`;
             }
-            // Sort channels by last sale month desc
             channelHistory.sort((a, b) => b.lastSaleMonth.localeCompare(a.lastSaleMonth));
           }
+
+          const { bucket, label } = classifyAging(dtc, daysSinceLastSale, recentVelocity);
 
           return {
             product_id: r.product_id,
@@ -180,6 +221,8 @@ export function useDeadStock() {
             daysSinceLastSale,
             lastSaleDate,
             channelHistory,
+            recentVelocity,
+            recentVelocityWindow,
           };
         })
         .sort((a, b) => b.cash_locked - a.cash_locked);

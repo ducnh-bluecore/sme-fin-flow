@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter, Calendar, ShoppingBag } from 'lucide-react';
+import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter, Calendar, ShoppingBag, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -174,11 +174,21 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                 </span>
                 <span className="flex items-center gap-1">
                   <TrendingDown className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Velocity:</span>
+                  <span className="text-muted-foreground">Velocity TB:</span>
                   <span className={cn('font-semibold', item.avg_daily_sales <= 0 ? 'text-destructive' : 'text-foreground')}>
                     {item.avg_daily_sales <= 0 ? '0 — không bán được' : `${item.avg_daily_sales.toFixed(1)}/ngày`}
                   </span>
                 </span>
+                {item.recentVelocity !== null && (
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-3 w-3 text-amber-500" />
+                    <span className="text-muted-foreground">Gần đây:</span>
+                    <span className={cn('font-semibold', item.recentVelocity > 0.5 ? 'text-emerald-600' : item.recentVelocity > 0 ? 'text-amber-500' : 'text-destructive')}>
+                      {item.recentVelocity.toFixed(1)}/ngày
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">({item.recentVelocityWindow})</span>
+                  </span>
+                )}
                 {item.days_to_clear < 9999 && (
                   <span className="flex items-center gap-1">
                     <span className="text-muted-foreground">ETA clear:</span>
