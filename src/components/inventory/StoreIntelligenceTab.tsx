@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -166,7 +167,16 @@ export function StoreIntelligenceTab() {
                   <MetricCard icon={Package} label="Tồn kho" value={`${(selectedStore.total_on_hand || 0).toLocaleString('vi-VN')}`} iconClass="text-blue-400" />
                   <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((selectedStore.total_on_hand || 0) * AVG_UNIT_COST / 1_000_000).toFixed(1)}M`} sub={`@${(AVG_UNIT_COST / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
                   <MetricCard icon={BarChart3} label="Capacity" value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`} sub={`${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}% sử dụng`} iconClass="text-emerald-400" />
-                  <MetricCard icon={TrendingUp} label="Đã bán" value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} iconClass="text-pink-400" />
+                  <MetricCard 
+                    icon={TrendingUp} 
+                    label="Đã bán" 
+                    value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} 
+                    sub={profileLoading ? '' : (profile?.periodStart && profile?.periodEnd 
+                      ? `${format(parseISO(profile.periodStart), 'dd/MM')} - ${format(parseISO(profile.periodEnd), 'dd/MM')}`
+                      : 'Chưa có dữ liệu'
+                    )}
+                    iconClass="text-pink-400" 
+                  />
                 </div>
               </CardContent>
             </Card>

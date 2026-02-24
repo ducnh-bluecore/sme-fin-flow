@@ -14,6 +14,8 @@ interface StoreProfile {
   colorBreakdown: BreakdownItem[];
   hasColorData: boolean;
   totalSold: number;
+  periodStart: string | null;
+  periodEnd: string | null;
 }
 
 export function useStoreProfile(storeId: string | null) {
@@ -23,6 +25,26 @@ export function useStoreProfile(storeId: string | null) {
     queryKey: ['inv-store-profile', tenantId, storeId],
     queryFn: async () => {
       if (!storeId || !tenantId) throw new Error('Missing params');
+
+      // Fetch date range from demand data
+      const { data: dateRange } = await supabase
+        .from('inv_state_demand' as any)
+        .select('period_start, period_end')
+        .eq('tenant_id', tenantId)
+        .eq('store_id', storeId)
+        .order('period_start', { ascending: true })
+        .limit(1);
+      
+      const { data: dateRangeEnd } = await supabase
+        .from('inv_state_demand' as any)
+        .select('period_end')
+        .eq('tenant_id', tenantId)
+        .eq('store_id', storeId)
+        .order('period_end', { ascending: false })
+        .limit(1);
+
+      const periodStart = (dateRange as any)?.[0]?.period_start || null;
+      const periodEnd = (dateRangeEnd as any)?.[0]?.period_end || null;
 
       // Paginated fetch to handle large datasets
       const PAGE_SIZE = 1000;
@@ -80,6 +102,8 @@ export function useStoreProfile(storeId: string | null) {
         colorBreakdown: toBreakdown(colorMap),
         hasColorData,
         totalSold,
+        periodStart,
+        periodEnd,
       };
     },
     enabled: !!storeId && !!tenantId,
