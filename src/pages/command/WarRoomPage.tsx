@@ -7,10 +7,12 @@ import { WinScoreboard } from '@/components/command/WarRoom/WinScoreboard';
 import { PriorityCard } from '@/components/command/WarRoom/PriorityCard';
 import { useWarRoomPriorities } from '@/hooks/command/useWarRoomPriorities';
 import { useWinScoreboard } from '@/hooks/command/useWinScoreboard';
+import { useWarRoomClearanceHint } from '@/hooks/command/useWarRoomClearanceHint';
 
 export default function WarRoomPage() {
   const { data: priorities, isLoading: prioritiesLoading } = useWarRoomPriorities();
   const { data: scoreboard, isLoading: scoreboardLoading } = useWinScoreboard();
+  const { data: clearanceHints } = useWarRoomClearanceHint();
   const navigate = useNavigate();
 
   const quickActions = [
@@ -60,7 +62,7 @@ export default function WarRoomPage() {
         ) : priorities && priorities.length > 0 ? (
           <div className="space-y-3">
             {priorities.map((p) => (
-              <PriorityCard key={p.id} priority={p} />
+              <PriorityCard key={p.id} priority={p} clearanceHints={clearanceHints} />
             ))}
           </div>
         ) : (

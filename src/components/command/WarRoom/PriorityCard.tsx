@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type WarRoomPriority } from '@/hooks/command/useWarRoomPriorities';
+import { type ClearanceHint } from '@/hooks/command/useWarRoomClearanceHint';
+import { BarChart3 } from 'lucide-react';
 
 function formatVND(value: number): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}tỷ`;
@@ -36,11 +38,25 @@ const URGENCY_STYLE: Record<WarRoomPriority['urgency'], string> = {
   warning: 'bg-amber-500/80 text-white',
 };
 
-interface Props {
-  priority: WarRoomPriority;
+const VERDICT_STYLE: Record<ClearanceHint['verdict'], { icon: string; color: string }> = {
+  fast_clear: { icon: '🟢', color: 'text-emerald-500' },
+  balanced: { icon: '🟡', color: 'text-amber-500' },
+  margin_dead: { icon: '🔴', color: 'text-destructive' },
+};
+
+function hintLabel(h: ClearanceHint): string {
+  if (h.verdict === 'margin_dead') {
+    return `OFF ${h.discountStep}% → margin chết (clearability ${Math.round(h.clearability)}%, không đáng)`;
+  }
+  return `${h.channel} OFF ${h.discountStep}% → clearability ${Math.round(h.clearability)}% (${h.unitsCleared.toLocaleString()} units đã clear)`;
 }
 
-export function PriorityCard({ priority }: Props) {
+interface Props {
+  priority: WarRoomPriority;
+  clearanceHints?: ClearanceHint[];
+}
+
+export function PriorityCard({ priority, clearanceHints }: Props) {
   const navigate = useNavigate();
   const Icon = TYPE_ICON[priority.type];
   const { damageBreakdown: bd } = priority;
@@ -134,7 +150,31 @@ export function PriorityCard({ priority }: Props) {
                 </div>
               )}
 
-              {/* TẠI SAO CẦN XỬ LÝ NGAY - WHY explanation */}
+              {/* 📊 KHUYẾN NGHỊ THOÁT HÀNG - Clearance Hints */}
+              {priority.type === 'markdown_risk' && clearanceHints && clearanceHints.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <BarChart3 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Khuyến nghị thoát hàng
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 pl-[18px]">
+                    {clearanceHints.map((h, i) => {
+                      const style = VERDICT_STYLE[h.verdict];
+                      return (
+                        <div key={i} className="flex items-start gap-1.5">
+                          <span className="text-xs flex-shrink-0">{style.icon}</span>
+                          <span className={cn('text-xs', style.color)}>
+                            {hintLabel(h)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5">
                   <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" />
