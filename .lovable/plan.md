@@ -1,83 +1,100 @@
 
 
-# Toi uu AI Agent: Toc do & Linh hoat
+# Nang cap AI Agent: Tu "11 tools co dinh" sang "AI tu kham pha data"
 
-## Van de hien tai
+## Van de goc
 
-### 1. Cham (Latency)
-Kien truc hien tai dung **2 buoc tuong tu** (2-pass), moi buoc deu goi `google/gemini-2.5-pro` - model nang nhat:
-- **Pass 1** (Tool-calling): Goi Gemini 2.5 Pro de chon tool va truy van data (non-streaming, co the lap lai 2 lan)
-- **Pass 2** (Synthesis): Goi Gemini 2.5 Pro lan nua de phan tich va tra loi (streaming)
+Hien tai AI Agent co 11 tools co dinh, moi tool lay 1 loai data cu the. Khi nguoi dung hoi cau ngoai pham vi 11 tools do (vi du "top cua hang doanh thu cao nhat"), AI khong biet data ton tai va tu choi tra loi.
 
-Tong thoi gian: ~15-30 giay vi phai doi 2-3 lan goi AI model lon + truy van database.
+Trong khi do, database co **100+ views** va nhieu bang du lieu ma AI hoan toan co the truy van duoc — nhung AI khong biet chung ton tai.
 
-### 2. May moc (Rigid)
-- System prompt qua chi tiet (213 dong), ep AI theo mot khuon cung nhac
-- Cau hoi goi y la cau hoi co dinh, khong thay doi theo context
-- AI bi ep phai luon tra loi theo format "phan tich + hanh dong" ke ca khi nguoi dung chi hoi don gian
+## Giai phap: Them "Schema Discovery Tool"
 
----
+Thay vi them tung tool mot, them **1 tool duy nhat** cho phep AI tu kham pha schema cua database. Khi gap cau hoi ma 10 tools co san khong dap ung duoc, AI se:
 
-## Giai phap de xuat
+1. Goi `discover_schema` de xem co nhung bang/view nao lien quan
+2. Doc cot va kieu du lieu cua view do
+3. Dung `query_database` de truy van
 
-### A. Toi uu toc do
+```text
+Luong xu ly moi:
 
-**A1. Doi Pass 1 sang model nhanh hon**
-- Pass 1 chi can chon tool va parse tham so - khong can model lon
-- Doi tu `google/gemini-2.5-pro` sang `google/gemini-2.5-flash` cho Pass 1
-- Giu `google/gemini-2.5-pro` cho Pass 2 (phan tich sau)
-- Du kien giam 40-60% thoi gian Pass 1
+Nguoi dung hoi "top cua hang doanh thu?"
+    |
+    v
+Pass 1: AI chon tool → khong co tool "store" → goi discover_schema("store")
+    |
+    v
+discover_schema tra ve: inv_stores, v_inv_store_revenue, v_inv_store_metrics (kem cot)
+    |
+    v
+AI dung query_database voi SQL join cac view da kham pha
+    |
+    v
+Pass 2: Phan tich va tra loi
+```
 
-**A2. Giam max_tokens Pass 1**
-- Hien tai: `max_tokens: 4096` cho Pass 1 (chi can chon tool)
-- Doi thanh `max_tokens: 1024` - du de chon tool va parse arguments
+## Thay doi chi tiet
 
-**A3. Cau hoi don gian → Skip Pass 1**
-- Neu nguoi dung chao hoi hoac hoi cau khong can data → bo qua Pass 1, stream thang Pass 2
-- Tiet kiem 1 lan goi AI hoan toan
+### 1. Them tool `discover_schema` (supabase/functions/cdp-qa/index.ts)
 
-### B. Linh hoat hon
+Tool moi cho phep AI truy van `information_schema` de tim bang/view va cot cua chung:
 
-**B1. Tinh gon system prompt**
-- Giu nguyen cac quy tac quan trong (metric classification, VND format)
-- Bo bot cac vi du lap lai va chi tiet qua muc
-- Them huong dan "tra loi tu nhien, than thien" thay vi chi "ngan gon, decision-grade"
+```text
+Tool: discover_schema
+Muc dich: Tim bang/view trong database theo tu khoa. Tra ve ten bang, ten cot, kieu du lieu.
+Tham so: 
+  - search_term (bat buoc): tu khoa tim kiem (vi du: "store", "inventory", "expense", "cash")
+Returns: Danh sach bang/view khop + cac cot cua chung
+```
 
-**B2. System prompt phan biet loai cau hoi**
-- Them huong dan cho AI phan biet:
-  - Cau hoi nhanh (don gian) → tra loi ngan, truc tiep
-  - Cau hoi phan tich (phuc tap) → tra loi day du voi chart
-  - Tro chuyen/chao hoi → tra loi tu nhien, khong can data
+Cach hoat dong:
+- Query `information_schema.columns` voi filter `table_name ILIKE '%search_term%'`
+- Chi tra ve bang/view trong schema `public`
+- Gioi han 500 cot de tranh qua tai
 
-**B3. Cau hoi goi y dong hon**
-- Them mot so cau hoi mo hon, tu nhien hon ben canh cac cau ky thuat
-- Vi du: "Tinh hinh kinh doanh tuan nay the nao?", "Co gi can chu y khong?"
+### 2. Mo rong allowed tables trong `execute_readonly_query` (database migration)
 
----
+Hien tai `execute_readonly_query` chi cho phep:
+- Moi view bat dau bang `v_` (da OK)
+- 14 bang co dinh (thieu `inv_stores`, `inv_family_codes`, v.v.)
 
-## Chi tiet ky thuat
+Can them cac bang `inv_*` vao danh sach cho phep de AI co the truy van khi can.
 
-### File thay doi
+### 3. Cap nhat system prompt (supabase/functions/cdp-qa/index.ts)
 
-**1. `supabase/functions/cdp-qa/index.ts`**
-- Dong 370: Doi model Pass 1 tu `google/gemini-2.5-pro` → `google/gemini-2.5-flash`
-- Dong 446: Giam `max_tokens` Pass 1 tu `4096` → `1024`
-- Dong 88-213: Tinh gon system prompt, them huong dan tra loi linh hoat theo loai cau hoi
-- Dong 426-433: Them logic detect cau hoi don gian de skip Pass 1
+Them huong dan cho AI biet cach dung `discover_schema`:
 
-**2. `src/pages/AIAgentPage.tsx`**
-- Dong 19-55: Cap nhat SCENARIO_GROUPS them cau hoi tu nhien hon
+```text
+## KHAM PHA DU LIEU
+Khi khong co tool phu hop, dung 2 buoc:
+1. Goi discover_schema("tu_khoa") de tim bang/view lien quan
+2. Goi query_database voi SQL dua tren schema da kham pha
 
-### Khong thay doi
-- Kien truc 2-pass van giu nguyen (chi toi uu model/params)
-- Tool definitions van giu nguyen
-- Frontend streaming logic van giu nguyen
-- Cac tool execution functions van giu nguyen
+Vi du: Hoi ve "cua hang" → discover_schema("store") → thay v_inv_store_revenue → query_database
+Vi du: Hoi ve "dong tien" → discover_schema("cash") → thay v_cash_flow_monthly → query_database
+```
 
----
+Dong thoi xoa quy tac sai "chua co du lieu cua hang" o QUY TAC VANG.
+
+### 4. Ap dung toi uu toc do V2 (supabase/functions/cdp-qa/index.ts)
+
+Ket hop luon cac toi uu da ban truoc do:
+- Pass 2: doi tu `gemini-2.5-pro` sang `gemini-2.5-flash` (nhanh 3-5x)
+- Pass 2: giam `max_tokens` tu 10000 xuong 3000
+- Giam `maxRetries` tu 5 xuong 2
+- Tinh gon Pass 2 inject prompt (tu 30 dong xuong 8 dong)
+
+## Tong ket thay doi
+
+| File | Thay doi |
+|------|----------|
+| `supabase/functions/cdp-qa/index.ts` | Them tool `discover_schema`, cap nhat system prompt, toi uu Pass 2 |
+| Database migration | Them `inv_*` tables vao allowed list cua `execute_readonly_query` |
 
 ## Ket qua ky vong
-- **Toc do**: Giam tu 15-30s xuong con 8-15s cho cau hoi can data
-- **Linh hoat**: AI tra loi tu nhien hon, phan biet duoc cau don gian va phuc tap
-- **Khong anh huong**: Chat luong phan tich Pass 2 van dung Gemini 2.5 Pro
+
+- AI co the tra loi **bat ky cau hoi nao** ve data co san trong he thong, khong can them tool moi moi lan
+- Toc do giam tu 20-30s xuong 5-12s nho doi sang flash model
+- Khi co view/bang moi trong tuong lai, AI tu dong kham pha duoc ma khong can sua code
 
