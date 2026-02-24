@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter } from 'lucide-react';
+import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter, Calendar, ShoppingBag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -194,6 +194,63 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                   </span>
                 )}
               </div>
+
+              {/* Days since last sale */}
+              {item.daysSinceLastSale !== null && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">Lần bán cuối:</span>
+                  <span className={cn('font-semibold', item.daysSinceLastSale > 180 ? 'text-destructive' : item.daysSinceLastSale > 90 ? 'text-amber-500' : 'text-foreground')}>
+                    {item.daysSinceLastSale} ngày trước
+                  </span>
+                  <span className="text-muted-foreground">({item.lastSaleDate})</span>
+                </div>
+              )}
+              {item.daysSinceLastSale === null && (
+                <div className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span className="text-destructive font-semibold">Chưa từng bán được</span>
+                </div>
+              )}
+
+              {/* Channel sales history */}
+              {item.channelHistory.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <ShoppingBag className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Lịch sử bán theo kênh
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 pl-[18px]">
+                    {item.channelHistory.map((ch) => (
+                      <div key={ch.channel} className="flex items-center gap-2 text-xs flex-wrap">
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          {ch.channel}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          bán cuối: <span className="font-medium text-foreground">{ch.lastSaleMonth}</span>
+                        </span>
+                        <span className="text-muted-foreground">|</span>
+                        <span className="text-muted-foreground">
+                          <span className="font-medium text-foreground">{ch.totalUnitsSold.toLocaleString()}</span> units
+                        </span>
+                        <span className="text-muted-foreground">|</span>
+                        <span className="text-muted-foreground">
+                          giảm TB: <span className={cn('font-medium', ch.avgDiscountPct >= 30 ? 'text-destructive' : ch.avgDiscountPct >= 15 ? 'text-amber-500' : 'text-foreground')}>
+                            {ch.avgDiscountPct}%
+                          </span>
+                        </span>
+                        {ch.discountBands.length > 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({ch.discountBands.join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Suggestion */}
               <div className="flex items-start gap-1.5 bg-muted/50 rounded-md px-2.5 py-1.5">
