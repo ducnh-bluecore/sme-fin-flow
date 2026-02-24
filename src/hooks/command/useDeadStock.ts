@@ -88,6 +88,10 @@ function daysBetween(from: Date, to: Date): number {
   return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function normalizeFcId(value: string | null | undefined): string {
+  return (value || '').trim().toLowerCase();
+}
+
 export function useDeadStock() {
   const { client, buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
@@ -103,20 +107,30 @@ export function useDeadStock() {
       const qualifiedFcIds = [...new Set(
         all
           .filter(r => (r.days_to_clear ?? 9999) >= 90 || Number(r.avg_daily_sales || 0) <= 0)
-          .map(r => r.product_id as string)
+          .map(r => normalizeFcId(r.product_id as string))
           .filter(Boolean)
       )];
 
       // Step 3: Fetch history by fc_id (matches via inv_sku_fc_mapping in the view)
+      // Use pagination to avoid silent truncation when a chunk has >10k rows.
       const CHUNK_SIZE = 50;
+      const PAGE_SIZE = 1000;
       const historyResults: any[] = [];
       for (let i = 0; i < qualifiedFcIds.length; i += CHUNK_SIZE) {
         const chunk = qualifiedFcIds.slice(i, i + CHUNK_SIZE);
-        const res = await buildQuery('v_clearance_history_by_fc' as any)
-          .in('fc_id', chunk)
-          .limit(10000);
-        if (res.error) throw res.error;
-        historyResults.push(...(res.data || []));
+        let from = 0;
+        while (true) {
+          const to = from + PAGE_SIZE - 1;
+          const res = await buildQuery('v_clearance_history_by_fc' as any)
+            .in('fc_id', chunk)
+            .order('sale_month', { ascending: false })
+            .range(from, to);
+          if (res.error) throw res.error;
+          const page = res.data || [];
+          historyResults.push(...page);
+          if (page.length < PAGE_SIZE) break;
+          from += PAGE_SIZE;
+        }
       }
 
       const history = historyResults;
@@ -127,7 +141,7 @@ export function useDeadStock() {
       }>>();
       
       history.forEach((h: any) => {
-        const fcId = h.fc_id as string;
+        const fcId = normalizeFcId(h.fc_id as string);
         if (!fcId) return;
         if (!historyMap.has(fcId)) historyMap.set(fcId, new Map());
         const chMap = historyMap.get(fcId)!;
@@ -159,7 +173,7 @@ export function useDeadStock() {
           const dtc = r.days_to_clear ?? 9999;
 
           // Enrich with sales history (match by fc_id = product_id)
-          const productHistory = historyMap.get(r.product_id);
+          const productHistory = historyMap.get(normalizeFcId(r.product_id as string));
           let daysSinceLastSale: number | null = null;
           let lastSaleDate: string | null = null;
           const channelHistory: ChannelSalesRecord[] = [];
