@@ -45,11 +45,12 @@ export function PriorityCard({ priority }: Props) {
   const Icon = TYPE_ICON[priority.type];
   const { damageBreakdown: bd } = priority;
 
-  // Build damage breakdown lines (only show > 0)
-  const damageLines: { label: string; value: number }[] = [];
-  if (bd.cashLocked > 0) damageLines.push({ label: 'Vốn bị kẹt', value: bd.cashLocked });
-  if (bd.lostRevenue > 0) damageLines.push({ label: 'Doanh thu mất', value: bd.lostRevenue });
-  if (bd.marginLeak > 0) damageLines.push({ label: 'Rò biên', value: bd.marginLeak });
+  // Separate: actual losses vs locked capital
+  const actualLosses: { label: string; value: number; desc: string }[] = [];
+  if (bd.lostRevenue > 0) actualLosses.push({ label: 'Doanh thu mất', value: bd.lostRevenue, desc: 'không bán được → mất doanh thu thật' });
+  if (bd.marginLeak > 0) actualLosses.push({ label: 'Rò biên', value: bd.marginLeak, desc: 'phải giảm giá → mất biên lợi nhuận' });
+  const hasLockedCapital = bd.cashLocked > 0;
+  const totalActualLoss = bd.lostRevenue + bd.marginLeak;
 
   return (
     <motion.div
@@ -97,22 +98,41 @@ export function PriorityCard({ priority }: Props) {
                 </span>
               </div>
 
-              {/* TẠI SAO MẤT TIỀN - damage breakdown */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Tại sao mất tiền
-                </span>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {damageLines.map((line) => (
-                    <div key={line.label} className="flex items-center gap-1.5">
-                      <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />
-                      <span className="text-xs text-foreground">
-                        {line.label}: <span className="font-semibold text-destructive">{formatVND(line.value)}</span>
-                      </span>
-                    </div>
-                  ))}
+              {/* THIỆT HẠI THỰC TẾ - actual losses */}
+              {totalActualLoss > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive/80">
+                    💸 Thiệt hại thực tế
+                  </span>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {actualLosses.map((line) => (
+                      <div key={line.label} className="flex items-center gap-1.5">
+                        <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />
+                        <span className="text-xs text-foreground">
+                          {line.label}: <span className="font-semibold text-destructive">{formatVND(line.value)}</span>
+                          <span className="text-muted-foreground ml-1">({line.desc})</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* VỐN BỊ KHÓA - locked but recoverable */}
+              {hasLockedCapital && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-500/80">
+                    🔒 Vốn bị khóa <span className="normal-case font-normal text-muted-foreground">(chưa mất, nhưng không xoay được)</span>
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <ArrowRightLeft className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                    <span className="text-xs text-foreground">
+                      <span className="font-semibold text-amber-500">{formatVND(bd.cashLocked)}</span>
+                      <span className="text-muted-foreground ml-1">vốn kẹt trong tồn kho — cần transfer hoặc clearance để thu hồi</span>
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* TẠI SAO CẦN XỬ LÝ NGAY - WHY explanation */}
               <div className="space-y-1">
