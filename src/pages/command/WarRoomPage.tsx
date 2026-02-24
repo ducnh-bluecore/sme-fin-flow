@@ -16,6 +16,7 @@ export default function WarRoomPage() {
   const navigate = useNavigate();
 
   const quickActions = [
+    { label: 'Hàng Tồn Chết', path: '/command/dead-stock', desc: 'SP ≥90 ngày không bán — cần thanh lý' },
     { label: 'Xem Size Health', path: '/command/assortment', desc: 'Kiểm tra cơ cấu size lệch chuẩn' },
     { label: 'Thanh Lý Urgent', path: '/command/clearance', desc: 'Sản phẩm cần clearance ngay' },
     { label: 'Phân Bổ Lại', path: '/command/allocation', desc: 'Transfer hàng giải phóng vốn' },
