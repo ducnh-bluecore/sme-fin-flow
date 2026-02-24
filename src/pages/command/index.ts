@@ -6,3 +6,5 @@ export { default as ProductionCandidatesPage } from './ProductionCandidatesPage'
 export { default as DecisionQueuePage } from './DecisionQueuePage';
 export { default as DecisionOutcomesPage } from './DecisionOutcomesPage';
 export { default as CommandSettingsPage } from './CommandSettingsPage';
+export { default as WarRoomPage } from './WarRoomPage';
+export { default as CapitalMapPage } from './CapitalMapPage';

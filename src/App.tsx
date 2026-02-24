@@ -210,6 +210,8 @@ import ProductionCandidatesPage from "./pages/command/ProductionCandidatesPage";
 import DecisionQueuePage from "./pages/command/DecisionQueuePage";
 import DecisionOutcomesPage from "./pages/command/DecisionOutcomesPage";
 import CommandSettingsPage from "./pages/command/CommandSettingsPage";
+import WarRoomPage from "./pages/command/WarRoomPage";
+import CapitalMapPage from "./pages/command/CapitalMapPage";
 
 const queryClient = new QueryClient();
 
@@ -548,6 +550,8 @@ const AppRoutes = () => {
         }
       >
         <Route path="/command" element={<Navigate to="/command/overview" replace />} />
+        <Route path="/command/war-room" element={<WarRoomPage />} />
+        <Route path="/command/capital-map" element={<CapitalMapPage />} />
         <Route path="/command/overview" element={<CommandOverviewPage />} />
         <Route path="/command/allocation" element={<CommandAllocationPage />} />
         <Route path="/command/assortment" element={<AssortmentPage />} />

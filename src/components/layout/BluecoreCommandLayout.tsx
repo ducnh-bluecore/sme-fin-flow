@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Home,
+  Siren,
+  Map,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,6 +38,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { id: 'war-room', label: 'War Room', icon: Siren, path: '/command/war-room' },
+  { id: 'capital-map', label: 'Capital Map', icon: Map, path: '/command/capital-map' },
   { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard, path: '/command/overview' },
   { id: 'allocation', label: 'Phân Bổ', icon: ArrowRightLeft, path: '/command/allocation' },
   { id: 'assortment', label: 'Cơ Cấu Size', icon: Layers3, path: '/command/assortment' },
