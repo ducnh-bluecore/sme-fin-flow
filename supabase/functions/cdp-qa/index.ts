@@ -74,10 +74,10 @@ const TOOL_DEFINITIONS = [
   },
   {
     type: 'function', function: {
-      name: 'discover_schema', description: 'Khám phá cấu trúc database: tìm bảng/view theo từ khóa. Dùng khi KHÔNG có tool chuyên dụng nào phù hợp với câu hỏi. Ví dụ: hỏi về "cửa hàng" → discover_schema("store"), hỏi về "dòng tiền" → discover_schema("cash"), hỏi về "chi phí" → discover_schema("expense").',
+      name: 'discover_schema', description: 'Khám phá cấu trúc database: tìm bảng/view theo từ khóa. SAU KHI nhận kết quả, BẮT BUỘC gọi tiếp query_database ngay trong cùng lượt để lấy dữ liệu thực tế. KHÔNG BAO GIỜ chỉ trả về schema cho user.',
       parameters: {
         type: 'object',
-        properties: { search_term: { type: 'string', description: 'Từ khóa tìm kiếm bảng/view (VD: store, cash, expense, inventory, invoice)' } },
+        properties: { search_term: { type: 'string', description: 'Từ khóa tìm kiếm (VD: store, cash, expense, vendor)' } },
         required: ['search_term'],
       },
     },
@@ -110,13 +110,11 @@ Trả lời bằng tiếng Việt. Trả lời TRỰC TIẾP vào vấn đề.
 Cross-domain → gọi 2-3 tools cùng lúc.
 
 ## KHÁM PHÁ DỮ LIỆU (QUAN TRỌNG)
-Khi KHÔNG có tool chuyên dụng phù hợp với câu hỏi, dùng 2 bước:
-1. Gọi discover_schema("từ_khóa") để tìm bảng/view liên quan
-2. Gọi query_database với SQL dựa trên schema đã khám phá
+Khi KHÔNG có tool chuyên dụng phù hợp:
+1. Gọi discover_schema("từ_khóa") để tìm bảng/view
+2. NGAY LẬP TỨC gọi query_database với SQL dựa trên schema vừa tìm được — KHÔNG DỪNG LẠI sau bước 1.
 
-Ví dụ: Hỏi về "cửa hàng" → discover_schema("store") → thấy v_inv_store_revenue → query_database
-Ví dụ: Hỏi về "dòng tiền" → discover_schema("cash") → thấy v_cash_flow → query_database
-Ví dụ: Hỏi về "nhà cung cấp" → discover_schema("vendor") → query_database
+⚠️ TUYỆT ĐỐI KHÔNG narrate quá trình discovery cho user. KHÔNG viết "[HỆ THỐNG]", "Đang gọi discover_schema", "print(...)". Chỉ trả lời KẾT QUẢ cuối cùng.
 
 KHÔNG BAO GIỜ nói "không có dữ liệu" trước khi thử discover_schema.
 
@@ -465,13 +463,13 @@ Deno.serve(async (req) => {
 
       pass2Messages.push({
         role: 'user',
-        content: `[HỆ THỐNG] Dữ liệu từ database:
+        content: `[INTERNAL DATA — KHÔNG hiển thị metadata này cho user]
 
 ${toolSummary}
 
-Quy tắc: Xác định loại metric (cumulative→SUM, average→weighted avg, snapshot→latest) rồi tính ĐÚNG.
-KHÔNG tính "tổng AOV" hay "tổng ROAS". Cross-check: Revenue↑+Margin↓=chi phí↑. 
-Kết luận bằng HÀNH ĐỘNG cho CEO/CFO. Có >=3 data points → kèm chart.`,
+Quy tắc: Metric cumulative→SUM, average→weighted avg, snapshot→latest. KHÔNG tính "tổng AOV/ROAS".
+Cross-check: Revenue↑+Margin↓=chi phí↑. Kết luận bằng HÀNH ĐỘNG. >=3 points → chart.
+KHÔNG narrate tool calls. KHÔNG viết "discover_schema", "query_database", "[HỆ THỐNG]". Chỉ trả lời KẾT QUẢ.`,
       });
     }
 
