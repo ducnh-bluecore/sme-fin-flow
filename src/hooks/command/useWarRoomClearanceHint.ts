@@ -12,6 +12,8 @@ export interface ClearanceHint {
   uplift: number;
   speedChange: number | null;
   unitsCleared: number;
+  baselineUnits: number;
+  isActive: boolean;
   verdict: 'effective' | 'marginal' | 'not_worth' | 'dead_stock';
 }
 
@@ -84,13 +86,14 @@ export function useWarRoomClearanceHint() {
       });
 
       // Extract baselines (OFF 0%) per channel
-      const baselines = new Map<string, { clearability: number; days: number | null }>();
+      const baselines = new Map<string, { clearability: number; days: number | null; units: number }>();
       agg.forEach((val, key) => {
         const [channel, stepStr] = key.split('::');
         if (Number(stepStr) === 0 && val.totalUnits > 0) {
           baselines.set(channel, {
             clearability: Math.round((val.clearabilitySum / val.totalUnits) * 100) / 100,
             days: val.daysWeightedCount > 0 ? Math.round(val.daysWeightedSum / val.daysWeightedCount) : null,
+            units: val.totalUnits,
           });
         }
       });
@@ -104,11 +107,14 @@ export function useWarRoomClearanceHint() {
 
         const clearability = Math.round((val.clearabilitySum / val.totalUnits) * 100) / 100;
         const avgDays = val.daysWeightedCount > 0 ? Math.round(val.daysWeightedSum / val.daysWeightedCount) : null;
-        const baseline = baselines.get(channel) || { clearability: 0, days: null };
+        const baseline = baselines.get(channel) || { clearability: 0, days: null, units: 0 };
         const uplift = Math.round((clearability - baseline.clearability) * 100) / 100;
         const speedChange = (baseline.days !== null && avgDays !== null)
           ? baseline.days - avgDays
           : null;
+
+        // Infer if discount is currently active: units at discount >> units at baseline
+        const isActive = baseline.units > 0 ? (val.totalUnits / baseline.units) > 2 : val.totalUnits > 100;
 
         const verdict = getVerdict(discountStep, uplift, speedChange, baseline.days, avgDays);
 
@@ -122,6 +128,8 @@ export function useWarRoomClearanceHint() {
           uplift,
           speedChange,
           unitsCleared: val.totalUnits,
+          baselineUnits: baseline.units,
+          isActive,
           verdict,
         };
 
@@ -146,6 +154,8 @@ export function useWarRoomClearanceHint() {
             uplift: 0,
             speedChange: null,
             unitsCleared: 0,
+            baselineUnits: bl.units,
+            isActive: false,
             verdict: 'dead_stock',
           });
         }
