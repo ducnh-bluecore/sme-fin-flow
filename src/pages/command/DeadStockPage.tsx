@@ -189,12 +189,18 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                     <span className="text-[10px] text-muted-foreground">({item.recentVelocityWindow})</span>
                   </span>
                 )}
-                {item.days_to_clear < 9999 && (
-                  <span className="flex items-center gap-1">
-                    <span className="text-muted-foreground">ETA clear:</span>
-                    <span className="font-semibold">{item.days_to_clear} ngày</span>
-                  </span>
-                )}
+                {(() => {
+                  const velocity = item.recentVelocity && item.recentVelocity > 0 ? item.recentVelocity : item.avg_daily_sales;
+                  if (velocity <= 0) return null;
+                  const eta = Math.ceil(item.current_stock / velocity);
+                  const isRecent = item.recentVelocity && item.recentVelocity > 0;
+                  return (
+                    <span className="flex items-center gap-1">
+                      <span className="text-muted-foreground">ETA clear{isRecent ? ' (theo gần đây)' : ''}:</span>
+                      <span className="font-semibold">{eta.toLocaleString()} ngày</span>
+                    </span>
+                  );
+                })()}
                 {item.curve_state && (
                   <span className="flex items-center gap-1">
                     <span className="text-muted-foreground">Size:</span>
