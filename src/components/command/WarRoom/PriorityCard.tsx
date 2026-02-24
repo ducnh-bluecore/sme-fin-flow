@@ -46,12 +46,21 @@ const VERDICT_STYLE: Record<ClearanceHint['verdict'], { icon: string; color: str
 };
 
 function hintLabel(h: ClearanceHint): string {
+  const activePrefix = h.isActive ? '⚡ Đang áp dụng' : '💡 Nên thử';
+  
   if (h.verdict === 'dead_stock') {
     return `${h.channel} → hàng tồn ${h.baselineDays ?? '?'} ngày, giảm giá không cứu được. Cần thanh lý hoặc chuyển kho`;
   }
   if (h.verdict === 'not_worth') {
+    if (h.isActive) {
+      // Currently doing it but it's not working → STOP signal
+      if (h.speedChange !== null && h.speedChange < 0) {
+        return `${h.channel} → ĐẦY! Đang OFF ${h.discountStep}% nhưng làm CHẬM hơn (${h.baselineDays} → ${h.avgDaysToClear} ngày). Nên dừng & transfer`;
+      }
+      return `${h.channel} → ĐẦY! Đang OFF ${h.discountStep}% nhưng không hiệu quả (uplift ${h.uplift > 0 ? '+' : ''}${Math.round(h.uplift)} điểm). Nên đổi chiến lược`;
+    }
     if (h.speedChange !== null && h.speedChange < 0) {
-      return `${h.channel} → giảm giá làm CHẬM hơn (${h.baselineDays} → ${h.avgDaysToClear} ngày). Nên transfer thay vì giảm giá`;
+      return `${h.channel} → OFF ${h.discountStep}% làm CHẬM hơn (${h.baselineDays} → ${h.avgDaysToClear} ngày). Không nên áp dụng`;
     }
     if (h.discountStep >= 50) {
       return `${h.channel} OFF ${h.discountStep}% → margin chết, không đáng`;
@@ -64,7 +73,11 @@ function hintLabel(h: ClearanceHint): string {
     ? ` | Nhanh hơn ${h.speedChange} ngày`
     : '';
   const unitsStr = h.unitsCleared > 0 ? ` | ${h.unitsCleared.toLocaleString()} units` : '';
-  return `${h.channel} OFF ${h.discountStep}% → ${upliftStr}${speedStr}${unitsStr}`;
+  
+  if (h.isActive) {
+    return `${activePrefix}: ${h.channel} OFF ${h.discountStep}% → ${upliftStr}${speedStr}${unitsStr} ✓ Tiếp tục`;
+  }
+  return `${activePrefix}: ${h.channel} OFF ${h.discountStep}% → ${upliftStr}${speedStr}${unitsStr}`;
 }
 
 interface Props {
