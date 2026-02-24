@@ -29,6 +29,7 @@ import {
   Download
 } from 'lucide-react';
 import { printFDPDocumentationAsPDF } from '@/lib/fdp-pdf-export';
+import { printCommandDocumentationAsPDF } from '@/lib/command-pdf-export';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -127,7 +128,13 @@ export default function DocumentationPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => printFDPDocumentationAsPDF()}
+                    onClick={() => {
+                      if (activeTab === 'command') {
+                        printCommandDocumentationAsPDF();
+                      } else {
+                        printFDPDocumentationAsPDF();
+                      }
+                    }}
                     className="h-9 px-3 ml-2"
                   >
                     <Download className="h-4 w-4 mr-1" />
