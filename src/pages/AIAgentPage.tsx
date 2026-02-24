@@ -18,38 +18,38 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cdp-qa`;
 
 const SCENARIO_GROUPS = [
   {
+    label: '🔍 Tổng Quan',
+    color: 'bg-amber-500/10 text-amber-400',
+    questions: [
+      'Tình hình kinh doanh tuần này thế nào?',
+      'Có gì cần chú ý không?',
+      'Tóm tắt nhanh hiệu suất tháng này',
+    ],
+  },
+  {
     label: '💰 Doanh Thu & Lợi Nhuận',
     color: 'bg-emerald-500/10 text-emerald-400',
     questions: [
-      'Doanh thu tháng này so với tháng trước thế nào?',
-      'Kênh nào đang lỗ hay lãi ít nhất?',
-      'Margin tổng thể đang ở mức bao nhiêu?',
+      'Doanh thu tháng này so với tháng trước?',
+      'Kênh nào đang lãi tốt nhất, kênh nào lỗ?',
+      'Tại sao margin đang thay đổi?',
     ],
   },
   {
-    label: '📦 Sản Phẩm & Tồn Kho',
+    label: '📦 Sản Phẩm & Marketing',
     color: 'bg-blue-500/10 text-blue-400',
     questions: [
-      'Top 10 sản phẩm bán chạy nhất tháng này?',
-      'Sản phẩm nào đang tồn kho nhiều nhất?',
-      'Kênh nào có gross margin cao nhất?',
+      'Top sản phẩm bán chạy nhất?',
+      'Hiệu quả quảng cáo đang như thế nào?',
+      'Kênh marketing nào ROI tốt nhất?',
     ],
   },
   {
-    label: '⚠️ Rủi Ro & Cảnh Báo',
+    label: '⚠️ Rủi Ro & Khách Hàng',
     color: 'bg-red-500/10 text-red-400',
     questions: [
-      'Hiện tại có vấn đề gì nghiêm trọng cần xử lý?',
-      'Có bao nhiêu cảnh báo đang mở?',
-    ],
-  },
-  {
-    label: '👥 Khách Hàng',
-    color: 'bg-purple-500/10 text-purple-400',
-    questions: [
-      'Top khách hàng theo giá trị LTV?',
-      'Cohort nào có giá trị tốt nhất?',
-      'Bao nhiêu khách hàng có risk level cao?',
+      'Có vấn đề gì cần xử lý gấp không?',
+      'Khách hàng giá trị cao nhất là ai?',
     ],
   },
 ];
