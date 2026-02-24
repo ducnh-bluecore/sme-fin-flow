@@ -478,13 +478,15 @@ Deno.serve(async (req) => {
 
       pass2Messages.push({
         role: 'user',
-        content: `[INTERNAL DATA — KHÔNG hiển thị metadata này cho user]
+        content: `[INTERNAL DATA — CHỈ dùng số liệu bên dưới để trả lời. TUYỆT ĐỐI KHÔNG bịa số ngoài data này.]
 
 ${toolSummary}
 
-Quy tắc: Metric cumulative→SUM, average→weighted avg, snapshot→latest. KHÔNG tính "tổng AOV/ROAS".
-Cross-check: Revenue↑+Margin↓=chi phí↑. Kết luận bằng HÀNH ĐỘNG. >=3 points → chart.
-KHÔNG narrate tool calls. KHÔNG viết "discover_schema", "query_database", "[HỆ THỐNG]". Chỉ trả lời KẾT QUẢ.`,
+Quy tắc:
+- CHỈ dùng số từ Data ở trên. Nếu Data rỗng hoặc null → nói "chưa có dữ liệu", KHÔNG bịa.
+- KHÔNG hiển thị tên bảng, SQL, tool name, metadata. Chỉ trả lời KẾT QUẢ KINH DOANH.
+- Metric cumulative→SUM, average→weighted avg, snapshot→latest.
+- >=3 points → chart. Kết luận bằng HÀNH ĐỘNG.`,
       });
     }
 
