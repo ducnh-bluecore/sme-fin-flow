@@ -38443,6 +38443,53 @@ export type Database = {
           },
         ]
       }
+      v_inv_store_profile: {
+        Row: {
+          color: string | null
+          demand_space: string | null
+          size: string | null
+          store_id: string | null
+          tenant_id: string | null
+          units_sold: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_state_demand_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "inv_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_demand_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_state_demand_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_state_demand_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_state_demand_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       v_inv_store_revenue: {
         Row: {
           est_revenue: number | null
