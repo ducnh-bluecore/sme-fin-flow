@@ -41,12 +41,15 @@ export default function WarRoomPage() {
 
       {/* B. Today's Priorities */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-          🚨 Today's Priorities
-          {priorities && priorities.length > 0 && (
-            <span className="text-xs font-normal">({priorities.length} vấn đề)</span>
-          )}
-        </h2>
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            🚨 Today's Priorities
+            {priorities && priorities.length > 0 && (
+              <span className="text-xs font-normal">({priorities.length} vấn đề)</span>
+            )}
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">Nhóm theo nguyên nhân, không phải từng sản phẩm</p>
+        </div>
 
         {prioritiesLoading ? (
           <div className="space-y-3">

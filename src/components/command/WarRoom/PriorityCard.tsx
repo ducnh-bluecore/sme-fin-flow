@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, ArrowRight, Layers3, Tags, ArrowRightLeft, TrendingDown, DollarSign } from 'lucide-react';
+import { AlertTriangle, Clock, ArrowRight, Layers3, Tags, ArrowRightLeft, TrendingDown, DollarSign, Package } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import { type WarRoomPriority } from '@/hooks/command/useWarRoomPriorities';
 function formatVND(value: number): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}tỷ`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}tr`;
-  return `${(value / 1_000).toFixed(0)}k`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}k`;
+  return `${value}`;
 }
 
 const TYPE_ICON: Record<WarRoomPriority['type'], React.ElementType> = {
@@ -24,7 +25,7 @@ const TYPE_ICON: Record<WarRoomPriority['type'], React.ElementType> = {
 const TYPE_LABEL: Record<WarRoomPriority['type'], string> = {
   size_break: 'SIZE BREAK',
   markdown_risk: 'MARKDOWN RISK',
-  cash_lock: 'CASH LOCK',
+  cash_lock: 'VỐN KHÓA',
   margin_leak: 'RÒ BIÊN',
   lost_revenue: 'DOANH THU MẤT',
 };
@@ -42,6 +43,13 @@ interface Props {
 export function PriorityCard({ priority }: Props) {
   const navigate = useNavigate();
   const Icon = TYPE_ICON[priority.type];
+  const { damageBreakdown: bd } = priority;
+
+  // Build damage breakdown lines (only show > 0)
+  const damageLines: { label: string; value: number }[] = [];
+  if (bd.cashLocked > 0) damageLines.push({ label: 'Vốn bị kẹt', value: bd.cashLocked });
+  if (bd.lostRevenue > 0) damageLines.push({ label: 'Doanh thu mất', value: bd.lostRevenue });
+  if (bd.marginLeak > 0) damageLines.push({ label: 'Rò biên', value: bd.marginLeak });
 
   return (
     <motion.div
@@ -62,39 +70,83 @@ export function PriorityCard({ priority }: Props) {
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0 space-y-2">
-              {/* Header row */}
+            <div className="flex-1 min-w-0 space-y-3">
+              {/* Header: Type + Driver Label + Urgency */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {TYPE_LABEL[priority.type]}
                 </span>
-                <span className="text-sm font-semibold text-foreground truncate">
-                  — {priority.fcName}
+                <span className="text-sm font-semibold text-foreground">
+                  — {priority.driverLabel}
                 </span>
                 <Badge className={cn('text-[10px] ml-auto', URGENCY_STYLE[priority.urgency])}>
                   {priority.urgency === 'critical' ? 'KHẨN CẤP' : priority.urgency === 'urgent' ? 'CẦN XỬ LÝ' : 'CHÚ Ý'}
                 </Badge>
               </div>
 
-              {/* Financial damage */}
-              <div className="flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
-                <span className="text-sm text-foreground">
-                  Mất <span className="font-bold text-destructive">{formatVND(priority.financialDamage)}</span>
-                  {priority.markdownEtaDays !== null && (
-                    <> trong <span className="font-semibold">{priority.markdownEtaDays}</span> ngày nếu không xử lý</>
-                  )}
+              {/* Product count + total damage */}
+              <div className="flex items-center gap-2 text-sm">
+                <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                <span className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">{priority.productCount}</span> sản phẩm
+                </span>
+                <span className="text-muted-foreground">|</span>
+                <span className="text-muted-foreground">
+                  Tổng thiệt hại: <span className="font-bold text-destructive">{formatVND(priority.totalDamage)}</span>
                 </span>
               </div>
 
-              {/* WHY NOW */}
-              <div className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
-                <span className="text-xs text-muted-foreground">
-                  WHY NOW: {priority.timePressureLabel}
+              {/* TẠI SAO MẤT TIỀN - damage breakdown */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Tại sao mất tiền
                 </span>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {damageLines.map((line) => (
+                    <div key={line.label} className="flex items-center gap-1.5">
+                      <AlertTriangle className="h-3 w-3 text-destructive flex-shrink-0" />
+                      <span className="text-xs text-foreground">
+                        {line.label}: <span className="font-semibold text-destructive">{formatVND(line.value)}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {/* TẠI SAO CẦN XỬ LÝ NGAY - WHY explanation */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Tại sao cần xử lý ngay
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed pl-[18px]">
+                  {priority.whyExplanation}
+                </p>
+                {priority.markdownEtaDays !== null && (
+                  <p className="text-xs text-amber-600 font-medium pl-[18px]">
+                    ⏰ {priority.timePressureLabel}
+                  </p>
+                )}
+              </div>
+
+              {/* Top 3 SP nặng nhất */}
+              {priority.topProducts.length > 0 && (
+                <div className="pl-[18px]">
+                  <span className="text-[10px] text-muted-foreground">
+                    SP nặng nhất:{' '}
+                    {priority.topProducts.map((p, i) => (
+                      <span key={i}>
+                        {i > 0 && ', '}
+                        <span className="font-medium text-foreground">{p.name}</span>
+                        {' '}({formatVND(p.damage)})
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
 
               {/* Action button */}
               <Button
