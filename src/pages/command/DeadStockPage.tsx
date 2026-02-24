@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter, Calendar, ShoppingBag, Zap } from 'lucide-react';
+import { Skull, Package, ArrowRightLeft, TrendingDown, AlertTriangle, Filter, Calendar, ShoppingBag, Zap, Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useDeadStock, type AgingBucket, type DeadStockItem } from '@/hooks/command/useDeadStock';
@@ -22,7 +23,12 @@ const BUCKET_CONFIG: Record<AgingBucket, { label: string; icon: string; color: s
   dead_stock: { label: 'Hàng chết', icon: '⚫', color: 'text-muted-foreground', badgeClass: 'bg-muted text-muted-foreground border-muted' },
 };
 
-function getSuggestion(item: DeadStockItem): string {
+function getSuggestion(item: DeadStockItem, isSlowSelling?: boolean): string {
+  if (isSlowSelling) {
+    if (item.avg_daily_sales <= 0) return 'Velocity = 0 trong 45-90 ngày → Cần đẩy marketing hoặc giảm giá kích cầu';
+    if (item.current_stock > 100) return 'Tồn nhiều + bán chậm → Cân nhắc flash sale hoặc combo bundle';
+    return 'Bán chậm → Theo dõi thêm, chuẩn bị plan B nếu không cải thiện trong 2 tuần';
+  }
   if (item.avg_daily_sales <= 0 && item.curve_state === 'broken') {
     return 'Size lệch + không bán được → Transfer sang kênh khác hoặc thanh lý';
   }
@@ -39,12 +45,6 @@ function getSuggestion(item: DeadStockItem): string {
 }
 
 export default function DeadStockPage() {
-  const { data, isLoading } = useDeadStock();
-  const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
-  const navigate = useNavigate();
-
-  const filteredItems = data?.items.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket) ?? [];
-
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
@@ -54,18 +54,109 @@ export default function DeadStockPage() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-foreground">Hàng Tồn Cần Xử Lý</h1>
-          <p className="text-sm text-muted-foreground">Sản phẩm ≥90 ngày không bán được — cần hành động đặc biệt</p>
+          <p className="text-sm text-muted-foreground">Phát hiện sớm hàng bán chậm & hàng chết để hành động kịp thời</p>
         </div>
       </motion.div>
 
-      {/* Summary Cards */}
+      <Tabs defaultValue="dead-stock">
+        <TabsList>
+          <TabsTrigger value="slow-selling" className="gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Hàng bán chậm (45-90 ngày)
+          </TabsTrigger>
+          <TabsTrigger value="dead-stock" className="gap-1.5">
+            <Skull className="h-3.5 w-3.5" />
+            Hàng tồn chết (≥90 ngày)
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="slow-selling">
+          <SlowSellingTab />
+        </TabsContent>
+        <TabsContent value="dead-stock">
+          <DeadStockTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function SlowSellingTab() {
+  const { data: deadStockData } = useDeadStock(90);
+  const { data: allData, isLoading } = useDeadStock(45);
+  const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
+
+  // Items between 45-89 days = allData minus deadStockData
+  const deadStockIds = new Set(deadStockData?.items.map(i => `${i.product_id}-${i.fc_code}`) ?? []);
+  const slowItems = (allData?.items ?? []).filter(i => !deadStockIds.has(`${i.product_id}-${i.fc_code}`));
+  
+  const summary = {
+    total_items: slowItems.length,
+    total_locked_value: slowItems.reduce((s, i) => s + i.cash_locked, 0),
+    total_stock: slowItems.reduce((s, i) => s + i.current_stock, 0),
+    by_bucket: {
+      slow_moving: { items: 0, locked: 0, stock: 0 },
+      stagnant: { items: 0, locked: 0, stock: 0 },
+      dead_stock: { items: 0, locked: 0, stock: 0 },
+    },
+  };
+  slowItems.forEach(i => {
+    const b = summary.by_bucket[i.aging_bucket];
+    b.items++;
+    b.locked += i.cash_locked;
+    b.stock += i.current_stock;
+  });
+
+  const filteredItems = slowItems.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket);
+
+  return (
+    <div className="space-y-4 mt-4">
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
+        </div>
+      ) : (
+        <>
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-amber-500" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {summary.total_items} sản phẩm — {summary.total_stock.toLocaleString()} units
+                    </p>
+                    <p className="text-xs text-muted-foreground">không bán được trong 45-90 ngày — cần can thiệp sớm</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-amber-500">{formatVND(summary.total_locked_value)}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Vốn đang chậm quay</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <ItemsList items={filteredItems} filterBucket={filterBucket} setFilterBucket={setFilterBucket} summary={summary} isSlowSelling />
+        </>
+      )}
+    </div>
+  );
+}
+
+function DeadStockTab() {
+  const { data, isLoading } = useDeadStock(90);
+  const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
+  const filteredItems = data?.items.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket) ?? [];
+
+  return (
+    <div className="space-y-4 mt-4">
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
         </div>
       ) : data ? (
         <>
-          {/* Total banner */}
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="p-4">
               <div className="flex items-center justify-between flex-wrap gap-3">
@@ -86,55 +177,67 @@ export default function DeadStockPage() {
             </CardContent>
           </Card>
 
-          {/* Bucket breakdown filter */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={filterBucket === 'all' ? 'default' : 'outline'}
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => setFilterBucket('all')}
-            >
-              <Filter className="h-3 w-3 mr-1" /> Tất cả ({data.summary.total_items})
-            </Button>
-            {(Object.keys(BUCKET_CONFIG) as AgingBucket[]).map(bucket => {
-              const cfg = BUCKET_CONFIG[bucket];
-              const bData = data.summary.by_bucket[bucket];
-              if (bData.items === 0) return null;
-              return (
-                <Button
-                  key={bucket}
-                  variant={filterBucket === bucket ? 'default' : 'outline'}
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setFilterBucket(bucket)}
-                >
-                  {cfg.icon} {cfg.label} ({bData.items}) — {formatVND(bData.locked)}
-                </Button>
-              );
-            })}
-          </div>
-
-          {/* Items list */}
-          <div className="space-y-2">
-            {filteredItems.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground border border-dashed rounded-lg">
-                <p className="text-sm">Không có sản phẩm trong nhóm này</p>
-              </div>
-            ) : (
-              filteredItems.map((item, idx) => (
-                <DeadStockCard key={`${item.product_id}-${item.fc_code}`} item={item} index={idx} />
-              ))
-            )}
-          </div>
+          <ItemsList items={filteredItems} filterBucket={filterBucket} setFilterBucket={setFilterBucket} summary={data.summary} />
         </>
       ) : null}
     </div>
   );
 }
 
-function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) {
+function ItemsList({ items, filterBucket, setFilterBucket, summary, isSlowSelling }: {
+  items: DeadStockItem[];
+  filterBucket: AgingBucket | 'all';
+  setFilterBucket: (b: AgingBucket | 'all') => void;
+  summary: { total_items: number; by_bucket: Record<AgingBucket, { items: number; locked: number; stock: number }> };
+  isSlowSelling?: boolean;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={filterBucket === 'all' ? 'default' : 'outline'}
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => setFilterBucket('all')}
+        >
+          <Filter className="h-3 w-3 mr-1" /> Tất cả ({summary.total_items})
+        </Button>
+        {(Object.keys(BUCKET_CONFIG) as AgingBucket[]).map(bucket => {
+          const cfg = BUCKET_CONFIG[bucket];
+          const bData = summary.by_bucket[bucket];
+          if (bData.items === 0) return null;
+          return (
+            <Button
+              key={bucket}
+              variant={filterBucket === bucket ? 'default' : 'outline'}
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setFilterBucket(bucket)}
+            >
+              {cfg.icon} {cfg.label} ({bData.items}) — {formatVND(bData.locked)}
+            </Button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-2">
+        {items.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground border border-dashed rounded-lg">
+            <p className="text-sm">Không có sản phẩm trong nhóm này</p>
+          </div>
+        ) : (
+          items.map((item, idx) => (
+            <DeadStockCard key={`${item.product_id}-${item.fc_code}`} item={item} index={idx} isSlowSelling={isSlowSelling} />
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
+function DeadStockCard({ item, index, isSlowSelling }: { item: DeadStockItem; index: number; isSlowSelling?: boolean }) {
   const cfg = BUCKET_CONFIG[item.aging_bucket];
-  const suggestion = getSuggestion(item);
+  const suggestion = getSuggestion(item, isSlowSelling);
   const navigate = useNavigate();
 
   return (
@@ -174,7 +277,7 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                 </span>
                 <span className="flex items-center gap-1">
                   <TrendingDown className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground" title="Tốc độ bán trung bình tính từ lúc nhập hàng đến nay">Velocity TB (từ lúc nhập):</span>
+                  <span className="text-muted-foreground" title="Tốc độ bán trung bình tính từ lúc nhập hàng đến nay">Velocity TB:</span>
                   <span className={cn('font-semibold', item.avg_daily_sales <= 0 ? 'text-destructive' : 'text-foreground')}>
                     {item.avg_daily_sales <= 0 ? '0 — không bán được' : `${item.avg_daily_sales.toFixed(1)}/ngày`}
                   </span>
@@ -182,7 +285,7 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
                 {item.recentVelocity !== null && (
                   <span className="flex items-center gap-1">
                     <Zap className="h-3 w-3 text-amber-500" />
-                    <span className="text-muted-foreground" title="Tốc độ bán quanh lần bán cuối cùng — phản ánh sức mua thực tế gần đây">Velocity gần đây (quanh lần bán cuối):</span>
+                    <span className="text-muted-foreground" title="Tốc độ bán quanh lần bán cuối cùng">Velocity gần đây:</span>
                     <span className={cn('font-semibold', item.recentVelocity > 0.5 ? 'text-emerald-600' : item.recentVelocity > 0 ? 'text-amber-500' : 'text-destructive')}>
                       {item.recentVelocity.toFixed(1)}/ngày
                     </span>

@@ -92,11 +92,11 @@ function normalizeFcId(value: string | null | undefined): string {
   return (value || '').trim().toLowerCase();
 }
 
-export function useDeadStock() {
+export function useDeadStock(minInactiveDays: number = 90) {
   const { client, buildQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['dead-stock', tenantId],
+    queryKey: ['dead-stock', tenantId, minInactiveDays],
     queryFn: async () => {
       // Step 1: Fetch clearance candidates
       const candidatesRes = await client.rpc('fn_clearance_candidates', { p_tenant_id: tenantId, p_min_risk: 0 });
@@ -238,10 +238,9 @@ export function useDeadStock() {
             recentVelocityWindow,
           };
         })
-        // Post-enrichment filter: exclude items that sold recently (< 90 days ago)
-        // These are NOT dead stock — they're still moving
+        // Post-enrichment filter: exclude items that sold too recently
         .filter(item => {
-          if (item.daysSinceLastSale !== null && item.daysSinceLastSale < 90) {
+          if (item.daysSinceLastSale !== null && item.daysSinceLastSale < minInactiveDays) {
             return false;
           }
           return true;
