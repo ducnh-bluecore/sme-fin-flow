@@ -225,6 +225,14 @@ export function useDeadStock() {
             recentVelocityWindow,
           };
         })
+        // Post-enrichment filter: exclude items that sold recently (< 90 days ago)
+        // These are NOT dead stock — they're still moving
+        .filter(item => {
+          if (item.daysSinceLastSale !== null && item.daysSinceLastSale < 90) {
+            return false;
+          }
+          return true;
+        })
         .sort((a, b) => b.cash_locked - a.cash_locked);
 
       // Summary
