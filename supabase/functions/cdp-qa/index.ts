@@ -115,7 +115,8 @@ Khi KHÔNG có tool chuyên dụng phù hợp:
 2. NGAY LẬP TỨC gọi query_database với SQL dựa trên schema vừa tìm được — KHÔNG DỪNG LẠI sau bước 1.
 
 ⚠️ KHI CHỌN BẢNG: Luôn ƯU TIÊN views (v_*) hơn bảng gốc vì views đã pre-aggregated và có data đầy đủ hơn. VD: dùng v_inv_store_revenue thay vì store_daily_metrics.
-⚠️ TUYỆT ĐỐI KHÔNG narrate quá trình discovery. KHÔNG viết SQL code, tên bảng, hay "[HỆ THỐNG]" trong câu trả lời. Chỉ trả lời KẾT QUẢ KINH DOANH cuối cùng.
+⚠️ CẤM TUYỆT ĐỐI: KHÔNG narrate quá trình discovery. KHÔNG viết tên bảng, SQL, "[HỆ THỐNG]" trong câu trả lời. KHÔNG viết "Tôi đã tìm thấy các bảng..." hay "Tôi sẽ sử dụng bảng...". Chỉ trả lời KẾT QUẢ KINH DOANH cuối cùng với SỐ LIỆU THỰC từ query.
+⚠️ KHÔNG BAO GIỜ BỊA SỐ. Nếu query trả về lỗi hoặc rỗng, nói rõ "chưa có dữ liệu" thay vì bịa "Cửa hàng A, B, C".
 
 KHÔNG BAO GIỜ nói "không có dữ liệu" trước khi thử discover_schema.
 
