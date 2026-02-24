@@ -99,21 +99,21 @@ export function useDeadStock() {
       if (candidatesRes.error) throw candidatesRes.error;
       const all = (candidatesRes.data || []) as any[];
 
-      // Step 2: Get unique product names from candidates that qualify (days_to_clear >= 90 or zero velocity)
-      const qualifiedNames = [...new Set(
+      // Step 2: Get unique fc_ids (= product_id) from candidates that qualify (days_to_clear >= 90 or zero velocity)
+      const qualifiedFcIds = [...new Set(
         all
           .filter(r => (r.days_to_clear ?? 9999) >= 90 || Number(r.avg_daily_sales || 0) <= 0)
-          .map(r => r.product_name as string)
+          .map(r => r.product_id as string)
           .filter(Boolean)
       )];
 
-      // Step 3: Fetch history only for qualified products (batch in chunks to avoid query size limits)
+      // Step 3: Fetch history by fc_id (matches via inv_sku_fc_mapping in the view)
       const CHUNK_SIZE = 50;
       const historyResults: any[] = [];
-      for (let i = 0; i < qualifiedNames.length; i += CHUNK_SIZE) {
-        const chunk = qualifiedNames.slice(i, i + CHUNK_SIZE);
-        const res = await buildQuery('v_clearance_history_by_product' as any)
-          .in('product_name', chunk)
+      for (let i = 0; i < qualifiedFcIds.length; i += CHUNK_SIZE) {
+        const chunk = qualifiedFcIds.slice(i, i + CHUNK_SIZE);
+        const res = await buildQuery('v_clearance_history_by_fc' as any)
+          .in('fc_id', chunk)
           .limit(10000);
         if (res.error) throw res.error;
         historyResults.push(...(res.data || []));
@@ -121,17 +121,16 @@ export function useDeadStock() {
 
       const history = historyResults;
 
-      // Build sales history map: product_name → channel → aggregated info
-      // Uses product_name matching (works for KiotViet; online channels have different names)
+      // Build sales history map: fc_id → channel → aggregated info
       const historyMap = new Map<string, Map<string, { 
         lastMonth: string; totalUnits: number; discounts: Map<string, number>; avgDisc: number; discCount: number 
       }>>();
       
       history.forEach((h: any) => {
-        const name = h.product_name as string;
-        if (!name) return;
-        if (!historyMap.has(name)) historyMap.set(name, new Map());
-        const chMap = historyMap.get(name)!;
+        const fcId = h.fc_id as string;
+        if (!fcId) return;
+        if (!historyMap.has(fcId)) historyMap.set(fcId, new Map());
+        const chMap = historyMap.get(fcId)!;
         const ch = h.channel as string;
         const existing = chMap.get(ch);
         if (existing) {
@@ -159,8 +158,8 @@ export function useDeadStock() {
         .map(r => {
           const dtc = r.days_to_clear ?? 9999;
 
-          // Enrich with sales history (match by product_name)
-          const productHistory = historyMap.get(r.product_name);
+          // Enrich with sales history (match by fc_id = product_id)
+          const productHistory = historyMap.get(r.product_id);
           let daysSinceLastSale: number | null = null;
           let lastSaleDate: string | null = null;
           const channelHistory: ChannelSalesRecord[] = [];
