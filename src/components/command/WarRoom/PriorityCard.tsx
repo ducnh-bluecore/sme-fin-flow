@@ -177,7 +177,7 @@ export function PriorityCard({ priority, clearanceHints }: Props) {
                   </div>
                   <div className="flex flex-col gap-1 pl-[18px]">
                     {clearanceHints.map((h, i) => {
-                      const style = VERDICT_STYLE[h.verdict];
+                      const style = VERDICT_STYLE[h.verdict] || { icon: '🟡', color: 'text-amber-500' };
                       return (
                         <div key={i} className="flex items-start gap-1.5">
                           <span className="text-xs flex-shrink-0">{style.icon}</span>
