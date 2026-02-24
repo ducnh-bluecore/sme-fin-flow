@@ -12,6 +12,7 @@ import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPane
 import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulationTab';
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
+import { StoreIntelligenceTab } from '@/components/inventory/StoreIntelligenceTab';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useAllocationRecommendations, useLatestAllocationRun } from '@/hooks/inventory/useAllocationRecommendations';
 import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
@@ -224,6 +225,10 @@ export default function InventoryAllocationPage() {
               <History className="h-3.5 w-3.5" />
               Lịch sử
             </TabsTrigger>
+            <TabsTrigger value="store-intel" className="gap-1.5">
+              <Store className="h-3.5 w-3.5" />
+              Store Intel
+            </TabsTrigger>
             <TabsTrigger value="config" className="gap-1.5">
               <Settings2 className="h-3.5 w-3.5" />
               Cài đặt
@@ -244,6 +249,9 @@ export default function InventoryAllocationPage() {
           </TabsContent>
           <TabsContent value="audit">
             <RebalanceAuditLog />
+          </TabsContent>
+          <TabsContent value="store-intel">
+            <StoreIntelligenceTab />
           </TabsContent>
           <TabsContent value="config">
             <div className="space-y-6">
