@@ -219,6 +219,7 @@ QUAN TRỌNG - QUERY HINTS:
 - Cho câu hỏi chi tiết đơn hàng cụ thể: dùng cdp_orders
 - Khi query cdp_orders hoặc cdp_order_items: LUÔN thêm LIMIT 100
 - JOIN guidance: cdp_orders.customer_id -> cdp_customers.id, cdp_order_items.order_id -> cdp_orders.id, cdp_order_items.product_id -> products.id
+- KHÁM PHÁ DATA: Dùng discover_schema("từ_khóa") để tìm bảng/view mới không có trong danh sách dưới đây
 
 `;
   
