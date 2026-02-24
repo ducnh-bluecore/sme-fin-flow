@@ -41010,6 +41010,7 @@ export type Database = {
         Args: { p_date?: string; p_tenant_id: string }
         Returns: Json
       }
+      discover_schema: { Args: { search_term: string }; Returns: Json }
       dismiss_insight: {
         Args: {
           p_insight_event_id: string
