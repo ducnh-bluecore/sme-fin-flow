@@ -18490,6 +18490,7 @@ export type Database = {
           category: string | null
           collection_id: string | null
           created_at: string
+          demand_space: string | null
           fc_code: string
           fc_name: string
           id: string
@@ -18505,6 +18506,7 @@ export type Database = {
           category?: string | null
           collection_id?: string | null
           created_at?: string
+          demand_space?: string | null
           fc_code: string
           fc_name: string
           id?: string
@@ -18520,6 +18522,7 @@ export type Database = {
           category?: string | null
           collection_id?: string | null
           created_at?: string
+          demand_space?: string | null
           fc_code?: string
           fc_name?: string
           id?: string
@@ -41054,6 +41057,7 @@ export type Database = {
           current_stock: number
           curve_state: string
           days_to_clear: number
+          demand_space: string
           fc_code: string
           health_score: number
           inventory_value: number

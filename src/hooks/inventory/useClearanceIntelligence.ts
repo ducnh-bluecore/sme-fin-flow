@@ -35,6 +35,7 @@ export interface ClearanceCandidate {
   days_to_clear: number | null;
   collection_id: string | null;
   collection_name: string | null;
+  demand_space: string | null;
 }
 
 const PREMIUM_MAX_DISCOUNT = 50;
@@ -116,6 +117,7 @@ export function useClearanceCandidates() {
         days_to_clear: r.days_to_clear ?? 9999,
         collection_id: r.collection_id || null,
         collection_name: r.collection_name || null,
+        demand_space: r.demand_space || null,
       } as ClearanceCandidate));
     },
     enabled: isReady && !!tenantId,

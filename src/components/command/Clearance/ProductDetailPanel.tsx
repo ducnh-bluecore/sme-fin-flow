@@ -150,6 +150,7 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
               <h2 className="text-lg font-bold text-foreground">{candidate.product_name}</h2>
               <p className="text-sm text-muted-foreground">Mã FC: {candidate.fc_code}</p>
               <div className="flex gap-1 mt-1 flex-wrap">
+                {candidate.demand_space && <Badge variant="outline" className="border-violet-500/30 text-violet-600">{candidate.demand_space}</Badge>}
                 {candidate.season && <Badge variant="outline">{candidate.season}</Badge>}
                 {candidate.collection_name && <Badge variant="outline" className="border-blue-500/30 text-blue-600">{candidate.collection_name}</Badge>}
               </div>
