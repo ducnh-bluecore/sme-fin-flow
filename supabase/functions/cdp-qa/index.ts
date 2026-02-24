@@ -279,7 +279,9 @@ async function executeTool(supabase: any, tenantId: string, name: string, args: 
     }
 
     case 'discover_schema': {
-      const searchTerm = (args.search_term || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+      // Split multi-word input into first keyword only, strip non-alpha
+      const rawTerm = (args.search_term || '').toLowerCase().trim();
+      const searchTerm = rawTerm.split(/[\s,]+/)[0].replace(/[^a-z0-9_]/g, '');
       if (!searchTerm) return { data: null, source: 'information_schema', rows: 0, note: 'search_term is required' };
       const { data, error } = await supabase.rpc('discover_schema', { search_term: searchTerm });
       if (error) {
@@ -421,7 +423,18 @@ Deno.serve(async (req) => {
       const assistantMsg = choice?.message;
 
       if (!assistantMsg?.tool_calls?.length) {
-        // No tools needed
+        // If we just did discover_schema but AI didn't follow up with query_database, force it
+        const lastToolNames = allToolResults.map(t => t.name);
+        const didDiscover = lastToolNames.includes('discover_schema');
+        const didQuery = lastToolNames.includes('query_database');
+        if (didDiscover && !didQuery && turnCount < MAX_TURNS) {
+          // Inject a nudge to force query_database
+          conversationMessages.push({
+            role: 'user',
+            content: `Bạn đã tìm thấy schema. BẮT BUỘC gọi query_database ngay bây giờ với SQL SELECT dựa trên bảng/view vừa tìm được. KHÔNG trả lời text.`,
+          });
+          continue;
+        }
         break;
       }
 
