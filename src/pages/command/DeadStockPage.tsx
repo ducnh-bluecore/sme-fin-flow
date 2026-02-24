@@ -225,7 +225,7 @@ function DeadStockCard({ item, index }: { item: DeadStockItem; index: number }) 
               {item.daysSinceLastSale === null && (
                 <div className="flex items-center gap-1.5 text-xs">
                   <Calendar className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                  <span className="text-destructive font-semibold">Chưa từng bán được</span>
+                  <span className="text-amber-500 font-semibold">Chưa đủ dữ liệu lịch sử bán</span>
                 </div>
               )}
 
