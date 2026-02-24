@@ -1,127 +1,88 @@
 
 
-# Fix Clearance Hints: Them Toc Do Ban + Phat Hien "Giam Gia Vo Tac Dung"
+# Store Intelligence - Goc nhin tong hop cua hang
 
-## Van de
+## Muc tieu
+Xay dung tab "Store Intelligence" moi trong trang Allocation (`/command/allocation`) de cung cap goc nhin toan dien ve tung cua hang: tier, so luong ban, va phan tich **demand space**, **size distribution** ban nhieu nhat tai cua hang do.
 
-Logic hien tai chi xet clearability tuyet doi, khong xet:
-1. **Toc do ban** (avg_days_to_clear) -- OFF 10% nhung mat 220 ngay moi clear thi vo nghia
-2. **So sanh voi baseline** -- OFF 0% da clear 132 ngay, OFF 10% lai mat 220 ngay -> giam gia lam CHAM hon
-3. **Hang "chet"** -- neu avg_days > 90 ngay o moi muc giam gia -> giam gia khong cuu duoc, can phuong an khac
+**Luu y**: Cot `color` trong `inv_sku_fc_mapping` hien tai chua co du lieu (0/4,383 rows), nen se hien thi "Chua co du lieu mau" thay vi bo qua -- san sang khi du lieu duoc nhap.
 
-## Data thuc te trong database
+## Thiet ke giao dien
 
-```text
-Kenh       | OFF % | Days to Clear | Clearability | Units
------------|-------|---------------|-------------|------
-KiotViet   | 0%    | 132 ngay      | 31%         | 19,198
-KiotViet   | 10%   | 220 ngay      | 20%         | 2,342  --> CHAM HON baseline!
-KiotViet   | 50%   | 249 ngay      | 21%         | 170    --> margin chet + van cham
-Shopee     | 0%    | null          | 12%         | 43
-Shopee     | 30%   | null          | 42%         | 1,967  --> clearability tang nhung days null
-TikTok     | 0%    | 251 ngay      | 21%         | 1,749
-TikTok     | 10%   | 175 ngay      | 29%         | 10,558 --> NHANH HON baseline
-Lazada     | 0%    | 287 ngay      | 20%         | 54     --> hang chet, giam gia khong cuu
+### 1. Tab moi "Store Intel" trong InventoryAllocationPage
+- Them tab thu 5 ben canh Lenh Dieu Chuyen / Mo phong / Lich su / Cai dat
+- Icon: `Store` + label "Store Intel"
+
+### 2. Trang Store Intel gom 2 phan:
+
+**Phan A - Bang tong quan cua hang** (table view)
+- Cot: Ten CH | Tier | Khu vuc | Da ban (units) | Ton kho | Velocity | DT uoc tinh
+- Click vao 1 dong -> mo panel chi tiet ben duoi
+
+**Phan B - Panel chi tiet cua hang** (khi chon 1 store)
+Hien thi 3 card ngang:
+
+1. **Demand Space Breakdown** - Bieu do thanh ngang (horizontal bar)
+   - Gop `inv_state_demand` JOIN `inv_sku_fc_mapping` JOIN `inv_family_codes`
+   - Group by `demand_space`, SUM `total_sold`
+   - VD: EverydayComfort 45%, Travel 20%, FastTrendFashion 15%...
+
+2. **Size Distribution** - Bieu do thanh ngang
+   - Gop `inv_state_demand` JOIN `inv_sku_fc_mapping`
+   - Group by `size`, SUM `total_sold`
+   - VD: M 35%, S 33%, L 17%, FS 12%...
+
+3. **Color Distribution** - Bieu do thanh ngang (hoac thong bao "Chua co du lieu")
+   - Tuong tu, group by `color`
+   - Neu tat ca null -> hien thong bao
+
+## Chi tiet ky thuat
+
+### Database View moi
+Tao 1 view `v_inv_store_profile` de gom du lieu san, tranh query nang tren client:
+
+```sql
+CREATE VIEW v_inv_store_profile AS
+SELECT
+  d.tenant_id,
+  d.store_id,
+  m.size,
+  m.color,
+  f.demand_space,
+  SUM(d.total_sold) AS units_sold
+FROM inv_state_demand d
+JOIN inv_sku_fc_mapping m ON m.sku = d.sku
+JOIN inv_family_codes f ON f.id = m.fc_id
+GROUP BY d.tenant_id, d.store_id, m.size, m.color, f.demand_space;
 ```
 
-## Giai phap
+### Hook moi: `useStoreProfile(storeId)`
+- Query `v_inv_store_profile` filtered by `store_id`
+- Client-side aggregate thanh 3 breakdowns: by demand_space, by size, by color
+- Return: `{ demandSpace: {label, units}[], sizeBreakdown: {label, units}[], colorBreakdown: {label, units}[], isLoading }`
 
-### 1. Interface ClearanceHint moi
+### Component moi: `StoreIntelligenceTab.tsx`
+- Su dung `useStoreMetrics()` co san (tu `StoreDirectoryTab`) cho bang tong quan
+- State `selectedStoreId` de dieu khien panel chi tiet
+- Khi chon store -> fetch `useStoreProfile(storeId)` -> render 3 card breakdown
+- Moi card dung horizontal bar chart (Recharts `BarChart` hoac don gian la div bars giong `StoreHeatmap`)
 
-```text
-ClearanceHint {
-  channel: string
-  discountStep: number          // chi > 0
-  clearability: number
-  avgDaysToClear: number | null // MOI: toc do ban
-  baselineClearability: number  // MOI: clearability tai OFF 0%
-  baselineDays: number | null   // MOI: days to clear tai OFF 0%
-  uplift: number                // MOI: clearability - baseline
-  speedChange: number | null    // MOI: baseline_days - current_days (>0 = nhanh hon)
-  unitsCleared: number
-  verdict: 'effective' | 'marginal' | 'not_worth' | 'dead_stock'  // MOI: them dead_stock
-}
-```
+### Files can thay doi
 
-### 2. Logic verdict moi (4 loai)
+| File | Thay doi |
+|------|----------|
+| **Migration SQL** | Tao view `v_inv_store_profile` |
+| **`src/hooks/inventory/useStoreProfile.ts`** | Hook moi fetch + aggregate profile data |
+| **`src/components/inventory/StoreIntelligenceTab.tsx`** | Component moi: table + detail panel |
+| **`src/pages/InventoryAllocationPage.tsx`** | Them tab "Store Intel" |
 
-```text
-1. dead_stock:
-   - baseline avg_days >= 120 ngay (4 thang)
-   - VA giam gia khong lam nhanh hon (speedChange <= 0 hoac days van > 90)
-   -> "Hang chet -- giam gia khong cuu duoc, can transfer/liquidate"
+### Filter & Sort
+- Ke thua filter Tier / Khu vuc tu `StoreDirectoryTab`
+- Sort mac dinh theo Tier (S > A > B > C), sau do theo doanh thu
 
-2. not_worth:
-   - discount >= 50% (margin chet)
-   - HOAC uplift <= 0 (clearability khong tang)
-   - HOAC speedChange < 0 (giam gia lam CHAM hon)
-
-3. effective:
-   - uplift > 5 diem
-   - VA (speedChange > 0 HOAC speedChange = null nhung clearability tang manh)
-   -> "Giam gia thuc su giup ban nhanh hon"
-
-4. marginal:
-   - uplift > 0 nhung nho, hoac speed khong doi nhieu
-```
-
-### 3. Output mau (tu data thuc)
-
-```text
-KHUYEN NGHI THOAT HANG
-
-🟢 TikTok OFF 10% -> clearability +8 diem (21% -> 29%)
-   Nhanh hon 76 ngay (251 -> 175 ngay) | 10,558 units da clear
-
-🟢 Shopee OFF 30% -> clearability +30 diem (12% -> 42%)  
-   1,967 units da clear
-
-🔴 KiotViet -> giam gia lam CHAM hon (132 -> 220 ngay)
-   Nen transfer hoac liquidate thay vi giam gia
-
-⚫ Lazada -> hang ton 287 ngay, giam gia khong cuu duoc
-   Can thanh ly hoac chuyen kho
-```
-
-### 4. Mau sac moi (4 verdicts)
-
-```text
-effective  -> 🟢 xanh la (text-emerald-500)
-marginal   -> 🟡 vang (text-amber-500)
-not_worth  -> 🔴 do (text-destructive)
-dead_stock -> ⚫ xam dam (text-muted-foreground) -- nhan manh "khong phai van de giam gia"
-```
-
-### 5. Chon top hints
-
-1. Moi kenh: chon discount_step co uplift + speedChange tot nhat
-2. Loai bo discount_step = 0 (khong phai thoat hang)
-3. Them cac kenh "dead_stock" hoac "not_worth" (de canh bao)
-4. Sort: effective truoc, roi dead_stock (canh bao), roi marginal
-5. Toi da 4 hints (2 effective + 2 canh bao)
-
-## Thay doi ky thuat
-
-### File 1: `src/hooks/command/useWarRoomClearanceHint.ts`
-
-- Tinh baseline (OFF 0%) cho moi kenh: `baselineClearability` + `baselineDays`
-- Chi xet discount_step > 0 cho hints
-- Tinh `uplift`, `speedChange`
-- Verdict logic 4 cap: dead_stock / not_worth / effective / marginal
-- Sort va chon top hints thong minh hon
-
-### File 2: `src/components/command/WarRoom/PriorityCard.tsx`
-
-- Cap nhat VERDICT_STYLE them `dead_stock` (icon ⚫, text-muted-foreground)
-- Viet lai `hintLabel()` hien thi:
-  - effective: "+X diem, nhanh hon Y ngay"
-  - not_worth: "giam gia lam CHAM hon / khong giup gi"
-  - dead_stock: "hang ton X ngay, can thanh ly"
-- Them dong canh bao khi co dead_stock: "Nen transfer hoac liquidate"
-
-## Khong thay doi
-
-- Database / RPC: giu nguyen (avg_days_to_clear da co san trong sem_markdown_ladders)
-- WarRoomPage.tsx: giu nguyen
-- Cac file khac: giu nguyen
+### UX
+- Bang cua hang compact, click row highlight va cuon xuong panel chi tiet
+- Bar charts don gian (div-based, khong can Recharts) de nhe va nhanh
+- Demand Space dung mau rieng cho moi loai (EverydayComfort = xanh la, LuxuryParty = tim, v.v.)
+- Responsive: mobile stack 3 card doc, desktop hien ngang
 
