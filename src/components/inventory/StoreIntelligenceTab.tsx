@@ -5,11 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useStoreProfile } from '@/hooks/inventory/useStoreProfile';
 import { useStoreCustomerKpis } from '@/hooks/inventory/useStoreCustomerKpis';
 import { useStoreMetricsTrend } from '@/hooks/inventory/useStoreMetricsTrend';
-import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart, Layers, Calendar } from 'lucide-react';
+import { useStoreTopFC } from '@/hooks/inventory/useStoreTopFC';
+import { useStoreTopCollections } from '@/hooks/inventory/useStoreTopCollections';
+import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart, Layers, Calendar, Star, FolderOpen } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -172,6 +176,8 @@ export function StoreIntelligenceTab() {
   const { data: profile, isLoading: profileLoading } = useStoreProfile(selectedStoreId);
   const { data: customerKpis, isLoading: kpisLoading } = useStoreCustomerKpis(selectedStoreId, lookbackDays);
   const { data: trendData = [], isLoading: trendLoading } = useStoreMetricsTrend(selectedStoreId, lookbackDays);
+  const { data: topFCs = [], isLoading: topFCLoading } = useStoreTopFC(selectedStoreId);
+  const { data: topCollections = [], isLoading: topCollLoading } = useStoreTopCollections(selectedStoreId);
 
   const sortedStores = useMemo(() => {
     return [...stores].sort((a: any, b: any) => {
@@ -287,124 +293,286 @@ export function StoreIntelligenceTab() {
               </CardContent>
             </Card>
 
-            {/* Customer KPIs */}
-            <Card>
-              <CardHeader className="pb-1.5 pt-3 px-4">
-                <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                  <Users className="h-3.5 w-3.5 text-cyan-400" />
-                  Customer Metrics
-                  {customerKpis?.daysCounted ? (
-                    <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">
-                      {customerKpis.periodStart && customerKpis.periodEnd
-                        ? `${format(parseISO(customerKpis.periodStart), 'dd/MM')} - ${format(parseISO(customerKpis.periodEnd), 'dd/MM')}`
-                        : `${customerKpis.daysCounted} ngày`}
-                    </span>
-                  ) : null}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-3 pt-1">
-                {kpisLoading ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1,2,3,4].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}
-                  </div>
-                ) : customerKpis && customerKpis.daysCounted > 0 ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" delta={customerKpis.deltaCustomers} />
-                    <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" delta={customerKpis.deltaAov} />
-                    <MetricCard icon={Layers} label="IPT" value={`${customerKpis.itemsPerTransaction}`} sub="SP/đơn" iconClass="text-emerald-400" />
-                    <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={`${customerKpis.returnRate}%`} sub={customerKpis.returnRate > 0 ? 'Khách mua ≥2 lần' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
-                  </div>
-                ) : (
-                  <div className="py-2 text-center">
-                    <Users className="h-5 w-5 mx-auto text-muted-foreground/30 mb-1" />
-                    <p className="text-xs text-muted-foreground">Chưa có dữ liệu khách hàng</p>
-                  </div>
+            {/* Tabs */}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="w-full grid grid-cols-3 h-9">
+                <TabsTrigger value="overview" className="text-xs gap-1.5">
+                  <BarChart3 className="h-3 w-3" />
+                  Tổng quan
+                </TabsTrigger>
+                <TabsTrigger value="top-collection" className="text-xs gap-1.5">
+                  <FolderOpen className="h-3 w-3" />
+                  Top BST
+                </TabsTrigger>
+                <TabsTrigger value="top-fc" className="text-xs gap-1.5">
+                  <Star className="h-3 w-3" />
+                  Top FC
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Overview tab - existing content */}
+              <TabsContent value="overview" className="space-y-3">
+                {/* Customer KPIs */}
+                <Card>
+                  <CardHeader className="pb-1.5 pt-3 px-4">
+                    <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                      <Users className="h-3.5 w-3.5 text-cyan-400" />
+                      Customer Metrics
+                      {customerKpis?.daysCounted ? (
+                        <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">
+                          {customerKpis.periodStart && customerKpis.periodEnd
+                            ? `${format(parseISO(customerKpis.periodStart), 'dd/MM')} - ${format(parseISO(customerKpis.periodEnd), 'dd/MM')}`
+                            : `${customerKpis.daysCounted} ngày`}
+                        </span>
+                      ) : null}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3 pt-1">
+                    {kpisLoading ? (
+                      <div className="grid grid-cols-4 gap-2">
+                        {[1,2,3,4].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}
+                      </div>
+                    ) : customerKpis && customerKpis.daysCounted > 0 ? (
+                      <div className="grid grid-cols-4 gap-2">
+                        <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" delta={customerKpis.deltaCustomers} />
+                        <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" delta={customerKpis.deltaAov} />
+                        <MetricCard icon={Layers} label="IPT" value={`${customerKpis.itemsPerTransaction}`} sub="SP/đơn" iconClass="text-emerald-400" />
+                        <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={`${customerKpis.returnRate}%`} sub={customerKpis.returnRate > 0 ? 'Khách mua ≥2 lần' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
+                      </div>
+                    ) : (
+                      <div className="py-2 text-center">
+                        <Users className="h-5 w-5 mx-auto text-muted-foreground/30 mb-1" />
+                        <p className="text-xs text-muted-foreground">Chưa có dữ liệu khách hàng</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Customer Metrics Trends */}
+                {trendData.length > 3 && (
+                  <Card>
+                    <CardHeader className="pb-1.5 pt-3 px-4">
+                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                        Xu hướng Customer Metrics
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-3 pt-1">
+                      <div className="grid grid-cols-2 gap-3">
+                        <MiniTrendChart data={trendData} dataKey="customers" label="Khách hàng / ngày" color="hsl(var(--primary))" />
+                        <MiniTrendChart data={trendData} dataKey="aov" label="AOV" color="hsl(45, 93%, 47%)" formatValue={(v) => `${(v / 1000).toFixed(0)}K`} />
+                        <MiniTrendChart data={trendData} dataKey="ipt" label="IPT (SP/đơn)" color="hsl(142, 71%, 45%)" formatValue={(v) => v.toFixed(1)} />
+                        <MiniTrendChart data={trendData} dataKey="repeatRate" label="Tỷ lệ quay lại (%)" color="hsl(330, 81%, 60%)" formatValue={(v) => `${v.toFixed(1)}%`} />
+                      </div>
+                    </CardContent>
+                  </Card>
                 )}
-              </CardContent>
-            </Card>
+                {trendLoading && (
+                  <Card>
+                    <CardContent className="py-4">
+                      <div className="h-32 bg-muted animate-pulse rounded-lg" />
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* Customer Metrics Trends */}
-            {trendData.length > 3 && (
-              <Card>
-                <CardHeader className="pb-1.5 pt-3 px-4">
-                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                    Xu hướng Customer Metrics
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-3 pt-1">
-                  <div className="grid grid-cols-2 gap-3">
-                    <MiniTrendChart data={trendData} dataKey="customers" label="Khách hàng / ngày" color="hsl(var(--primary))" />
-                    <MiniTrendChart data={trendData} dataKey="aov" label="AOV" color="hsl(45, 93%, 47%)" formatValue={(v) => `${(v / 1000).toFixed(0)}K`} />
-                    <MiniTrendChart data={trendData} dataKey="ipt" label="IPT (SP/đơn)" color="hsl(142, 71%, 45%)" formatValue={(v) => v.toFixed(1)} />
-                    <MiniTrendChart data={trendData} dataKey="repeatRate" label="Tỷ lệ quay lại (%)" color="hsl(330, 81%, 60%)" formatValue={(v) => `${v.toFixed(1)}%`} />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            {trendLoading && (
-              <Card>
-                <CardContent className="py-4">
-                  <div className="h-32 bg-muted animate-pulse rounded-lg" />
-                </CardContent>
-              </Card>
-            )}
+                {/* Breakdown charts */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardHeader className="pb-1.5 pt-3 px-3">
+                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                        <ShoppingBag className="h-3.5 w-3.5 text-emerald-400" />
+                        Demand Space
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      {profileLoading ? (
+                        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                      ) : (
+                        <HorizontalBarChart items={profile?.demandSpace || []} type="ds" />
+                      )}
+                    </CardContent>
+                  </Card>
 
-            {/* Breakdown charts */}
-            <div className="grid grid-cols-3 gap-3">
-              <Card>
-                <CardHeader className="pb-1.5 pt-3 px-3">
-                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                    <ShoppingBag className="h-3.5 w-3.5 text-emerald-400" />
-                    Demand Space
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  {profileLoading ? (
-                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                  ) : (
-                    <HorizontalBarChart items={profile?.demandSpace || []} type="ds" />
-                  )}
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader className="pb-1.5 pt-3 px-3">
+                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                        <Ruler className="h-3.5 w-3.5 text-blue-400" />
+                        Size Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      {profileLoading ? (
+                        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                      ) : (
+                        <HorizontalBarChart items={profile?.sizeBreakdown || []} type="size" />
+                      )}
+                    </CardContent>
+                  </Card>
 
-              <Card>
-                <CardHeader className="pb-1.5 pt-3 px-3">
-                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                    <Ruler className="h-3.5 w-3.5 text-blue-400" />
-                    Size Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  {profileLoading ? (
-                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                  ) : (
-                    <HorizontalBarChart items={profile?.sizeBreakdown || []} type="size" />
-                  )}
-                </CardContent>
-              </Card>
+                  <Card>
+                    <CardHeader className="pb-1.5 pt-3 px-3">
+                      <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                        <Palette className="h-3.5 w-3.5 text-violet-400" />
+                        Color Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      {profileLoading ? (
+                        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
+                      ) : profile?.hasColorData ? (
+                        <HorizontalBarChart items={profile.colorBreakdown} type="color" />
+                      ) : (
+                        <div className="py-3 text-center">
+                          <Palette className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
+                          <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
 
-              <Card>
-                <CardHeader className="pb-1.5 pt-3 px-3">
-                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
-                    <Palette className="h-3.5 w-3.5 text-violet-400" />
-                    Color Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-3 pb-3">
-                  {profileLoading ? (
-                    <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-5 bg-muted animate-pulse rounded" />)}</div>
-                  ) : profile?.hasColorData ? (
-                    <HorizontalBarChart items={profile.colorBreakdown} type="color" />
-                  ) : (
-                    <div className="py-3 text-center">
-                      <Palette className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
-                      <p className="text-xs text-muted-foreground">Chưa có dữ liệu</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+              {/* Top Collections tab */}
+              <TabsContent value="top-collection">
+                <Card>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <FolderOpen className="h-4 w-4 text-primary" />
+                      Top BST — Bán & Tồn kho
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0">
+                    {topCollLoading ? (
+                      <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+                    ) : topCollections.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <FolderOpen className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                        <p className="text-sm text-muted-foreground">Chưa có dữ liệu BST cho cửa hàng này</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs w-[30px]">#</TableHead>
+                            <TableHead className="text-xs">BST</TableHead>
+                            <TableHead className="text-xs">Season</TableHead>
+                            <TableHead className="text-xs text-right">FC</TableHead>
+                            <TableHead className="text-xs text-right">Đã bán</TableHead>
+                            <TableHead className="text-xs text-right">Tồn kho</TableHead>
+                            <TableHead className="text-xs text-right">Đang về</TableHead>
+                            <TableHead className="text-xs text-right">Sell-through</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {topCollections.map((c, idx) => {
+                            const sellThrough = (c.total_sold + c.on_hand) > 0
+                              ? (c.total_sold / (c.total_sold + c.on_hand) * 100)
+                              : 0;
+                            return (
+                              <TableRow key={c.collection_id}>
+                                <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                                <TableCell className="text-xs font-medium">
+                                  <div className="flex items-center gap-1.5">
+                                    {c.collection_name || c.collection_code}
+                                    {c.is_new_collection && (
+                                      <Badge variant="outline" className="text-[9px] px-1 py-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/30">NEW</Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">{c.season || '—'}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">{c.fc_count}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums font-medium">{c.total_sold.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">{c.on_hand.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">{c.in_transit.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">
+                                  <span className={sellThrough > 70 ? 'text-emerald-400' : sellThrough > 40 ? 'text-amber-400' : 'text-red-400'}>
+                                    {sellThrough.toFixed(0)}%
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Top Family Code tab */}
+              <TabsContent value="top-fc">
+                <Card>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Star className="h-4 w-4 text-amber-400" />
+                      Top Family Code — Bán & Tồn kho
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4 pt-0">
+                    {topFCLoading ? (
+                      <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+                    ) : topFCs.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <Star className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                        <p className="text-sm text-muted-foreground">Chưa có dữ liệu FC cho cửa hàng này</p>
+                      </div>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs w-[30px]">#</TableHead>
+                            <TableHead className="text-xs">FC</TableHead>
+                            <TableHead className="text-xs">BST</TableHead>
+                            <TableHead className="text-xs text-right">Đã bán</TableHead>
+                            <TableHead className="text-xs text-right">Tồn kho</TableHead>
+                            <TableHead className="text-xs text-right">Đang về</TableHead>
+                            <TableHead className="text-xs text-right">WoC</TableHead>
+                            <TableHead className="text-xs text-right">Sell-through</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {topFCs.map((fc, idx) => {
+                            const sellThrough = (fc.total_sold + fc.on_hand) > 0
+                              ? (fc.total_sold / (fc.total_sold + fc.on_hand) * 100)
+                              : 0;
+                            return (
+                              <TableRow key={fc.fc_id}>
+                                <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
+                                <TableCell className="text-xs font-medium">
+                                  <div className="flex items-center gap-1.5">
+                                    <span>{fc.fc_name || fc.fc_code}</span>
+                                    {fc.is_core_hero && (
+                                      <Badge variant="outline" className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-400 border-amber-500/30">HERO</Badge>
+                                    )}
+                                  </div>
+                                  {fc.category && <p className="text-[10px] text-muted-foreground/60">{fc.category}</p>}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground truncate max-w-[100px]">{fc.collection_name || '—'}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums font-medium">{fc.total_sold.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">{fc.on_hand.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">{fc.in_transit.toLocaleString('vi-VN')}</TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">
+                                  {fc.weeks_of_cover != null ? (
+                                    <span className={fc.weeks_of_cover < 2 ? 'text-red-400' : fc.weeks_of_cover > 8 ? 'text-amber-400' : 'text-emerald-400'}>
+                                      {Number(fc.weeks_of_cover).toFixed(1)}
+                                    </span>
+                                  ) : '—'}
+                                </TableCell>
+                                <TableCell className="text-xs text-right tabular-nums">
+                                  <span className={sellThrough > 70 ? 'text-emerald-400' : sellThrough > 40 ? 'text-amber-400' : 'text-red-400'}>
+                                    {sellThrough.toFixed(0)}%
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </ScrollArea>
       )}
