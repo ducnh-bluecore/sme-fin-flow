@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCapitalMap, type CapitalMapItem } from '@/hooks/command/useCapitalMap';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 function formatVND(value: number): string {
@@ -41,9 +44,24 @@ const CustomTooltip = ({ active, payload }: any) => {
 export default function CapitalMapPage() {
   const [groupBy, setGroupBy] = useState<'category' | 'season' | 'collection'>('collection');
   const { data, isLoading } = useCapitalMap(groupBy);
+  const { tenantId, isReady } = useTenantQueryBuilder();
+
+  // Total inventory value from the same RPC as War Room
+  const { data: invStats } = useQuery({
+    queryKey: ['command-inv-stats', tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('fn_inv_overview_stats', { p_tenant_id: tenantId });
+      if (error || !data || (data as any[]).length === 0) return { totalUnits: 0, lockedCash: 0 };
+      const row = (data as any[])[0];
+      return { totalUnits: Number(row.total_units) || 0, lockedCash: Number(row.locked_cash) || 0 };
+    },
+    enabled: !!tenantId && isReady,
+    staleTime: 2 * 60 * 1000,
+  });
 
   const totalLocked = data?.reduce((s, d) => s + d.cashLocked, 0) || 0;
-  const totalInv = data?.reduce((s, d) => s + d.inventoryValue, 0) || 0;
+  const totalInvGroup = data?.reduce((s, d) => s + d.inventoryValue, 0) || 0;
+  const totalInvAll = invStats?.lockedCash || 0; // total inventory value across network
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -88,7 +106,7 @@ export default function CapitalMapPage() {
       </motion.div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <p className="text-xs text-muted-foreground">Tổng Vốn Khóa</p>
@@ -97,15 +115,23 @@ export default function CapitalMapPage() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Tổng Tồn Kho</p>
-            <p className="text-2xl font-bold text-foreground">{formatVND(totalInv)}</p>
+            <p className="text-xs text-muted-foreground">Giá Trị Tồn Kho</p>
+            <p className="text-2xl font-bold text-foreground">{formatVND(totalInvAll)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Toàn mạng lưới</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Tỷ Lệ Khóa</p>
+            <p className="text-xs text-muted-foreground">Tồn Kho Nhóm Khóa</p>
+            <p className="text-2xl font-bold text-foreground">{formatVND(totalInvGroup)}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Chỉ SKU bị khóa vốn</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">Tỷ Lệ Khóa / Tổng</p>
             <p className="text-2xl font-bold text-amber-500">
-              {totalInv > 0 ? ((totalLocked / totalInv) * 100).toFixed(1) : 0}%
+              {totalInvAll > 0 ? ((totalLocked / totalInvAll) * 100).toFixed(1) : 0}%
             </p>
           </CardContent>
         </Card>
