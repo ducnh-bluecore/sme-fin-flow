@@ -41212,6 +41212,10 @@ export type Database = {
           size_health_score: number
         }[]
       }
+      fn_store_customer_kpis: {
+        Args: { p_days?: number; p_store_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_store_size_heatmap: {
         Args: { p_tenant_id: string }
         Returns: {

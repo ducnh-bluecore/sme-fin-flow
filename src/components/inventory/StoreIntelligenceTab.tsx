@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useStoreProfile } from '@/hooks/inventory/useStoreProfile';
-import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, BarChart3 } from 'lucide-react';
+import { useStoreCustomerKpis } from '@/hooks/inventory/useStoreCustomerKpis';
+import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, BarChart3, Users, RotateCcw, ShoppingCart, Layers } from 'lucide-react';
 
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
 const TIER_COLORS: Record<string, string> = {
@@ -81,6 +81,7 @@ export function StoreIntelligenceTab() {
   const { data: stores = [], isLoading: storesLoading } = useInventoryStores();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: profile, isLoading: profileLoading } = useStoreProfile(selectedStoreId);
+  const { data: customerKpis, isLoading: kpisLoading } = useStoreCustomerKpis(selectedStoreId);
 
   const sortedStores = useMemo(() => {
     return [...stores].sort((a: any, b: any) => {
@@ -178,6 +179,42 @@ export function StoreIntelligenceTab() {
                     iconClass="text-pink-400" 
                   />
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Customer KPIs */}
+            <Card>
+              <CardHeader className="pb-1.5 pt-3 px-4">
+                <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                  <Users className="h-3.5 w-3.5 text-cyan-400" />
+                  Customer Metrics
+                  {customerKpis?.daysCounted ? (
+                    <span className="ml-auto text-[10px] font-normal text-muted-foreground/60">
+                      {customerKpis.periodStart && customerKpis.periodEnd
+                        ? `${format(parseISO(customerKpis.periodStart), 'dd/MM')} - ${format(parseISO(customerKpis.periodEnd), 'dd/MM')}`
+                        : `${customerKpis.daysCounted} ngày`}
+                    </span>
+                  ) : null}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 pt-1">
+                {kpisLoading ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {[1,2,3,4].map(i => <div key={i} className="h-14 bg-muted animate-pulse rounded-lg" />)}
+                  </div>
+                ) : customerKpis && customerKpis.daysCounted > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" />
+                    <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" />
+                    <MetricCard icon={Layers} label="IPT" value={`${customerKpis.itemsPerTransaction}`} sub="SP/đơn" iconClass="text-emerald-400" />
+                    <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={customerKpis.customerCount > 0 ? `${((customerKpis.totalTransactions / customerKpis.customerCount - 1) * 100).toFixed(0)}%` : '0%'} sub={customerKpis.totalTransactions > customerKpis.customerCount ? 'Có khách quay lại' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
+                  </div>
+                ) : (
+                  <div className="py-2 text-center">
+                    <Users className="h-5 w-5 mx-auto text-muted-foreground/30 mb-1" />
+                    <p className="text-xs text-muted-foreground">Chưa có dữ liệu khách hàng</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
