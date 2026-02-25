@@ -9,6 +9,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { QuickDateSelector } from '@/components/filters/DateRangeFilter';
+import { getDateRangeFromFilter, formatDateForQuery } from '@/lib/dateUtils';
 
 function formatVND(value: number): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}tỷ`;
@@ -43,8 +45,15 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export default function CapitalMapPage() {
   const [groupBy, setGroupBy] = useState<'category' | 'season' | 'collection'>('collection');
-  const { data, isLoading } = useCapitalMap(groupBy);
+  const [dateFilter, setDateFilter] = useState<string>('all');
   const { tenantId, isReady } = useTenantQueryBuilder();
+
+  const dateRange = getDateRangeFromFilter(dateFilter);
+  const dateFilterParam = dateFilter === 'all' ? undefined : {
+    startDate: formatDateForQuery(dateRange.startDate),
+    endDate: formatDateForQuery(dateRange.endDate),
+  };
+  const { data, isLoading } = useCapitalMap(groupBy, dateFilterParam);
 
   // Total inventory value from the same RPC as War Room
   const { data: invStats } = useQuery({
@@ -80,28 +89,31 @@ export default function CapitalMapPage() {
             <p className="text-sm text-muted-foreground">Tiền đang nằm sai ở đâu?</p>
           </div>
         </div>
-        <div className="flex gap-1">
-          <Button
-            variant={groupBy === 'collection' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setGroupBy('collection')}
-          >
-            Theo BST
-          </Button>
-          <Button
-            variant={groupBy === 'category' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setGroupBy('category')}
-          >
-            Theo Category
-          </Button>
-          <Button
-            variant={groupBy === 'season' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setGroupBy('season')}
-          >
-            Theo Season
-          </Button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <QuickDateSelector value={dateFilter} onChange={setDateFilter} className="w-[150px]" />
+          <div className="flex gap-1">
+            <Button
+              variant={groupBy === 'collection' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setGroupBy('collection')}
+            >
+              Theo BST
+            </Button>
+            <Button
+              variant={groupBy === 'category' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setGroupBy('category')}
+            >
+              Theo Category
+            </Button>
+            <Button
+              variant={groupBy === 'season' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setGroupBy('season')}
+            >
+              Theo Season
+            </Button>
+          </div>
         </div>
       </motion.div>
 

@@ -14,17 +14,24 @@ export interface CapitalMapItem {
   stockUnits: number;
 }
 
-export function useCapitalMap(groupBy: 'category' | 'season' | 'collection' = 'category') {
+export function useCapitalMap(groupBy: 'category' | 'season' | 'collection' = 'category', dateFilter?: { startDate: string; endDate: string }) {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['capital-map', tenantId, groupBy],
+    queryKey: ['capital-map', tenantId, groupBy, dateFilter?.startDate, dateFilter?.endDate],
     queryFn: async (): Promise<CapitalMapItem[]> => {
       if (!tenantId) return [];
 
-      const cashLockQuery = buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value')
+      let cashLockQuery = buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value, as_of_date')
         .order('cash_locked_value', { ascending: false })
         .limit(1000);
+      
+      if (dateFilter?.startDate) {
+        cashLockQuery = cashLockQuery.gte('as_of_date', dateFilter.startDate);
+      }
+      if (dateFilter?.endDate) {
+        cashLockQuery = cashLockQuery.lte('as_of_date', dateFilter.endDate);
+      }
       const fcQuery = buildSelectQuery('inv_family_codes', 'id, category, season, collection_id')
         .eq('is_active', true)
         .limit(2000);
