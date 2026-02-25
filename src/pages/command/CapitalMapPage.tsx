@@ -39,7 +39,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function CapitalMapPage() {
-  const [groupBy, setGroupBy] = useState<'category' | 'season'>('category');
+  const [groupBy, setGroupBy] = useState<'category' | 'season' | 'collection'>('collection');
   const { data, isLoading } = useCapitalMap(groupBy);
 
   const totalLocked = data?.reduce((s, d) => s + d.cashLocked, 0) || 0;
@@ -63,6 +63,13 @@ export default function CapitalMapPage() {
           </div>
         </div>
         <div className="flex gap-1">
+          <Button
+            variant={groupBy === 'collection' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setGroupBy('collection')}
+          >
+            Theo BST
+          </Button>
           <Button
             variant={groupBy === 'category' ? 'default' : 'outline'}
             size="sm"
@@ -109,7 +116,7 @@ export default function CapitalMapPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-destructive" />
-            Phân Bổ Vốn Khóa theo {groupBy === 'category' ? 'Category' : 'Season'}
+            Phân Bổ Vốn Khóa theo {groupBy === 'collection' ? 'Bộ Sưu Tập' : groupBy === 'category' ? 'Category' : 'Season'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -144,7 +151,7 @@ export default function CapitalMapPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/50">
-                    <th className="text-left p-3 font-medium text-muted-foreground">{groupBy === 'category' ? 'Category' : 'Season'}</th>
+                    <th className="text-left p-3 font-medium text-muted-foreground">{groupBy === 'collection' ? 'Bộ Sưu Tập' : groupBy === 'category' ? 'Category' : 'Season'}</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">Vốn Khóa</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">Tồn Kho</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">% Khóa</th>
