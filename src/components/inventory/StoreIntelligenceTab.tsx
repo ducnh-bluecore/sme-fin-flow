@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useStoreProfile } from '@/hooks/inventory/useStoreProfile';
 import { useStoreCustomerKpis } from '@/hooks/inventory/useStoreCustomerKpis';
 import { useStoreMetricsTrend } from '@/hooks/inventory/useStoreMetricsTrend';
-import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart, Layers } from 'lucide-react';
+import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart, Layers, Calendar } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -167,9 +168,10 @@ function MiniTrendChart({
 export function StoreIntelligenceTab() {
   const { data: stores = [], isLoading: storesLoading } = useInventoryStores();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+  const [lookbackDays, setLookbackDays] = useState<number>(30);
   const { data: profile, isLoading: profileLoading } = useStoreProfile(selectedStoreId);
-  const { data: customerKpis, isLoading: kpisLoading } = useStoreCustomerKpis(selectedStoreId);
-  const { data: trendData = [], isLoading: trendLoading } = useStoreMetricsTrend(selectedStoreId);
+  const { data: customerKpis, isLoading: kpisLoading } = useStoreCustomerKpis(selectedStoreId, lookbackDays);
+  const { data: trendData = [], isLoading: trendLoading } = useStoreMetricsTrend(selectedStoreId, lookbackDays);
 
   const sortedStores = useMemo(() => {
     return [...stores].sort((a: any, b: any) => {
@@ -192,10 +194,25 @@ export function StoreIntelligenceTab() {
       {/* Left: Store list */}
       <Card className="overflow-hidden flex flex-col min-h-0">
         <CardHeader className="py-3 px-4 shrink-0">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Store className="h-4 w-4" />
-            Cửa hàng ({sortedStores.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Cửa hàng ({sortedStores.length})
+            </CardTitle>
+            <Select value={String(lookbackDays)} onValueChange={(v) => setLookbackDays(Number(v))}>
+              <SelectTrigger className="w-[110px] h-7 text-xs">
+                <Calendar className="h-3 w-3 mr-1 shrink-0" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7">7 ngày</SelectItem>
+                <SelectItem value="14">14 ngày</SelectItem>
+                <SelectItem value="30">30 ngày</SelectItem>
+                <SelectItem value="60">60 ngày</SelectItem>
+                <SelectItem value="90">90 ngày</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <ScrollArea className="flex-1 min-h-0">
           <div className="px-1 pb-2">
