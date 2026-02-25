@@ -28855,7 +28855,7 @@ export type Database = {
             foreignKeyName: "store_daily_metrics_store_id_fkey"
             columns: ["store_id"]
             isOneToOne: false
-            referencedRelation: "stores"
+            referencedRelation: "inv_stores"
             referencedColumns: ["id"]
           },
           {
