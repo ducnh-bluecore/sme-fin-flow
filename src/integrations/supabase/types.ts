@@ -28804,7 +28804,9 @@ export type Database = {
           ewallet_revenue: number | null
           id: string
           metrics_date: string
+          new_customer_count: number | null
           open_time: string | null
+          repeat_customer_count: number | null
           staff_count: number | null
           store_id: string | null
           target_achieved_percent: number | null
@@ -28823,7 +28825,9 @@ export type Database = {
           ewallet_revenue?: number | null
           id?: string
           metrics_date: string
+          new_customer_count?: number | null
           open_time?: string | null
+          repeat_customer_count?: number | null
           staff_count?: number | null
           store_id?: string | null
           target_achieved_percent?: number | null
@@ -28842,7 +28846,9 @@ export type Database = {
           ewallet_revenue?: number | null
           id?: string
           metrics_date?: string
+          new_customer_count?: number | null
           open_time?: string | null
+          repeat_customer_count?: number | null
           staff_count?: number | null
           store_id?: string | null
           target_achieved_percent?: number | null

@@ -207,7 +207,7 @@ export function StoreIntelligenceTab() {
                     <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" />
                     <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" />
                     <MetricCard icon={Layers} label="IPT" value={`${customerKpis.itemsPerTransaction}`} sub="SP/đơn" iconClass="text-emerald-400" />
-                    <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={customerKpis.customerCount > 0 ? `${((customerKpis.totalTransactions / customerKpis.customerCount - 1) * 100).toFixed(0)}%` : '0%'} sub={customerKpis.totalTransactions > customerKpis.customerCount ? 'Có khách quay lại' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
+                    <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={`${customerKpis.returnRate}%`} sub={customerKpis.returnRate > 0 ? 'Khách mua ≥2 lần' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
                   </div>
                 ) : (
                   <div className="py-2 text-center">

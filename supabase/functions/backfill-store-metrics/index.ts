@@ -132,24 +132,47 @@ Deno.serve(async (req) => {
     const saleChannelCol = colNames.find(c => c.toLowerCase() === 'salechannelid') || 'SaleChannelId';
 
     // Step 2: Query aggregated store daily metrics from BigQuery
+    // Also compute repeat customers: customers who bought at this branch on a PREVIOUS day
     console.log(`[store-metrics] Querying BQ for ${dateFrom} to ${dateTo}...`);
     
     const aggregateQuery = `
-      SELECT
-        CAST(${branchIdCol} AS STRING) as branch_id,
-        ${branchNameCol} as branch_name,
-        DATE(TIMESTAMP(${purchaseDateCol})) as metrics_date,
-        COUNT(*) as total_transactions,
-        SUM(COALESCE(SAFE_CAST(${totalPaymentCol} AS FLOAT64), SAFE_CAST(${totalCol} AS FLOAT64), 0)) as total_revenue,
-        COUNT(DISTINCT ${cusIdCol}) as customer_count
-      FROM \`${PROJECT_ID}.${DATASET}.${TABLE}\`
-      WHERE DATE(TIMESTAMP(${purchaseDateCol})) >= '${dateFrom}'
-        AND DATE(TIMESTAMP(${purchaseDateCol})) <= '${dateTo}'
-        AND LOWER(CAST(${statusCol} AS STRING)) NOT IN ('cancelled', 'voided', '4', '5')
-        AND (${saleChannelCol} IS NULL
-             OR SAFE_CAST(${saleChannelCol} AS INT64) NOT IN (59373, 59374, 59375, 59376, 113822))
-        AND ${branchIdCol} IS NOT NULL
-      GROUP BY branch_id, branch_name, metrics_date
+      WITH orders_clean AS (
+        SELECT
+          CAST(${branchIdCol} AS STRING) as branch_id,
+          ${branchNameCol} as branch_name,
+          DATE(TIMESTAMP(${purchaseDateCol})) as metrics_date,
+          COALESCE(SAFE_CAST(${totalPaymentCol} AS FLOAT64), SAFE_CAST(${totalCol} AS FLOAT64), 0) as revenue,
+          CAST(${cusIdCol} AS STRING) as cus_id
+        FROM \`${PROJECT_ID}.${DATASET}.${TABLE}\`
+        WHERE DATE(TIMESTAMP(${purchaseDateCol})) >= '${dateFrom}'
+          AND DATE(TIMESTAMP(${purchaseDateCol})) <= '${dateTo}'
+          AND LOWER(CAST(${statusCol} AS STRING)) NOT IN ('cancelled', 'voided', '4', '5')
+          AND (${saleChannelCol} IS NULL
+               OR SAFE_CAST(${saleChannelCol} AS INT64) NOT IN (59373, 59374, 59375, 59376, 113822))
+          AND ${branchIdCol} IS NOT NULL
+      ),
+      -- For each customer+branch, find the first purchase date
+      cust_first AS (
+        SELECT cus_id, branch_id, MIN(metrics_date) as first_date
+        FROM orders_clean
+        WHERE cus_id IS NOT NULL AND cus_id != '0'
+        GROUP BY cus_id, branch_id
+      ),
+      daily_agg AS (
+        SELECT
+          o.branch_id,
+          o.branch_name,
+          o.metrics_date,
+          COUNT(*) as total_transactions,
+          SUM(o.revenue) as total_revenue,
+          COUNT(DISTINCT o.cus_id) as customer_count,
+          COUNT(DISTINCT CASE WHEN cf.first_date < o.metrics_date THEN o.cus_id END) as repeat_customer_count,
+          COUNT(DISTINCT CASE WHEN cf.first_date = o.metrics_date THEN o.cus_id END) as new_customer_count
+        FROM orders_clean o
+        LEFT JOIN cust_first cf ON o.cus_id = cf.cus_id AND o.branch_id = cf.branch_id
+        GROUP BY o.branch_id, o.branch_name, o.metrics_date
+      )
+      SELECT * FROM daily_agg
       ORDER BY metrics_date DESC, total_revenue DESC
     `;
 
@@ -212,6 +235,8 @@ Deno.serve(async (req) => {
           total_revenue: revenue,
           customer_count: parseInt(row.customer_count) || 0,
           avg_transaction_value: transactions > 0 ? Math.round(revenue / transactions) : 0,
+          repeat_customer_count: parseInt(row.repeat_customer_count) || 0,
+          new_customer_count: parseInt(row.new_customer_count) || 0,
         });
       }
 
