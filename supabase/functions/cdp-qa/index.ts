@@ -39,10 +39,12 @@ async function fetchKnowledgePack(supabase: any, tenantId: string, packName: str
         query = query.eq('status', 'open').order('severity', { ascending: true });
       }
       if (packName === 'revenue') {
-        const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        // Calendar month: first day of current month, NOT last 30 days
+        const now = new Date();
+        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
         query = query.in('metric_code', ['NET_REVENUE', 'ORDER_COUNT', 'AOV'])
           .eq('dimension_type', 'total')
-          .gte('grain_date', fromDate)
+          .gte('grain_date', firstOfMonth)
           .order('grain_date', { ascending: false });
       }
 
@@ -151,26 +153,35 @@ CHỈ SELECT trên views được phép. Max 50 rows. tenant_id = '<TENANT_ID>'.
 // ─── System Prompt ──────────────────────────────────────────────────
 
 function buildSystemPrompt(tenantId: string): string {
+  const now = new Date();
+  const currentMonth = now.toISOString().slice(0, 7); // YYYY-MM
+  const currentDate = now.toISOString().slice(0, 10);
+  
   return `Bạn là Bluecore AI Analyst — trợ lý phân tích tài chính & kinh doanh cho CEO/CFO.
+
+## NGÀY HIỆN TẠI: ${currentDate}
+"Tháng này" = tháng ${now.getMonth() + 1}/${now.getFullYear()} (từ ngày 01 đến hôm nay ${currentDate}). KHÔNG phải 30 ngày gần nhất.
 
 ## DỮ LIỆU CỦA BẠN
 Bạn được cung cấp [KNOWLEDGE PACKS] chứa dữ liệu THỰC từ database. Đây là nguồn sự thật duy nhất.
+Knowledge Pack "revenue" đã chứa data calendar month (từ ngày 01 tháng này).
 
 ## 3-TIER DATA ACCESS
 1. **Tier 1 (Knowledge Packs)**: Dữ liệu đã có sẵn trong [KNOWLEDGE PACKS] bên dưới. ƯU TIÊN dùng đầu tiên.
-2. **Tier 2 (Focused Query)**: Nếu cần chi tiết hơn (drill-down, time-series, filter) → gọi tool focused_query với template phù hợp.
+2. **Tier 2 (Focused Query)**: Nếu cần chi tiết hơn (drill-down, time-series, filter, PHÂN TÍCH THEO KÊNH) → GỌI focused_query NGAY.
 3. **Tier 3 (Dynamic SQL)**: CHỈ khi Tier 1+2 KHÔNG đủ → gọi query_database. PHẢI ghi lý do.
 
-## QUY TẮC VÀNG
+## QUY TẮC VÀNG (BẮT BUỘC)
 1. **KHÔNG BỊA SỐ**: CHỈ dùng số từ Knowledge Packs hoặc tool results. Không có → nói "chưa có dữ liệu".
 2. **KHÔNG hiển thị tên bảng/SQL/metadata**: Chỉ trả lời KẾT QUẢ KINH DOANH.
 3. **Trả lời bằng tiếng Việt**, trực tiếp vào vấn đề.
 4. **Doanh thu LUÔN đi kèm chi phí/margin** khi có dữ liệu.
 5. **Phân biệt**: revenue thực vs ước tính, SUM vs weighted average.
 6. **Format VND**: <1M → nguyên, 1M~999M → "X triệu", >=1B → "X tỷ".
-7. **KHÔNG BAO GIỜ hỏi xin phép user trước khi truy vấn**. Nếu cần data → GỌI TOOL NGAY. Không hỏi "bạn có muốn?", "tôi có thể truy vấn?".
-8. **Nếu Knowledge Pack không đủ → gọi focused_query NGAY**, không cần hỏi user.
-9. **Nếu user xác nhận (có, được, ok, đi, làm đi) → hiểu là user muốn bạn THỰC HIỆN hành động đã đề cập**, gọi tool ngay.
+7. **⚠️ TUYỆT ĐỐI KHÔNG hỏi xin phép user**. Không bao giờ nói "Bạn có muốn tôi truy vấn?", "Bạn có muốn xem chi tiết?", "Tôi có thể phân tích thêm?". Thay vào đó → GỌI TOOL NGAY và trả kết quả.
+8. **Nếu Knowledge Pack không đủ → gọi focused_query NGAY**, không hỏi, không giải thích.
+9. **Nếu user xác nhận (có, được, ok, đi, làm đi) → THỰC HIỆN NGAY**, gọi tool.
+10. **Khi user hỏi "theo kênh" → gọi focused_query("channel_monthly_detail") NGAY**. Không nói "chưa có dữ liệu theo kênh".
 
 ## METRIC CLASSIFICATION
 - CUMULATIVE (SUM): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
@@ -325,8 +336,8 @@ Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
     let conversationMessages = [...aiMessages];
     let needsStreaming = true;
 
-    // Detect if question likely needs drill-down (store, product detail, time-series)
-    const needsDrillDown = /cua hang|store|chi nhanh|top.*san pham|xu huong|trend|chi tiet|deep dive|so sanh.*kenh/i.test(lastUserMsg);
+    // Detect if question likely needs drill-down (store, product detail, time-series, by channel)
+    const needsDrillDown = /cua hang|store|chi nhanh|top.*san pham|xu huong|trend|chi tiet|deep dive|so sanh.*kenh|theo kenh|theo.*kenh|phan tich.*kenh/i.test(lastUserMsg);
 
     if (!isSimpleChat) {
       // Try non-streaming with tools (max 3 turns)
