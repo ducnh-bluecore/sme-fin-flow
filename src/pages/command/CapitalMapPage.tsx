@@ -188,6 +188,7 @@ export default function CapitalMapPage() {
                     <th className="text-left p-3 font-medium text-muted-foreground">{groupBy === 'collection' ? 'Bộ Sưu Tập' : groupBy === 'category' ? 'Category' : 'Season'}</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">Vốn Khóa</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">Tồn Kho</th>
+                    <th className="text-right p-3 font-medium text-muted-foreground">Số Tồn</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">% Khóa</th>
                     <th className="text-right p-3 font-medium text-muted-foreground">Số SP</th>
                   </tr>
@@ -198,6 +199,7 @@ export default function CapitalMapPage() {
                       <td className="p-3 font-medium">{item.group}</td>
                       <td className="p-3 text-right text-destructive font-semibold">{formatVND(item.cashLocked)}</td>
                       <td className="p-3 text-right text-muted-foreground">{formatVND(item.inventoryValue)}</td>
+                      <td className="p-3 text-right text-muted-foreground">{item.stockUnits.toLocaleString()}</td>
                       <td className="p-3 text-right text-muted-foreground">{item.lockedPct.toFixed(1)}%</td>
                       <td className="p-3 text-right text-muted-foreground">{item.productCount}</td>
                     </tr>
