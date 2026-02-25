@@ -3,7 +3,8 @@ import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Bot, User, Sparkles, RefreshCw, Clock, ArrowUp, TrendingUp, ShieldAlert, Package, BarChart3 } from 'lucide-react';
+import { Loader2, Send, Bot, User, Sparkles, RefreshCw, Clock, ArrowUp, TrendingUp, ShieldAlert, Package, BarChart3, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import AIMessageContent from '@/components/ai/AIMessageContent';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
@@ -34,6 +35,7 @@ export default function AIAgentPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { client, tenantId } = useTenantQueryBuilder();
+  const navigate = useNavigate();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -193,6 +195,14 @@ export default function AIAgentPage() {
         <title>AI Analyst | Bluecore</title>
         <meta name="description" content="Bluecore AI Analyst — hỏi bất kỳ câu hỏi về doanh thu, KPIs, cảnh báo, khách hàng" />
       </Helmet>
+      {/* Header with back button */}
+      <div className="px-4 pt-3 pb-1">
+        <div className="max-w-3xl mx-auto">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="text-xs text-muted-foreground hover:text-foreground gap-1.5 -ml-2">
+            <ArrowLeft className="h-3.5 w-3.5" /> Quay về FDP
+          </Button>
+        </div>
+      </div>
 
       {/* Chat Area */}
       <div className="flex-1 overflow-hidden">
