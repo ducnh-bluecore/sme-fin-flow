@@ -13,7 +13,7 @@ export interface CapitalMapItem {
   productCount: number;
 }
 
-export function useCapitalMap(groupBy: 'category' | 'season' = 'category') {
+export function useCapitalMap(groupBy: 'category' | 'season' | 'collection' = 'category') {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
@@ -21,18 +21,36 @@ export function useCapitalMap(groupBy: 'category' | 'season' = 'category') {
     queryFn: async (): Promise<CapitalMapItem[]> => {
       if (!tenantId) return [];
 
-      const [cashLockRes, fcRes] = await Promise.all([
-        buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value')
-          .order('cash_locked_value', { ascending: false })
-          .limit(1000),
-        buildSelectQuery('inv_family_codes', 'id, category, season')
-          .eq('is_active', true)
-          .limit(2000),
+      const cashLockQuery = buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value')
+        .order('cash_locked_value', { ascending: false })
+        .limit(1000);
+      const fcQuery = buildSelectQuery('inv_family_codes', 'id, category, season, collection_id')
+        .eq('is_active', true)
+        .limit(2000);
+
+      let collectionQuery: any = null;
+      if (groupBy === 'collection') {
+        collectionQuery = buildSelectQuery('inv_collections', 'id, collection_name')
+          .limit(500);
+      }
+
+      const [cashLockRes, fcRes, collRes] = await Promise.all([
+        cashLockQuery,
+        fcQuery,
+        collectionQuery ? collectionQuery : Promise.resolve({ data: [] }),
       ]);
 
-      const fcMap = new Map<string, { category: string | null; season: string | null }>();
+      // Build collection name map if needed
+      const collectionMap = new Map<string, string>();
+      if (groupBy === 'collection' && collRes?.data) {
+        (collRes.data as any[]).forEach((c: any) => {
+          collectionMap.set(c.id, c.collection_name);
+        });
+      }
+
+      const fcMap = new Map<string, { category: string | null; season: string | null; collection_id: string | null }>();
       ((fcRes.data || []) as any[]).forEach((fc: any) => {
-        fcMap.set(fc.id, { category: fc.category, season: fc.season });
+        fcMap.set(fc.id, { category: fc.category, season: fc.season, collection_id: fc.collection_id });
       });
 
       // Aggregate by group
@@ -40,7 +58,14 @@ export function useCapitalMap(groupBy: 'category' | 'season' = 'category') {
 
       ((cashLockRes.data || []) as any[]).forEach((r: any) => {
         const fc = fcMap.get(r.product_id);
-        const key = (groupBy === 'category' ? fc?.category : fc?.season) || 'Chưa phân loại';
+        let key: string;
+        if (groupBy === 'category') {
+          key = fc?.category || 'Chưa phân loại';
+        } else if (groupBy === 'season') {
+          key = fc?.season || 'Chưa phân loại';
+        } else {
+          key = (fc?.collection_id && collectionMap.get(fc.collection_id)) || 'Chưa gán BST';
+        }
         
         if (!grouped.has(key)) {
           grouped.set(key, { cashLocked: 0, inventoryValue: 0, count: 0 });
