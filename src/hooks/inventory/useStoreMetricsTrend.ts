@@ -56,7 +56,7 @@ export function useStoreMetricsTrend(storeId: string | null, days = 30) {
         const aov = d.avg_transaction_value || 0;
         const repeatCount = d.repeat_customer_count || 0;
         const repeatRate = customers > 0 ? (repeatCount / customers) * 100 : 0;
-        const ipt = transactions > 0 && aov > 0 ? revenue / transactions / aov : 0;
+        const ipt = customers > 0 ? transactions / customers : 0;
 
         const dt = new Date(d.metrics_date);
         const label = `${dt.getDate().toString().padStart(2, '0')}/${(dt.getMonth() + 1).toString().padStart(2, '0')}`;
