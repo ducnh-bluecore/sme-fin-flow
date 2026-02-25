@@ -48,13 +48,15 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
 // ============= BigQuery =============
 
-async function queryBigQuery(
+async function queryBigQueryAll(
   accessToken: string,
   query: string,
-): Promise<{ rows: Record<string, any>[]; totalRows: number }> {
+): Promise<Record<string, any>[]> {
   console.log('[sync-inv] BQ query:', query.substring(0, 200));
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
-  const response = await fetch(url, {
+  
+  // Start query job
+  const jobUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const response = await fetch(jobUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -64,40 +66,45 @@ async function queryBigQuery(
       query,
       useLegacySql: false,
       maxResults: BQ_BATCH_SIZE,
-      timeoutMs: 120000,
+      timeoutMs: 300000,
     }),
   });
   const data = await response.json();
   if (data.error) throw new Error(`BigQuery error: ${data.error.message}`);
 
   const schema = data.schema?.fields || [];
-  const rows = (data.rows || []).map((row: any) => {
-    const obj: Record<string, any> = {};
-    row.f.forEach((field: any, i: number) => {
-      obj[schema[i]?.name || `col_${i}`] = field.v;
+  const parseRows = (rows: any[]) =>
+    rows.map((row: any) => {
+      const obj: Record<string, any> = {};
+      row.f.forEach((field: any, i: number) => {
+        obj[schema[i]?.name || `col_${i}`] = field.v;
+      });
+      return obj;
     });
-    return obj;
-  });
-  return { rows, totalRows: parseInt(data.totalRows || '0', 10) };
-}
 
-// ============= Paginated BigQuery =============
+  const allRows = parseRows(data.rows || []);
+  console.log(`[sync-inv] First page: ${allRows.length} rows`);
 
-async function queryAllPages(
-  accessToken: string,
-  baseQuery: string,
-): Promise<Record<string, any>[]> {
-  const allRows: Record<string, any>[] = [];
-  let offset = 0;
-  while (true) {
-    const paginated = `${baseQuery} LIMIT ${BQ_BATCH_SIZE} OFFSET ${offset}`;
-    const { rows } = await queryBigQuery(accessToken, paginated);
-    if (!rows.length) break;
-    allRows.push(...rows);
+  // Fetch remaining pages using pageToken (no re-execution)
+  let pageToken = data.pageToken;
+  const jobRef = data.jobReference;
+  const jobProjectId = jobRef?.projectId || PROJECT_ID;
+  const jobId = jobRef?.jobId;
+  
+  while (pageToken && jobId) {
+    const pageUrl = `https://bigquery.googleapis.com/bigquery/v2/projects/${jobProjectId}/queries/${jobId}?pageToken=${pageToken}&maxResults=${BQ_BATCH_SIZE}&location=${jobRef?.location || 'US'}`;
+    const pageRes = await fetch(pageUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const pageData = await pageRes.json();
+    if (pageData.error) throw new Error(`BQ page error: ${pageData.error.message}`);
+    
+    const pageRows = parseRows(pageData.rows || []);
+    allRows.push(...pageRows);
     console.log(`[sync-inv] Fetched ${allRows.length} rows so far...`);
-    if (rows.length < BQ_BATCH_SIZE) break;
-    offset += BQ_BATCH_SIZE;
+    pageToken = pageData.pageToken;
   }
+
   return allRows;
 }
 
@@ -136,25 +143,31 @@ Deno.serve(async (req) => {
 
     // Paginated SKU mapping load
     const skuToFc = new Map<string, string>();
-    const PAGE_SIZE = 5000;
-    let skuOffset = 0;
+    const PAGE_SIZE = 1000;
+    let skuPage = 0;
     while (true) {
+      const from = skuPage * PAGE_SIZE;
       const { data, error } = await supabase
         .from('inv_sku_fc_mapping')
         .select('sku, fc_id')
         .eq('tenant_id', TENANT_ID)
         .eq('is_active', true)
-        .range(skuOffset, skuOffset + PAGE_SIZE - 1);
+        .range(from, from + PAGE_SIZE - 1)
+        .limit(PAGE_SIZE);
       if (error) throw new Error(`SKU map fetch error: ${error.message}`);
       if (!data?.length) break;
       for (const m of data as any[]) skuToFc.set(m.sku, m.fc_id);
       if (data.length < PAGE_SIZE) break;
-      skuOffset += PAGE_SIZE;
+      skuPage++;
     }
 
     console.log(`[sync-inv] Loaded ${storeMap.size} stores, ${skuToFc.size} SKU mappings`);
 
-    // 3. Query BigQuery - all active product inventories
+    // 3. Query BigQuery - latest active product inventories (deduped)
+    // Filter known branch IDs to reduce data volume
+    const branchIds = Array.from(storeMap.keys());
+    const branchFilter = branchIds.map(b => `'${b}'`).join(',');
+    
     const bqQuery = `
       SELECT 
         CAST(branchId AS STRING) AS branch_id,
@@ -162,11 +175,16 @@ Deno.serve(async (req) => {
         IFNULL(onHand, 0) AS on_hand,
         IFNULL(reserveda, 0) AS reserved
       FROM \`${PROJECT_ID}.${DATASET}.${TABLE}\`
-      WHERE isActive = 'true' OR isActive IS NULL
-      ORDER BY branchId, productCode
+      WHERE (isActive = 'true' OR isActive IS NULL)
+        AND productCode IS NOT NULL AND productCode != ''
+        AND CAST(branchId AS STRING) IN (${branchFilter})
+      QUALIFY ROW_NUMBER() OVER (
+        PARTITION BY branchId, productCode 
+        ORDER BY dw_timestamp DESC
+      ) = 1
     `;
 
-    const bqRows = await queryAllPages(accessToken, bqQuery);
+    const bqRows = await queryBigQueryAll(accessToken, bqQuery);
     console.log(`[sync-inv] Total BQ rows: ${bqRows.length}`);
 
     // 4. Map & aggregate by (store_id, sku, fc_id)
@@ -206,7 +224,7 @@ Deno.serve(async (req) => {
     console.log(`[sync-inv] Mapped ${upsertRows.length} rows. Skipped: noStore=${noStore}, noFc=${noFc}, noSku=${skipped}`);
 
     // 5. Batch upsert into inv_state_positions
-    const UPSERT_BATCH = 500;
+    const UPSERT_BATCH = 2000;
     let totalUpserted = 0;
     let upsertErrors = 0;
 
