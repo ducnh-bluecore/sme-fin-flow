@@ -8,7 +8,7 @@ import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useStoreProfile } from '@/hooks/inventory/useStoreProfile';
 import { useStoreCustomerKpis } from '@/hooks/inventory/useStoreCustomerKpis';
 import { useStoreMetricsTrend } from '@/hooks/inventory/useStoreMetricsTrend';
-import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, BarChart3, Users, RotateCcw, ShoppingCart, Layers } from 'lucide-react';
+import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart, Layers } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -44,7 +44,21 @@ function getBarColor(label: string, type: 'ds' | 'size' | 'color') {
   return 'bg-violet-500';
 }
 
-interface BreakdownItem { label: string; units: number; pct: number; }
+interface BreakdownItem { label: string; units: number; pct: number; deltaPct?: number | null; }
+
+function DeltaBadge({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined) return null;
+  const isPositive = value > 0;
+  const isNeutral = value === 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[9px] font-medium tabular-nums ${
+      isNeutral ? 'text-muted-foreground' : isPositive ? 'text-emerald-400' : 'text-red-400'
+    }`}>
+      {isPositive ? '↑' : isNeutral ? '→' : '↓'}
+      {Math.abs(value).toFixed(1)}%
+    </span>
+  );
+}
 
 function HorizontalBarChart({ items, type, maxItems = 8 }: { items: BreakdownItem[]; type: 'ds' | 'size' | 'color'; maxItems?: number }) {
   const display = items.slice(0, maxItems);
@@ -55,8 +69,11 @@ function HorizontalBarChart({ items, type, maxItems = 8 }: { items: BreakdownIte
       {display.map((item) => (
         <div key={item.label} className="space-y-0.5">
           <div className="flex justify-between text-xs">
-            <span className="text-foreground font-medium truncate max-w-[55%]">{item.label}</span>
-            <span className="text-muted-foreground tabular-nums">{item.units.toLocaleString('vi-VN')} ({item.pct.toFixed(1)}%)</span>
+            <span className="text-foreground font-medium truncate max-w-[45%]">{item.label}</span>
+            <span className="text-muted-foreground tabular-nums flex items-center gap-1.5">
+              {item.units.toLocaleString('vi-VN')} ({item.pct.toFixed(1)}%)
+              <DeltaBadge value={item.deltaPct} />
+            </span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
             <div
@@ -70,7 +87,7 @@ function HorizontalBarChart({ items, type, maxItems = 8 }: { items: BreakdownIte
   );
 }
 
-function MetricCard({ icon: Icon, label, value, sub, iconClass }: { icon: any; label: string; value: string; sub?: string; iconClass?: string }) {
+function MetricCard({ icon: Icon, label, value, sub, iconClass, delta }: { icon: any; label: string; value: string; sub?: string; iconClass?: string; delta?: number | null }) {
   return (
     <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-muted/30 border border-border/40">
       <div className={`p-1.5 rounded-md bg-background/80 ${iconClass || ''}`}>
@@ -78,7 +95,10 @@ function MetricCard({ icon: Icon, label, value, sub, iconClass }: { icon: any; l
       </div>
       <div className="min-w-0">
         <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
-        <p className="text-sm font-semibold tabular-nums leading-tight">{value}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold tabular-nums leading-tight">{value}</p>
+          <DeltaBadge value={delta} />
+        </div>
         {sub && <p className="text-[10px] text-muted-foreground/60 leading-tight">{sub}</p>}
       </div>
     </div>
@@ -272,8 +292,8 @@ export function StoreIntelligenceTab() {
                   </div>
                 ) : customerKpis && customerKpis.daysCounted > 0 ? (
                   <div className="grid grid-cols-4 gap-2">
-                    <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" />
-                    <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" />
+                    <MetricCard icon={Users} label="Khách hàng" value={customerKpis.customerCount.toLocaleString('vi-VN')} sub={`~${customerKpis.dailyAvgCustomers}/ngày`} iconClass="text-cyan-400" delta={customerKpis.deltaCustomers} />
+                    <MetricCard icon={ShoppingCart} label="AOV" value={`${(customerKpis.avgOrderValue / 1000).toFixed(0)}K`} sub={`${customerKpis.totalTransactions.toLocaleString('vi-VN')} đơn`} iconClass="text-amber-400" delta={customerKpis.deltaAov} />
                     <MetricCard icon={Layers} label="IPT" value={`${customerKpis.itemsPerTransaction}`} sub="SP/đơn" iconClass="text-emerald-400" />
                     <MetricCard icon={RotateCcw} label="Tỷ lệ quay lại" value={`${customerKpis.returnRate}%`} sub={customerKpis.returnRate > 0 ? 'Khách mua ≥2 lần' : 'Chưa đủ dữ liệu'} iconClass="text-pink-400" />
                   </div>
