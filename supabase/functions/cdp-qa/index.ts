@@ -1,4 +1,14 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  KNOWLEDGE_PACKS,
+  QUERY_TEMPLATES,
+  detectIntentPacks,
+  buildTemplateSQL,
+  validateSQL,
+  injectTenantFilter,
+  type KnowledgePack,
+  type QueryTemplate,
+} from '../_shared/cdp-schema.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,333 +18,195 @@ const corsHeaders = {
 // ─── Types ───────────────────────────────────────────────────────────
 interface Message { role: 'user' | 'assistant' | 'system' | 'tool'; content: string; tool_call_id?: string; }
 interface RequestBody { messages: Message[]; tenantId?: string; }
-interface ToolResult { data: unknown; source: string; rows: number; period?: string; note?: string; }
+interface PackResult { pack: string; label: string; data: unknown; rows: number; drill_down_hint?: string; caveats?: string; }
 
-// ─── Tool Definitions (OpenAI function-calling format) ───────────────
+// ─── TIER 1: Knowledge Pack Fetcher ─────────────────────────────────
+
+async function fetchKnowledgePack(supabase: any, tenantId: string, packName: string): Promise<PackResult> {
+  const pack = KNOWLEDGE_PACKS[packName];
+  if (!pack) return { pack: packName, label: 'Unknown', data: null, rows: 0 };
+
+  const allData: Record<string, unknown[]> = {};
+  let totalRows = 0;
+
+  // Fetch all sources in parallel
+  const sourcePromises = pack.sources.map(async (src) => {
+    try {
+      let query = supabase.from(src.view).select(src.select || '*').eq('tenant_id', tenantId);
+
+      // Special filters for specific packs
+      if (packName === 'alerts') {
+        query = query.eq('status', 'open').order('severity', { ascending: true });
+      }
+      if (packName === 'revenue') {
+        const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        query = query.in('metric_code', ['NET_REVENUE', 'ORDER_COUNT', 'AOV'])
+          .eq('dimension_type', 'total')
+          .gte('grain_date', fromDate)
+          .order('grain_date', { ascending: false });
+      }
+
+      if (src.orderBy) {
+        const [col, dir] = src.orderBy.split('.');
+        query = query.order(col, { ascending: dir !== 'desc' });
+      }
+
+      if (src.limit) query = query.limit(src.limit);
+
+      const { data, error } = await query;
+      if (error) {
+        console.warn(`[cdp-qa] Pack ${packName}/${src.view} error:`, error.message);
+        return { view: src.view, data: [], error: error.message };
+      }
+      return { view: src.view, data: data || [] };
+    } catch (e) {
+      console.warn(`[cdp-qa] Pack ${packName}/${src.view} exception:`, e);
+      return { view: src.view, data: [], error: String(e) };
+    }
+  });
+
+  const results = await Promise.all(sourcePromises);
+  for (const r of results) {
+    allData[r.view] = r.data;
+    totalRows += r.data.length;
+  }
+
+  return {
+    pack: pack.name,
+    label: pack.label,
+    data: pack.sources.length === 1 ? allData[pack.sources[0].view] : allData,
+    rows: totalRows,
+    drill_down_hint: pack.drill_down_hint,
+  };
+}
+
+// ─── TIER 2: Focused Query Executor ─────────────────────────────────
+
+async function executeFocusedQuery(supabase: any, tenantId: string, templateName: string, params: Record<string, unknown>): Promise<{ data: unknown; rows: number; labels: Record<string, string>; caveats?: string; error?: string }> {
+  const template = QUERY_TEMPLATES[templateName];
+  if (!template) return { data: null, rows: 0, labels: {}, error: `Unknown template: ${templateName}` };
+
+  const { sql, error: buildError } = buildTemplateSQL(templateName, params, tenantId);
+  if (buildError) return { data: null, rows: 0, labels: template.labels, error: buildError };
+
+  console.log(`[cdp-qa] Tier 2 query: ${templateName}`, { params, sql: sql.slice(0, 200) });
+
+  try {
+    const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: sql });
+    if (error) return { data: null, rows: 0, labels: template.labels, error: error.message };
+    const result = Array.isArray(data) ? data.slice(0, template.max_rows) : [];
+    return { data: result, rows: result.length, labels: template.labels, caveats: template.caveats };
+  } catch (e) {
+    return { data: null, rows: 0, labels: template.labels, error: String(e) };
+  }
+}
+
+// ─── Tool Definitions (Tier 2 + Tier 3 only) ────────────────────────
+
 const TOOL_DEFINITIONS = [
   {
-    type: 'function', function: {
-      name: 'get_revenue_kpis', description: 'Lấy KPI doanh thu: NET_REVENUE, ORDER_COUNT, AOV theo ngày. Dùng khi hỏi về doanh thu, đơn hàng, AOV.',
-      parameters: { type: 'object', properties: { days: { type: 'number', description: 'Số ngày gần nhất (mặc định 30)', default: 30 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_profitability', description: 'Lấy COGS và GROSS_MARGIN theo ngày. Dùng khi hỏi về lợi nhuận, chi phí hàng bán, biên lợi nhuận.',
-      parameters: { type: 'object', properties: { days: { type: 'number', default: 30 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_channel_breakdown', description: 'Doanh thu/đơn hàng CHIA THEO KÊNH (Shopee, Lazada, TikTok, Website...). Dùng khi hỏi kênh nào bán tốt nhất.',
-      parameters: { type: 'object', properties: { days: { type: 'number', default: 30 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_marketing_kpis', description: 'Chi phí quảng cáo (AD_SPEND), ROAS, AD_IMPRESSIONS. Dùng khi hỏi về marketing, ads, hiệu quả quảng cáo.',
-      parameters: { type: 'object', properties: { days: { type: 'number', default: 30 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_top_products', description: 'Top sản phẩm theo doanh thu 30 ngày gần nhất. Dùng khi hỏi sản phẩm bán chạy, top SKU.',
-      parameters: { type: 'object', properties: { limit: { type: 'number', default: 10 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_inventory_health', description: 'Tồn kho hiện tại: sản phẩm có stock > 0. Dùng khi hỏi về tồn kho, hàng tồn.',
-      parameters: { type: 'object', properties: { limit: { type: 'number', default: 20 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_active_alerts', description: 'Cảnh báo đang mở (open). Dùng khi hỏi "có vấn đề gì?", "alert nào đang mở?".',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_customer_overview', description: 'Tổng hợp LTV khách hàng, segments, at-risk. Lưu ý: linking 7.6% nên kết quả mang tính tham khảo.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_cohort_analysis', description: 'Phân tích LTV theo cohort (tháng đầu mua). Dùng khi hỏi retention, cohort, LTV theo nhóm.',
-      parameters: { type: 'object', properties: { limit: { type: 'number', default: 20 } }, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'get_channel_pl', description: 'P&L theo kênh bán hàng (revenue, COGS, margin, fee). Dùng khi hỏi lãi/lỗ theo kênh.',
-      parameters: { type: 'object', properties: {}, required: [] },
-    },
-  },
-  {
-    type: 'function', function: {
-      name: 'discover_schema', description: 'Khám phá cấu trúc database: tìm bảng/view theo từ khóa. SAU KHI nhận kết quả, BẮT BUỘC gọi tiếp query_database ngay trong cùng lượt để lấy dữ liệu thực tế. KHÔNG BAO GIỜ chỉ trả về schema cho user.',
+    type: 'function',
+    function: {
+      name: 'focused_query',
+      description: `Truy vấn dữ liệu chi tiết bằng template có sẵn. Dùng khi Knowledge Pack data không đủ chi tiết (drill-down, time-series dài, filter cụ thể).
+
+Available templates:
+${Object.values(QUERY_TEMPLATES).map(t => `- ${t.name}: ${t.description} | Params: ${Object.entries(t.params).map(([k, v]) => `${k}(${v.type}${v.required ? ',required' : ''})`).join(', ')}`).join('\n')}`,
       parameters: {
         type: 'object',
-        properties: { search_term: { type: 'string', description: 'Từ khóa tìm kiếm (VD: store, cash, expense, vendor)' } },
-        required: ['search_term'],
+        properties: {
+          template: {
+            type: 'string',
+            description: 'Tên template',
+            enum: Object.keys(QUERY_TEMPLATES),
+          },
+          params: {
+            type: 'object',
+            description: 'Parameters cho template',
+          },
+        },
+        required: ['template'],
       },
     },
   },
   {
-    type: 'function', function: {
-      name: 'query_database', description: 'Truy vấn SQL tùy chỉnh cho câu hỏi phức tạp. CHỈ dùng SELECT trên các view v_* hoặc bảng được phép. Luôn filter theo tenant_id.',
+    type: 'function',
+    function: {
+      name: 'query_database',
+      description: `[TIER 3 - FALLBACK] Truy vấn SQL tùy chỉnh. CHỈ dùng khi Knowledge Pack VÀ focused_query templates đều KHÔNG đủ. 
+Phải ghi lý do tại sao Tier 1+2 không đủ.
+CHỈ SELECT trên views được phép. Max 50 rows. tenant_id = '<TENANT_ID>'.`,
       parameters: {
         type: 'object',
-        properties: { sql: { type: 'string', description: 'Câu SQL SELECT. PHẢI có WHERE tenant_id = \'<TENANT_ID>\'. Chỉ dùng bảng/view được phép.' } },
-        required: ['sql'],
+        properties: {
+          sql: { type: 'string', description: 'SQL SELECT query' },
+          reason: { type: 'string', description: 'Lý do tại sao Tier 1+2 không đủ cho câu hỏi này' },
+        },
+        required: ['sql', 'reason'],
       },
     },
   },
 ];
 
 // ─── System Prompt ──────────────────────────────────────────────────
+
 function buildSystemPrompt(tenantId: string): string {
   return `Bạn là Bluecore AI Analyst — trợ lý phân tích tài chính & kinh doanh cho CEO/CFO.
 
-## QUAN TRỌNG NHẤT — STATELESS
-⚠️ MỖI CÂU HỎI LÀ ĐỘC LẬP. Dữ liệu từ câu trả lời TRƯỚC KHÔNG có sẵn.
-Khi user hỏi tiếp về 1 entity (ví dụ "phân tích CN Trung Tâm"), BẮT BUỘC gọi tool để lấy data MỚI.
-Conversation history CHỈ cho biết ngữ cảnh (user đang hỏi gì), KHÔNG chứa data thực.
-KHÔNG BAO GIỜ nói "tôi chưa có đủ dữ liệu" — hãy chủ động gọi tool để LẤY dữ liệu.
+## DỮ LIỆU CỦA BẠN
+Bạn được cung cấp [KNOWLEDGE PACKS] chứa dữ liệu THỰC từ database. Đây là nguồn sự thật duy nhất.
 
-## PHONG CÁCH
-1. **Chào hỏi**: Trả lời tự nhiên, không cần tool.
-2. **Câu hỏi nhanh** ("doanh thu tháng này?"): 2-3 câu + số liệu. KHÔNG mở đầu bằng "Chào anh/chị".
-3. **Câu hỏi phân tích** ("phân tích CN Trung Tâm"): Gọi NHIỀU tools, phân tích sâu, kèm chart.
-4. **Follow-up** ("phân tích thêm X", "chi tiết hơn"): BẮT BUỘC gọi tool lại, KHÔNG dựa vào data cũ.
-
-Trả lời bằng tiếng Việt. Trả lời TRỰC TIẾP vào vấn đề.
-
-## TOOLS
-12 tools lấy dữ liệu LIVE + discover_schema để khám phá data mới. BẮT BUỘC gọi tool khi hỏi về số liệu. KHÔNG bịa số.
-Cross-domain → gọi 2-3 tools cùng lúc.
-
-## KHÁM PHÁ DỮ LIỆU
-Khi KHÔNG có tool chuyên dụng phù hợp (ví dụ: "cửa hàng", "chi phí", "vendor"):
-1. Gọi discover_schema("từ_khóa") để tìm bảng/view
-2. NGAY LẬP TỨC gọi query_database — KHÔNG DỪNG sau bước 1.
-
-⚠️ ƯU TIÊN views (v_*) hơn bảng gốc.
-⚠️ CẤM narrate: KHÔNG viết tên bảng, SQL, "[HỆ THỐNG]". Chỉ trả lời KẾT QUẢ KINH DOANH.
-⚠️ KHÔNG BỊA SỐ. Query lỗi/rỗng → nói "chưa có dữ liệu".
-
-## SCHEMA (cho query_database)
-★ kpi_facts_daily: grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
-  ⚠️ SUM: BẮT BUỘC filter dimension_type='total'. Theo kênh: filter dimension_type='channel'.
-★ v_channel_pl_summary: channel, period, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin
-★ v_pl_monthly_summary: year_month, gross_sales, net_sales, cogs, gross_profit, net_income
-★ v_top_products_30d, v_cdp_ltv_summary, v_cdp_ltv_by_cohort, alert_instances
-★ CỬA HÀNG VẬT LÝ (QUAN TRỌNG):
-  - inv_stores: id, store_name, store_code, address, is_active, capacity, tenant_id
-  - v_inv_store_revenue: store_id, est_revenue, estimated_pct, tenant_id (KHÔNG có store_name!)
-  - v_inv_store_metrics: store_id, total_sold, avg_velocity, active_fcs, tenant_id (KHÔNG có store_name!)
-  ⚠️ v_inv_store_revenue và v_inv_store_metrics CHỈ có store_id → BẮT BUỘC JOIN với inv_stores để lấy store_name.
-  VD: SELECT s.store_name, r.est_revenue FROM v_inv_store_revenue r JOIN inv_stores s ON s.id = r.store_id WHERE r.tenant_id = '${tenantId}'
-⚠️ v_financial_monthly_summary: TRỐNG, KHÔNG dùng.
-Với query_database: tenant_id = '${tenantId}'
-
-## METRIC CLASSIFICATION
-CUMULATIVE (SUM): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
-AVERAGE/RATIO (weighted avg, KHÔNG SUM): AOV, ROAS, GROSS_MARGIN
-SNAPSHOT (latest): INVENTORY, CASH_POSITION
+## 3-TIER DATA ACCESS
+1. **Tier 1 (Knowledge Packs)**: Dữ liệu đã có sẵn trong [KNOWLEDGE PACKS] bên dưới. ƯU TIÊN dùng đầu tiên.
+2. **Tier 2 (Focused Query)**: Nếu cần chi tiết hơn (drill-down, time-series, filter) → gọi tool focused_query với template phù hợp.
+3. **Tier 3 (Dynamic SQL)**: CHỈ khi Tier 1+2 KHÔNG đủ → gọi query_database. PHẢI ghi lý do.
 
 ## QUY TẮC VÀNG
-- **KHÔNG BỊA SỐ**: Chỉ dùng số từ tool data. Không có → discover_schema → query_database. Vẫn không có → nói rõ.
-- **PHÂN BIỆT**: "Cửa hàng" = địa điểm vật lý (discover_schema("store")). "Kênh" = Shopee/Lazada/TikTok (get_channel_breakdown).
-- Format VND: <1M → nguyên, 1M~999M → "X triệu", >=1B → "X tỷ".
-- Doanh thu LUÔN đi kèm COGS/margin. Marketing = Contribution Margin.
-- ⚠️ Customer linking 7.6%, Expenses = 0 → nêu rõ hạn chế.
-- Phát hiện rủi ro → đề xuất STOP/INVEST/INVESTIGATE.
+1. **KHÔNG BỊA SỐ**: CHỈ dùng số từ Knowledge Packs hoặc tool results. Không có → nói "chưa có dữ liệu".
+2. **KHÔNG hiển thị tên bảng/SQL/metadata**: Chỉ trả lời KẾT QUẢ KINH DOANH.
+3. **Trả lời bằng tiếng Việt**, trực tiếp vào vấn đề.
+4. **Doanh thu LUÔN đi kèm chi phí/margin** khi có dữ liệu.
+5. **Phân biệt**: revenue thực vs ước tính, SUM vs weighted average.
+6. **Format VND**: <1M → nguyên, 1M~999M → "X triệu", >=1B → "X tỷ".
+
+## METRIC CLASSIFICATION
+- CUMULATIVE (SUM): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
+- AVERAGE/RATIO (weighted avg, KHÔNG SUM): AOV, ROAS, GROSS_MARGIN
+- SNAPSHOT (latest): INVENTORY, CASH_POSITION
+
+## PHONG CÁCH
+- **Chào hỏi**: Tự nhiên, không cần data.
+- **Câu hỏi nhanh**: 2-3 câu + số liệu chính.
+- **Câu hỏi phân tích**: Gọi focused_query nếu cần, phân tích sâu, kèm chart.
+- Kết thúc bằng **hành động cụ thể** hoặc khuyến nghị.
 
 ## CHART
-Khi có >= 3 data points:
+Khi có >= 3 data points, tạo chart:
 \`\`\`chart
 {"type":"bar","title":"...","data":[...],"series":[{"key":"value","name":"...","color":"#3b82f6"}],"xKey":"label","yFormat":"vnd"}
 \`\`\`
-Types: bar, line, composed, pie. Max 12-15 points. yFormat: "vnd"|"percent"|"number".`;
+Types: bar, line, composed, pie. Max 12-15 points. yFormat: "vnd"|"percent"|"number".
+
+## LƯU Ý DATA
+- ⚠️ Customer linking ~7.6%, kết quả CDP mang tính tham khảo.
+- ⚠️ est_revenue từ cửa hàng là ƯỚC TÍNH, không phải POS thực tế.
+- ⚠️ Chi phí (Expenses) có thể = 0 nếu chưa nhập liệu.
+- Phát hiện rủi ro → đề xuất STOP/INVEST/INVESTIGATE.
+
+Tenant ID cho query_database: ${tenantId}`;
 }
 
-// ─── Tool Execution ─────────────────────────────────────────────────
-async function executeTool(supabase: any, tenantId: string, name: string, args: Record<string, any>): Promise<ToolResult> {
-  const days = args.days || 30;
-  const limit = args.limit || 10;
-  const fromDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+// ─── AI Gateway ─────────────────────────────────────────────────────
 
-  switch (name) {
-    case 'get_revenue_kpis': {
-      const { data, error } = await supabase
-        .from('kpi_facts_daily')
-        .select('grain_date, metric_code, metric_value, dimension_value')
-        .eq('tenant_id', tenantId)
-        .in('metric_code', ['NET_REVENUE', 'ORDER_COUNT', 'AOV'])
-        .eq('dimension_type', 'total')
-        .gte('grain_date', fromDate)
-        .order('grain_date', { ascending: false })
-        .limit(1000);
-      if (error) return { data: null, source: 'kpi_facts_daily', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'kpi_facts_daily', rows: data.length, period: `${days} ngày gần nhất` };
-    }
-
-    case 'get_profitability': {
-      const { data, error } = await supabase
-        .from('kpi_facts_daily')
-        .select('grain_date, metric_code, metric_value')
-        .eq('tenant_id', tenantId)
-        .in('metric_code', ['COGS', 'GROSS_MARGIN'])
-        .eq('dimension_type', 'total')
-        .gte('grain_date', fromDate)
-        .order('grain_date', { ascending: false })
-        .limit(200);
-      if (error) return { data: null, source: 'kpi_facts_daily', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'kpi_facts_daily', rows: data.length, period: `${days} ngày` };
-    }
-
-    case 'get_channel_breakdown': {
-      const { data, error } = await supabase
-        .from('kpi_facts_daily')
-        .select('grain_date, metric_code, metric_value, dimension_value')
-        .eq('tenant_id', tenantId)
-        .eq('dimension_type', 'channel')
-        .in('metric_code', ['NET_REVENUE', 'ORDER_COUNT', 'AOV'])
-        .gte('grain_date', fromDate)
-        .order('grain_date', { ascending: false })
-        .limit(500);
-      if (error) return { data: null, source: 'kpi_facts_daily', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'kpi_facts_daily (channel)', rows: data.length, period: `${days} ngày` };
-    }
-
-    case 'get_marketing_kpis': {
-      const { data, error } = await supabase
-        .from('kpi_facts_daily')
-        .select('grain_date, metric_code, metric_value, dimension_value')
-        .eq('tenant_id', tenantId)
-        .in('metric_code', ['AD_SPEND', 'ROAS', 'AD_IMPRESSIONS'])
-        .gte('grain_date', fromDate)
-        .order('grain_date', { ascending: false })
-        .limit(300);
-      if (error) return { data: null, source: 'kpi_facts_daily', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'kpi_facts_daily (marketing)', rows: data.length, period: `${days} ngày` };
-    }
-
-    case 'get_top_products': {
-      const { data, error } = await supabase
-        .from('v_top_products_30d')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('total_revenue', { ascending: false })
-        .limit(limit);
-      if (error) return { data: null, source: 'v_top_products_30d', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'v_top_products_30d', rows: data.length, period: '30 ngày' };
-    }
-
-    case 'get_inventory_health': {
-      const { data, error } = await supabase
-        .from('products')
-        .select('name, sku, stock_quantity, retail_price, cost_price, category')
-        .eq('tenant_id', tenantId)
-        .gt('stock_quantity', 0)
-        .order('stock_quantity', { ascending: false })
-        .limit(limit);
-      if (error) return { data: null, source: 'products', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'products', rows: data.length };
-    }
-
-    case 'get_active_alerts': {
-      const { data, error } = await supabase
-        .from('alert_instances')
-        .select('title, severity, category, impact_amount, message, suggested_action, created_at')
-        .eq('tenant_id', tenantId)
-        .eq('status', 'open')
-        .order('severity', { ascending: true })
-        .limit(20);
-      if (error) return { data: null, source: 'alert_instances', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'alert_instances', rows: data.length };
-    }
-
-    case 'get_customer_overview': {
-      const { data, error } = await supabase
-        .from('v_cdp_ltv_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(5);
-      if (error) return { data: null, source: 'v_cdp_ltv_summary', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'v_cdp_ltv_summary', rows: data.length, note: '⚠️ Customer linking = 7.6%, kết quả mang tính tham khảo' };
-    }
-
-    case 'get_cohort_analysis': {
-      const { data, error } = await supabase
-        .from('v_cdp_ltv_by_cohort')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('cohort_month', { ascending: false })
-        .limit(limit);
-      if (error) return { data: null, source: 'v_cdp_ltv_by_cohort', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'v_cdp_ltv_by_cohort', rows: data.length, note: '⚠️ Customer linking = 7.6%' };
-    }
-
-    case 'get_channel_pl': {
-      const { data, error } = await supabase
-        .from('v_channel_pl_summary')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .limit(50);
-      if (error) return { data: null, source: 'v_channel_pl_summary', rows: 0, note: `Error: ${error.message}` };
-      return { data, source: 'v_channel_pl_summary', rows: data.length };
-    }
-
-    case 'discover_schema': {
-      // Split multi-word input into first keyword only, strip non-alpha
-      const rawTerm = (args.search_term || '').toLowerCase().trim();
-      const searchTerm = rawTerm.split(/[\s,]+/)[0].replace(/[^a-z0-9_]/g, '');
-      if (!searchTerm) return { data: null, source: 'information_schema', rows: 0, note: 'search_term is required' };
-      const { data, error } = await supabase.rpc('discover_schema', { search_term: searchTerm });
-      if (error) {
-        console.error('[cdp-qa] discover_schema error:', error.message);
-        return { data: null, source: 'information_schema', rows: 0, note: `Error: ${error.message}` };
-      }
-      const result = Array.isArray(data) ? data : [];
-      const grouped: Record<string, string[]> = {};
-      for (const row of result) {
-        if (!grouped[row.table_name]) grouped[row.table_name] = [];
-        grouped[row.table_name].push(`${row.column_name} (${row.data_type})`);
-      }
-      return { data: grouped, source: 'information_schema', rows: result.length, note: `Found ${Object.keys(grouped).length} tables/views matching "${searchTerm}". Use query_database to query them with tenant_id = '${tenantId}'.` };
-    }
-
-    case 'query_database': {
-      let sql = args.sql || '';
-      sql = sql.replace(/<TENANT_ID>/g, tenantId);
-      const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: sql });
-      if (error) return { data: null, source: 'execute_readonly_query', rows: 0, note: `SQL Error: ${error.message}` };
-      const result = Array.isArray(data) ? data : [];
-      return { data: result.slice(0, 100), source: 'execute_readonly_query', rows: result.length };
-    }
-
-    default:
-      return { data: null, source: 'unknown', rows: 0, note: `Unknown tool: ${name}` };
-  }
-}
-
-// ─── Lovable AI Gateway helper with retry ───────────────────────────
 const AI_GATEWAY_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
 async function callAI(apiKey: string, body: Record<string, unknown>, maxRetries = 2): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const resp = await fetch(AI_GATEWAY_URL, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: body.model || 'google/gemini-2.5-pro',
+        model: body.model || 'google/gemini-2.5-flash',
         messages: body.messages,
         tools: body.tools,
         tool_choice: body.tool_choice,
@@ -359,6 +231,7 @@ function handleAIError(status: number): Response {
 }
 
 // ─── Main Handler ───────────────────────────────────────────────────
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -389,158 +262,156 @@ Deno.serve(async (req) => {
     }
     if (!activeTenantId) return new Response(JSON.stringify({ error: 'No tenant selected' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    const systemPrompt = buildSystemPrompt(activeTenantId);
     const userMessages = messages.slice(-6);
-
-    // ─── Simple query detection: skip Pass 1 for greetings/chat ───
     const lastUserMsg = userMessages[userMessages.length - 1]?.content?.toLowerCase() || '';
-    const isSimpleChat = /^(xin chào|hello|hi|chào|hey|cảm ơn|thank|ok|được|tốt|bye|tạm biệt|bạn là ai|bạn có thể làm gì|giúp gì|help)\b/i.test(lastUserMsg.trim()) 
+
+    // ─── Simple chat detection ────────────────────────────────────
+    const isSimpleChat = /^(xin chào|hello|hi|chào|hey|cảm ơn|thank|ok|được|tốt|bye|tạm biệt|bạn là ai|bạn có thể làm gì|giúp gì|help)\b/i.test(lastUserMsg.trim())
       && lastUserMsg.trim().length < 15;
 
-    let allToolResults: { name: string; result: ToolResult }[] = [];
-    let turnCount = 0;
+    // ─── TIER 1: Fetch Knowledge Packs ────────────────────────────
+    let packResults: PackResult[] = [];
+    if (!isSimpleChat) {
+      const packNames = detectIntentPacks(lastUserMsg);
+      console.log(`[cdp-qa] Intent packs: ${packNames.join(', ')}`);
+
+      packResults = await Promise.all(
+        packNames.map(name => fetchKnowledgePack(supabase, activeTenantId!, name))
+      );
+      console.log(`[cdp-qa] Packs fetched: ${packResults.map(p => `${p.pack}(${p.rows})`).join(', ')}`);
+    }
+
+    // ─── Build AI messages with Knowledge Pack data ───────────────
+    const systemPrompt = buildSystemPrompt(activeTenantId);
+    const aiMessages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...userMessages,
+    ];
+
+    if (packResults.length > 0) {
+      const packDataStr = packResults.map(p => {
+        let str = `### [${p.pack}] ${p.label} (${p.rows} rows)\n`;
+        str += `Data: ${JSON.stringify(p.data)}`;
+        if (p.drill_down_hint) str += `\n💡 Drill-down: ${p.drill_down_hint}`;
+        return str;
+      }).join('\n\n');
+
+      aiMessages.push({
+        role: 'user',
+        content: `[KNOWLEDGE PACKS — Dữ liệu THỰC từ database. CHỈ dùng số liệu này. KHÔNG bịa thêm.]
+
+${packDataStr}
+
+Nếu cần chi tiết hơn → gọi focused_query. Nếu vẫn không đủ → gọi query_database (ghi lý do).
+Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
+      });
+    }
+
+    // ─── AI Call: try tool-calling first, then stream ────────────
+    const MAX_TOOL_TURNS = 3;
+    let toolTurnCount = 0;
+    const toolResults: { name: string; templateOrSQL: string; result: any }[] = [];
+    let conversationMessages = [...aiMessages];
+    let needsStreaming = true;
 
     if (!isSimpleChat) {
-    // ─── Pass 1: Tool-calling (non-streaming, max 5 turns) ────────
-    const MAX_TURNS = 5;
-    
-    // Build conversation with explicit instruction that previous data is NOT available
-    let conversationMessages: any[] = [
-      { role: 'system', content: systemPrompt },
-      ...userMessages,
-    ];
-    
-    // If this is a follow-up (has previous assistant messages), inject reminder
-    const hasPreviousAssistant = userMessages.some(m => m.role === 'assistant');
-    if (hasPreviousAssistant) {
-      conversationMessages.push({
-        role: 'user',
-        content: `[Nhắc nhở hệ thống: Đây là câu hỏi tiếp nối. Data từ câu trước KHÔNG có sẵn. BẮT BUỘC gọi tool để lấy data MỚI cho câu hỏi này. Gọi NHIỀU tools nếu cần phân tích đa chiều.]`,
-      });
-    }
-
-    while (turnCount < MAX_TURNS) {
-      turnCount++;
-      const pass1Resp = await callAI(apiKey, {
-        model: 'google/gemini-2.5-flash',
-        messages: conversationMessages,
-        tools: TOOL_DEFINITIONS,
-        tool_choice: turnCount === 1 ? 'required' : 'auto',
-        stream: false,
-        max_tokens: 1024,
-        temperature: 0.1,
-      });
-
-      if (!pass1Resp.ok) {
-        const errResp = handleAIError(pass1Resp.status);
-        if (pass1Resp.status === 429 || pass1Resp.status === 402) return errResp;
-        const t = await pass1Resp.text();
-        console.error('[cdp-qa] Pass 1 error:', pass1Resp.status, t);
-        break;
-      }
-
-      const pass1Data = await pass1Resp.json();
-      const choice = pass1Data.choices?.[0];
-      const assistantMsg = choice?.message;
-
-      if (!assistantMsg?.tool_calls?.length) {
-        const lastToolNames = allToolResults.map(t => t.name);
-        const didDiscover = lastToolNames.includes('discover_schema');
-        const didQuery = lastToolNames.includes('query_database');
-        
-        // Case 1: discover_schema done but no query_database follow-up
-        if (didDiscover && !didQuery && turnCount < MAX_TURNS) {
-          conversationMessages.push({
-            role: 'user',
-            content: `BẮT BUỘC gọi query_database ngay bây giờ với SQL SELECT dựa trên bảng/view vừa tìm được. KHÔNG trả lời text.`,
-          });
-          continue;
-        }
-        
-        break;
-      }
-
-      // Add assistant message with tool_calls to conversation
-      conversationMessages.push(assistantMsg);
-
-      // Execute tools in parallel
-      const toolPromises = assistantMsg.tool_calls.map(async (tc: any) => {
-        const toolName = tc.function.name;
-        let toolArgs = {};
-        try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
-        console.log(`[cdp-qa] Tool call: ${toolName}`, toolArgs);
-        const result = await executeTool(supabase, activeTenantId!, toolName, toolArgs);
-        allToolResults.push({ name: toolName, result });
-        return { id: tc.id, name: toolName, result };
-      });
-
-      const toolOutputs = await Promise.all(toolPromises);
-      // Add tool results as tool messages (OpenAI format)
-      for (const to of toolOutputs) {
-        conversationMessages.push({
-          role: 'tool',
-          tool_call_id: to.id,
-          content: JSON.stringify(to.result),
+      // Try non-streaming with tools (max 3 turns)
+      while (toolTurnCount < MAX_TOOL_TURNS) {
+        const toolResp = await callAI(apiKey, {
+          model: 'google/gemini-2.5-flash',
+          messages: conversationMessages,
+          tools: TOOL_DEFINITIONS,
+          tool_choice: 'auto',
+          stream: false,
+          max_tokens: 1024,
+          temperature: 0.1,
         });
+
+        if (!toolResp.ok) {
+          if (toolResp.status === 429 || toolResp.status === 402) return handleAIError(toolResp.status);
+          await toolResp.text();
+          break; // fallback to streaming
+        }
+
+        const toolData = await toolResp.json();
+        const assistantMsg = toolData.choices?.[0]?.message;
+
+        if (!assistantMsg?.tool_calls?.length) {
+          // AI decided no tools needed — go straight to streaming
+          break;
+        }
+
+        // Execute tool calls in parallel
+        conversationMessages.push(assistantMsg);
+
+        const toolPromises = assistantMsg.tool_calls.map(async (tc: any) => {
+          const toolName = tc.function.name;
+          let toolArgs: Record<string, unknown> = {};
+          try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
+          console.log(`[cdp-qa] Tool call: ${toolName}`, toolArgs);
+
+          if (toolName === 'focused_query') {
+            const result = await executeFocusedQuery(supabase, activeTenantId!, toolArgs.template as string, (toolArgs.params || {}) as Record<string, unknown>);
+            toolResults.push({ name: `focused_query:${toolArgs.template}`, templateOrSQL: toolArgs.template as string, result });
+            return { id: tc.id, content: JSON.stringify(result) };
+          } else if (toolName === 'query_database') {
+            let sql = (toolArgs.sql as string) || '';
+            sql = sql.replace(/<TENANT_ID>/g, activeTenantId!);
+            const validation = validateSQL(sql);
+            if (!validation.valid) {
+              return { id: tc.id, content: JSON.stringify({ data: null, rows: 0, error: validation.error }) };
+            }
+            if (!sql.toLowerCase().includes('tenant_id')) {
+              sql = injectTenantFilter(sql, activeTenantId!);
+            }
+            const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: sql });
+            const result = Array.isArray(data) ? data.slice(0, 50) : [];
+            toolResults.push({ name: 'query_database', templateOrSQL: sql.slice(0, 100), result: { rows: result.length, reason: toolArgs.reason } });
+            return {
+              id: tc.id,
+              content: JSON.stringify({
+                data: result, rows: result.length,
+                source: 'Tier 3 dynamic query',
+                note: '⚠️ Dynamic query - data có thể không đầy đủ.',
+                error: error?.message,
+              }),
+            };
+          }
+          return { id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${toolName}` }) };
+        });
+
+        const outputs = await Promise.all(toolPromises);
+        for (const o of outputs) {
+          conversationMessages.push({ role: 'tool', tool_call_id: o.id, content: o.content });
+        }
+        toolTurnCount++;
       }
     }
-    } // end if (!isSimpleChat)
 
-    // ─── Pass 2: Streaming answer ─────────────────────────────────
-    const pass2Messages: any[] = [
-      { role: 'system', content: systemPrompt },
-      ...userMessages,
-    ];
-
-    if (allToolResults.length > 0) {
-      const toolSummary = allToolResults.map(tr =>
-        `[${tr.name}] source=${tr.result.source}, rows=${tr.result.rows}${tr.result.period ? `, period=${tr.result.period}` : ''}${tr.result.note ? `, note=${tr.result.note}` : ''}\nData: ${JSON.stringify(tr.result.data)}`
-      ).join('\n\n');
-
-      pass2Messages.push({
-        role: 'user',
-        content: `[INTERNAL DATA — CHỈ dùng số liệu bên dưới để trả lời. TUYỆT ĐỐI KHÔNG bịa số ngoài data này.]
-
-${toolSummary}
-
-Quy tắc:
-- CHỈ dùng số từ Data ở trên. Nếu Data rỗng hoặc null → nói "chưa có dữ liệu", KHÔNG bịa.
-- KHÔNG hiển thị tên bảng, SQL, tool name, metadata. Chỉ trả lời KẾT QUẢ KINH DOANH.
-- Metric cumulative→SUM, average→weighted avg, snapshot→latest.
-- >=3 points → chart. Kết luận bằng HÀNH ĐỘNG.`,
-      });
-    }
-
-    const pass2Resp = await callAI(apiKey, {
+    // ─── Final streaming pass ─────────────────────────────────────
+    const streamResp = await callAI(apiKey, {
       model: 'google/gemini-2.5-flash',
-      messages: pass2Messages,
+      messages: conversationMessages,
       stream: true,
       max_tokens: 3000,
-      temperature: 0.4,
+      temperature: 0.3,
     });
 
-    if (!pass2Resp.ok) {
-      const errResp = handleAIError(pass2Resp.status);
-      if (pass2Resp.status === 429 || pass2Resp.status === 402) return errResp;
-      const t = await pass2Resp.text();
-      console.error('[cdp-qa] Pass 2 error:', pass2Resp.status, t);
+    if (!streamResp.ok) {
+      if (streamResp.status === 429 || streamResp.status === 402) return handleAIError(streamResp.status);
+      await streamResp.text();
       return new Response(JSON.stringify({ error: 'Lỗi AI' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    console.log('[cdp-qa] 2-pass complete', {
+    console.log('[cdp-qa] Hybrid complete', {
       tenant: activeTenantId,
-      toolsUsed: allToolResults.map(t => t.name),
-      turns: turnCount,
+      packs: packResults.map(p => p.pack),
+      toolCalls: toolResults.map(t => t.name),
+      turns: toolTurnCount,
     });
 
-    // Lovable AI returns OpenAI-compatible SSE — pass through directly
-    return new Response(pass2Resp.body, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    return new Response(streamResp.body, {
+      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' },
     });
 
   } catch (error: unknown) {
