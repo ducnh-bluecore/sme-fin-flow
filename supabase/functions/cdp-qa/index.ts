@@ -190,9 +190,10 @@ Knowledge Pack "revenue" đã chứa data calendar month (từ ngày 01 tháng n
 
 ## PHONG CÁCH
 - **Chào hỏi**: Tự nhiên, không cần data.
-- **Câu hỏi nhanh**: 2-3 câu + số liệu chính.
+- **Câu hỏi nhanh**: 2-3 câu + số liệu chính. Kết thúc bằng insight/khuyến nghị.
 - **Câu hỏi phân tích**: Gọi focused_query nếu cần, phân tích sâu, kèm chart.
 - Kết thúc bằng **hành động cụ thể** hoặc khuyến nghị.
+- **⛔ KHÔNG BAO GIỜ kết thúc bằng câu hỏi dạng "Bạn có muốn...?", "Bạn có cần...?", "Tôi có thể...?"**. Nếu có thể drill-down thêm → tự gọi tool và trả kết quả luôn, HOẶC kết thúc bằng gợi ý ngắn (không phải câu hỏi) như "💡 Gợi ý: hỏi thêm về chi tiết theo kênh hoặc xu hướng theo tuần."
 
 ## CHART
 Khi có >= 3 data points, tạo chart:
@@ -336,8 +337,9 @@ Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
     let conversationMessages = [...aiMessages];
     let needsStreaming = true;
 
-    // Detect if question likely needs drill-down (store, product detail, time-series, by channel)
-    const needsDrillDown = /cua hang|store|chi nhanh|top.*san pham|xu huong|trend|chi tiet|deep dive|so sanh.*kenh|theo kenh|theo.*kenh|phan tich.*kenh/i.test(lastUserMsg);
+    // Detect if question likely needs drill-down - normalize diacritics first!
+    const lastUserMsgNorm = lastUserMsg.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const needsDrillDown = /cua hang|store|chi nhanh|top.*san pham|xu huong|trend|chi tiet|deep dive|so sanh.*kenh|theo kenh|theo.*kenh|phan tich.*kenh|theo.*cua hang|tung cua hang|tung kenh/i.test(lastUserMsgNorm);
 
     if (!isSimpleChat) {
       // Try non-streaming with tools (max 3 turns)
