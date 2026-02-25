@@ -1,101 +1,154 @@
 
 
-# Plan: Fix AI Agent -- 3 Critical Bugs
+# Nang cap toan bo Layout theo phong cach Aniq UI
 
-## Problems Identified
+## Phan tich hien trang
 
-From the screenshot, 3 bugs are visible:
+Project hien co **7 layout files** va **3 mobile components** can duoc thong nhat:
 
-1. **AI asks permission instead of querying**: User asks "cho toi 3 cua hang co doanh thu cao nhat" but AI says "chua co du lieu" and asks "Ban co muon toi truy van?" -- should auto-call `focused_query("store_performance")` immediately.
+| Layout | File | Vai tro |
+|--------|------|---------|
+| DashboardLayout | FDP - Sidebar dang toggle open/close |
+| Sidebar | FDP sidebar content - Accordion nav |
+| Header | FDP header |
+| BluecoreCommandLayout | Command - Sidebar collapsible (72/260px) |
+| ControlTowerLayout | Control Tower - Sidebar collapsible |
+| CDPLayout | CDP - Sidebar toggle open/close |
+| MDPLayout | MDP - Sidebar toggle open/close |
+| AdminLayout | Super Admin panel |
+| MobileBottomNav | Bottom tab bar |
+| MobileHeader | Sticky top header |
+| MobileDrawer | Right-side slide drawer |
 
-2. **AI prints SQL as text**: When user confirms "co", AI outputs `print(query_database("SELECT store_name..."))` as markdown text instead of actually executing the tool call. This happens because the final streaming pass has NO tools attached.
+## Van de hien tai
 
-3. **Still 24s**: Two sequential AI calls (non-streaming tool pass + streaming final pass) is still slow.
+1. **Khong nhat quan**: Moi layout code sidebar/header rieng, co layout dung `width 280`, co cai dung `260`, co cai dung `72` khi collapse
+2. **Sidebar style khac nhau**: FDP dung accordion expand, Command/CT dung flat list, CDP dung flat list, MDP dung section headers
+3. **Header khac nhau**: Co layout co bell icon, co layout khong; co layout co QuickDateSelector, co layout khong
+4. **Mobile components**: MobileDrawer hardcode nav items cua Control Tower, khong dynamic theo module dang dung
+5. **Thieu Aniq UI patterns**: Sidebar chua co section labels ("MAIN", "MANAGEMENT", "RESOURCES"), chua co status dots, chua co search bar trong sidebar
 
-## Root Causes
+## Thiet ke moi theo Aniq UI
 
-| Bug | Root Cause | Location |
-|-----|-----------|----------|
-| No store data | Intent map `'cua hang\|store': ['overview']` only fetches overview, which has zero store data | `cdp-schema.ts` line 111 |
-| Asks permission | System prompt lacks rule forbidding "asking user permission to query" | `index.ts` line 153-197 |
-| Prints SQL as text | Final streaming pass (line 392) has no `tools` param, so AI can't call tools on follow-ups | `index.ts` line 392-398 |
-| Short "co" skipped | `isSimpleChat` regex matches short messages like "co" and skips tool-calling | `index.ts` line 269-270 |
-| Slow 24s | 2 sequential AI calls: non-streaming tool pass + streaming final pass | `index.ts` line 317-398 |
-
-## Fixes
-
-### Fix 1: Intent Mapping for Stores (cdp-schema.ts)
-
-Change line 111:
-```
-'cua hang|store|chi nhanh': ['overview']
-```
-to:
-```
-'cua hang|store|chi nhanh': ['overview', 'channels']
-```
-
-AND add `store_performance` template as a drill-down hint in the overview pack so the AI knows to call it.
-
-### Fix 2: System Prompt -- No Permission Asking (index.ts)
-
-Add to system prompt rules:
-```
-- KHONG BAO GIO hoi xin phep user truoc khi truy van. 
-  Neu can data -> GOI TOOL NGAY. Khong hoi "ban co muon?", "toi co the truy van?".
-- Neu Knowledge Pack khong du -> goi focused_query NGAY, khong can hoi.
-```
-
-### Fix 3: Fix isSimpleChat Matching "co" (index.ts)
-
-The regex on line 269 matches short words like "co" (Vietnamese for "yes"). Fix by:
-- Removing generic short words from simple chat detection
-- Adding logic: if previous assistant message ended with a question, treat ANY short reply as a follow-up (not simple chat)
-
-### Fix 4: Merge to Single-Pass Streaming with Tools (index.ts)
-
-The biggest architectural fix: instead of 2 passes (non-streaming tool + streaming final), use a SINGLE streaming call with tools. When AI makes tool calls mid-stream, pause streaming, execute tools, then continue with a second streaming call that includes tool results.
+Dua tren screenshot Aniq UI, cac diem chinh can ap dung:
 
 ```text
-Current (slow):
-  Pass 1: Non-streaming + tools (5-15s) 
-  Pass 2: Streaming without tools (5-10s)
-  Total: 10-24s
-
-New (fast):
-  Pass 1: Non-streaming + tools (if tools needed) (3-8s)
-  Pass 2: Streaming WITH tools (for follow-ups) (3-5s)
-  Total: 3-13s
++---------------------------+----------------------------------------+
+|  [S] StartUp              |  Deployments            [Search icon]  |
+|---------------------------|----------------------------------------|
+|  MAIN                     |  Dashboard Overview                    |
+|    Overview               |  +----------+ +----------+ +--------+ |
+|    Projects          12   |  | KPI Card | | KPI Card | | KPI    | |
+|  > Deployments        3   |  +----------+ +----------+ +--------+ |
+|                           |                                        |
+|  MANAGEMENT               |  PROJECT    STATUS    TIME             |
+|    Notifications      9   |  Frontend   * Live    2m ago           |
+|    Team                   |  API Server * Building 5m ago          |
+|    Settings               |  Database   * Failed  12m ago          |
+|                           |                                        |
+|  RESOURCES                |                                        |
+|    Documentation          |                                        |
+|    Support                |                                        |
+|    Changelog              |                                        |
+|    Logout                 |                                        |
++---------------------------+----------------------------------------+
 ```
 
-Key change: the final streaming pass ALSO gets `tools: TOOL_DEFINITIONS` so follow-up messages can trigger tool calls.
+### Cac thay doi cu the
 
-BUT streaming + tool_calls is complex (need to parse SSE for tool calls). Simpler approach:
-- If tool calls happened in non-streaming pass -> stream final (no tools needed, data already fetched)
-- If NO tool calls in non-streaming pass AND it's a follow-up -> re-run non-streaming WITH `tool_choice: 'required'`
-- Then stream final
+#### 1. Tao Shared Layout Shell (`src/components/layout/AppShell.tsx`)
+- Component dung chung cho **tat ca** layouts (FDP, Command, CT, CDP, MDP, Admin)
+- Props: `navConfig`, `logo`, `subtitle`, `headerActions`
+- Sidebar: 280px open / 72px collapsed (icon-only mode)
+- Section labels uppercase nhu Aniq UI: "MAIN", "MANAGEMENT", etc.
+- Active item: `bg-primary/15 text-primary` voi left border accent
+- Badge counts: Pill badges ben phai nav items (nhu Aniq: "12", "3", "9")
+- Bottom: Back to Portal + Logout
 
-### Fix 5: Follow-up Context Detection (index.ts)
+#### 2. Cap nhat Sidebar Design
+- **Section headers**: Text uppercase, `text-[11px] font-semibold text-muted-foreground tracking-wider` (giong "MAIN", "MANAGEMENT" cua Aniq)
+- **Active state**: `bg-primary/10` voi `border-l-2 border-primary` hoac filled background
+- **Badge style**: `bg-muted text-foreground rounded-md px-2 py-0.5 text-xs` (giong Aniq "12", "3")
+- **Hover**: `bg-white/5` subtle
+- **Icon-only collapsed mode**: Chi hien icon + tooltip, khong hien text
+- **Search bar**: Optional search input o dau sidebar (nhu Aniq co search icon)
 
-When user sends short confirmations ("co", "duoc", "ok", "di", "lam di"):
-1. Check if previous assistant message contains a question mark
-2. If yes -> this is a follow-up, NOT simple chat
-3. Inject the previous context into the prompt so AI knows what to do
-4. Force `tool_choice: 'required'` for this turn
+#### 3. Cap nhat Header
+- Thong nhat chieu cao `h-14`
+- Backdrop blur: `bg-background/80 backdrop-blur-xl`
+- Left: TenantSwitcher (hoac collapse toggle khi sidebar dong)
+- Right: LanguageSwitcher + optional actions (bell, date selector)
+- Border bottom: `border-b border-border`
 
-## File Changes
+#### 4. Cap nhat Mobile Components
+- **MobileHeader**: Giu nguyen nhung dam bao consistent voi dark theme
+- **MobileDrawer**: Nhan `navItems` tu props thay vi hardcode, them section labels
+- **MobileBottomNav**: Cho phep truyen `items` tu props, active indicator dung primary color
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/_shared/cdp-schema.ts` | Fix intent mapping for stores |
-| `supabase/functions/cdp-qa/index.ts` | Fix isSimpleChat, add no-permission rule to prompt, add tools to final pass for follow-ups, add follow-up detection |
+#### 5. Cap nhat tung Layout file
+Moi layout se import `AppShell` va chi can truyen config:
 
-## Expected Results
+**FDP (DashboardLayout + Sidebar + Header):**
+- Sections: "TONG QUAN", "PHAN TICH", "DOI SOAT", "NHAP LIEU", "KE HOACH"
+- Accordion sub-items giu nguyen
+- Header: TenantSwitcher + LanguageSwitcher + Bell
 
-| Metric | Before | After |
-|--------|--------|-------|
-| "3 cua hang doanh thu cao nhat" | "Chua co du lieu, ban co muon?" | Auto-calls store_performance, returns data |
-| Follow-up "co" | Prints SQL as text | Executes tool, returns results |
-| Response time (with tools) | 24s | 8-13s |
-| Response time (Tier 1 only) | 10-15s | 3-5s |
+**Command (BluecoreCommandLayout):**
+- Sections: "COMMAND CENTER", "OPERATIONS", "SYSTEM"
+- Flat nav items
+- Header: TenantSwitcher + LanguageSwitcher
+
+**Control Tower (ControlTowerLayout):**
+- Sections: "COMMAND", "MONITORING", "SYSTEM"
+- Badge on Command item
+- Header: TenantSwitcher + LanguageSwitcher + Bell
+
+**CDP (CDPLayout):**
+- Sections: "PHAN TICH", "QUAN TRI", "HE THONG"
+- Flat nav items
+- Header: TenantSwitcher + LanguageSwitcher
+
+**MDP (MDPLayout):**
+- Sections: "CMO MODE", "MARKETING MODE", "SYSTEM"
+- Section headers expandable
+- Header: TenantSwitcher + QuickDateSelector + LanguageSwitcher
+
+**Admin (AdminLayout):**
+- Sections: "MANAGEMENT", "SYSTEM"
+- Super Admin badge
+- Header: SUPER ADMIN label
+
+#### 6. CSS Updates (`src/index.css`)
+- Them `.sidebar-section-label` class cho section headers
+- Them `.sidebar-nav-item` class thong nhat
+- Them `.sidebar-badge` class cho count badges
+- Dam bao tat ca su dung CSS variables da co
+
+## Chi tiet ky thuat
+
+### Files can tao moi:
+1. `src/components/layout/AppShell.tsx` - Shared layout shell
+
+### Files can cap nhat:
+1. `src/components/layout/DashboardLayout.tsx` - Su dung AppShell
+2. `src/components/layout/Sidebar.tsx` - Ap dung Aniq section labels + badge style
+3. `src/components/layout/Header.tsx` - Thong nhat style
+4. `src/components/layout/BluecoreCommandLayout.tsx` - Su dung AppShell pattern
+5. `src/components/layout/ControlTowerLayout.tsx` - Su dung AppShell pattern
+6. `src/components/layout/CDPLayout.tsx` - Su dung AppShell pattern
+7. `src/components/layout/MDPLayout.tsx` - Su dung AppShell pattern
+8. `src/components/layout/AdminLayout.tsx` - Su dung AppShell pattern
+9. `src/components/mobile/MobileBottomNav.tsx` - Dynamic nav items
+10. `src/components/mobile/MobileHeader.tsx` - Consistent dark theme
+11. `src/components/mobile/MobileDrawer.tsx` - Dynamic nav items + section labels
+12. `src/index.css` - Them sidebar utility classes
+13. `src/components/shared/PageHeader.tsx` - Dong bo style
+
+### Ket qua mong doi:
+- Tat ca 6 modules (FDP, Command, CT, CDP, MDP, Admin) co **giao dien sidebar/header dong nhat**
+- Section labels uppercase style Aniq UI
+- Badge counts dong nhat
+- Collapse/expand sidebar hoat dong giong nhau o moi module
+- Mobile experience nhat quan
+- Dark glassmorphism duoc ap dung toan bo
 
