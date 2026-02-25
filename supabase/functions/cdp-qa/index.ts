@@ -98,10 +98,17 @@ const TOOL_DEFINITIONS = [
 function buildSystemPrompt(tenantId: string): string {
   return `Bạn là Bluecore AI Analyst — trợ lý phân tích tài chính & kinh doanh cho CEO/CFO.
 
-## PHONG CÁCH — LINH HOẠT
+## QUAN TRỌNG NHẤT — STATELESS
+⚠️ MỖI CÂU HỎI LÀ ĐỘC LẬP. Dữ liệu từ câu trả lời TRƯỚC KHÔNG có sẵn.
+Khi user hỏi tiếp về 1 entity (ví dụ "phân tích CN Trung Tâm"), BẮT BUỘC gọi tool để lấy data MỚI.
+Conversation history CHỈ cho biết ngữ cảnh (user đang hỏi gì), KHÔNG chứa data thực.
+KHÔNG BAO GIỜ nói "tôi chưa có đủ dữ liệu" — hãy chủ động gọi tool để LẤY dữ liệu.
+
+## PHONG CÁCH
 1. **Chào hỏi**: Trả lời tự nhiên, không cần tool.
-2. **Câu hỏi nhanh** ("doanh thu tháng này?"): Trả lời 2-3 câu với số liệu chính. KHÔNG mở đầu bằng "Chào anh/chị".
-3. **Câu hỏi phân tích** ("tại sao margin giảm?"): Phân tích sâu, cross-domain, kèm chart.
+2. **Câu hỏi nhanh** ("doanh thu tháng này?"): 2-3 câu + số liệu. KHÔNG mở đầu bằng "Chào anh/chị".
+3. **Câu hỏi phân tích** ("phân tích CN Trung Tâm"): Gọi NHIỀU tools, phân tích sâu, kèm chart.
+4. **Follow-up** ("phân tích thêm X", "chi tiết hơn"): BẮT BUỘC gọi tool lại, KHÔNG dựa vào data cũ.
 
 Trả lời bằng tiếng Việt. Trả lời TRỰC TIẾP vào vấn đề.
 
@@ -109,16 +116,14 @@ Trả lời bằng tiếng Việt. Trả lời TRỰC TIẾP vào vấn đề.
 12 tools lấy dữ liệu LIVE + discover_schema để khám phá data mới. BẮT BUỘC gọi tool khi hỏi về số liệu. KHÔNG bịa số.
 Cross-domain → gọi 2-3 tools cùng lúc.
 
-## KHÁM PHÁ DỮ LIỆU (QUAN TRỌNG)
-Khi KHÔNG có tool chuyên dụng phù hợp:
+## KHÁM PHÁ DỮ LIỆU
+Khi KHÔNG có tool chuyên dụng phù hợp (ví dụ: "cửa hàng", "chi phí", "vendor"):
 1. Gọi discover_schema("từ_khóa") để tìm bảng/view
-2. NGAY LẬP TỨC gọi query_database với SQL dựa trên schema vừa tìm được — KHÔNG DỪNG LẠI sau bước 1.
+2. NGAY LẬP TỨC gọi query_database — KHÔNG DỪNG sau bước 1.
 
-⚠️ KHI CHỌN BẢNG: Luôn ƯU TIÊN views (v_*) hơn bảng gốc vì views đã pre-aggregated và có data đầy đủ hơn. VD: dùng v_inv_store_revenue thay vì store_daily_metrics.
-⚠️ CẤM TUYỆT ĐỐI: KHÔNG narrate quá trình discovery. KHÔNG viết tên bảng, SQL, "[HỆ THỐNG]" trong câu trả lời. KHÔNG viết "Tôi đã tìm thấy các bảng..." hay "Tôi sẽ sử dụng bảng...". Chỉ trả lời KẾT QUẢ KINH DOANH cuối cùng với SỐ LIỆU THỰC từ query.
-⚠️ KHÔNG BAO GIỜ BỊA SỐ. Nếu query trả về lỗi hoặc rỗng, nói rõ "chưa có dữ liệu" thay vì bịa "Cửa hàng A, B, C".
-
-KHÔNG BAO GIỜ nói "không có dữ liệu" trước khi thử discover_schema.
+⚠️ ƯU TIÊN views (v_*) hơn bảng gốc.
+⚠️ CẤM narrate: KHÔNG viết tên bảng, SQL, "[HỆ THỐNG]". Chỉ trả lời KẾT QUẢ KINH DOANH.
+⚠️ KHÔNG BỊA SỐ. Query lỗi/rỗng → nói "chưa có dữ liệu".
 
 ## SCHEMA (cho query_database)
 ★ kpi_facts_daily: grain_date, metric_code(NET_REVENUE/ORDER_COUNT/AOV/COGS/GROSS_MARGIN/AD_SPEND/ROAS), metric_value, dimension_type(total/channel), dimension_value
@@ -126,7 +131,12 @@ KHÔNG BAO GIỜ nói "không có dữ liệu" trước khi thử discover_schem
 ★ v_channel_pl_summary: channel, period, net_revenue, cogs, gross_margin, marketing_spend, contribution_margin
 ★ v_pl_monthly_summary: year_month, gross_sales, net_sales, cogs, gross_profit, net_income
 ★ v_top_products_30d, v_cdp_ltv_summary, v_cdp_ltv_by_cohort, alert_instances
-★ inv_stores, v_inv_store_revenue, v_inv_store_metrics — dữ liệu cửa hàng vật lý
+★ CỬA HÀNG VẬT LÝ (QUAN TRỌNG):
+  - inv_stores: id, store_name, store_code, address, is_active, capacity, tenant_id
+  - v_inv_store_revenue: store_id, est_revenue, estimated_pct, tenant_id (KHÔNG có store_name!)
+  - v_inv_store_metrics: store_id, total_sold, avg_velocity, active_fcs, tenant_id (KHÔNG có store_name!)
+  ⚠️ v_inv_store_revenue và v_inv_store_metrics CHỈ có store_id → BẮT BUỘC JOIN với inv_stores để lấy store_name.
+  VD: SELECT s.store_name, r.est_revenue FROM v_inv_store_revenue r JOIN inv_stores s ON s.id = r.store_id WHERE r.tenant_id = '${tenantId}'
 ⚠️ v_financial_monthly_summary: TRỐNG, KHÔNG dùng.
 Với query_database: tenant_id = '${tenantId}'
 
@@ -137,7 +147,7 @@ SNAPSHOT (latest): INVENTORY, CASH_POSITION
 
 ## QUY TẮC VÀNG
 - **KHÔNG BỊA SỐ**: Chỉ dùng số từ tool data. Không có → discover_schema → query_database. Vẫn không có → nói rõ.
-- **PHÂN BIỆT**: "Cửa hàng" = địa điểm vật lý (dùng discover_schema("store")). "Kênh" = Shopee/Lazada/TikTok (dùng get_channel_breakdown).
+- **PHÂN BIỆT**: "Cửa hàng" = địa điểm vật lý (discover_schema("store")). "Kênh" = Shopee/Lazada/TikTok (get_channel_breakdown).
 - Format VND: <1M → nguyên, 1M~999M → "X triệu", >=1B → "X tỷ".
 - Doanh thu LUÔN đi kèm COGS/margin. Marketing = Contribution Margin.
 - ⚠️ Customer linking 7.6%, Expenses = 0 → nêu rõ hạn chế.
@@ -385,19 +395,29 @@ Deno.serve(async (req) => {
     // ─── Simple query detection: skip Pass 1 for greetings/chat ───
     const lastUserMsg = userMessages[userMessages.length - 1]?.content?.toLowerCase() || '';
     const isSimpleChat = /^(xin chào|hello|hi|chào|hey|cảm ơn|thank|ok|được|tốt|bye|tạm biệt|bạn là ai|bạn có thể làm gì|giúp gì|help)\b/i.test(lastUserMsg.trim()) 
-      || lastUserMsg.trim().length < 10;
+      && lastUserMsg.trim().length < 15;
 
     let allToolResults: { name: string; result: ToolResult }[] = [];
     let turnCount = 0;
 
     if (!isSimpleChat) {
-    // ─── Pass 1: Tool-calling (non-streaming, max 2 turns) ────────
-    // Uses faster model for tool selection only
-    const MAX_TURNS = 4;
+    // ─── Pass 1: Tool-calling (non-streaming, max 5 turns) ────────
+    const MAX_TURNS = 5;
+    
+    // Build conversation with explicit instruction that previous data is NOT available
     let conversationMessages: any[] = [
       { role: 'system', content: systemPrompt },
       ...userMessages,
     ];
+    
+    // If this is a follow-up (has previous assistant messages), inject reminder
+    const hasPreviousAssistant = userMessages.some(m => m.role === 'assistant');
+    if (hasPreviousAssistant) {
+      conversationMessages.push({
+        role: 'user',
+        content: `[Nhắc nhở hệ thống: Đây là câu hỏi tiếp nối. Data từ câu trước KHÔNG có sẵn. BẮT BUỘC gọi tool để lấy data MỚI cho câu hỏi này. Gọi NHIỀU tools nếu cần phân tích đa chiều.]`,
+      });
+    }
 
     while (turnCount < MAX_TURNS) {
       turnCount++;
@@ -405,7 +425,7 @@ Deno.serve(async (req) => {
         model: 'google/gemini-2.5-flash',
         messages: conversationMessages,
         tools: TOOL_DEFINITIONS,
-        tool_choice: 'auto',
+        tool_choice: turnCount === 1 ? 'required' : 'auto',
         stream: false,
         max_tokens: 1024,
         temperature: 0.1,
@@ -433,16 +453,6 @@ Deno.serve(async (req) => {
           conversationMessages.push({
             role: 'user',
             content: `BẮT BUỘC gọi query_database ngay bây giờ với SQL SELECT dựa trên bảng/view vừa tìm được. KHÔNG trả lời text.`,
-          });
-          continue;
-        }
-        
-        // Case 2: First turn, no tools called at all, but question needs data
-        // Force the AI to use tools instead of narrating
-        if (turnCount === 1 && allToolResults.length === 0) {
-          conversationMessages.push({
-            role: 'user',
-            content: `KHÔNG narrate. BẮT BUỘC gọi tool ngay. Nếu không biết dùng tool nào, gọi discover_schema với từ khóa liên quan. KHÔNG trả lời text.`,
           });
           continue;
         }
