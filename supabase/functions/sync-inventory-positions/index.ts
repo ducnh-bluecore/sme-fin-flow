@@ -120,35 +120,36 @@ Deno.serve(async (req) => {
     const serviceAccount = JSON.parse(saJson);
     const accessToken = await getAccessToken(serviceAccount);
 
-    // 2. Load mappings from Supabase
-    const [storesRes, skuMapRes] = await Promise.all([
-      supabase
-        .from('inv_stores')
-        .select('id, store_code')
-        .eq('tenant_id', TENANT_ID)
-        .eq('is_active', true)
-        .limit(500),
-      supabase
-        .from('inv_sku_fc_mapping')
-        .select('sku, fc_id')
-        .eq('tenant_id', TENANT_ID)
-        .eq('is_active', true)
-        .limit(50000),
-    ]);
-
+    // 2. Load mappings from Supabase (paginated)
+    const storesRes = await supabase
+      .from('inv_stores')
+      .select('id, store_code')
+      .eq('tenant_id', TENANT_ID)
+      .eq('is_active', true)
+      .limit(500);
     if (storesRes.error) throw new Error(`Stores fetch error: ${storesRes.error.message}`);
-    if (skuMapRes.error) throw new Error(`SKU map fetch error: ${skuMapRes.error.message}`);
 
-    // branchId (string) → store uuid
     const storeMap = new Map<string, string>();
     for (const s of (storesRes.data || []) as any[]) {
       storeMap.set(String(s.store_code), s.id);
     }
 
-    // productCode (SKU) → fc_id uuid
+    // Paginated SKU mapping load
     const skuToFc = new Map<string, string>();
-    for (const m of (skuMapRes.data || []) as any[]) {
-      skuToFc.set(m.sku, m.fc_id);
+    const PAGE_SIZE = 5000;
+    let skuOffset = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('inv_sku_fc_mapping')
+        .select('sku, fc_id')
+        .eq('tenant_id', TENANT_ID)
+        .eq('is_active', true)
+        .range(skuOffset, skuOffset + PAGE_SIZE - 1);
+      if (error) throw new Error(`SKU map fetch error: ${error.message}`);
+      if (!data?.length) break;
+      for (const m of data as any[]) skuToFc.set(m.sku, m.fc_id);
+      if (data.length < PAGE_SIZE) break;
+      skuOffset += PAGE_SIZE;
     }
 
     console.log(`[sync-inv] Loaded ${storeMap.size} stores, ${skuToFc.size} SKU mappings`);
