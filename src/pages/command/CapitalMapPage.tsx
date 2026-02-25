@@ -106,11 +106,12 @@ export default function CapitalMapPage() {
       </motion.div>
 
       {/* Summary KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground">Tổng Vốn Khóa</p>
-            <p className="text-2xl font-bold text-destructive">{formatVND(totalLocked)}</p>
+            <p className="text-xs text-muted-foreground">Tồn Kho Mạng Lưới</p>
+            <p className="text-2xl font-bold text-foreground">{(invStats?.totalUnits || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">units</p>
           </CardContent>
         </Card>
         <Card>
@@ -118,6 +119,12 @@ export default function CapitalMapPage() {
             <p className="text-xs text-muted-foreground">Giá Trị Tồn Kho</p>
             <p className="text-2xl font-bold text-foreground">{formatVND(totalInvAll)}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">Toàn mạng lưới</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-xs text-muted-foreground">Tổng Vốn Khóa</p>
+            <p className="text-2xl font-bold text-destructive">{formatVND(totalLocked)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -136,6 +143,7 @@ export default function CapitalMapPage() {
           </CardContent>
         </Card>
       </div>
+
 
       {/* Chart */}
       <Card>
