@@ -6,6 +6,7 @@ interface BreakdownItem {
   label: string;
   units: number;
   pct: number;
+  deltaPct?: number | null;
 }
 
 interface StoreProfile {
@@ -16,6 +17,7 @@ interface StoreProfile {
   totalSold: number;
   periodStart: string | null;
   periodEnd: string | null;
+  hasComparison: boolean;
 }
 
 export function useStoreProfile(storeId: string | null) {
@@ -46,7 +48,45 @@ export function useStoreProfile(storeId: string | null) {
       const periodStart = (dateRange as any)?.[0]?.period_start || null;
       const periodEnd = (dateRangeEnd as any)?.[0]?.period_end || null;
 
-      // Paginated fetch to handle large datasets
+      // Try RPC with comparison first
+      const { data: compData, error: compError } = await supabase.rpc('fn_store_breakdown_comparison' as any, {
+        p_tenant_id: tenantId,
+        p_store_id: storeId,
+      });
+
+      if (!compError && compData) {
+        const c = compData as any;
+        const hasComparison = c.has_comparison || false;
+
+        const toBreakdown = (items: any[] | null): BreakdownItem[] => {
+          if (!items || !Array.isArray(items)) return [];
+          const total = items.reduce((a: number, b: any) => a + (b.units || 0), 0);
+          return items.map((item: any) => ({
+            label: item.label || 'N/A',
+            units: item.units || 0,
+            pct: total > 0 ? ((item.units || 0) / total) * 100 : 0,
+            deltaPct: hasComparison ? (item.delta_pct ?? null) : null,
+          }));
+        };
+
+        const ds = toBreakdown(c.demand_space);
+        const size = toBreakdown(c.size);
+        const color = toBreakdown(c.color);
+        const totalSold = ds.reduce((a, b) => a + b.units, 0);
+
+        return {
+          demandSpace: ds,
+          sizeBreakdown: size,
+          colorBreakdown: color,
+          hasColorData: color.length > 0,
+          totalSold,
+          periodStart,
+          periodEnd,
+          hasComparison,
+        };
+      }
+
+      // Fallback to old paginated fetch
       const PAGE_SIZE = 1000;
       let allRows: any[] = [];
       let from = 0;
@@ -66,7 +106,6 @@ export function useStoreProfile(storeId: string | null) {
         from += PAGE_SIZE;
       }
 
-      // Aggregate by demand_space
       const dsMap = new Map<string, number>();
       const sizeMap = new Map<string, number>();
       const colorMap = new Map<string, number>();
@@ -76,13 +115,10 @@ export function useStoreProfile(storeId: string | null) {
       for (const row of allRows) {
         const units = Number(row.units_sold) || 0;
         totalSold += units;
-
         const ds = row.demand_space || 'Không phân loại';
         dsMap.set(ds, (dsMap.get(ds) || 0) + units);
-
         const size = row.size || 'N/A';
         sizeMap.set(size, (sizeMap.get(size) || 0) + units);
-
         if (row.color) {
           hasColorData = true;
           colorMap.set(row.color, (colorMap.get(row.color) || 0) + units);
@@ -104,6 +140,7 @@ export function useStoreProfile(storeId: string | null) {
         totalSold,
         periodStart,
         periodEnd,
+        hasComparison: false,
       };
     },
     enabled: !!storeId && !!tenantId,

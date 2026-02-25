@@ -14,6 +14,12 @@ export interface StoreCustomerKpis {
   periodEnd: string | null;
   dailyAvgCustomers: number;
   dailyAvgRevenue: number;
+  // Deltas (% change vs previous period)
+  deltaCustomers: number | null;
+  deltaAov: number | null;
+  deltaTransactions: number | null;
+  deltaRevenue: number | null;
+  hasPreviousPeriod: boolean;
 }
 
 export function useStoreCustomerKpis(storeId: string | null, days = 30) {
@@ -24,7 +30,7 @@ export function useStoreCustomerKpis(storeId: string | null, days = 30) {
     queryFn: async (): Promise<StoreCustomerKpis | null> => {
       if (!tenantId || !storeId) return null;
 
-      const { data, error } = await supabase.rpc('fn_store_customer_kpis' as any, {
+      const { data, error } = await supabase.rpc('fn_store_customer_kpis_with_delta' as any, {
         p_tenant_id: tenantId,
         p_store_id: storeId,
         p_days: days,
@@ -50,6 +56,11 @@ export function useStoreCustomerKpis(storeId: string | null, days = 30) {
         periodEnd: d.period_end || null,
         dailyAvgCustomers: d.daily_avg_customers || 0,
         dailyAvgRevenue: d.daily_avg_revenue || 0,
+        deltaCustomers: d.delta_customers ?? null,
+        deltaAov: d.delta_aov ?? null,
+        deltaTransactions: d.delta_transactions ?? null,
+        deltaRevenue: d.delta_revenue ?? null,
+        hasPreviousPeriod: d.has_previous_period || false,
       };
     },
     enabled: !!tenantId && isReady && !!storeId,
