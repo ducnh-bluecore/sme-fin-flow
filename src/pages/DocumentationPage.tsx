@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { printFDPDocumentationAsPDF } from '@/lib/fdp-pdf-export';
 import { printCommandDocumentationAsPDF } from '@/lib/command-pdf-export';
+import { printFullBluecorePDF } from '@/lib/bluecore-full-pdf-export';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -126,6 +127,15 @@ export default function DocumentationPage() {
                     FDP
                   </Button>
                   <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => printFullBluecorePDF()}
+                    className="h-9 px-3 ml-2"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    Tải PDF Tổng hợp
+                  </Button>
+                  <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
@@ -135,10 +145,10 @@ export default function DocumentationPage() {
                         printFDPDocumentationAsPDF();
                       }
                     }}
-                    className="h-9 px-3 ml-2"
+                    className="h-9 px-3"
                   >
                     <Download className="h-4 w-4 mr-1" />
-                    Tải PDF
+                    PDF {activeTab === 'command' ? 'Command' : 'FDP'}
                   </Button>
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10">
