@@ -168,6 +168,9 @@ Bạn được cung cấp [KNOWLEDGE PACKS] chứa dữ liệu THỰC từ datab
 4. **Doanh thu LUÔN đi kèm chi phí/margin** khi có dữ liệu.
 5. **Phân biệt**: revenue thực vs ước tính, SUM vs weighted average.
 6. **Format VND**: <1M → nguyên, 1M~999M → "X triệu", >=1B → "X tỷ".
+7. **KHÔNG BAO GIỜ hỏi xin phép user trước khi truy vấn**. Nếu cần data → GỌI TOOL NGAY. Không hỏi "bạn có muốn?", "tôi có thể truy vấn?".
+8. **Nếu Knowledge Pack không đủ → gọi focused_query NGAY**, không cần hỏi user.
+9. **Nếu user xác nhận (có, được, ok, đi, làm đi) → hiểu là user muốn bạn THỰC HIỆN hành động đã đề cập**, gọi tool ngay.
 
 ## METRIC CLASSIFICATION
 - CUMULATIVE (SUM): NET_REVENUE, ORDER_COUNT, AD_SPEND, COGS
@@ -192,6 +195,7 @@ Types: bar, line, composed, pie. Max 12-15 points. yFormat: "vnd"|"percent"|"num
 - ⚠️ est_revenue từ cửa hàng là ƯỚC TÍNH, không phải POS thực tế.
 - ⚠️ Chi phí (Expenses) có thể = 0 nếu chưa nhập liệu.
 - Phát hiện rủi ro → đề xuất STOP/INVEST/INVESTIGATE.
+- Khi data trả về 0 rows → nói "Hiện chưa có dữ liệu cho mục này" và gợi ý câu hỏi khác. KHÔNG hỏi lại user "bạn có muốn tôi truy vấn?".
 
 Tenant ID cho query_database: ${tenantId}`;
 }
@@ -265,8 +269,15 @@ Deno.serve(async (req) => {
     const userMessages = messages.slice(-6);
     const lastUserMsg = userMessages[userMessages.length - 1]?.content?.toLowerCase() || '';
 
+    // ─── Follow-up detection ─────────────────────────────────────
+    // Check if previous assistant message ended with a question
+    const prevAssistantMsg = userMessages.slice().reverse().find(m => m.role === 'assistant');
+    const prevEndsWithQuestion = prevAssistantMsg?.content?.trim().endsWith('?') || false;
+    const isShortConfirmation = /^(có|co|được|duoc|ok|ừ|uh|đi|di|làm đi|lam di|rồi|roi|đúng|dung|vâng|vang|yes|yeah|sure|go)\s*[.!?]*$/i.test(lastUserMsg.trim());
+    const isFollowUp = isShortConfirmation && prevEndsWithQuestion;
+
     // ─── Simple chat detection ────────────────────────────────────
-    const isSimpleChat = /^(xin chào|hello|hi|chào|hey|cảm ơn|thank|ok|được|tốt|bye|tạm biệt|bạn là ai|bạn có thể làm gì|giúp gì|help)\b/i.test(lastUserMsg.trim())
+    const isSimpleChat = !isFollowUp && /^(xin chào|hello|hi|chào|hey|cảm ơn|thank|tốt|bye|tạm biệt|bạn là ai|bạn có thể làm gì|giúp gì|help)\b/i.test(lastUserMsg.trim())
       && lastUserMsg.trim().length < 15;
 
     // ─── TIER 1: Fetch Knowledge Packs ────────────────────────────
@@ -314,6 +325,9 @@ Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
     let conversationMessages = [...aiMessages];
     let needsStreaming = true;
 
+    // Detect if question likely needs drill-down (store, product detail, time-series)
+    const needsDrillDown = /cua hang|store|chi nhanh|top.*san pham|xu huong|trend|chi tiet|deep dive|so sanh.*kenh/i.test(lastUserMsg);
+
     if (!isSimpleChat) {
       // Try non-streaming with tools (max 3 turns)
       while (toolTurnCount < MAX_TOOL_TURNS) {
@@ -321,7 +335,7 @@ Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
           model: 'google/gemini-2.5-flash',
           messages: conversationMessages,
           tools: TOOL_DEFINITIONS,
-          tool_choice: 'auto',
+          tool_choice: (toolTurnCount === 0 && (needsDrillDown || isFollowUp)) ? 'required' : 'auto',
           stream: false,
           max_tokens: 1024,
           temperature: 0.1,
@@ -388,10 +402,60 @@ Trả lời câu hỏi gần nhất của user dựa trên data trên.`,
       }
     }
 
-    // ─── Final streaming pass ─────────────────────────────────────
+    // ─── Follow-up: force tool call if short confirmation ────────
+    if (isFollowUp && toolTurnCount === 0) {
+      console.log('[cdp-qa] Follow-up detected, forcing tool call');
+      const followUpResp = await callAI(apiKey, {
+        model: 'google/gemini-2.5-flash',
+        messages: conversationMessages,
+        tools: TOOL_DEFINITIONS,
+        tool_choice: 'required',
+        stream: false,
+        max_tokens: 1024,
+        temperature: 0.1,
+      });
+
+      if (followUpResp.ok) {
+        const followUpData = await followUpResp.json();
+        const followUpMsg = followUpData.choices?.[0]?.message;
+        if (followUpMsg?.tool_calls?.length) {
+          conversationMessages.push(followUpMsg);
+          const followUpOutputs = await Promise.all(
+            followUpMsg.tool_calls.map(async (tc: any) => {
+              const toolName = tc.function.name;
+              let toolArgs: Record<string, unknown> = {};
+              try { toolArgs = JSON.parse(tc.function.arguments || '{}'); } catch { /* empty */ }
+              console.log(`[cdp-qa] Follow-up tool call: ${toolName}`, toolArgs);
+              if (toolName === 'focused_query') {
+                const result = await executeFocusedQuery(supabase, activeTenantId!, toolArgs.template as string, (toolArgs.params || {}) as Record<string, unknown>);
+                return { id: tc.id, content: JSON.stringify(result) };
+              } else if (toolName === 'query_database') {
+                let sql = (toolArgs.sql as string) || '';
+                sql = sql.replace(/<TENANT_ID>/g, activeTenantId!);
+                const validation = validateSQL(sql);
+                if (!validation.valid) return { id: tc.id, content: JSON.stringify({ data: null, rows: 0, error: validation.error }) };
+                if (!sql.toLowerCase().includes('tenant_id')) sql = injectTenantFilter(sql, activeTenantId!);
+                const { data, error } = await supabase.rpc('execute_readonly_query', { query_text: sql });
+                const result = Array.isArray(data) ? data.slice(0, 50) : [];
+                return { id: tc.id, content: JSON.stringify({ data: result, rows: result.length, error: error?.message }) };
+              }
+              return { id: tc.id, content: JSON.stringify({ error: `Unknown tool: ${toolName}` }) };
+            })
+          );
+          for (const o of followUpOutputs) {
+            conversationMessages.push({ role: 'tool', tool_call_id: o.id, content: o.content });
+          }
+        }
+      } else {
+        await followUpResp.text(); // consume body
+      }
+    }
+
+    // ─── Final streaming pass (with tools for follow-ups) ─────────
     const streamResp = await callAI(apiKey, {
       model: 'google/gemini-2.5-flash',
       messages: conversationMessages,
+      tools: toolTurnCount === 0 && !isSimpleChat ? TOOL_DEFINITIONS : undefined,
       stream: true,
       max_tokens: 3000,
       temperature: 0.3,
