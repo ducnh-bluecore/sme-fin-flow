@@ -1,217 +1,69 @@
-import { useState } from 'react';
-import { useLocation, NavLink as RouterNavLink } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo } from 'react';
 import { 
   Users, 
-  TrendingUp, 
   LayoutGrid, 
   FileCheck, 
   ShieldCheck,
   Settings,
   HelpCircle,
-  Home,
-  X,
-  ChevronRight,
-  Menu,
   Compass,
   Wallet,
   Layers,
-  MessageCircle
+  MessageCircle,
+  TrendingUp,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { TenantSwitcher } from '@/components/tenant/TenantSwitcher';
-import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
-import { ActivityTrackerProvider } from '@/components/providers/ActivityTrackerProvider';
-
-/**
- * CDP LAYOUT - Light Professional Theme
- * 
- * Navigation theo spec mới:
- * 1. Tổng quan
- * 2. Khám phá (Explore)
- * 3. Insight
- * 4. Giá trị Khách hàng (Customer Equity)
- * 5. Tập khách hàng
- * 6. Thẻ Quyết định
- * 7. Độ tin cậy Dữ liệu
- */
-
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ElementType;
-  badge?: number;
-}
-
-const navItems: NavItem[] = [
-  { label: 'Tổng quan', href: '/cdp', icon: LayoutGrid },
-  { label: 'Hỏi về KH', href: '/cdp/qa', icon: MessageCircle },
-  { label: 'Khám phá', href: '/cdp/explore', icon: Compass },
-  { label: 'Insight', href: '/cdp/insights', icon: TrendingUp },
-  { label: 'Giá trị Khách hàng', href: '/cdp/ltv-engine', icon: Wallet },
-  { label: 'Dự báo Sản phẩm', href: '/cdp/product-forecast', icon: TrendingUp },
-  { label: 'Tập khách hàng', href: '/cdp/populations', icon: Layers },
-  { label: 'Thẻ Quyết định', href: '/cdp/decisions', icon: FileCheck },
-  { label: 'Độ tin cậy Dữ liệu', href: '/cdp/confidence', icon: ShieldCheck },
-];
-
-const bottomNavItems: NavItem[] = [
-  { label: 'Cài đặt', href: '/cdp/settings', icon: Settings },
-  { label: 'Trợ giúp', href: '/cdp/help', icon: HelpCircle },
-];
+import { AppShell, type AppShellNavSection } from './AppShell';
 
 interface CDPLayoutProps {
   children: React.ReactNode;
 }
 
 export function CDPLayout({ children }: CDPLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const location = useLocation();
+  const sections: AppShellNavSection[] = useMemo(() => [
+    {
+      id: 'analysis',
+      label: 'PHÂN TÍCH',
+      items: [
+        { id: 'overview', label: 'Tổng quan', icon: LayoutGrid, href: '/cdp' },
+        { id: 'qa', label: 'Hỏi về KH', icon: MessageCircle, href: '/cdp/qa' },
+        { id: 'explore', label: 'Khám phá', icon: Compass, href: '/cdp/explore' },
+        { id: 'insights', label: 'Insight', icon: TrendingUp, href: '/cdp/insights' },
+      ],
+    },
+    {
+      id: 'management',
+      label: 'QUẢN TRỊ',
+      items: [
+        { id: 'ltv', label: 'Giá trị Khách hàng', icon: Wallet, href: '/cdp/ltv-engine' },
+        { id: 'forecast', label: 'Dự báo Sản phẩm', icon: TrendingUp, href: '/cdp/product-forecast' },
+        { id: 'populations', label: 'Tập khách hàng', icon: Layers, href: '/cdp/populations' },
+        { id: 'decisions', label: 'Thẻ Quyết định', icon: FileCheck, href: '/cdp/decisions' },
+        { id: 'confidence', label: 'Độ tin cậy Dữ liệu', icon: ShieldCheck, href: '/cdp/confidence' },
+      ],
+    },
+  ], []);
 
-  const NavItemLink = ({ item, end = false }: { item: NavItem; end?: boolean }) => (
-    <RouterNavLink
-      to={item.href}
-      end={end}
-      className={({ isActive }) =>
-        cn(
-          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
-          isActive 
-            ? 'bg-primary/10 text-primary font-medium'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-        )
-      }
-    >
-      <item.icon className="w-4 h-4" />
-      <span>{item.label}</span>
-      {item.badge !== undefined && item.badge > 0 && (
-        <span className="ml-auto px-1.5 py-0.5 text-[10px] font-medium bg-destructive/10 text-destructive rounded">
-          {item.badge}
-        </span>
-      )}
-    </RouterNavLink>
-  );
-
-  const SidebarContent = () => (
-    <div className="w-[280px] h-full flex flex-col bg-card border-r border-border">
-      {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Users className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-base font-semibold text-foreground">Bluecore</h1>
-            <p className="text-[10px] text-muted-foreground -mt-0.5">Nền tảng Dữ liệu Khách hàng</p>
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden"
-        >
-          <X className="w-5 h-5" />
-        </Button>
-      </div>
-
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-4 py-4">
-        <nav className="space-y-1">
-          {navItems.map((item) => (
-            <NavItemLink key={item.href} item={item} end={item.href === '/cdp'} />
-          ))}
-        </nav>
-      </ScrollArea>
-
-      {/* Bottom Section */}
-      <div className="p-4 border-t border-border space-y-1">
-        {bottomNavItems.map((item) => (
-          <NavItemLink key={item.href} item={item} />
-        ))}
-        
-        {/* Back to Portal */}
-        <RouterNavLink
-          to="/portal"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <Home className="w-4 h-4" />
-          <span>Quay lại Portal</span>
-        </RouterNavLink>
-      </div>
-    </div>
-  );
+  const bottomItems = useMemo(() => [
+    { id: 'settings', label: 'Cài đặt', icon: Settings, href: '/cdp/settings' },
+    { id: 'help', label: 'Trợ giúp', icon: HelpCircle, href: '/cdp/help' },
+  ], []);
 
   return (
-    <ActivityTrackerProvider>
-    <div className="h-screen flex w-full bg-background overflow-hidden">
-      {/* Mobile Overlay */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 bg-black/20 z-40 lg:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Desktop Sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{ 
-          width: sidebarOpen ? 280 : 0,
-          x: 0 
-        }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className={cn(
-          'fixed left-0 top-0 h-full z-50 flex flex-col overflow-hidden',
-          'bg-card border-r border-border',
-          'lg:relative lg:h-full'
-        )}
-      >
-        <SidebarContent />
-      </motion.aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Header */}
-        <header className="sticky top-0 z-20 h-14 bg-background/95 backdrop-blur border-b border-border flex items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            {!sidebarOpen && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(true)}
-                className="h-8 w-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="lg:hidden h-8 w-8"
-            >
-              <Menu className="h-4 w-4" />
-            </Button>
-            <TenantSwitcher />
-          </div>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-          </div>
-        </header>
-
-        {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6 custom-scrollbar">
-          {children}
-        </main>
-      </div>
-    </div>
-    </ActivityTrackerProvider>
+    <AppShell
+      config={{
+        logo: {
+          icon: Users,
+          iconClassName: 'bg-primary/10 text-primary',
+          title: 'Bluecore',
+          subtitle: 'Nền tảng Dữ liệu Khách hàng',
+        },
+        sections,
+        bottomItems,
+        showSearch: true,
+        useOutlet: false,
+      }}
+    >
+      {children}
+    </AppShell>
   );
 }

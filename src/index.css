@@ -564,6 +564,37 @@
   .pulse-badge {
     animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     ANIQ UI SIDEBAR SYSTEM — Unified across all modules
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* Section label — uppercase, small, tracking-wide */
+  .sidebar-section-label {
+    @apply text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-1.5;
+    letter-spacing: 0.08em;
+  }
+
+  /* Nav item — shared base */
+  .sidebar-nav-item {
+    @apply w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150;
+    @apply text-muted-foreground hover:bg-white/5 hover:text-foreground;
+  }
+
+  /* Nav item — active state */
+  .sidebar-nav-item-active {
+    @apply text-primary font-medium border-l-2 border-primary;
+    background-color: hsl(var(--primary) / 0.12);
+    margin-left: -2px;
+  }
+
+  /* Badge pill — count indicators */
+  .sidebar-badge {
+    @apply ml-auto px-2 py-0.5 text-[11px] font-semibold rounded-md;
+    @apply bg-muted text-foreground;
+    min-width: 22px;
+    text-align: center;
+  }
 }
 
 @keyframes shimmer {
