@@ -30,6 +30,7 @@ export const KNOWLEDGE_PACKS: Record<string, KnowledgePack> = {
       { view: 'v_ct_truth_snapshot', limit: 5 },
       { view: 'v_executive_health_scores', limit: 10 },
     ],
+    drill_down_hint: 'Nếu cần dữ liệu cửa hàng → gọi focused_query("store_performance"). Nếu cần chi tiết P&L → gọi focused_query("pl_trend").',
   },
   revenue: {
     name: 'revenue',
@@ -108,7 +109,7 @@ export const INTENT_PACK_MAP: Record<string, string[]> = {
   'tong quan|tinh hinh|overview|snapshot|suc khoe': ['overview', 'channels', 'alerts'],
   'chi phi|expense|operating|opex': ['profitability', 'overview'],
   'cash|tien mat|dong tien|cash flow': ['overview', 'profitability'],
-  'cua hang|store|chi nhanh': ['overview'],
+  'cua hang|store|chi nhanh': ['overview', 'channels'],
 };
 
 /**
