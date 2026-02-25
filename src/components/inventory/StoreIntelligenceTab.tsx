@@ -7,7 +7,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useStoreProfile } from '@/hooks/inventory/useStoreProfile';
 import { useStoreCustomerKpis } from '@/hooks/inventory/useStoreCustomerKpis';
+import { useStoreMetricsTrend } from '@/hooks/inventory/useStoreMetricsTrend';
 import { Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign, TrendingUp, BarChart3, Users, RotateCcw, ShoppingCart, Layers } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
 
 const TIER_ORDER: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
 const TIER_COLORS: Record<string, string> = {
@@ -77,11 +87,69 @@ function MetricCard({ icon: Icon, label, value, sub, iconClass }: { icon: any; l
 
 const AVG_UNIT_COST = 350_000;
 
+function MiniTrendChart({ 
+  data, 
+  dataKey, 
+  label, 
+  color, 
+  formatValue 
+}: { 
+  data: any[]; 
+  dataKey: string; 
+  label: string; 
+  color: string; 
+  formatValue?: (v: number) => string;
+}) {
+  const fmt = formatValue || ((v: number) => v.toLocaleString('vi-VN'));
+  
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+      <div className="h-[80px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+            <XAxis 
+              dataKey="label" 
+              tick={{ fontSize: 8 }} 
+              interval={Math.max(Math.floor(data.length / 5) - 1, 0)}
+              stroke="hsl(var(--muted-foreground))"
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis hide />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'hsl(var(--popover))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px',
+                fontSize: '11px',
+                padding: '6px 10px',
+              }}
+              formatter={(value: number) => [fmt(value), label]}
+              labelStyle={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))' }}
+            />
+            <Line
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              strokeWidth={1.5}
+              dot={false}
+              activeDot={{ r: 3, strokeWidth: 0, fill: color }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 export function StoreIntelligenceTab() {
   const { data: stores = [], isLoading: storesLoading } = useInventoryStores();
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const { data: profile, isLoading: profileLoading } = useStoreProfile(selectedStoreId);
   const { data: customerKpis, isLoading: kpisLoading } = useStoreCustomerKpis(selectedStoreId);
+  const { data: trendData = [], isLoading: trendLoading } = useStoreMetricsTrend(selectedStoreId);
 
   const sortedStores = useMemo(() => {
     return [...stores].sort((a: any, b: any) => {
@@ -217,6 +285,33 @@ export function StoreIntelligenceTab() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Customer Metrics Trends */}
+            {trendData.length > 3 && (
+              <Card>
+                <CardHeader className="pb-1.5 pt-3 px-4">
+                  <CardTitle className="text-xs flex items-center gap-1.5 text-muted-foreground">
+                    <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                    Xu hướng Customer Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 pt-1">
+                  <div className="grid grid-cols-2 gap-3">
+                    <MiniTrendChart data={trendData} dataKey="customers" label="Khách hàng / ngày" color="hsl(var(--primary))" />
+                    <MiniTrendChart data={trendData} dataKey="aov" label="AOV" color="hsl(45, 93%, 47%)" formatValue={(v) => `${(v / 1000).toFixed(0)}K`} />
+                    <MiniTrendChart data={trendData} dataKey="ipt" label="IPT (SP/đơn)" color="hsl(142, 71%, 45%)" formatValue={(v) => v.toFixed(1)} />
+                    <MiniTrendChart data={trendData} dataKey="repeatRate" label="Tỷ lệ quay lại (%)" color="hsl(330, 81%, 60%)" formatValue={(v) => `${v.toFixed(1)}%`} />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {trendLoading && (
+              <Card>
+                <CardContent className="py-4">
+                  <div className="h-32 bg-muted animate-pulse rounded-lg" />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Breakdown charts */}
             <div className="grid grid-cols-3 gap-3">
