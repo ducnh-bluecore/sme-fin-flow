@@ -34,8 +34,8 @@ export const KNOWLEDGE_PACKS: Record<string, KnowledgePack> = {
   },
   revenue: {
     name: 'revenue',
-    label: 'KPI doanh thu 30 ngày',
-    description: 'NET_REVENUE, ORDER_COUNT, AOV theo ngày (pre-aggregated)',
+    label: 'KPI doanh thu tháng này (calendar month)',
+    description: 'NET_REVENUE, ORDER_COUNT, AOV theo ngày trong tháng hiện tại (pre-aggregated)',
     sources: [
       { view: 'kpi_facts_daily', select: 'grain_date, metric_code, metric_value, dimension_value', limit: 500 },
     ],
