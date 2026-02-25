@@ -41244,6 +41244,36 @@ export type Database = {
           watch: number
         }[]
       }
+      fn_store_top_collections: {
+        Args: { p_limit?: number; p_store_id: string; p_tenant_id: string }
+        Returns: {
+          collection_code: string
+          collection_id: string
+          collection_name: string
+          fc_count: number
+          in_transit: number
+          is_new_collection: boolean
+          on_hand: number
+          season: string
+          total_sold: number
+        }[]
+      }
+      fn_store_top_fc: {
+        Args: { p_limit?: number; p_store_id: string; p_tenant_id: string }
+        Returns: {
+          category: string
+          collection_id: string
+          collection_name: string
+          fc_code: string
+          fc_id: string
+          fc_name: string
+          in_transit: number
+          is_core_hero: boolean
+          on_hand: number
+          total_sold: number
+          weeks_of_cover: number
+        }[]
+      }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
