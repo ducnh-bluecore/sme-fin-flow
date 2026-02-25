@@ -321,14 +321,15 @@ export const QUERY_TEMPLATES: Record<string, QueryTemplate> = {
 
   store_performance: {
     name: 'store_performance',
-    description: 'Hiệu suất cửa hàng vật lý: doanh thu ước tính, velocity, metrics.',
-    sql: `SELECT s.store_name, s.store_code, s.address, s.is_active,
+    description: 'Hiệu suất cửa hàng bán lẻ: doanh thu ước tính, velocity, metrics. CHỈ cửa hàng (location_type=store), KHÔNG bao gồm kho/CN Trung Tâm.',
+    sql: `SELECT s.store_name, s.store_code, s.address, s.is_active, s.location_type,
       r.est_revenue, r.estimated_pct,
       m.total_sold, m.avg_velocity, m.active_fcs
     FROM inv_stores s
     LEFT JOIN v_inv_store_revenue r ON r.store_id = s.id AND r.tenant_id = s.tenant_id
     LEFT JOIN v_inv_store_metrics m ON m.store_id = s.id AND m.tenant_id = s.tenant_id
     WHERE s.tenant_id = '{{tenant_id}}'::uuid
+    AND s.location_type = 'store'
     {{store_filter}}
     ORDER BY r.est_revenue DESC NULLS LAST
     LIMIT {{limit}}`,
@@ -337,7 +338,7 @@ export const QUERY_TEMPLATES: Record<string, QueryTemplate> = {
     },
     max_rows: 50,
     labels: { est_revenue: 'Doanh thu ước tính (VND) - KHÔNG phải doanh thu thực', estimated_pct: 'Tỷ lệ ước tính (%)' },
-    caveats: '⚠️ est_revenue là doanh thu ƯỚC TÍNH dựa trên tồn kho đã bán, KHÔNG phải doanh thu thực tế POS.',
+    caveats: '⚠️ est_revenue là doanh thu ƯỚC TÍNH dựa trên tồn kho đã bán (total_sold × giá bán trung bình), KHÔNG phải doanh thu thực tế POS. Đã loại trừ kho trung tâm (CN Trung Tâm, Kho OLV) vì đó là kho phân phối, không phải cửa hàng bán lẻ.',
   },
 
   category_pl: {

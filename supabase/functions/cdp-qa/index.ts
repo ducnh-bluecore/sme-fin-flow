@@ -204,7 +204,8 @@ Types: bar, line, composed, pie. Max 12-15 points. yFormat: "vnd"|"percent"|"num
 
 ## LƯU Ý DATA
 - ⚠️ Customer linking ~7.6%, kết quả CDP mang tính tham khảo.
-- ⚠️ est_revenue từ cửa hàng là ƯỚC TÍNH, không phải POS thực tế.
+- ⚠️ est_revenue từ cửa hàng là ƯỚC TÍNH (total_sold × giá bán TB), KHÔNG phải doanh thu POS thực tế. Phải ghi rõ "doanh thu ước tính".
+- ⚠️ **PHÂN BIỆT CỬA HÀNG vs KHO**: "CN Trung Tâm", "Kho OLV" là kho phân phối (location_type=central_warehouse/sub_warehouse), KHÔNG phải cửa hàng bán lẻ. Kho có total_sold cao vì điều chuyển hàng, KHÔNG phải bán hàng. KHÔNG BAO GIỜ tính doanh thu cho kho.
 - ⚠️ Chi phí (Expenses) có thể = 0 nếu chưa nhập liệu.
 - Phát hiện rủi ro → đề xuất STOP/INVEST/INVESTIGATE.
 - Khi data trả về 0 rows → nói "Hiện chưa có dữ liệu cho mục này" và gợi ý câu hỏi khác. KHÔNG hỏi lại user "bạn có muốn tôi truy vấn?".
