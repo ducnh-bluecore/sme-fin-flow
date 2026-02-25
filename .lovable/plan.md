@@ -1,214 +1,101 @@
 
 
-# Plan: Hybrid AI Agent -- Knowledge Packs + Focused Query Fallback
+# Plan: Fix AI Agent -- 3 Critical Bugs
 
-## Van de ban lo ngai (dung)
+## Problems Identified
 
-Plan truoc gioi han moi Knowledge Pack o 20-50 rows, ~100KB. Nhu vay AI chi tra loi duoc cau hoi "tong quan". Cac cau hoi kho hon se bi ket:
+From the screenshot, 3 bugs are visible:
 
-- "Phan tich chi tiet san pham A theo thang?" (can time-series data)
-- "So sanh 3 kenh, ke ca chinh sach phi?" (can cross-domain joins)
-- "Xu huong doanh thu 6 thang chi tiet theo tuan?" (can hang tram data points)
-- "Khach hang nao co LTV cao nhat va mua gi?" (can drill-down 2 cap)
+1. **AI asks permission instead of querying**: User asks "cho toi 3 cua hang co doanh thu cao nhat" but AI says "chua co du lieu" and asks "Ban co muon toi truy van?" -- should auto-call `focused_query("store_performance")` immediately.
 
-## Giai phap: 3-tier Hybrid
+2. **AI prints SQL as text**: When user confirms "co", AI outputs `print(query_database("SELECT store_name..."))` as markdown text instead of actually executing the tool call. This happens because the final streaming pass has NO tools attached.
 
-Thay vi "chi Knowledge Packs" hay "chi SQL", ket hop 3 tang:
+3. **Still 24s**: Two sequential AI calls (non-streaming tool pass + streaming final pass) is still slow.
 
-```text
-TIER 1: Knowledge Packs (80% cau hoi, 2-5 giay)
-   |  Pre-built, server-side fetch, SSOT views
-   |  Dung cho: tong quan, so sanh kenh, KPI summary, alerts
-   |
-TIER 2: Focused Query Templates (15% cau hoi, 5-10 giay)  
-   |  AI chon template + parameters, server validate + execute
-   |  Dung cho: drill-down, time-series, top-N theo tieu chi cu the
-   |
-TIER 3: Supervised Dynamic Query (5% cau hoi, 8-15 giay)
-   |  AI viet SQL nhung bi kiem soat chat: whitelist views, row limit, timeout
-   |  Dung cho: cau hoi tuy y ngoai template
+## Root Causes
+
+| Bug | Root Cause | Location |
+|-----|-----------|----------|
+| No store data | Intent map `'cua hang\|store': ['overview']` only fetches overview, which has zero store data | `cdp-schema.ts` line 111 |
+| Asks permission | System prompt lacks rule forbidding "asking user permission to query" | `index.ts` line 153-197 |
+| Prints SQL as text | Final streaming pass (line 392) has no `tools` param, so AI can't call tools on follow-ups | `index.ts` line 392-398 |
+| Short "co" skipped | `isSimpleChat` regex matches short messages like "co" and skips tool-calling | `index.ts` line 269-270 |
+| Slow 24s | 2 sequential AI calls: non-streaming tool pass + streaming final pass | `index.ts` line 317-398 |
+
+## Fixes
+
+### Fix 1: Intent Mapping for Stores (cdp-schema.ts)
+
+Change line 111:
+```
+'cua hang|store|chi nhanh': ['overview']
+```
+to:
+```
+'cua hang|store|chi nhanh': ['overview', 'channels']
 ```
 
-## Chi tiet tung Tier
+AND add `store_performance` template as a drill-down hint in the overview pack so the AI knows to call it.
 
-### TIER 1: Knowledge Packs (giu nguyen plan truoc)
+### Fix 2: System Prompt -- No Permission Asking (index.ts)
 
-Server-side fetch 2-4 packs song song tu SSOT views. AI chi suy luan.
-
-8 packs nhu plan truoc: overview, revenue, profitability, channels, products, marketing, customers, alerts.
-
-**Khac biet voi plan truoc**: Moi pack kem metadata giup AI biet khi nao can "di sau hon":
-
-```text
-{
-  "pack": "channels",
-  "data": [...],
-  "drill_down_available": true,
-  "drill_down_hint": "Neu can chi tiet theo thang hoac theo san pham trong kenh, dung focused_query template 'channel_monthly_detail'"
-}
+Add to system prompt rules:
+```
+- KHONG BAO GIO hoi xin phep user truoc khi truy van. 
+  Neu can data -> GOI TOOL NGAY. Khong hoi "ban co muon?", "toi co the truy van?".
+- Neu Knowledge Pack khong du -> goi focused_query NGAY, khong can hoi.
 ```
 
-### TIER 2: Focused Query Templates (MOI - giai quyet van de cau hoi kho)
+### Fix 3: Fix isSimpleChat Matching "co" (index.ts)
 
-Tao 10-15 "query templates" duoc dinh nghia san trong code. AI chi can chon template + truyen parameters. Server validate va execute.
+The regex on line 269 matches short words like "co" (Vietnamese for "yes"). Fix by:
+- Removing generic short words from simple chat detection
+- Adding logic: if previous assistant message ended with a question, treat ANY short reply as a follow-up (not simple chat)
 
-```text
-Templates du kien:
+### Fix 4: Merge to Single-Pass Streaming with Tools (index.ts)
 
-1. revenue_time_series
-   Params: granularity (day/week/month), days (7-365), channel? 
-   SQL: SELECT ... FROM kpi_facts_daily GROUP BY {granularity}
-   Max rows: 365
-
-2. channel_monthly_detail
-   Params: channel?, months (1-12)
-   SQL: SELECT ... FROM v_channel_pl_summary WHERE ...
-   Max rows: 100
-
-3. product_deep_dive
-   Params: product_id | product_name | category, days
-   SQL: SELECT ... FROM cdp_order_items JOIN products ...
-   Max rows: 200
-
-4. customer_segment_detail
-   Params: segment (platinum/gold/silver/bronze/at_risk)
-   SQL: SELECT ... FROM v_cdp_rfm_segments WHERE ...
-   Max rows: 100
-
-5. expense_breakdown
-   Params: months, category?
-   SQL: SELECT ... FROM v_expenses_by_category_monthly
-   Max rows: 50
-
-6. cash_flow_analysis
-   Params: months
-   SQL: SELECT ... FROM v_cash_flow_monthly
-   Max rows: 24
-
-7. pl_trend
-   Params: months (3-12)
-   SQL: SELECT ... FROM v_pl_monthly_summary
-   Max rows: 12
-
-8. alert_history
-   Params: severity?, category?, days
-   SQL: SELECT ... FROM alert_instances ORDER BY created_at
-   Max rows: 50
-
-9. cohort_deep_dive
-   Params: cohort_month
-   SQL: SELECT ... FROM v_cdp_ltv_by_cohort WHERE cohort_month = ...
-   Max rows: 20
-
-10. store_performance
-    Params: store_id?
-    SQL: SELECT ... FROM inv_stores JOIN v_inv_store_revenue ...
-    Max rows: 50
-
-11. category_pl
-    Params: months?
-    SQL: SELECT ... FROM v_category_pl_summary
-    Max rows: 50
-
-12. rfm_analysis
-    Params: none
-    SQL: SELECT ... FROM v_cdp_rfm_segment_summary
-    Max rows: 20
-```
-
-AI tool definition cho Tier 2:
+The biggest architectural fix: instead of 2 passes (non-streaming tool + streaming final), use a SINGLE streaming call with tools. When AI makes tool calls mid-stream, pause streaming, execute tools, then continue with a second streaming call that includes tool results.
 
 ```text
-Tool: focused_query
-Params:
-  - template: (enum cua 12 templates)
-  - params: { key: value }
+Current (slow):
+  Pass 1: Non-streaming + tools (5-15s) 
+  Pass 2: Streaming without tools (5-10s)
+  Total: 10-24s
+
+New (fast):
+  Pass 1: Non-streaming + tools (if tools needed) (3-8s)
+  Pass 2: Streaming WITH tools (for follow-ups) (3-5s)
+  Total: 3-13s
 ```
 
-Server-side: Validate template name + params -> build SQL tu template (KHONG cho AI viet SQL) -> execute -> return max N rows.
+Key change: the final streaming pass ALSO gets `tools: TOOL_DEFINITIONS` so follow-up messages can trigger tool calls.
 
-**Loi ich**: 
-- AI KHONG viet SQL -> KHONG the bia sai cau truc
-- Templates co metadata (labels, caveats) -> AI biet "est_revenue" vs "actual revenue"
-- Rows co the len toi 200-365 rows cho time-series -> du de ve chart chi tiet
+BUT streaming + tool_calls is complex (need to parse SSE for tool calls). Simpler approach:
+- If tool calls happened in non-streaming pass -> stream final (no tools needed, data already fetched)
+- If NO tool calls in non-streaming pass AND it's a follow-up -> re-run non-streaming WITH `tool_choice: 'required'`
+- Then stream final
 
-### TIER 3: Supervised Dynamic Query (giu tu code hien tai, nhung thua hon)
+### Fix 5: Follow-up Context Detection (index.ts)
 
-Giu lai `query_database` nhu hien tai cho 5% cau hoi tuy y. Nhung them constraints:
+When user sends short confirmations ("co", "duoc", "ok", "di", "lam di"):
+1. Check if previous assistant message contains a question mark
+2. If yes -> this is a follow-up, NOT simple chat
+3. Inject the previous context into the prompt so AI knows what to do
+4. Force `tool_choice: 'required'` for this turn
 
-- AI PHAI ghi ly do tai sao Tier 1+2 khong du truoc khi dung Tier 3
-- Max 50 rows tra ve
-- Timeout 30 giay
-- Chi cho phep ~30 views duoc dang ky (v_* + inv_*)
+## File Changes
 
-## Luong xu ly moi (1-pass)
+| File | Changes |
+|------|---------|
+| `supabase/functions/_shared/cdp-schema.ts` | Fix intent mapping for stores |
+| `supabase/functions/cdp-qa/index.ts` | Fix isSimpleChat, add no-permission rule to prompt, add tools to final pass for follow-ups, add follow-up detection |
 
-```text
-User gui cau hoi
-    |
-    v
-Edge Function:
-  1. Intent detect (keyword matching) -> chon 2-4 Knowledge Packs
-  2. Fetch packs song song (Promise.all) -> 200-500ms
-  3. Goi AI voi:
-     - System prompt + business rules
-     - Knowledge Pack data (Tier 1)
-     - Tool: focused_query (Tier 2)
-     - Tool: query_database (Tier 3, fallback)
-     - Conversation history
-  4. AI nhan data Tier 1, suy luan
-     - Neu du -> tra loi ngay (1-pass, stream) -> 3-5 giay
-     - Neu can chi tiet -> goi focused_query(template, params) -> server execute -> AI tra loi -> 5-10 giay
-     - Neu van chua du -> goi query_database (Tier 3) -> 8-15 giay
-  5. Stream response
-```
+## Expected Results
 
-## Vi du cu the
-
-**Cau hoi de (Tier 1 du)**:
-"Tinh hinh doanh thu thang nay?"
--> Fetch: overview + revenue packs -> AI suy luan -> 3s
-
-**Cau hoi trung binh (Tier 2)**:
-"Xu huong doanh thu 6 thang theo tuan?"
--> Fetch: overview pack (boi canh)
--> AI goi focused_query(template="revenue_time_series", params={granularity:"week", days:180})
--> Server tra ve ~26 rows -> AI ve chart + phan tich -> 7s
-
-**Cau hoi kho (Tier 2 multi-call)**:
-"So sanh hieu qua marketing giua Shopee va TikTok, ke ca LTV khach hang moi kenh?"
--> Fetch: marketing + channels packs (boi canh)
--> AI goi focused_query("channel_monthly_detail", {channel:"Shopee"}) + focused_query("channel_monthly_detail", {channel:"TikTok"})
--> AI suy luan cross-domain -> 10s
-
-**Cau hoi rat kho (Tier 3 fallback)**:
-"Tinh ti le hoan hang theo san pham, chi nhung san pham co >50 don?"
--> Khong co template phu hop
--> AI goi query_database voi SQL tu viet (validated) -> 12s
-
-## Thay doi ky thuat
-
-| File | Thay doi |
-|------|----------|
-| `supabase/functions/cdp-qa/index.ts` | Viet lai: them Tier 1 fetcher + Tier 2 template executor, giam tools tu 12 xuong 3 (focused_query, query_database, discover_schema), cap nhat system prompt |
-| `supabase/functions/_shared/cdp-schema.ts` | Them QUERY_TEMPLATES dinh nghia 12 templates voi SQL, params, metadata, labels, max_rows |
-
-**KHONG thay doi**:
-- Frontend (useCDPQA.ts, AIMessageContent.tsx) - streaming logic giu nguyen
-- Database - dung 120+ views da co san, khong can migration
-
-## Ket qua ky vong
-
-| Metric | Hien tai | Sau khi doi |
-|--------|---------|-------------|
-| Cau hoi de (80%) | 15-30s, hay bia | 2-5s, chinh xac |
-| Cau hoi trung binh (15%) | 15-30s, thuong sai | 5-10s, chinh xac (template) |
-| Cau hoi kho (5%) | 15-30s, 50% sai | 8-15s, co kiem soat |
-| Hallucination | Thuong xuyen | Tier 1+2: bat kha thi. Tier 3: giam manh |
-
-## Rui ro va mitigation
-
-1. **12 templates khong du?** -> Theo doi cau hoi roi vao Tier 3 -> them template dan. Bat dau voi 12 la du cho 95% cau hoi.
-2. **AI chon sai template?** -> Template name + description ro rang. Temperature = 0.1. Co the dung tool_choice = required cho turn 1.
-3. **Data van bia o Tier 3?** -> Giu constraint hien tai + them rule: Tier 3 data PHAI duoc nhan dien rieng trong prompt de AI biet "data nay tu dynamic query, co the khong day du".
+| Metric | Before | After |
+|--------|--------|-------|
+| "3 cua hang doanh thu cao nhat" | "Chua co du lieu, ban co muon?" | Auto-calls store_performance, returns data |
+| Follow-up "co" | Prints SQL as text | Executes tool, returns results |
+| Response time (with tools) | 24s | 8-13s |
+| Response time (Tier 1 only) | 10-15s | 3-5s |
 
