@@ -18497,6 +18497,7 @@ export type Database = {
           is_active: boolean
           is_core_hero: boolean
           metadata: Json | null
+          product_created_date: string | null
           season: string | null
           subcategory: string | null
           tenant_id: string
@@ -18513,6 +18514,7 @@ export type Database = {
           is_active?: boolean
           is_core_hero?: boolean
           metadata?: Json | null
+          product_created_date?: string | null
           season?: string | null
           subcategory?: string | null
           tenant_id: string
@@ -18529,6 +18531,7 @@ export type Database = {
           is_active?: boolean
           is_core_hero?: boolean
           metadata?: Json | null
+          product_created_date?: string | null
           season?: string | null
           subcategory?: string | null
           tenant_id?: string
