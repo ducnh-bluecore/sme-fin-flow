@@ -620,10 +620,11 @@ function runV2(
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Rebalance: Lateral (constraint-driven, no hardcode)
+// Rebalance: Delegated to PL/pgSQL fn_rebalance_engine
 // ═══════════════════════════════════════════════════════════════════
 
 async function handleRebalance(supabase: any, tenantId: string, userId?: string) {
+  // Create run record
   const { data: run, error: runError } = await supabase
     .from("inv_rebalance_runs")
     .insert({
@@ -639,269 +640,33 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
   if (runError) throw runError;
 
   try {
-    // Parallel-paginated fetch
-    async function fetchAllRebal(table: string, selectCols: string, filters: Record<string, any> = {}): Promise<any[]> {
-      const PAGE_SIZE = 1000;
-      let query = supabase.from(table).select(selectCols, { count: 'exact' }).eq("tenant_id", tenantId);
-      for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
-      const first = await query.range(0, PAGE_SIZE - 1);
-      if (first.error) throw first.error;
-      const firstData = first.data || [];
-      const total = first.count || firstData.length;
-      if (total <= PAGE_SIZE) return firstData;
-      const pages = Math.ceil(total / PAGE_SIZE);
-      const promises = [];
-      for (let i = 1; i < pages; i++) {
-        let q = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
-        for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
-        promises.push(q.range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
-      }
-      const results = await Promise.all(promises);
-      let allData = [...firstData];
-      for (const r of results) {
-        if (r.error) throw r.error;
-        allData = allData.concat(r.data || []);
-      }
-      return allData;
-    }
+    console.log(`[Rebalance] Calling fn_rebalance_engine for run ${run.id}...`);
+    const { data, error } = await supabase.rpc("fn_rebalance_engine", {
+      p_tenant_id: tenantId,
+      p_run_id: run.id,
+    });
 
-    const [storesRaw2, posAgg2, demand, constraints, sizeIntegrity, fcListRebal] = await Promise.all([
-      fetchAllRebal("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity,is_transfer_eligible", { is_active: true }),
-      supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
-      fetchAllRebal("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity"),
-      fetchAllRebal("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
-      fetchAllRebal("inv_state_size_integrity", "fc_id,is_full_size_run"),
-      fetchAllRebal("inv_family_codes", "id,fc_code,fc_name", { is_active: true }),
-    ]);
-    const fcNameLookup = new Map((fcListRebal || []).map((f: any) => [f.id, f.fc_name || f.fc_code || ""]));
+    if (error) throw error;
 
-    if (posAgg2.error) throw posAgg2.error;
-    const stores = storesRaw2;
-    const positions = (posAgg2.data || []).map((p: any) => ({
-      store_id: p.store_id,
-      fc_id: p.fc_id,
-      on_hand: Number(p.total_on_hand) || 0,
-      reserved: Number(p.total_reserved) || 0,
-      available: (Number(p.total_on_hand) || 0) - (Number(p.total_reserved) || 0),
-      safety_stock: Number(p.total_safety_stock) || 0,
-      fc_name: "",
-      weeks_of_cover: null,
-    }));
+    const result = data || { push_suggestions: 0, push_units: 0, lateral_suggestions: 0, lateral_units: 0, total_suggestions: 0 };
+    console.log(`[Rebalance] Done:`, JSON.stringify(result));
 
-    const cm = buildConstraintMap(constraints);
-    const demandMap = buildDemandMap(demand);
-    const sizeIntMap = buildSizeIntegrityMap(sizeIntegrity);
-    const noBrokenSize = cm.no_broken_size?.enabled !== false;
-
-    if (!stores.length || !positions.length) {
-      await supabase
-        .from("inv_rebalance_runs")
-        .update({ status: "completed", completed_at: new Date().toISOString(), total_suggestions: 0, total_units: 0 })
-        .eq("id", run.id);
-      return jsonResponse({ run_id: run.id, suggestions: [], message: "No data to rebalance" });
-    }
-
-    const storeMap = new Map(stores.map((s: any) => [s.id, s]));
-    const suggestions: any[] = [];
-    const fcIds = [...new Set(positions.map((p: any) => p.fc_id))];
-
-    // ── Cost from registry (not hardcoded) ──
-    const logisticsCost = cm.logistics_cost_by_region || { same_region: 20000, diff_region: 45000, default: 30000 };
-    const avgPrice = cm.avg_unit_price_default?.amount ?? 250000;
-    const minNetBenefit = cm.min_lateral_net_benefit?.amount ?? 500000;
-    const maxCoverWeeks = cm.max_cover_weeks?.weeks ?? 6;
-    const minCoverWeeks = cm.min_cover_weeks?.weeks ?? 2;
-    const lateralEnabled = cm.lateral_enabled?.enabled !== false;
-    const maxTransferPct = (cm.max_transfer_pct?.pct ?? 60) / 100;
-
-    // ── Phase 1: Push from CW ──
-    const centralStores = stores.filter((s: any) => s.location_type === "central_warehouse");
-
-    for (const fcId of fcIds) {
-      if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) continue;
-
-      for (const cw of centralStores) {
-        const cwPos = positions.filter((p: any) => p.store_id === cw.id && p.fc_id === fcId);
-        if (!cwPos.length) continue;
-
-        const cwOnHand = cwPos.reduce((s: number, p: any) => s + (p.on_hand || 0), 0);
-        const cwReserved = cwPos.reduce((s: number, p: any) => s + (p.reserved || 0), 0);
-        const cwSafety = cwPos.reduce((s: number, p: any) => s + (p.safety_stock || 0), 0);
-        let available = cwOnHand - cwReserved - cwSafety;
-        if (available <= 0) continue;
-
-        const shortageStores: any[] = [];
-        for (const store of stores) {
-          if (store.location_type === "central_warehouse" || store.location_type === "sub_warehouse") continue;
-          if (store.is_transfer_eligible === false) continue;
-          const sp = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
-          const onHand = sp.reduce((s: number, p: any) => s + (p.available || p.on_hand - (p.reserved || 0)), 0);
-          const vel = getDemandVelocity(demandMap, store.id, fcId);
-          const wc = vel > 0 ? onHand / (vel * 7) : (onHand > 0 ? 99 : 0);
-
-          if (wc < minCoverWeeks) {
-            shortageStores.push({ store, weeksCover: wc, onHand, velocity: vel });
-          }
-        }
-
-        shortageStores.sort((a: any, b: any) => a.weeksCover - b.weeksCover);
-
-        for (const target of shortageStores) {
-          if (available <= 0) break;
-          const idealQty = Math.ceil((minCoverWeeks - target.weeksCover) * target.velocity * 7);
-          const qty = Math.min(idealQty, available);
-          if (qty <= 0) continue;
-
-          const newCover = target.velocity > 0 ? (target.onHand + qty) / (target.velocity * 7) : minCoverWeeks;
-          const cost = qty * (logisticsCost.default || 30000);
-
-          suggestions.push({
-            tenant_id: tenantId,
-            run_id: run.id,
-            transfer_type: "push",
-            fc_id: fcId,
-            fc_name: fcNameLookup.get(fcId) || cwPos[0]?.fc_name || "",
-            from_location: cw.id,
-            from_location_name: cw.store_name,
-            from_location_type: cw.location_type,
-            to_location: target.store.id,
-            to_location_name: target.store.store_name,
-            to_location_type: target.store.location_type,
-            qty,
-            reason: `${target.store.store_name} chỉ còn ${target.weeksCover.toFixed(1)}w cover, bổ sung từ kho tổng`,
-            from_weeks_cover: cwPos[0]?.weeks_of_cover || 0,
-            to_weeks_cover: target.weeksCover,
-            balanced_weeks_cover: newCover,
-            priority: target.weeksCover < 0.5 ? "P1" : target.weeksCover < 1 ? "P2" : "P3",
-            potential_revenue_gain: qty * avgPrice,
-            logistics_cost_estimate: cost,
-            net_benefit: qty * avgPrice - cost,
-            status: "pending",
-          });
-
-          available -= qty;
-        }
-      }
-    }
-
-    // ── Phase 2: Lateral ──
-    if (lateralEnabled) {
-      for (const fcId of fcIds) {
-        if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) continue;
-
-        const surplusStores: any[] = [];
-        const shortStores: any[] = [];
-
-        for (const store of stores) {
-          if (store.location_type === "central_warehouse" || store.location_type === "sub_warehouse") continue;
-          if (store.is_transfer_eligible === false) continue;
-          const sp = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
-          const onHand = sp.reduce((s: number, p: any) => s + (p.available || p.on_hand - (p.reserved || 0)), 0);
-          const safety = sp.reduce((s: number, p: any) => s + (p.safety_stock || 0), 0);
-          const vel = getDemandVelocity(demandMap, store.id, fcId);
-          const wc = vel > 0 ? onHand / (vel * 7) : (onHand > 0 ? 99 : 0);
-
-          // Factor in push already planned
-          const pushQty = suggestions
-            .filter((s: any) => s.to_location === store.id && s.fc_id === fcId && s.transfer_type === "push")
-            .reduce((s: number, sg: any) => s + sg.qty, 0);
-          const adjOnHand = onHand + pushQty;
-          const adjCover = vel > 0 ? adjOnHand / (vel * 7) : (adjOnHand > 0 ? 99 : 0);
-
-          if (adjCover > maxCoverWeeks) {
-            const maxTransfer = Math.floor(adjOnHand * maxTransferPct);
-            const surplus = Math.min(adjOnHand - safety - Math.ceil(maxCoverWeeks * vel * 7), maxTransfer);
-            if (surplus > 0) {
-              surplusStores.push({ store, weeksCover: adjCover, onHand: adjOnHand, surplus, velocity: vel, region: store.region });
-            }
-          } else if (adjCover < minCoverWeeks) {
-            const shortage = Math.ceil((minCoverWeeks - adjCover) * vel * 7);
-            if (shortage > 0) {
-              shortStores.push({ store, weeksCover: adjCover, onHand: adjOnHand, shortage, velocity: vel, region: store.region });
-            }
-          }
-        }
-
-        shortStores.sort((a: any, b: any) => a.weeksCover - b.weeksCover);
-
-        for (const target of shortStores) {
-          const sameRegion = surplusStores.filter((s: any) => s.region && s.region === target.region && s.surplus > 0);
-          const diffRegion = surplusStores.filter((s: any) => (!s.region || s.region !== target.region) && s.surplus > 0);
-          const sorted = [...sameRegion, ...diffRegion];
-
-          let remaining = target.shortage;
-          for (const source of sorted) {
-            if (remaining <= 0 || source.surplus <= 0) break;
-            const qty = Math.min(remaining, source.surplus);
-            const isSame = source.region && source.region === target.region;
-            const cost = qty * (isSame ? (logisticsCost.same_region || 20000) : (logisticsCost.diff_region || 45000));
-            const revenue = qty * avgPrice;
-            const netBen = revenue - cost;
-
-            if (netBen < minNetBenefit) continue;
-
-            suggestions.push({
-              tenant_id: tenantId,
-              run_id: run.id,
-              transfer_type: "lateral",
-              fc_id: fcId,
-              fc_name: fcNameLookup.get(fcId) || "",
-              from_location: source.store.id,
-              from_location_name: source.store.store_name,
-              from_location_type: source.store.location_type,
-              to_location: target.store.id,
-              to_location_name: target.store.store_name,
-              to_location_type: target.store.location_type,
-              qty,
-              reason: `${source.store.store_name} thừa (${source.weeksCover.toFixed(1)}w) → ${target.store.store_name} thiếu (${target.weeksCover.toFixed(1)}w)${isSame ? " [cùng vùng]" : ""}`,
-              from_weeks_cover: source.weeksCover,
-              to_weeks_cover: target.weeksCover,
-              balanced_weeks_cover: target.velocity > 0 ? (target.onHand + qty) / (target.velocity * 7) : 0,
-              priority: target.weeksCover < 0.5 ? "P1" : target.weeksCover < 1 ? "P2" : "P3",
-              potential_revenue_gain: revenue,
-              logistics_cost_estimate: cost,
-              net_benefit: netBen,
-              status: "pending",
-            });
-
-            source.surplus -= qty;
-            remaining -= qty;
-          }
-        }
-      }
-    }
-
-    // Insert suggestions
-    if (suggestions.length > 0) {
-      for (let i = 0; i < suggestions.length; i += 500) {
-        const batch = suggestions.slice(i, i + 500);
-        const { error } = await supabase.from("inv_rebalance_suggestions").insert(batch);
-        if (error) throw error;
-      }
-    }
-
-    const pushUnits = suggestions.filter((s: any) => s.transfer_type === "push").reduce((s: number, sg: any) => s + sg.qty, 0);
-    const lateralUnits = suggestions.filter((s: any) => s.transfer_type === "lateral").reduce((s: number, sg: any) => s + sg.qty, 0);
-
+    // Update run record
     await supabase
       .from("inv_rebalance_runs")
       .update({
         status: "completed",
         completed_at: new Date().toISOString(),
-        total_suggestions: suggestions.length,
-        total_units: pushUnits + lateralUnits,
-        push_units: pushUnits,
-        lateral_units: lateralUnits,
+        total_suggestions: result.total_suggestions,
+        total_units: (result.push_units || 0) + (result.lateral_units || 0),
+        push_units: result.push_units || 0,
+        lateral_units: result.lateral_units || 0,
       })
       .eq("id", run.id);
 
     return jsonResponse({
       run_id: run.id,
-      total_suggestions: suggestions.length,
-      push_suggestions: suggestions.filter((s: any) => s.transfer_type === "push").length,
-      lateral_suggestions: suggestions.filter((s: any) => s.transfer_type === "lateral").length,
-      push_units: pushUnits,
-      lateral_units: lateralUnits,
+      ...result,
     });
   } catch (error) {
     await supabase
