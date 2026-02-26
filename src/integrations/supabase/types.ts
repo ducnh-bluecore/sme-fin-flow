@@ -40982,7 +40982,7 @@ export type Database = {
         Returns: Json
       }
       compute_size_transfers: {
-        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: Json
       }
       control_tower_aggregate_signals: {
