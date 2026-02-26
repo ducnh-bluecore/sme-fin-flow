@@ -105,24 +105,23 @@ async function handleAllocate(
   if (runError) throw runError;
 
   try {
-    // ── Parallel-paginated fetch (Supabase caps ~1000 rows per request) ──
-    async function fetchAll(table: string, selectCols: string, filters: Record<string, any> = {}): Promise<any[]> {
+    // ── Paginated fetch helper ──
+    async function fetchAll(table: string, selectCols: string, filters: Record<string, any> = {}, extraFilter?: (q: any) => any): Promise<any[]> {
       const PAGE_SIZE = 1000;
-      // First page to get total
       let query = supabase.from(table).select(selectCols, { count: 'exact' }).eq("tenant_id", tenantId);
       for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
+      if (extraFilter) query = extraFilter(query);
       const first = await query.range(0, PAGE_SIZE - 1);
       if (first.error) throw first.error;
       const firstData = first.data || [];
       const total = first.count || firstData.length;
       if (total <= PAGE_SIZE) return firstData;
-      
-      // Fetch remaining pages in parallel
       const pages = Math.ceil(total / PAGE_SIZE);
       const promises = [];
       for (let i = 1; i < pages; i++) {
         let q = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
         for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+        if (extraFilter) q = extraFilter(q);
         promises.push(q.range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
       }
       const results = await Promise.all(promises);
@@ -134,25 +133,19 @@ async function handleAllocate(
       return allData;
     }
 
-    // ── Fetch all data in parallel ──
-    // Use RPC for heavy tables, fetchAll for small ones
-    const [storesRaw, posAgg, storeTotalsRaw, demand, fcs, constraints, collections, sizeIntegrity, skuMappings] =
+    // ── Stage 1: Fetch lightweight data first (stores, positions, constraints) ──
+    const [storesRaw, posAgg, storeTotalsRaw, constraints, collections] =
       await Promise.all([
         fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
         supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
         supabase.rpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
-        fetchAll("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty"),
-        fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id", { is_active: true }),
         fetchAll("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
         fetchAll("inv_collections", "id,is_new_collection,air_date"),
-        fetchAll("inv_state_size_integrity", "fc_id,is_full_size_run"),
-        fetchAll("inv_sku_fc_mapping", "fc_id,sku"),
       ]);
 
     if (posAgg.error) throw posAgg.error;
     if (storeTotalsRaw.error) throw storeTotalsRaw.error;
 
-    // Map aggregated positions to the format the engine expects
     const positions = (posAgg.data || []).map((p: any) => ({
       store_id: p.store_id,
       fc_id: p.fc_id,
@@ -160,7 +153,7 @@ async function handleAllocate(
       reserved: Number(p.total_reserved) || 0,
       in_transit: Number(p.total_in_transit) || 0,
       safety_stock: Number(p.total_safety_stock) || 0,
-      sku: null, // aggregated — no single SKU
+      sku: null,
     }));
 
     const stores: StoreInfo[] = storesRaw.map((s: any) => ({
@@ -168,14 +161,41 @@ async function handleAllocate(
       capacity: Number(s.capacity) || 0,
     }));
 
-    console.log(`[ALLOC DATA] stores: ${stores.length}, positions(agg): ${positions.length}, fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
-
     if (!stores.length || !positions.length) {
       await completeRun(supabase, run.id, 0, 0);
       return jsonResponse({ run_id: run.id, recommendations: 0, message: "No data" });
     }
 
-    // Build store total on-hand for capacity checks (from RPC)
+    const centralStores = stores.filter((s) => s.location_type === "central_warehouse");
+    const retailStores = stores.filter((s) => s.location_type !== "central_warehouse");
+
+    // ── Early exit: check if CW has any stock ──
+    const cwStock = buildCWStock(positions, centralStores);
+    console.log(`[ALLOC] stores: ${stores.length}, positions: ${positions.length}, cwStock FCs: ${cwStock.size}, central: ${centralStores.length}, retail: ${retailStores.length}`);
+
+    if (cwStock.size === 0) {
+      console.log(`[ALLOC] No CW stock found — completing with 0 recs (skipping heavy fetches)`);
+      await completeRun(supabase, run.id, 0, 0);
+      return jsonResponse({ run_id: run.id, run_type: runType, total_recommendations: 0, v1_count: 0, v2_count: 0, total_units: 0, message: "No CW stock available" });
+    }
+
+    // ── Stage 2: Only fetch data for FCs that have CW stock ──
+    const cwFcIds = [...cwStock.keys()];
+    console.log(`[ALLOC] Fetching data for ${cwFcIds.length} FCs with CW stock...`);
+
+    // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
+    const fcFilter = (q: any) => q.in("id", cwFcIds);
+    const fcFieldFilter = (q: any) => q.in("fc_id", cwFcIds);
+
+    const [fcs, demand, sizeIntegrity, skuMappings] = await Promise.all([
+      fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id", { is_active: true }, fcFilter),
+      fetchAll("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, fcFieldFilter),
+      fetchAll("inv_state_size_integrity", "fc_id,is_full_size_run", {}, fcFieldFilter),
+      fetchAll("inv_sku_fc_mapping", "fc_id,sku", {}, fcFieldFilter),
+    ]);
+
+    console.log(`[ALLOC DATA] fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
+
     const storeTotalOnHand = new Map<string, number>();
     for (const st of (storeTotalsRaw.data || [])) {
       storeTotalOnHand.set(st.store_id, Number(st.total_on_hand) || 0);
@@ -185,14 +205,6 @@ async function handleAllocate(
     const demandMap = buildDemandMap(demand);
     const fcMap = new Map(fcs.map((f: any) => [f.id, f]));
     const sizeIntMap = buildSizeIntegrityMap(sizeIntegrity);
-    const centralStores = stores.filter((s) => s.location_type === "central_warehouse");
-    const retailStores = stores.filter((s) => s.location_type !== "central_warehouse");
-
-    console.log(`[ALLOC STORES] central: ${centralStores.length} (${centralStores.map(s => s.id).join(',')}), retail: ${retailStores.length}`);
-
-    // Track CW available stock (mutable during allocation)
-    const cwStock = buildCWStock(positions, centralStores);
-    console.log(`[ALLOC CW] cwStock FC entries: ${cwStock.size}`);
 
     const allRecs: AllocationRec[] = [];
 
