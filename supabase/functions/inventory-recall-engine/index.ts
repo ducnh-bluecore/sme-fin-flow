@@ -49,8 +49,22 @@ Deno.serve(async (req) => {
     const cwName = cwStore?.store_name || 'Kho tổng';
     const retailStores = stores?.filter((s: any) => s.location_type !== 'central_warehouse') || [];
 
-    // 3. Get positions for all stores (paginated)
+    // 3. Find latest snapshot_date first
     const PAGE_SIZE = 1000;
+    const { data: snapRow } = await supabase
+      .from('inv_state_positions')
+      .select('snapshot_date')
+      .eq('tenant_id', tenant_id)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+      .single();
+    const latestSnapshot = snapRow?.snapshot_date;
+    if (!latestSnapshot) {
+      throw new Error('No inventory snapshot found');
+    }
+    console.log(`Using latest snapshot_date: ${latestSnapshot}`);
+
+    // Get positions for all stores (paginated), filtered by latest snapshot
     const positions: any[] = [];
     let offset = 0;
     while (true) {
@@ -58,6 +72,7 @@ Deno.serve(async (req) => {
         .from('inv_state_positions')
         .select('store_id, fc_id, sku, on_hand')
         .eq('tenant_id', tenant_id)
+        .eq('snapshot_date', latestSnapshot)
         .gt('on_hand', 0)
         .range(offset, offset + PAGE_SIZE - 1);
       if (error) throw error;
