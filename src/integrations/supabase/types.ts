@@ -19266,6 +19266,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_transfer_eligible: boolean
           location_type: string
           metadata: Json | null
           region: string | null
@@ -19281,6 +19282,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_transfer_eligible?: boolean
           location_type?: string
           metadata?: Json | null
           region?: string | null
@@ -19296,6 +19298,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_transfer_eligible?: boolean
           location_type?: string
           metadata?: Json | null
           region?: string | null

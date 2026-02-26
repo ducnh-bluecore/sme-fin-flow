@@ -1,19 +1,33 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Settings, Plus, Pencil, Trash2, Shield, Tag, BarChart3, Store } from 'lucide-react';
+import { Settings, Plus, Pencil, Trash2, Shield, Tag, BarChart3, Store, Warehouse, ArrowLeftRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { toast } from 'sonner';
 
+interface InvStoreRow {
+  id: string;
+  store_code: string;
+  store_name: string;
+  location_type: string;
+  tier: string | null;
+  region: string | null;
+  is_active: boolean;
+  is_transfer_eligible: boolean;
+}
+
 export default function CommandSettingsPage() {
   const { buildQuery, buildUpdateQuery, tenantId, isReady } = useTenantQueryBuilder();
   const queryClient = useQueryClient();
+  const [storeSearch, setStoreSearch] = useState('');
 
   // === Allocation Policies ===
   const { data: policies } = useQuery({
@@ -90,6 +104,32 @@ export default function CommandSettingsPage() {
     },
   });
 
+  // === Inventory Stores ===
+  const { data: invStores } = useQuery({
+    queryKey: ['inv-stores-settings', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('inv_stores' as any)
+        .select('id,store_code,store_name,location_type,tier,region,is_active,is_transfer_eligible')
+        .order('store_name');
+      if (error) return [];
+      return (data || []) as unknown as InvStoreRow[];
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  const updateStore = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<InvStoreRow> }) => {
+      const { error } = await buildUpdateQuery('inv_stores' as any, updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inv-stores-settings'] });
+      toast.success('Đã cập nhật kho');
+    },
+    onError: (e: any) => toast.error(`Lỗi: ${e.message}`),
+  });
+
   const classColor: Record<string, string> = {
     CORE: 'default',
     HERO: 'secondary',
@@ -105,6 +145,7 @@ export default function CommandSettingsPage() {
 
       <Tabs defaultValue="policies" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="stores">Quản Lý Kho</TabsTrigger>
           <TabsTrigger value="policies">Chính Sách Phân Bổ</TabsTrigger>
           <TabsTrigger value="constraints">Ràng Buộc</TabsTrigger>
           <TabsTrigger value="criticality">Phân Loại SKU</TabsTrigger>
@@ -290,6 +331,119 @@ export default function CommandSettingsPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        {/* === Store Management === */}
+        <TabsContent value="stores" className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Warehouse className="h-4 w-4" />
+                  Danh Sách Kho ({invStores?.length || 0})
+                </CardTitle>
+                <Input
+                  placeholder="Tìm kho..."
+                  value={storeSearch}
+                  onChange={(e) => setStoreSearch(e.target.value)}
+                  className="w-48 h-8 text-xs"
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Mã Kho</TableHead>
+                      <TableHead>Tên Kho</TableHead>
+                      <TableHead className="w-[140px]">Loại Kho</TableHead>
+                      <TableHead className="w-[80px]">Tier</TableHead>
+                      <TableHead className="w-[100px]">Khu Vực</TableHead>
+                      <TableHead className="text-center w-[120px]">
+                        <span className="flex items-center gap-1 justify-center">
+                          <ArrowLeftRight className="h-3 w-3" />
+                          Điều Chuyển
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center w-[80px]">Hoạt Động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(invStores || [])
+                      .filter(s => !storeSearch || s.store_name.toLowerCase().includes(storeSearch.toLowerCase()) || s.store_code.includes(storeSearch))
+                      .map((store) => (
+                        <TableRow key={store.id} className={!store.is_active ? 'opacity-50' : ''}>
+                          <TableCell className="font-mono text-xs">{store.store_code}</TableCell>
+                          <TableCell className="font-medium text-sm">{store.store_name}</TableCell>
+                          <TableCell>
+                            <Select
+                              value={store.location_type}
+                              onValueChange={(val) => updateStore.mutate({ id: store.id, updates: { location_type: val } })}
+                            >
+                              <SelectTrigger className="h-7 text-xs w-[130px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="central_warehouse">Kho Tổng</SelectItem>
+                                <SelectItem value="sub_warehouse">Kho Phụ</SelectItem>
+                                <SelectItem value="store">Cửa Hàng</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">
+                              {store.tier || '—'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{store.region || '—'}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={store.is_transfer_eligible}
+                              onCheckedChange={(checked) => updateStore.mutate({ id: store.id, updates: { is_transfer_eligible: checked } })}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={store.is_active}
+                              onCheckedChange={(checked) => updateStore.mutate({ id: store.id, updates: { is_active: checked } })}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card>
+              <CardContent className="p-3 text-center">
+                <p className="text-[10px] text-muted-foreground">Kho Tổng</p>
+                <p className="text-lg font-bold">{invStores?.filter(s => s.location_type === 'central_warehouse').length || 0}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <p className="text-[10px] text-muted-foreground">Cửa Hàng</p>
+                <p className="text-lg font-bold">{invStores?.filter(s => s.location_type === 'store').length || 0}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <p className="text-[10px] text-muted-foreground">Được Điều Chuyển</p>
+                <p className="text-lg font-bold text-primary">{invStores?.filter(s => s.is_transfer_eligible).length || 0}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3 text-center">
+                <p className="text-[10px] text-muted-foreground">Đã Đóng</p>
+                <p className="text-lg font-bold text-destructive">{invStores?.filter(s => !s.is_active).length || 0}</p>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
