@@ -43,8 +43,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[KPI Engine] Done:`, JSON.stringify(data));
-    return new Response(JSON.stringify(data), {
+    console.log(`[KPI Engine] KPI done:`, JSON.stringify(data));
+
+    // Also compute size transfers from current inventory
+    console.log(`[KPI Engine] Computing size transfers...`);
+    const { data: transferResult, error: transferErr } = await supabase.rpc("compute_size_transfers", {
+      p_tenant_id: tenant_id,
+      p_as_of_date: today,
+    });
+
+    if (transferErr) {
+      console.error(`[KPI Engine] Transfer compute error:`, transferErr.message);
+    } else {
+      console.log(`[KPI Engine] Transfers:`, JSON.stringify(transferResult));
+    }
+
+    const combined = { ...(data as any), transfers: transferResult };
+    return new Response(JSON.stringify(combined), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
