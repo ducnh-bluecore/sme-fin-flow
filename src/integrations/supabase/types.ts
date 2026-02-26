@@ -41961,6 +41961,10 @@ export type Database = {
         Returns: boolean
       }
       set_current_org: { Args: { p_org_id: string }; Returns: undefined }
+      set_statement_timeout: {
+        Args: { timeout_ms: number }
+        Returns: undefined
+      }
       set_tenant_schema: { Args: { p_tenant_id: string }; Returns: undefined }
       snooze_insight: {
         Args: {
