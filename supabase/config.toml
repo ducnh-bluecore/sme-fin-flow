@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.inventory-backfill-size-split]
 verify_jwt = false
+
+[functions.growth-simulator]
+verify_jwt = false
+
+[functions.compute-kpi-pipeline]
+verify_jwt = false
