@@ -45,6 +45,42 @@ function getSuggestion(item: DeadStockItem, isSlowSelling?: boolean): string {
 }
 
 export default function DeadStockPage() {
+  // Single query for ALL items (45+ days) — derive both tabs from this
+  const { data: allData, isLoading } = useDeadStock(45);
+
+  // Split: dead stock = daysSinceLastSale >= 90, slow selling = the rest
+  const deadStockItems = (allData?.items ?? []).filter(i => {
+    // Original useDeadStock(90) logic: items that would pass minInactiveDays=90
+    return i.daysSinceLastSale === null || i.daysSinceLastSale >= 90;
+  });
+  const slowItems = (allData?.items ?? []).filter(i => {
+    return i.daysSinceLastSale !== null && i.daysSinceLastSale < 90;
+  });
+
+  // Build summaries
+  const buildSummary = (items: DeadStockItem[]) => {
+    const summary = {
+      total_items: items.length,
+      total_locked_value: items.reduce((s, i) => s + i.cash_locked, 0),
+      total_stock: items.reduce((s, i) => s + i.current_stock, 0),
+      by_bucket: {
+        slow_moving: { items: 0, locked: 0, stock: 0 },
+        stagnant: { items: 0, locked: 0, stock: 0 },
+        dead_stock: { items: 0, locked: 0, stock: 0 },
+      } as Record<AgingBucket, { items: number; locked: number; stock: number }>,
+    };
+    items.forEach(i => {
+      const b = summary.by_bucket[i.aging_bucket];
+      b.items++;
+      b.locked += i.cash_locked;
+      b.stock += i.current_stock;
+    });
+    return summary;
+  };
+
+  const deadSummary = buildSummary(deadStockItems);
+  const slowSummary = buildSummary(slowItems);
+
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
@@ -58,7 +94,7 @@ export default function DeadStockPage() {
         </div>
       </motion.div>
 
-      <Tabs defaultValue="dead-stock">
+      <Tabs defaultValue="slow-selling">
         <TabsList>
           <TabsTrigger value="slow-selling" className="gap-1.5">
             <Clock className="h-3.5 w-3.5" />
@@ -71,41 +107,24 @@ export default function DeadStockPage() {
         </TabsList>
 
         <TabsContent value="slow-selling">
-          <SlowSellingTab />
+          <SlowSellingTab items={slowItems} summary={slowSummary} isLoading={isLoading} />
         </TabsContent>
         <TabsContent value="dead-stock">
-          <DeadStockTab />
+          <DeadStockTab items={deadStockItems} summary={deadSummary} isLoading={isLoading} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function SlowSellingTab() {
-  const { data: deadStockData } = useDeadStock(90);
-  const { data: allData, isLoading } = useDeadStock(45);
-  const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
+interface TabProps {
+  items: DeadStockItem[];
+  summary: { total_items: number; total_locked_value: number; total_stock: number; by_bucket: Record<AgingBucket, { items: number; locked: number; stock: number }> };
+  isLoading: boolean;
+}
 
-  // Items between 45-89 days = allData minus deadStockData
-  const deadStockIds = new Set(deadStockData?.items.map(i => `${i.product_id}-${i.fc_code}`) ?? []);
-  const slowItems = (allData?.items ?? []).filter(i => !deadStockIds.has(`${i.product_id}-${i.fc_code}`));
-  
-  const summary = {
-    total_items: slowItems.length,
-    total_locked_value: slowItems.reduce((s, i) => s + i.cash_locked, 0),
-    total_stock: slowItems.reduce((s, i) => s + i.current_stock, 0),
-    by_bucket: {
-      slow_moving: { items: 0, locked: 0, stock: 0 },
-      stagnant: { items: 0, locked: 0, stock: 0 },
-      dead_stock: { items: 0, locked: 0, stock: 0 },
-    },
-  };
-  slowItems.forEach(i => {
-    const b = summary.by_bucket[i.aging_bucket];
-    b.items++;
-    b.locked += i.cash_locked;
-    b.stock += i.current_stock;
-  });
+function SlowSellingTab({ items: slowItems, summary, isLoading }: TabProps) {
+  const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
 
   const filteredItems = slowItems.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket);
 
@@ -144,10 +163,9 @@ function SlowSellingTab() {
   );
 }
 
-function DeadStockTab() {
-  const { data, isLoading } = useDeadStock(90);
+function DeadStockTab({ items, summary, isLoading }: TabProps) {
   const [filterBucket, setFilterBucket] = useState<AgingBucket | 'all'>('all');
-  const filteredItems = data?.items.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket) ?? [];
+  const filteredItems = items.filter(i => filterBucket === 'all' || i.aging_bucket === filterBucket);
 
   return (
     <div className="space-y-4 mt-4">
@@ -155,7 +173,7 @@ function DeadStockTab() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-lg" />)}
         </div>
-      ) : data ? (
+      ) : (
         <>
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="p-4">
@@ -164,22 +182,22 @@ function DeadStockTab() {
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      {data.summary.total_items} sản phẩm — {data.summary.total_stock.toLocaleString()} units
+                      {summary.total_items} sản phẩm — {summary.total_stock.toLocaleString()} units
                     </p>
                     <p className="text-xs text-muted-foreground">đang khóa vốn, không tạo doanh thu</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-destructive">{formatVND(data.summary.total_locked_value)}</p>
+                  <p className="text-lg font-bold text-destructive">{formatVND(summary.total_locked_value)}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Vốn bị khóa</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <ItemsList items={filteredItems} filterBucket={filterBucket} setFilterBucket={setFilterBucket} summary={data.summary} />
+          <ItemsList items={filteredItems} filterBucket={filterBucket} setFilterBucket={setFilterBucket} summary={summary} />
         </>
-      ) : null}
+      )}
     </div>
   );
 }
