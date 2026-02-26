@@ -182,6 +182,7 @@ export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, 
                       {group.suggestions.map(s => {
                         const avgPrice = 350000;
                         const value = s.qty * avgPrice;
+                        const wocDisplay = (s.from_weeks_cover || 0) >= 999 ? '∞' : `${(s.from_weeks_cover || 0).toFixed(1)}w`;
                         return (
                           <tr key={s.id} className="border-b last:border-b-0 hover:bg-accent/30">
                             <td className="px-4 py-2">
@@ -190,13 +191,13 @@ export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, 
                             <td className="px-3 py-2 text-right font-mono font-semibold text-foreground">{s.qty}</td>
                             <td className="px-3 py-2 text-right">
                               <span className={`font-mono ${(s.from_weeks_cover || 0) > 12 ? 'text-red-400' : 'text-muted-foreground'}`}>
-                                {(s.from_weeks_cover || 0).toFixed(1)}w
+                                {wocDisplay}
                               </span>
                             </td>
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                <span className="truncate max-w-[200px]">{s.reason}</span>
+                              <div className="flex items-start gap-1 text-xs text-muted-foreground">
+                                <Clock className="h-3 w-3 mt-0.5 shrink-0" />
+                                <span className="max-w-[320px]" title={s.reason}>{s.reason}</span>
                               </div>
                             </td>
                             <td className="px-3 py-2 text-right text-amber-400 font-mono">{formatNumber(value)}</td>
