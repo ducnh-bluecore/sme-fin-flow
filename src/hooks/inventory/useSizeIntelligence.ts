@@ -92,11 +92,20 @@ export function useSizeIntelligence() {
   const sizeTransfers = useQuery({
     queryKey: ['size-transfers', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildQuery('state_size_transfer_daily' as any)
-        .order('transfer_score', { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data || []) as unknown as SizeTransferRow[];
+      const PAGE_SIZE = 1000;
+      const allRows: SizeTransferRow[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error } = await buildQuery('state_size_transfer_daily' as any)
+          .order('transfer_score', { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const rows = (data || []) as unknown as SizeTransferRow[];
+        allRows.push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      return allRows;
     },
     enabled: !!tenantId && isReady,
     staleTime: 5 * 60 * 1000,
