@@ -5,10 +5,10 @@ export type AgingBucket = 'slow_moving' | 'stagnant' | 'dead_stock';
 
 export interface ChannelSalesRecord {
   channel: string;
-  lastSaleMonth: string;       // e.g. "2026-02"
+  lastSaleMonth: string;
   totalUnitsSold: number;
   avgDiscountPct: number;
-  discountBands: string[];     // e.g. ["0-20%", "20-30%"]
+  discountBands: string[];
 }
 
 export interface DeadStockItem {
@@ -29,13 +29,11 @@ export interface DeadStockItem {
   collection_name: string | null;
   aging_bucket: AgingBucket;
   aging_label: string;
-  // Sales history enrichment
   daysSinceLastSale: number | null;
   lastSaleDate: string | null;
   channelHistory: ChannelSalesRecord[];
-  // Recent velocity (units/day in the 5-day window before last sale)
   recentVelocity: number | null;
-  recentVelocityWindow: string | null; // e.g. "3 units in 5 days"
+  recentVelocityWindow: string | null;
 }
 
 export interface DeadStockSummary {
@@ -45,179 +43,36 @@ export interface DeadStockSummary {
   by_bucket: Record<AgingBucket, { items: number; locked: number; stock: number }>;
 }
 
-function classifyAging(
-  daysToClose: number,
-  daysSinceLastSale: number | null,
-  recentVelocity: number | null,
-): { bucket: AgingBucket; label: string } {
-  // Base classification from days_to_clear
-  let bucket: AgingBucket;
-  let label: string;
-
+function classifyAging(daysToClose: number): { bucket: AgingBucket; label: string } {
   if (daysToClose >= 9999 || daysToClose >= 365) {
-    bucket = 'dead_stock';
-    label = 'Hàng chết — không bán được';
-  } else if (daysToClose >= 180) {
-    bucket = 'stagnant';
-    label = 'Tồn nặng — >180 ngày mới clear';
-  } else {
-    bucket = 'slow_moving';
-    label = 'Chậm bán — 90-180 ngày';
+    return { bucket: 'dead_stock', label: 'Hàng chết — không bán được' };
   }
-
-  // Reclassify: if sold recently AND has recent velocity, cap at lower severity
-  // "Recently" = within last 60 days (covers Tết/holiday pauses)
-  if (daysSinceLastSale !== null && daysSinceLastSale < 60 && recentVelocity !== null && recentVelocity > 0) {
-    if (bucket === 'dead_stock') {
-      bucket = 'stagnant';
-      label = 'Tồn nặng — có bán gần đây, velocity thấp';
-    } else if (bucket === 'stagnant') {
-      bucket = 'slow_moving';
-      label = 'Chậm bán — có bán gần đây';
-    }
+  if (daysToClose >= 180) {
+    return { bucket: 'stagnant', label: 'Tồn nặng — >180 ngày mới clear' };
   }
-
-  return { bucket, label };
-}
-
-function monthsToDate(monthStr: string): Date {
-  return new Date(monthStr);
-}
-
-function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function normalizeFcId(value: string | null | undefined): string {
-  return (value || '').trim().toLowerCase();
+  return { bucket: 'slow_moving', label: 'Chậm bán — 90-180 ngày' };
 }
 
 export function useDeadStock(minInactiveDays: number = 90) {
-  const { client, buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['dead-stock', tenantId, minInactiveDays],
     queryFn: async () => {
-      // Step 1: Fetch clearance candidates
+      // Single RPC call — no history fetch needed
       const candidatesRes = await client.rpc('fn_clearance_candidates', { p_tenant_id: tenantId, p_min_risk: 0 });
       if (candidatesRes.error) throw candidatesRes.error;
       const all = (candidatesRes.data || []) as any[];
 
-      // Step 2: Get unique fc_ids (= product_id) from candidates that qualify (days_to_clear >= 90 or zero velocity)
-      const qualifiedFcIds = [...new Set(
-        all
-          .filter(r => (r.days_to_clear ?? 9999) >= 90 || Number(r.avg_daily_sales || 0) <= 0)
-          .map(r => normalizeFcId(r.product_id as string))
-          .filter(Boolean)
-      )];
-
-      // Step 3: Fetch history by fc_id — parallel chunks for speed
-      const CHUNK_SIZE = 100;
-      const PAGE_SIZE = 1000;
-
-      const fetchChunk = async (chunk: string[]): Promise<any[]> => {
-        const results: any[] = [];
-        let from = 0;
-        while (true) {
-          const to = from + PAGE_SIZE - 1;
-          const res = await buildQuery('v_clearance_history_by_fc' as any)
-            .in('fc_id', chunk)
-            .order('sale_month', { ascending: false })
-            .range(from, to);
-          if (res.error) throw res.error;
-          const page = res.data || [];
-          results.push(...page);
-          if (page.length < PAGE_SIZE) break;
-          from += PAGE_SIZE;
-        }
-        return results;
-      };
-
-      const chunks: string[][] = [];
-      for (let i = 0; i < qualifiedFcIds.length; i += CHUNK_SIZE) {
-        chunks.push(qualifiedFcIds.slice(i, i + CHUNK_SIZE));
-      }
-
-      const chunkResults = await Promise.all(chunks.map(fetchChunk));
-      const history = chunkResults.flat();
-
-      // Build sales history map: fc_id → channel → aggregated info
-      const historyMap = new Map<string, Map<string, { 
-        lastMonth: string; totalUnits: number; discounts: Map<string, number>; avgDisc: number; discCount: number 
-      }>>();
-      
-      history.forEach((h: any) => {
-        const fcId = normalizeFcId(h.fc_id as string);
-        if (!fcId) return;
-        if (!historyMap.has(fcId)) historyMap.set(fcId, new Map());
-        const chMap = historyMap.get(fcId)!;
-        const ch = h.channel as string;
-        const existing = chMap.get(ch);
-        if (existing) {
-          if (h.sale_month > existing.lastMonth) existing.lastMonth = h.sale_month;
-          existing.totalUnits += h.units_sold;
-          existing.discounts.set(h.discount_band, (existing.discounts.get(h.discount_band) || 0) + h.units_sold);
-          existing.avgDisc = (existing.avgDisc * existing.discCount + (h.avg_discount_pct || 0)) / (existing.discCount + 1);
-          existing.discCount++;
-        } else {
-          const discounts = new Map<string, number>();
-          discounts.set(h.discount_band, h.units_sold);
-          chMap.set(ch, { lastMonth: h.sale_month, totalUnits: h.units_sold, discounts, avgDisc: h.avg_discount_pct || 0, discCount: 1 });
-        }
-      });
-
-      const now = new Date();
-
-      // Filter: days_to_clear >= 90 OR zero velocity
       const deadItems: DeadStockItem[] = all
         .filter(r => {
           const dtc = r.days_to_clear ?? 9999;
           const vel = Number(r.avg_daily_sales || 0);
-          return dtc >= 90 || vel <= 0;
+          return dtc >= minInactiveDays || vel <= 0;
         })
         .map(r => {
           const dtc = r.days_to_clear ?? 9999;
-
-          // Enrich with sales history (match by fc_id = product_id)
-          const productHistory = historyMap.get(normalizeFcId(r.product_id as string));
-          let daysSinceLastSale: number | null = null;
-          let lastSaleDate: string | null = null;
-          const channelHistory: ChannelSalesRecord[] = [];
-          let recentVelocity: number | null = null;
-          let recentVelocityWindow: string | null = null;
-
-          if (productHistory) {
-            let overallLastMonth = '';
-            let lastMonthTotalUnits = 0;
-            productHistory.forEach((chData, channel) => {
-              if (chData.lastMonth > overallLastMonth) overallLastMonth = chData.lastMonth;
-              channelHistory.push({
-                channel,
-                lastSaleMonth: chData.lastMonth.slice(0, 7),
-                totalUnitsSold: chData.totalUnits,
-                avgDiscountPct: Math.round(chData.avgDisc),
-                discountBands: Array.from(chData.discounts.keys()).sort(),
-              });
-            });
-            if (overallLastMonth) {
-              const lastDate = monthsToDate(overallLastMonth);
-              daysSinceLastSale = daysBetween(lastDate, now);
-              lastSaleDate = overallLastMonth.slice(0, 7);
-
-              // Calculate recent velocity: total units sold across all channels
-              // in the last sale month, divided by 5 (simulating 5-day window)
-              productHistory.forEach((chData) => {
-                if (chData.lastMonth === overallLastMonth) {
-                  lastMonthTotalUnits += chData.totalUnits;
-                }
-              });
-              recentVelocity = lastMonthTotalUnits / 5;
-              recentVelocityWindow = `${lastMonthTotalUnits} units gần lần bán cuối`;
-            }
-            channelHistory.sort((a, b) => b.lastSaleMonth.localeCompare(a.lastSaleMonth));
-          }
-
-          const { bucket, label } = classifyAging(dtc, daysSinceLastSale, recentVelocity);
+          const { bucket, label } = classifyAging(dtc);
 
           return {
             product_id: r.product_id,
@@ -237,23 +92,15 @@ export function useDeadStock(minInactiveDays: number = 90) {
             collection_name: r.collection_name || null,
             aging_bucket: bucket,
             aging_label: label,
-            daysSinceLastSale,
-            lastSaleDate,
-            channelHistory,
-            recentVelocity,
-            recentVelocityWindow,
+            daysSinceLastSale: null,
+            lastSaleDate: null,
+            channelHistory: [],
+            recentVelocity: null,
+            recentVelocityWindow: null,
           };
-        })
-        // Post-enrichment filter: exclude items that sold too recently
-        .filter(item => {
-          if (item.daysSinceLastSale !== null && item.daysSinceLastSale < minInactiveDays) {
-            return false;
-          }
-          return true;
         })
         .sort((a, b) => b.cash_locked - a.cash_locked);
 
-      // Summary
       const summary: DeadStockSummary = {
         total_items: deadItems.length,
         total_locked_value: deadItems.reduce((s, i) => s + i.cash_locked, 0),
