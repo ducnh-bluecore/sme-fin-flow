@@ -5,7 +5,7 @@ import { useActiveTenantId } from '@/hooks/useActiveTenantId';
 export interface RebalanceSuggestion {
   id: string;
   run_id: string;
-  transfer_type: 'push' | 'lateral';
+  transfer_type: 'push' | 'lateral' | 'recall';
   fc_id: string;
   fc_name: string;
   from_location: string;
@@ -29,7 +29,7 @@ export interface RebalanceSuggestion {
   created_at: string;
 }
 
-export function useRebalanceSuggestions(runId?: string, transferType?: 'push' | 'lateral') {
+export function useRebalanceSuggestions(runId?: string, transferType?: 'push' | 'lateral' | 'recall') {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
 
   return useQuery({
