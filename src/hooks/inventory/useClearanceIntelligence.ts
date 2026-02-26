@@ -36,6 +36,7 @@ export interface ClearanceCandidate {
   collection_id: string | null;
   collection_name: string | null;
   demand_space: string | null;
+  product_created_at: string | null;
 }
 
 const PREMIUM_MAX_DISCOUNT = 50;
@@ -118,6 +119,7 @@ export function useClearanceCandidates() {
         collection_id: r.collection_id || null,
         collection_name: r.collection_name || null,
         demand_space: r.demand_space || null,
+        product_created_at: r.product_created_at || null,
       } as ClearanceCandidate));
     },
     enabled: isReady && !!tenantId,

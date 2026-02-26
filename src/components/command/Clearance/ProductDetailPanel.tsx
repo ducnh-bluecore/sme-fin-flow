@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, Store, ArrowLeft, ShieldAlert, Clock, Zap, ArrowRight, LayoutGrid } from 'lucide-react';
+import { TrendingDown, Store, ArrowLeft, ShieldAlert, Clock, Zap, ArrowRight, LayoutGrid, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -152,6 +152,13 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
               <h2 className="text-lg font-bold text-foreground">{candidate.product_name}</h2>
               <p className="text-sm text-muted-foreground">Mã FC: {candidate.fc_code}</p>
               <div className="flex gap-1 mt-1 flex-wrap">
+                {candidate.product_created_at && (
+                  <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Tạo: {new Date(candidate.product_created_at).toLocaleDateString('vi-VN')}
+                    {' '}({Math.floor((Date.now() - new Date(candidate.product_created_at).getTime()) / (1000 * 60 * 60 * 24))} ngày)
+                  </Badge>
+                )}
                 {candidate.demand_space && <Badge variant="outline" className="border-violet-500/30 text-violet-600">{candidate.demand_space}</Badge>}
                 {candidate.season && <Badge variant="outline">{candidate.season}</Badge>}
                 {candidate.collection_name && <Badge variant="outline" className="border-blue-500/30 text-blue-600">{candidate.collection_name}</Badge>}
