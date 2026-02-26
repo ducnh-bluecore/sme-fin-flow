@@ -111,13 +111,12 @@ export function useDeadStock(minInactiveDays: number = 90) {
           .filter(Boolean)
       )];
 
-      // Step 3: Fetch history by fc_id (matches via inv_sku_fc_mapping in the view)
-      // Use pagination to avoid silent truncation when a chunk has >10k rows.
-      const CHUNK_SIZE = 50;
+      // Step 3: Fetch history by fc_id — parallel chunks for speed
+      const CHUNK_SIZE = 100;
       const PAGE_SIZE = 1000;
-      const historyResults: any[] = [];
-      for (let i = 0; i < qualifiedFcIds.length; i += CHUNK_SIZE) {
-        const chunk = qualifiedFcIds.slice(i, i + CHUNK_SIZE);
+
+      const fetchChunk = async (chunk: string[]): Promise<any[]> => {
+        const results: any[] = [];
         let from = 0;
         while (true) {
           const to = from + PAGE_SIZE - 1;
@@ -127,13 +126,20 @@ export function useDeadStock(minInactiveDays: number = 90) {
             .range(from, to);
           if (res.error) throw res.error;
           const page = res.data || [];
-          historyResults.push(...page);
+          results.push(...page);
           if (page.length < PAGE_SIZE) break;
           from += PAGE_SIZE;
         }
+        return results;
+      };
+
+      const chunks: string[][] = [];
+      for (let i = 0; i < qualifiedFcIds.length; i += CHUNK_SIZE) {
+        chunks.push(qualifiedFcIds.slice(i, i + CHUNK_SIZE));
       }
 
-      const history = historyResults;
+      const chunkResults = await Promise.all(chunks.map(fetchChunk));
+      const history = chunkResults.flat();
 
       // Build sales history map: fc_id → channel → aggregated info
       const historyMap = new Map<string, Map<string, { 
