@@ -36,14 +36,14 @@ export function useSizeBreakdown(fcId?: string) {
       // Get SKUs for this FC
       const skuRes = await client
         .from('inv_sku_fc_mapping' as any)
-        .select('sku, size_code')
+        .select('sku, size')
         .eq('tenant_id', tenantId!)
         .eq('fc_id', fcId!)
         .eq('is_active', true);
       if (skuRes.error) throw skuRes.error;
       const skuMap = new Map<string, string>();
       ((skuRes.data || []) as any[]).forEach((r: any) => {
-        skuMap.set(r.sku, r.size_code || r.sku);
+        skuMap.set(r.sku, r.size || r.sku);
       });
       const skus = Array.from(skuMap.keys());
       if (skus.length === 0) return { entries: [], summary: [] };
