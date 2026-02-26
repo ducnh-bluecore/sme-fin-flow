@@ -31,20 +31,32 @@ Deno.serve(async (req) => {
     console.log(`[KPI Engine] tenant=${tenant_id} date=${today}`);
 
     // ── Fetch data ──
-    const [posResult, demandResult, fcMappingResult, storesResult, avgPriceResult, curveProfileResult] = await Promise.all([
+    // Fetch core data first (avoid view timeout on v_inv_avg_unit_price)
+    const [posResult, demandResult, fcMappingResult, storesResult, curveProfileResult] = await Promise.all([
       fetchAll(supabase, "inv_state_positions", "id,store_id,fc_id,sku,on_hand,reserved,in_transit,safety_stock,weeks_of_cover", tenant_id),
       fetchAll(supabase, "inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity", tenant_id),
       fetchAll(supabase, "inv_sku_fc_mapping", "fc_id,sku,size", tenant_id),
       fetchAll(supabase, "inv_stores", "id,store_name,store_code,tier,region,location_type,is_active", tenant_id),
-      fetchAll(supabase, "v_inv_avg_unit_price", "sku,avg_unit_price", tenant_id),
       fetchAll(supabase, "sem_size_curve_profiles", "id,category_id,size_ratios,is_current", tenant_id),
     ]);
+
+    // Fetch avg prices separately with timeout protection
+    let avgPriceResult: any[] = [];
+    try {
+      avgPriceResult = await fetchAll(supabase, "v_inv_avg_unit_price", "sku,avg_unit_price", tenant_id);
+    } catch (e) {
+      console.error("[KPI Engine] Price view timeout, using empty prices:", e);
+    }
 
     const positions = posResult;
     const demand = demandResult;
     const skuMapping = fcMappingResult;
     const stores = storesResult.filter((s: any) => s.is_active);
     const retailStores = stores.filter((s: any) => s.location_type !== "central_warehouse");
+    const retailIds = new Set(retailStores.map((s: any) => s.id));
+
+    // Pre-filter positions to retail stores only (skip warehouse positions for KPIs)
+    const retailPositions = positions.filter((p: any) => retailIds.has(p.store_id) && (p.on_hand || 0) > 0);
 
     // Build price map: sku -> avg_unit_price
     const priceMap = new Map<string, number>();
@@ -55,191 +67,81 @@ Deno.serve(async (req) => {
     // Build curve profiles (if any)
     const curveProfiles = curveProfileResult.filter((cp: any) => cp.is_current && cp.size_ratios);
 
-    console.log(`[KPI Engine] positions=${positions.length} demand=${demand.length} skuMapping=${skuMapping.length} stores=${stores.length} prices=${priceMap.size} curveProfiles=${curveProfiles.length}`);
+    console.log(`[KPI Engine] positions=${positions.length} retail=${retailPositions.length} demand=${demand.length} skuMapping=${skuMapping.length} stores=${stores.length} prices=${priceMap.size}`);
 
-    // ── 1. Compute IDI (Inventory Distortion Index) per FC ──
-    const idiResults = computeIDI(tenant_id, today, positions, demand, retailStores);
+    // ── 1. IDI — use retail positions only ──
+    const idiResults = computeIDI(tenant_id, today, retailPositions, demand, retailStores);
     console.log(`[KPI Engine] IDI computed: ${idiResults.length} FCs`);
 
-    // ── 2. Compute SCS (Size Completeness Score) per style-store ──
-    const scsResults = computeSCS(tenant_id, today, positions, skuMapping, retailStores);
+    // ── 2. SCS — limit to FCs that have demand (skip dead stock) ──
+    const demandFcIds = new Set(demand.map((d: any) => d.fc_id));
+    const activeSkuMapping = skuMapping.filter((m: any) => demandFcIds.has(m.fc_id));
+    const scsResults = computeSCS(tenant_id, today, retailPositions, activeSkuMapping, retailStores);
     console.log(`[KPI Engine] SCS computed: ${scsResults.length} style-store pairs`);
 
-    // ── 3. Compute CHI (Curve Health Index) per style ──
+    // ── 3. CHI ──
     const chiResults = computeCHI(tenant_id, today, scsResults, demand);
     console.log(`[KPI Engine] CHI computed: ${chiResults.length} styles`);
 
-    // ── 4. Compute Network Gap per style ──
-    const gapResults = computeNetworkGap(tenant_id, today, positions, demand, skuMapping, retailStores, priceMap);
+    // ── 4. Network Gap ──
+    const gapResults = computeNetworkGap(tenant_id, today, retailPositions, demand, activeSkuMapping, retailStores, priceMap);
     console.log(`[KPI Engine] Network Gap computed: ${gapResults.length} styles`);
 
-    // ── 5. SIZE INTELLIGENCE: Size Health Score ──
-    const sizeHealthResults = computeSizeHealth(tenant_id, today, positions, skuMapping, retailStores, curveProfiles);
+    // ── 5-12: Size Intelligence (use retailPositions) ──
+    const sizeHealthResults = computeSizeHealth(tenant_id, today, retailPositions, activeSkuMapping, retailStores, curveProfiles);
     console.log(`[KPI Engine] Size Health computed: ${sizeHealthResults.length}`);
 
-    // ── 6. SIZE INTELLIGENCE: Lost Revenue Estimation ──
-    const lostRevenueResults = computeLostRevenue(tenant_id, today, positions, demand, skuMapping, priceMap);
+    const lostRevenueResults = computeLostRevenue(tenant_id, today, retailPositions, demand, activeSkuMapping, priceMap);
     console.log(`[KPI Engine] Lost Revenue computed: ${lostRevenueResults.length}`);
 
-    // ── 7. SIZE INTELLIGENCE: Markdown Risk ──
-    const markdownRiskResults = computeMarkdownRisk(tenant_id, today, sizeHealthResults, demand, positions, skuMapping);
+    const markdownRiskResults = computeMarkdownRisk(tenant_id, today, sizeHealthResults, demand, retailPositions, activeSkuMapping);
     console.log(`[KPI Engine] Markdown Risk computed: ${markdownRiskResults.length}`);
 
-    // ── 8. SIZE INTELLIGENCE Phase 2: Smart Transfer ──
-    const sizeTransferResults = computeSizeTransfers(tenant_id, today, positions, demand, skuMapping, retailStores, priceMap);
+    const sizeTransferResults = computeSizeTransfers(tenant_id, today, retailPositions, demand, activeSkuMapping, retailStores, priceMap);
     console.log(`[KPI Engine] Size Transfers computed: ${sizeTransferResults.length}`);
 
-    // ── 9. SIZE INTELLIGENCE Phase 2: Per-store Size Health ──
-    const storeHealthResults = computePerStoreSizeHealth(tenant_id, today, positions, skuMapping, retailStores);
+    const storeHealthResults = computePerStoreSizeHealth(tenant_id, today, retailPositions, activeSkuMapping, retailStores);
     console.log(`[KPI Engine] Per-store Health computed: ${storeHealthResults.length}`);
 
-    // ── 10. Phase 3: Cash Lock ──
-    const cashLockResults = computeCashLock(tenant_id, today, positions, demand, skuMapping, priceMap, sizeHealthResults);
+    const cashLockResults = computeCashLock(tenant_id, today, retailPositions, demand, activeSkuMapping, priceMap, sizeHealthResults);
     console.log(`[KPI Engine] Cash Lock computed: ${cashLockResults.length}`);
 
-    // ── 11. Phase 3: Margin Leak ──
-    const marginLeakResults = computeMarginLeak(tenant_id, today, sizeHealthResults, lostRevenueResults, markdownRiskResults, positions, priceMap, skuMapping);
+    const marginLeakResults = computeMarginLeak(tenant_id, today, sizeHealthResults, lostRevenueResults, markdownRiskResults, retailPositions, priceMap, activeSkuMapping);
     console.log(`[KPI Engine] Margin Leak computed: ${marginLeakResults.length}`);
 
-    // ── 12. Phase 3: Evidence Packs ──
     const evidencePackResults = buildEvidencePacks(tenant_id, today, sizeHealthResults, lostRevenueResults, markdownRiskResults, cashLockResults, marginLeakResults);
     console.log(`[KPI Engine] Evidence Packs: ${evidencePackResults.length}`);
 
-    // ── Upsert results ──
-    const results = { idi: 0, scs: 0, chi: 0, gap: 0, size_health: 0, lost_revenue: 0, markdown_risk: 0, size_transfers: 0, store_health: 0, cash_lock: 0, margin_leak: 0, evidence_packs: 0, errors: [] as string[] };
+    // ── Save all results via single RPC call (avoids CPU timeout from many REST calls) ──
+    console.log(`[KPI Engine] Saving via RPC bulk...`);
+    const { data: saveResult, error: saveError } = await supabase.rpc("kpi_engine_bulk_save", {
+      p_tenant_id: tenant_id,
+      p_as_of_date: today,
+      p_idi: JSON.stringify(idiResults),
+      p_scs: JSON.stringify(scsResults),
+      p_chi: JSON.stringify(chiResults),
+      p_gap: JSON.stringify(gapResults),
+      p_size_health: JSON.stringify(sizeHealthResults),
+      p_lost_revenue: JSON.stringify(lostRevenueResults),
+      p_markdown_risk: JSON.stringify(markdownRiskResults),
+      p_size_transfers: JSON.stringify(sizeTransferResults),
+      p_store_health: JSON.stringify(storeHealthResults),
+      p_cash_lock: JSON.stringify(cashLockResults),
+      p_margin_leak: JSON.stringify(marginLeakResults),
+      p_evidence_packs: JSON.stringify(evidencePackResults),
+    });
 
-    // Delete old data for today first, then insert
-    if (idiResults.length > 0) {
-      await supabase.from("kpi_inventory_distortion").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < idiResults.length; i += 500) {
-        const { error } = await supabase.from("kpi_inventory_distortion").insert(idiResults.slice(i, i + 500));
-        if (error) results.errors.push(`IDI: ${error.message}`);
-        else results.idi += Math.min(500, idiResults.length - i);
-      }
+    if (saveError) {
+      console.error(`[KPI Engine] Bulk save error:`, saveError.message);
     }
+    console.log(`[KPI Engine] Bulk save result:`, JSON.stringify(saveResult));
 
-    if (scsResults.length > 0) {
-      await supabase.from("kpi_size_completeness").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < scsResults.length; i += 500) {
-        const { error } = await supabase.from("kpi_size_completeness").insert(scsResults.slice(i, i + 500));
-        if (error) results.errors.push(`SCS: ${error.message}`);
-        else results.scs += Math.min(500, scsResults.length - i);
-      }
-    }
-
-    if (chiResults.length > 0) {
-      await supabase.from("kpi_curve_health").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < chiResults.length; i += 500) {
-        const { error } = await supabase.from("kpi_curve_health").insert(chiResults.slice(i, i + 500));
-        if (error) results.errors.push(`CHI: ${error.message}`);
-        else results.chi += Math.min(500, chiResults.length - i);
-      }
-    }
-
-    if (gapResults.length > 0) {
-      await supabase.from("kpi_network_gap").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < gapResults.length; i += 500) {
-        const { error } = await supabase.from("kpi_network_gap").insert(gapResults.slice(i, i + 500));
-        if (error) results.errors.push(`GAP: ${error.message}`);
-        else results.gap += Math.min(500, gapResults.length - i);
-      }
-    }
-
-    // ── New: Size Intelligence tables ──
-    if (sizeHealthResults.length > 0) {
-      await supabase.from("state_size_health_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < sizeHealthResults.length; i += 500) {
-        const { error } = await supabase.from("state_size_health_daily").insert(sizeHealthResults.slice(i, i + 500));
-        if (error) results.errors.push(`SizeHealth: ${error.message}`);
-        else results.size_health += Math.min(500, sizeHealthResults.length - i);
-      }
-    }
-
-    if (lostRevenueResults.length > 0) {
-      await supabase.from("state_lost_revenue_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < lostRevenueResults.length; i += 500) {
-        const { error } = await supabase.from("state_lost_revenue_daily").insert(lostRevenueResults.slice(i, i + 500));
-        if (error) results.errors.push(`LostRevenue: ${error.message}`);
-        else results.lost_revenue += Math.min(500, lostRevenueResults.length - i);
-      }
-    }
-
-    if (markdownRiskResults.length > 0) {
-      await supabase.from("state_markdown_risk_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < markdownRiskResults.length; i += 500) {
-        const { error } = await supabase.from("state_markdown_risk_daily").insert(markdownRiskResults.slice(i, i + 500));
-        if (error) results.errors.push(`MarkdownRisk: ${error.message}`);
-        else results.markdown_risk += Math.min(500, markdownRiskResults.length - i);
-      }
-    }
-
-    // Phase 2: Size Transfers
-    if (sizeTransferResults.length > 0) {
-      await supabase.from("state_size_transfer_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < sizeTransferResults.length; i += 500) {
-        const { error } = await supabase.from("state_size_transfer_daily").insert(sizeTransferResults.slice(i, i + 500));
-        if (error) results.errors.push(`SizeTransfer: ${error.message}`);
-        else results.size_transfers += Math.min(500, sizeTransferResults.length - i);
-      }
-    }
-
-    // Phase 2: Per-store Health (append to existing size_health table)
-    if (storeHealthResults.length > 0) {
-      // Delete only store-level entries (store_id IS NOT NULL) for today
-      await supabase.from("state_size_health_daily").delete()
-        .eq("tenant_id", tenant_id).eq("as_of_date", today).not("store_id", "is", null);
-      for (let i = 0; i < storeHealthResults.length; i += 500) {
-        const { error } = await supabase.from("state_size_health_daily").insert(storeHealthResults.slice(i, i + 500));
-        if (error) results.errors.push(`StoreHealth: ${error.message}`);
-        else results.store_health += Math.min(500, storeHealthResults.length - i);
-      }
-    }
-
-    // Phase 3: Cash Lock
-    if (cashLockResults.length > 0) {
-      await supabase.from("state_cash_lock_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < cashLockResults.length; i += 500) {
-        const { error } = await supabase.from("state_cash_lock_daily").insert(cashLockResults.slice(i, i + 500));
-        if (error) results.errors.push(`CashLock: ${error.message}`);
-        else results.cash_lock += Math.min(500, cashLockResults.length - i);
-      }
-    }
-
-    // Phase 3: Margin Leak
-    if (marginLeakResults.length > 0) {
-      await supabase.from("state_margin_leak_daily").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < marginLeakResults.length; i += 500) {
-        const { error } = await supabase.from("state_margin_leak_daily").insert(marginLeakResults.slice(i, i + 500));
-        if (error) results.errors.push(`MarginLeak: ${error.message}`);
-        else results.margin_leak += Math.min(500, marginLeakResults.length - i);
-      }
-    }
-
-    // Phase 3: Evidence Packs (si_evidence_packs table)
-    if (evidencePackResults.length > 0) {
-      await supabase.from("si_evidence_packs").delete().eq("tenant_id", tenant_id).eq("as_of_date", today);
-      for (let i = 0; i < evidencePackResults.length; i += 500) {
-        const { error } = await supabase.from("si_evidence_packs").insert(evidencePackResults.slice(i, i + 500));
-        if (error) results.errors.push(`EvidencePack: ${error.message}`);
-        else results.evidence_packs += Math.min(500, evidencePackResults.length - i);
-      }
-    }
+    const results = { errors: saveError ? [saveError.message] : [] as string[] };
 
     const summary = {
       success: results.errors.length === 0,
       date: today,
-      idi_rows: results.idi,
-      scs_rows: results.scs,
-      chi_rows: results.chi,
-      gap_rows: results.gap,
-      size_health_rows: results.size_health,
-      lost_revenue_rows: results.lost_revenue,
-      markdown_risk_rows: results.markdown_risk,
-      size_transfer_rows: results.size_transfers,
-      store_health_rows: results.store_health,
-      cash_lock_rows: results.cash_lock,
-      margin_leak_rows: results.margin_leak,
-      evidence_pack_rows: results.evidence_packs,
+      ...(saveResult || {}),
       errors: results.errors.length > 0 ? results.errors : undefined,
     };
 

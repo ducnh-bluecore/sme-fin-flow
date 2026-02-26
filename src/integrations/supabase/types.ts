@@ -41729,6 +41729,25 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: boolean
       }
+      kpi_engine_bulk_save: {
+        Args: {
+          p_as_of_date: string
+          p_cash_lock?: Json
+          p_chi?: Json
+          p_evidence_packs?: Json
+          p_gap?: Json
+          p_idi?: Json
+          p_lost_revenue?: Json
+          p_margin_leak?: Json
+          p_markdown_risk?: Json
+          p_scs?: Json
+          p_size_health?: Json
+          p_size_transfers?: Json
+          p_store_health?: Json
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       link_orders_batch: {
         Args: { p_batch_size?: number; p_tenant_id: string }
         Returns: number

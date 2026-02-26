@@ -734,6 +734,9 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+    // Parse body ONCE at the top (Request body can only be read once)
+    const rawBody = await req.json().catch(() => ({}));
+
     // Create admin client for data fetching
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -757,7 +760,14 @@ serve(async (req) => {
       });
     }
 
-    const { params } = await req.json() as { params: SimulationParams };
+    // Extract params from body (support both { params: {...} } and direct {...})
+    const params: SimulationParams = rawBody.params || rawBody;
+
+    if (!params || !params.growthPct) {
+      return new Response(JSON.stringify({ error: "Missing params.growthPct" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log(`[growth-simulator] Running for tenant ${tenantId}, growth ${params.growthPct}%`);
     const t0 = Date.now();
@@ -768,8 +778,9 @@ serve(async (req) => {
       supabase.from('kpi_facts_daily').select('metric_value')
         .eq('tenant_id', tenantId).eq('metric_code', 'NET_REVENUE').eq('dimension_type', 'total')
         .order('grain_date', { ascending: false }).limit(90).then(r => { if (r.error) throw r.error; return r.data || []; }),
-      // SKU summary
-      fetchAll(supabase, 'fdp_sku_summary', '*', (q: any) => q.eq('tenant_id', tenantId).order('total_revenue', { ascending: false })),
+      // SKU summary (view - limit columns and rows to avoid timeout)
+      supabase.from('fdp_sku_summary').select('sku,product_name,category,total_revenue,total_quantity,total_cogs,gross_profit,margin_percent,avg_unit_price,avg_unit_cogs')
+        .eq('tenant_id', tenantId).order('total_revenue', { ascending: false }).limit(2000).then(r => { if (r.error) throw r.error; return r.data || []; }),
       // Family codes
       supabase.from('inv_family_codes').select('id, fc_code, fc_name, is_core_hero')
         .eq('tenant_id', tenantId).eq('is_active', true).limit(2000).then(r => { if (r.error) throw r.error; return r.data || []; }),
