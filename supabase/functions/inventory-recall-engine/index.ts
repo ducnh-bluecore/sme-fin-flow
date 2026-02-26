@@ -101,15 +101,24 @@ Deno.serve(async (req) => {
       storeFcPositions.get(key)!.push(p);
     }
 
-    // Get FC names
-    const { data: fcs } = await supabase
-      .from('inv_family_codes')
-      .select('id, fc_name')
-      .eq('tenant_id', tenant_id);
+    // Get FC names (paginated - can be >1000)
     const fcNameMap: Record<string, string> = {};
-    for (const fc of fcs || []) {
-      fcNameMap[fc.id] = fc.fc_name || fc.id;
+    let fcOffset = 0;
+    while (true) {
+      const { data: fcs, error: fcErr } = await supabase
+        .from('inv_family_codes')
+        .select('id, fc_name, fc_code')
+        .eq('tenant_id', tenant_id)
+        .range(fcOffset, fcOffset + PAGE_SIZE - 1);
+      if (fcErr) { console.error('FC fetch error:', fcErr); break; }
+      if (!fcs || fcs.length === 0) break;
+      for (const fc of fcs) {
+        fcNameMap[fc.id] = fc.fc_name || fc.fc_code || fc.id;
+      }
+      if (fcs.length < PAGE_SIZE) break;
+      fcOffset += PAGE_SIZE;
     }
+    console.log(`Loaded ${Object.keys(fcNameMap).length} family codes`);
 
     const storeNameMap: Record<string, string> = {};
     for (const s of stores || []) {
