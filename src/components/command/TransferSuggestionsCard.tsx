@@ -287,7 +287,7 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                             )}
                           </TableCell>
                           <TableCell className="text-xs font-medium max-w-[160px] truncate">{name}</TableCell>
-                          <TableCell><Badge variant="outline" className="text-xs">{t.size_code}</Badge></TableCell>
+                          <TableCell><Badge variant="outline" className="text-xs">{t.size_code || 'FS'}</Badge></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{srcName}</TableCell>
                           <TableCell className="text-center">
                             {isPending ? (
