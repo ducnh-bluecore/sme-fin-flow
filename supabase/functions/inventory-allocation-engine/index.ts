@@ -226,8 +226,46 @@ async function handleAllocate(
       allRecs.push(...v2Recs);
     }
 
-    // ── Size breakdown is computed lazily (separate call) to avoid WORKER_LIMIT ──
-    console.log(`[SIZE SPLIT] Skipped inline — will be computed via backfill to save compute resources.`);
+    // ── Inline Size Split ──
+    const sizeSplitStart = Date.now();
+    const SIZE_BATCH = 20;
+    const SIZE_TIMEOUT_MS = 50000; // 50s guard
+    let sizeSplitDone = 0;
+    let sizeSplitSkipped = 0;
+
+    for (let i = 0; i < allRecs.length; i += SIZE_BATCH) {
+      if (Date.now() - sizeSplitStart > SIZE_TIMEOUT_MS) {
+        console.log(`[SIZE SPLIT] Timeout after ${sizeSplitDone} done, ${allRecs.length - i} remaining`);
+        break;
+      }
+      const batch = allRecs.slice(i, i + SIZE_BATCH);
+      const results = await Promise.allSettled(
+        batch.map(async (rec) => {
+          try {
+            const { data: sizeData, error: rpcError } = await supabase.rpc('fn_allocate_size_split', {
+              p_tenant_id: tenantId,
+              p_fc_id: rec.fc_id,
+              p_source_store_id: null,
+              p_dest_store_id: rec.store_id,
+              p_total_qty: rec.recommended_qty,
+            });
+            if (rpcError) {
+              console.error(`[SIZE SPLIT] RPC error for FC ${rec.fc_id}:`, rpcError.message);
+              rec.size_breakdown = [];
+              sizeSplitSkipped++;
+              return;
+            }
+            rec.size_breakdown = sizeData || [];
+            sizeSplitDone++;
+          } catch (e) {
+            console.error(`[SIZE SPLIT] Exception for FC ${rec.fc_id}:`, e);
+            rec.size_breakdown = [];
+            sizeSplitSkipped++;
+          }
+        })
+      );
+    }
+    console.log(`[SIZE SPLIT] Done: ${sizeSplitDone} split, ${sizeSplitSkipped} skipped, ${allRecs.length - sizeSplitDone - sizeSplitSkipped} remaining`);
 
     // ── Persist ──
     if (!dryRun && allRecs.length > 0) {
@@ -376,6 +414,10 @@ function runV1(
       const velocity = getDemandVelocity(demandMap, store.id, fcId);
       const newCover = velocity > 0 ? (currentStock + allocQty) / (velocity * 7) : 99;
 
+      // Get demand detail for sold_7d
+      const ddKey = `${store.id}:${fcId}`;
+      const dd = demandMap.get(ddKey) || 0;
+
       const constraintChecks = {
         rule: "v1_min_store_stock",
         tier: store.tier,
@@ -388,6 +430,9 @@ function runV1(
         size_integrity: true,
         capacity_capped: capacityCapped,
         store_capacity: store.capacity || null,
+        source_on_hand: cwAvailable,
+        dest_on_hand: currentStock,
+        sold_7d: Math.round(dd * 7),
       };
 
       recs.push({
@@ -580,6 +625,9 @@ function runV2(
       min_cover_weeks: minCoverWeeks,
       capacity_capped: capacityCapped,
       store_capacity: entry.store.capacity || null,
+      source_on_hand: cwAvailable,
+      dest_on_hand: entry.currentStock,
+      sold_7d: Math.round(entry.velocity * 7),
     };
 
     const priorityLabel =

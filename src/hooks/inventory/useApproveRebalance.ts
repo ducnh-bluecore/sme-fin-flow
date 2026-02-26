@@ -27,13 +27,27 @@ export function useApproveRebalance() {
           updateData.qty = editedQty[id];
         }
 
-        const { error } = await buildUpdateQuery('inv_rebalance_suggestions', updateData).eq('id', id);
+        // Try rebalance table first
+        const { error: rebalErr } = await buildUpdateQuery('inv_rebalance_suggestions', updateData).eq('id', id);
         
-        if (error) throw error;
+        if (rebalErr) {
+          // Try allocation table - use recommended_qty field
+          const allocUpdate: Record<string, any> = {
+            status: action,
+            approved_by: user?.id,
+            approved_at: new Date().toISOString(),
+          };
+          if (action === 'approved' && editedQty && id in editedQty) {
+            allocUpdate.recommended_qty = editedQty[id];
+          }
+          const { error: allocErr } = await buildUpdateQuery('inv_allocation_recommendations', allocUpdate).eq('id', id);
+          if (allocErr) throw allocErr;
+        }
       }
     },
     onSuccess: (_, { action, suggestionIds }) => {
       queryClient.invalidateQueries({ queryKey: ['inv-rebalance-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-recs'] });
       const label = action === 'approved' ? 'Đã duyệt' : 'Đã từ chối';
       toast.success(`${label} ${suggestionIds.length} đề xuất`);
     },
