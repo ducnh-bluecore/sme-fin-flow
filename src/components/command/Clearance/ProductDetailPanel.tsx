@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, Store, ArrowLeft, ShieldAlert, Clock, Zap, ArrowRight } from 'lucide-react';
+import { TrendingDown, Store, ArrowLeft, ShieldAlert, Clock, Zap, ArrowRight, LayoutGrid } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { useMarkdownLadder } from '@/hooks/inventory/useMarkdownLadder';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import TrendBadge from './TrendBadge';
 import WhyClearCard from './WhyClearCard';
+import { useSizeBreakdown } from '@/hooks/inventory/useSizeBreakdown';
 
 const LADDER_STEPS = [10, 20, 30, 40, 50];
 
@@ -102,6 +103,7 @@ function MarkdownLadderSection({ fcId }: { fcId: string }) {
 
 export default function ProductDetailPanel({ candidate, onBack }: { candidate: ClearanceCandidate; onBack: () => void }) {
   const { data: history, isLoading } = useClearanceHistory(candidate.product_id);
+  const { data: sizeData, isLoading: sizeLoading } = useSizeBreakdown(candidate.product_id);
 
   const grouped = useMemo(() => {
     if (!history) return [];
@@ -173,6 +175,76 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
       </Card>
 
       <WhyClearCard candidate={candidate} />
+
+      {/* Size Breakdown */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <LayoutGrid className="h-4 w-4 text-muted-foreground" />Chia lẻ size — Tồn kho theo size
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {sizeLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : !sizeData || sizeData.summary.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3 text-center">Chưa có dữ liệu size</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex gap-3 flex-wrap">
+                {sizeData.summary.map(s => (
+                  <div key={s.size_code} className="bg-muted/50 rounded-lg px-4 py-2 text-center min-w-[60px]">
+                    <span className="text-xs text-muted-foreground block">{s.size_code}</span>
+                    <span className="font-mono font-bold text-sm">{formatNumber(s.total)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-lg border overflow-hidden max-h-[300px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead>Cửa hàng</TableHead>
+                      {sizeData.summary.map(s => (
+                        <TableHead key={s.size_code} className="text-center text-xs">{s.size_code}</TableHead>
+                      ))}
+                      <TableHead className="text-right">Tổng</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      const storeMap = new Map<string, Map<string, number>>();
+                      sizeData.entries.forEach(e => {
+                        if (!storeMap.has(e.store_name)) storeMap.set(e.store_name, new Map());
+                        const sm = storeMap.get(e.store_name)!;
+                        sm.set(e.size_code, (sm.get(e.size_code) || 0) + e.on_hand);
+                      });
+                      return Array.from(storeMap.entries())
+                        .map(([store, sizes]) => {
+                          const total = Array.from(sizes.values()).reduce((s, v) => s + v, 0);
+                          return { store, sizes, total };
+                        })
+                        .sort((a, b) => b.total - a.total)
+                        .map(row => (
+                          <TableRow key={row.store}>
+                            <TableCell className="text-xs font-medium">{row.store}</TableCell>
+                            {sizeData.summary.map(s => {
+                              const qty = row.sizes.get(s.size_code) || 0;
+                              return (
+                                <TableCell key={s.size_code} className={`text-center font-mono text-xs ${qty === 0 ? 'text-muted-foreground' : ''}`}>
+                                  {qty || '—'}
+                                </TableCell>
+                              );
+                            })}
+                            <TableCell className="text-right font-mono text-xs font-bold">{row.total}</TableCell>
+                          </TableRow>
+                        ));
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Markdown Ladder — Recommended Next Discount Step */}
       <Card>
