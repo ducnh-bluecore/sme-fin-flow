@@ -52,7 +52,15 @@ export default function WhyClearCard({ candidate }: { candidate: ClearanceCandid
   }
 
   if (candidate.curve_state) {
-    factors.push({ label: 'Trạng thái size', value: candidate.curve_state === 'broken' ? 'Đã vỡ' : candidate.curve_state, severity: candidate.curve_state === 'broken' ? 'high' : 'medium' });
+    const stateLabels: Record<string, string> = {
+      broken: 'Lẻ size (trung bình các store)',
+      major_break: 'Lẻ size nặng (một số store)',
+      minor_break: 'Lẻ size nhẹ (một số store)',
+      full_curve: 'Đủ size',
+    };
+    const label = stateLabels[candidate.curve_state] || candidate.curve_state;
+    const isBroken = ['broken', 'major_break'].includes(candidate.curve_state);
+    factors.push({ label: 'Trạng thái size', value: label, severity: isBroken ? 'high' : candidate.curve_state === 'minor_break' ? 'medium' : 'low' });
   }
 
   factors.push({ label: 'Tốc độ bán', value: candidate.avg_daily_sales > 0 ? `${candidate.avg_daily_sales.toFixed(2)}/ngày` : 'Không bán được', severity: candidate.avg_daily_sales < 0.05 ? 'high' : candidate.avg_daily_sales < 0.2 ? 'medium' : 'low' });

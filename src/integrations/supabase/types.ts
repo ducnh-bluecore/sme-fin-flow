@@ -41132,6 +41132,7 @@ export type Database = {
           markdown_eta_days: number
           markdown_risk_score: number
           metadata: Json
+          product_created_at: string
           product_id: string
           product_name: string
           reason: string
