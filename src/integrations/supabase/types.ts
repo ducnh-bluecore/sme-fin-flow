@@ -40970,7 +40970,7 @@ export type Database = {
         Returns: undefined
       }
       compute_inventory_kpi_all: {
-        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Args: { p_as_of_date: string; p_tenant_id: string }
         Returns: Json
       }
       compute_kpi_facts_daily: {
