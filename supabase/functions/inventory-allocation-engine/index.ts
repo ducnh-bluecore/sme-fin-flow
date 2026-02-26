@@ -666,7 +666,7 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
     }
 
     const [storesRaw2, posAgg2, demand, constraints, sizeIntegrity, fcListRebal] = await Promise.all([
-      fetchAllRebal("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
+      fetchAllRebal("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity,is_transfer_eligible", { is_active: true }),
       supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
       fetchAllRebal("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity"),
       fetchAllRebal("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
@@ -732,7 +732,8 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
 
         const shortageStores: any[] = [];
         for (const store of stores) {
-          if (store.location_type === "central_warehouse") continue;
+          if (store.location_type === "central_warehouse" || store.location_type === "sub_warehouse") continue;
+          if (store.is_transfer_eligible === false) continue;
           const sp = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
           const onHand = sp.reduce((s: number, p: any) => s + (p.available || p.on_hand - (p.reserved || 0)), 0);
           const vel = getDemandVelocity(demandMap, store.id, fcId);
@@ -792,7 +793,8 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
         const shortStores: any[] = [];
 
         for (const store of stores) {
-          if (store.location_type === "central_warehouse") continue;
+          if (store.location_type === "central_warehouse" || store.location_type === "sub_warehouse") continue;
+          if (store.is_transfer_eligible === false) continue;
           const sp = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
           const onHand = sp.reduce((s: number, p: any) => s + (p.available || p.on_hand - (p.reserved || 0)), 0);
           const safety = sp.reduce((s: number, p: any) => s + (p.safety_stock || 0), 0);
