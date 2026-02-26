@@ -336,7 +336,12 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
                                   <div>
                                     <p className="text-muted-foreground">Kho nguồn</p>
                                     <p className="font-semibold">{t.source_on_hand ?? '—'} units</p>
-                                    <p className="text-muted-foreground text-[10px]">{(t.source_on_hand ?? 0) > (editedQty[t.id] ?? t.transfer_qty) ? 'Dư hàng' : 'Vừa đủ chuyển'}</p>
+                                    <p className="text-muted-foreground text-[10px]">
+                                      {(() => {
+                                        const remaining = (t.source_on_hand ?? 0) - (editedQty[t.id] ?? t.transfer_qty);
+                                        return remaining > 0 ? `Còn lại ${remaining} units sau chuyển` : 'Vừa đủ chuyển';
+                                      })()}
+                                    </p>
                                   </div>
                                 </div>
                                 <div className="flex items-start gap-2">
