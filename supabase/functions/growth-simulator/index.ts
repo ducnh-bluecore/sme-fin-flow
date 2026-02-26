@@ -740,22 +740,23 @@ serve(async (req) => {
     // Create admin client for data fetching
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user auth
-    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader || '' } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Get tenant_id from profile
-    const { data: profile } = await supabase.from('profiles').select('active_tenant_id').eq('id', user.id).maybeSingle();
-    const tenantId = profile?.active_tenant_id;
+    // Allow direct tenant_id for service calls, or resolve from auth
+    let tenantId = rawBody.tenant_id || null;
     if (!tenantId) {
-      return new Response(JSON.stringify({ error: "No active tenant" }), {
+      const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader || '' } },
+      });
+      const { data: { user }, error: authError } = await userClient.auth.getUser();
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: profile } = await supabase.from('profiles').select('active_tenant_id').eq('id', user.id).maybeSingle();
+      tenantId = profile?.active_tenant_id;
+    }
+    if (!tenantId) {
+      return new Response(JSON.stringify({ error: "No active tenant or tenant_id" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
