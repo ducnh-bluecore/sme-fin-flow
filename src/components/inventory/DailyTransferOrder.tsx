@@ -20,10 +20,19 @@ interface StoreGroup {
   suggestions: RebalanceSuggestion[];
 }
 
+export interface StoreInfo {
+  id: string;
+  store_name: string;
+  total_on_hand: number;
+  capacity: number;
+  total_sold: number;
+}
+
 interface Props {
   suggestions: RebalanceSuggestion[];
   storeMap: StoreMap;
   fcNameMap: Record<string, string>;
+  stores?: StoreInfo[];
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
 }
@@ -72,8 +81,17 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
   P3: 'bg-muted text-muted-foreground border-border',
 };
 
-export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove, onReject }: Props) {
+export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = [], onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
+
+  // Build store info map for capacity checks
+  const storeInfoMap = useMemo(() => {
+    const map = new Map<string, StoreInfo>();
+    for (const s of stores) {
+      map.set(s.id, s);
+    }
+    return map;
+  }, [stores]);
 
   // Group by destination store
   const storeGroups = useMemo((): StoreGroup[] => {
@@ -254,6 +272,55 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, onApprove
 
                   return (
                     <div className="px-5 py-4 bg-muted/20 border-t border-b space-y-3">
+                    {/* Store metrics bar (like screenshot) */}
+                      {(() => {
+                        const info = storeInfoMap.get(group.storeId);
+                        if (!info) return null;
+                        const currentStock = info.total_on_hand;
+                        const cap = info.capacity || 0;
+                        const afterTransfer = currentStock + group.totalQty;
+                        const utilBefore = cap > 0 ? (currentStock / cap) * 100 : 0;
+                        const utilAfter = cap > 0 ? (afterTransfer / cap) * 100 : 0;
+                        const isOverCapacity = utilAfter > 100;
+                        const isWarning = utilAfter > 85 && utilAfter <= 100;
+                        const avgPrice = 350000; // fallback
+                        const inventoryValue = currentStock * avgPrice;
+
+                        return (
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3 p-3 rounded-md bg-card border border-border/50">
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tồn kho</span>
+                              <p className="font-bold text-foreground">{currentStock.toLocaleString('vi-VN')}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Giá trị tồn</span>
+                              <p className="font-bold text-foreground">{formatNumber(inventoryValue)}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sức chứa</span>
+                              <p className="font-bold text-foreground">{cap > 0 ? `${cap.toLocaleString('vi-VN')} (${utilBefore.toFixed(0)}%)` : 'N/A'}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Đã bán</span>
+                              <p className="font-bold text-foreground">{(info.total_sold || 0).toLocaleString('vi-VN')}</p>
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Sau nhận hàng</span>
+                              <p className={`font-bold ${isOverCapacity ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {afterTransfer.toLocaleString('vi-VN')} 
+                                {cap > 0 && (
+                                  <span className="text-xs font-normal ml-1">
+                                    ({utilAfter.toFixed(0)}%)
+                                    {isOverCapacity && ' ⚠️ VƯỢT'}
+                                    {isWarning && ' ⚠️ GẦN ĐẦY'}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div className="space-y-1">
                           <span className="text-xs text-muted-foreground">Tổng units</span>

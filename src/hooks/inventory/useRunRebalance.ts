@@ -57,3 +57,29 @@ export function useRunAllocate() {
     },
   });
 }
+
+export function useRunRecall() {
+  const { data: tenantId } = useActiveTenantId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const response = await supabase.functions.invoke('inventory-recall-engine', {
+        body: { tenant_id: tenantId, user_id: user?.id },
+      });
+
+      if (response.error) throw response.error;
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['inv-rebalance-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-rebalance-latest-run'] });
+      toast.success(`Đã tạo ${data.total_suggestions} đề xuất thu hồi (${data.total_units} units từ ${data.stores_analyzed} cửa hàng)`);
+    },
+    onError: (error: any) => {
+      toast.error(`Lỗi: ${error.message}`);
+    },
+  });
+}

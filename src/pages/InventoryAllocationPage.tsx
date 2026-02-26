@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
@@ -12,10 +12,11 @@ import { RebalanceConfigPanel } from '@/components/inventory/RebalanceConfigPane
 import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulationTab';
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
+import { RecallOrderPanel } from '@/components/inventory/RecallOrderPanel';
 import { StoreIntelligenceTab } from '@/components/inventory/StoreIntelligenceTab';
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useAllocationRecommendations, useLatestAllocationRun } from '@/hooks/inventory/useAllocationRecommendations';
-import { useRunRebalance, useRunAllocate } from '@/hooks/inventory/useRunRebalance';
+import { useRunRebalance, useRunAllocate, useRunRecall } from '@/hooks/inventory/useRunRebalance';
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useFamilyCodes } from '@/hooks/inventory/useFamilyCodes';
@@ -77,6 +78,7 @@ export default function InventoryAllocationPage() {
   }, [familyCodes]);
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
+  const runRecall = useRunRecall();
   const approveRebalance = useApproveRebalance();
   const { data: tenantId } = useActiveTenantId();
   const queryClient = useQueryClient();
@@ -133,7 +135,7 @@ export default function InventoryAllocationPage() {
     approveRebalance.mutate({ suggestionIds: ids, action: 'rejected' });
   };
 
-  const isRunning = runRebalance.isPending || runAllocate.isPending;
+  const isRunning = runRebalance.isPending || runAllocate.isPending || runRecall.isPending;
 
   return (
     <>
@@ -199,6 +201,10 @@ export default function InventoryAllocationPage() {
                   <Crown className="h-4 w-4" />
                   {isRecalcTier ? 'Đang tính...' : 'Tính lại Tier (S/A/B/C)'}
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => runRecall.mutate()} className="gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  Thu hồi hàng hóa
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -211,9 +217,18 @@ export default function InventoryAllocationPage() {
             <TabsTrigger value="transfer" className="gap-1.5">
               <ClipboardList className="h-3.5 w-3.5" />
               Lệnh Điều Chuyển
-              {allSuggestions.filter(s => s.status === 'pending').length > 0 && (
+              {allSuggestions.filter(s => s.status === 'pending' && s.transfer_type !== 'recall').length > 0 && (
                 <span className="text-xs bg-red-500/15 text-red-400 px-1.5 rounded-full font-semibold">
-                  {allSuggestions.filter(s => s.status === 'pending').length}
+                  {allSuggestions.filter(s => s.status === 'pending' && s.transfer_type !== 'recall').length}
+                </span>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="recall" className="gap-1.5">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Thu hồi
+              {allSuggestions.filter(s => s.status === 'pending' && s.transfer_type === 'recall').length > 0 && (
+                <span className="text-xs bg-amber-500/15 text-amber-400 px-1.5 rounded-full font-semibold">
+                  {allSuggestions.filter(s => s.status === 'pending' && s.transfer_type === 'recall').length}
                 </span>
               )}
             </TabsTrigger>
@@ -237,6 +252,16 @@ export default function InventoryAllocationPage() {
 
           <TabsContent value="transfer">
             <DailyTransferOrder
+              suggestions={allSuggestions.filter(s => s.transfer_type !== 'recall')}
+              storeMap={storeMap}
+              fcNameMap={fcNameMap}
+              stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, total_sold: s.total_sold || 0 }))}
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
+          </TabsContent>
+          <TabsContent value="recall">
+            <RecallOrderPanel
               suggestions={allSuggestions}
               storeMap={storeMap}
               fcNameMap={fcNameMap}
