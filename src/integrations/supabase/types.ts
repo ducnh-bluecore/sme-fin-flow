@@ -40969,6 +40969,10 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: undefined
       }
+      compute_inventory_kpi_all: {
+        Args: { p_as_of_date?: string; p_tenant_id: string }
+        Returns: Json
+      }
       compute_kpi_facts_daily: {
         Args: {
           p_end_date?: string
