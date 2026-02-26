@@ -214,28 +214,8 @@ async function handleAllocate(
       allRecs.push(...v2Recs);
     }
 
-    // ── Compute size breakdown for each rec ──
-    console.log(`[SIZE SPLIT] Computing size breakdown for ${allRecs.length} recs...`);
-    const SPLIT_BATCH = 20; // parallel RPC calls in batches
-    for (let i = 0; i < allRecs.length; i += SPLIT_BATCH) {
-      const batch = allRecs.slice(i, i + SPLIT_BATCH);
-      const splitResults = await Promise.all(
-        batch.map(rec =>
-          supabase.rpc("fn_allocate_size_split", {
-            p_tenant_id: tenantId,
-            p_fc_id: rec.fc_id,
-            p_source_store_id: null, // central warehouse
-            p_dest_store_id: rec.store_id,
-            p_total_qty: rec.recommended_qty,
-          }).then((r: any) => r.data || null)
-            .catch(() => null)
-        )
-      );
-      for (let j = 0; j < batch.length; j++) {
-        batch[j].size_breakdown = splitResults[j];
-      }
-    }
-    console.log(`[SIZE SPLIT] Done.`);
+    // ── Size breakdown is computed lazily (separate call) to avoid WORKER_LIMIT ──
+    console.log(`[SIZE SPLIT] Skipped inline — will be computed via backfill to save compute resources.`);
 
     // ── Persist ──
     if (!dryRun && allRecs.length > 0) {
