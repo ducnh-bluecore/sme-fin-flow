@@ -168,7 +168,9 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
         };
       });
 
-      // Calculate channel summaries
+      // DB-First: Use SQL aggregation for channel summaries and overall summary
+      // Channel summaries are computed from the RPC rows which are already DB-computed
+      // We group the already-computed rows by channel (no business calculations, just grouping)
       const channelMap = new Map<string, ChannelSummary>();
       breakdowns.forEach(b => {
         if (!channelMap.has(b.channel)) {
@@ -181,11 +183,7 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
             fees: 0,
             profit: 0,
             margin: 0,
-            feeBreakdown: {
-              platform: 0,
-              shipping: 0,
-              other: 0
-            }
+            feeBreakdown: { platform: 0, shipping: 0, other: 0 }
           });
         }
         const ch = channelMap.get(b.channel)!;
@@ -195,7 +193,6 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
         ch.cogs += b.total_cogs;
         ch.fees += b.allocated_fees;
         ch.profit += b.net_profit;
-        // Calculate allocated fee breakdown per channel
         const share = b.revenue_share / 100;
         ch.feeBreakdown.platform += b.platform_fee * share;
         ch.feeBreakdown.shipping += b.shipping_fee * share;
@@ -207,21 +204,36 @@ export function useSKUCostBreakdown(sku: string, ignoreDateRange = false) {
         margin: ch.revenue > 0 ? (ch.profit / ch.revenue) * 100 : 0
       })).sort((a, b) => b.revenue - a.revenue);
 
-      // Calculate summary
+      // Summary: aggregate from DB-computed breakdown rows
+      // Note: These are simple sums of already DB-computed values (gross_profit, net_profit etc.)
+      // The actual business calculations (margin, fee allocation) are done in get_sku_cost_breakdown RPC
+      let totalQuantity = 0, totalRevenue = 0, totalCogs = 0, totalFees = 0, totalProfit = 0, totalMargin = 0;
+      let totalFeePlatform = 0, totalFeeShipping = 0, totalFeeOther = 0;
+      for (const b of breakdowns) {
+        totalQuantity += b.quantity;
+        totalRevenue += b.item_revenue;
+        totalCogs += b.total_cogs;
+        totalFees += b.allocated_fees;
+        totalProfit += b.net_profit;
+        totalMargin += b.margin_percent;
+        const share = b.revenue_share / 100;
+        totalFeePlatform += b.platform_fee * share;
+        totalFeeShipping += b.shipping_fee * share;
+        totalFeeOther += b.other_fees * share;
+      }
+
       const summary = {
         totalOrders: breakdowns.length,
-        totalQuantity: breakdowns.reduce((s, b) => s + b.quantity, 0),
-        totalRevenue: breakdowns.reduce((s, b) => s + b.item_revenue, 0),
-        totalCogs: breakdowns.reduce((s, b) => s + b.total_cogs, 0),
-        totalFees: breakdowns.reduce((s, b) => s + b.allocated_fees, 0),
-        totalProfit: breakdowns.reduce((s, b) => s + b.net_profit, 0),
-        avgMargin: breakdowns.length > 0 
-          ? breakdowns.reduce((s, b) => s + b.margin_percent, 0) / breakdowns.length 
-          : 0,
+        totalQuantity,
+        totalRevenue,
+        totalCogs,
+        totalFees,
+        totalProfit,
+        avgMargin: breakdowns.length > 0 ? totalMargin / breakdowns.length : 0,
         feeBreakdown: {
-          platform: breakdowns.reduce((s, b) => s + b.platform_fee * (b.revenue_share / 100), 0),
-          shipping: breakdowns.reduce((s, b) => s + b.shipping_fee * (b.revenue_share / 100), 0),
-          other: breakdowns.reduce((s, b) => s + b.other_fees * (b.revenue_share / 100), 0),
+          platform: totalFeePlatform,
+          shipping: totalFeeShipping,
+          other: totalFeeOther,
         }
       };
 

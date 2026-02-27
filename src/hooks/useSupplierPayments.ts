@@ -1,8 +1,8 @@
 /**
  * useSupplierPayments - Supplier payment schedule management
  * 
- * @architecture Schema-per-Tenant v1.4.1
- * @domain FDP/AP
+ * @architecture Schema-per-Tenant v1.4.1 / DB-First SSOT
+ * Summary aggregation via get_supplier_payment_optimization RPC
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -71,56 +71,51 @@ export const useSupplierPayments = () => {
 
 export const usePaymentOptimization = () => {
   const { data: payments = [], isLoading, error } = useSupplierPayments();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
+
+  // DB-First: Get aggregated summary from RPC
+  const { data: dbSummary } = useQuery({
+    queryKey: ['supplier-payment-optimization', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await callRpc('get_supplier_payment_optimization', {
+        p_tenant_id: tenantId,
+      });
+      if (error) {
+        console.error('[usePaymentOptimization] RPC error:', error);
+        return null;
+      }
+      return data as any;
+    },
+    enabled: !!tenantId && isReady,
+  });
 
   const today = new Date();
   const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
   const nextMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+  // Filtering for lists still done on FE (need actual records, not aggregates)
   const pendingPayments = payments.filter(p => p.payment_status === 'pending');
+  const dueThisWeek = pendingPayments.filter(p => new Date(p.due_date) <= nextWeek);
+  const dueThisMonth = pendingPayments.filter(p => new Date(p.due_date) <= nextMonth);
+  const overduePayments = pendingPayments.filter(p => new Date(p.due_date) < today);
 
-  const dueThisWeek = pendingPayments.filter(p => {
-    const dueDate = new Date(p.due_date);
-    return dueDate <= nextWeek;
-  });
-
-  const dueThisMonth = pendingPayments.filter(p => {
-    const dueDate = new Date(p.due_date);
-    return dueDate <= nextMonth;
-  });
-
-  const overduePayments = pendingPayments.filter(p => {
-    const dueDate = new Date(p.due_date);
-    return dueDate < today;
-  });
-
-  // Calculate early payment opportunities
-  const earlyPaymentOpportunities = pendingPayments.filter(p => 
+  const recommendedEarlyPayments = pendingPayments.filter(p => 
     p.early_payment_discount_percent > 0 && 
     p.early_payment_date && 
-    new Date(p.early_payment_date) > today
+    new Date(p.early_payment_date) > today &&
+    (p.net_benefit ?? (p.early_payment_discount_amount - (p.opportunity_cost || 0))) > 0
   );
 
-  const potentialSavings = earlyPaymentOpportunities.reduce(
-    (sum, p) => sum + (p.early_payment_discount_amount || 0), 
-    0
-  );
-
-  const recommendedEarlyPayments = earlyPaymentOpportunities.filter(p => {
-    // Recommend if net benefit is positive (discount > opportunity cost)
-    const benefit = p.net_benefit ?? (p.early_payment_discount_amount - (p.opportunity_cost || 0));
-    return benefit > 0;
-  });
-
+  // Use DB-computed summary values
   const summary: PaymentOptimizationSummary = {
-    totalPayables: pendingPayments.reduce((sum, p) => sum + p.original_amount, 0),
-    totalDueThisWeek: dueThisWeek.reduce((sum, p) => sum + p.original_amount, 0),
-    totalDueThisMonth: dueThisMonth.reduce((sum, p) => sum + p.original_amount, 0),
-    potentialSavings,
+    totalPayables: Number(dbSummary?.total_payables) || 0,
+    totalDueThisWeek: Number(dbSummary?.total_due_this_week) || 0,
+    totalDueThisMonth: Number(dbSummary?.total_due_this_month) || 0,
+    potentialSavings: Number(dbSummary?.potential_savings) || 0,
     recommendedEarlyPayments,
     overduePayments,
-    averageDiscountRate: earlyPaymentOpportunities.length > 0
-      ? earlyPaymentOpportunities.reduce((sum, p) => sum + p.early_payment_discount_percent, 0) / earlyPaymentOpportunities.length
-      : 0,
+    averageDiscountRate: Number(dbSummary?.avg_discount_rate) || 0,
   };
 
   return {
@@ -151,6 +146,7 @@ export const useCreatePaymentSchedule = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-payment-optimization'] });
       toast.success('Đã tạo lịch thanh toán');
     },
     onError: (error) => {
@@ -175,6 +171,7 @@ export const useUpdatePaymentSchedule = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-payment-optimization'] });
       toast.success('Đã cập nhật lịch thanh toán');
     },
     onError: (error) => {
@@ -204,6 +201,7 @@ export const useMarkAsPaid = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['supplier-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-payment-optimization'] });
       toast.success('Đã ghi nhận thanh toán');
     },
     onError: (error) => {

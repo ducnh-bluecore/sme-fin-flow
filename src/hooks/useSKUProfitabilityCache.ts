@@ -3,12 +3,8 @@
  * SKU PROFITABILITY - OPTIMIZED WITH AGGREGATED VIEWS
  * ============================================
  * 
- * Uses fdp_sku_summary database view for pre-aggregated SKU metrics.
- * Falls back to sku_profitability_cache for historical/period-specific data.
- * 
- * Performance: Uses pre-aggregated data instead of 100k+ order items
- * 
- * @architecture Schema-per-Tenant v1.4.1
+ * @architecture Schema-per-Tenant v1.4.1 / DB-First SSOT
+ * Summary aggregation via get_sku_profitability_view_summary RPC
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -45,19 +41,28 @@ export interface SKUProfitabilitySummary {
  * Fetch SKU profitability from pre-aggregated view (fast, all-time data)
  */
 export function useSKUProfitabilityFromView() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { buildSelectQuery, callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['sku-profitability-view', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Use pre-aggregated SKU summary view
+      // Fetch SKU data from view
       const { data, error } = await buildSelectQuery('fdp_sku_summary', '*')
         .order('total_revenue', { ascending: false })
-        .limit(500); // Top 500 SKUs
+        .limit(500);
 
       if (error) throw error;
+
+      // DB-First: Get summary from RPC
+      const { data: dbSummary, error: summaryError } = await callRpc('get_sku_profitability_view_summary', {
+        p_tenant_id: tenantId,
+      });
+
+      if (summaryError) {
+        console.error('[useSKUProfitabilityFromView] Summary RPC error:', summaryError);
+      }
 
       interface SKUViewRow {
         sku: string | null;
@@ -79,11 +84,11 @@ export function useSKUProfitabilityFromView() {
           id: `sku-${idx}`,
           sku: row.sku || 'Unknown',
           product_name: row.product_name,
-          channel: 'ALL', // View aggregates across all channels
+          channel: 'ALL',
           quantity: row.total_quantity || 0,
           revenue: revenue,
           cogs: row.total_cogs || 0,
-          fees: 0, // Not available in basic view
+          fees: 0,
           profit: profit,
           margin_percent: margin,
           aov: row.total_quantity > 0 ? revenue / row.total_quantity : 0,
@@ -92,19 +97,15 @@ export function useSKUProfitabilityFromView() {
         };
       });
 
-      const profitableSKUs = skuMetrics.filter(m => m.margin_percent >= 10);
-      const marginalSKUs = skuMetrics.filter(m => m.margin_percent >= 0 && m.margin_percent < 10);
-      const lossSKUs = skuMetrics.filter(m => m.margin_percent < 0);
-
+      // Use DB-computed summary
+      const summaryData = dbSummary as any;
       const summary: SKUProfitabilitySummary = {
-        totalSKUs: skuMetrics.length,
-        profitableSKUs: profitableSKUs.length,
-        marginalSKUs: marginalSKUs.length,
-        lossSKUs: lossSKUs.length,
-        totalProfit: skuMetrics.reduce((s, m) => s + m.profit, 0),
-        avgMargin: skuMetrics.length > 0 
-          ? skuMetrics.reduce((s, m) => s + m.margin_percent, 0) / skuMetrics.length 
-          : 0
+        totalSKUs: Number(summaryData?.total_skus) || skuMetrics.length,
+        profitableSKUs: Number(summaryData?.profitable_skus) || 0,
+        marginalSKUs: Number(summaryData?.marginal_skus) || 0,
+        lossSKUs: Number(summaryData?.loss_skus) || 0,
+        totalProfit: Number(summaryData?.total_profit) || 0,
+        avgMargin: Number(summaryData?.avg_margin) || 0,
       };
 
       return {
@@ -115,7 +116,7 @@ export function useSKUProfitabilityFromView() {
       };
     },
     enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000
   });
 }
 
@@ -132,7 +133,6 @@ export function useCachedSKUProfitability() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Use RPC to get SKU profitability filtered by date range
       const { data: rpcData, error: rpcError } = await callRpc(
         'get_sku_profitability_by_date_range',
         {
@@ -148,7 +148,6 @@ export function useCachedSKUProfitability() {
         throw rpcError;
       }
 
-      // RPC returns these fields - match the actual RPC definition
       interface SKURpcRow {
         sku: string;
         product_name: string | null;
@@ -163,18 +162,14 @@ export function useCachedSKUProfitability() {
 
       const skuData = (rpcData as unknown as SKURpcRow[]) || [];
 
-      // Derive fees, aov, status from available data
       const skuMetrics: CachedSKUMetrics[] = skuData.map((row, idx) => {
         const revenue = Number(row.total_revenue || 0);
         const quantity = Number(row.total_quantity || 0);
         const margin = Number(row.margin_percent || 0);
         const profit = Number(row.gross_profit || 0);
         const orderCount = Number(row.order_count || 1);
-        
-        // Derive AOV from revenue / order_count
         const aov = orderCount > 0 ? revenue / orderCount : 0;
         
-        // Determine status based on margin percent
         let status = 'unknown';
         if (margin >= 30) status = 'profitable';
         else if (margin >= 15) status = 'marginal';
@@ -188,7 +183,7 @@ export function useCachedSKUProfitability() {
           quantity,
           revenue,
           cogs: Number(row.total_cogs || 0),
-          fees: 0, // Fees not available in current RPC - set to 0
+          fees: 0,
           profit,
           margin_percent: margin,
           aov,
@@ -197,19 +192,20 @@ export function useCachedSKUProfitability() {
         };
       });
 
-      const profitableSKUs = skuMetrics.filter(m => m.status === 'profitable');
-      const marginalSKUs = skuMetrics.filter(m => m.status === 'marginal');
-      const lossSKUs = skuMetrics.filter(m => m.status === 'loss');
+      // DB-First: Compute summary from RPC aggregation
+      // The RPC already returns pre-aggregated data per SKU, so we use the view summary RPC
+      const { data: dbSummary } = await callRpc('get_sku_profitability_view_summary', {
+        p_tenant_id: tenantId,
+      });
 
+      const summaryData = dbSummary as any;
       const summary: SKUProfitabilitySummary = {
         totalSKUs: skuMetrics.length,
-        profitableSKUs: profitableSKUs.length,
-        marginalSKUs: marginalSKUs.length,
-        lossSKUs: lossSKUs.length,
-        totalProfit: skuMetrics.reduce((s, m) => s + m.profit, 0),
-        avgMargin: skuMetrics.length > 0 
-          ? skuMetrics.reduce((s, m) => s + m.margin_percent, 0) / skuMetrics.length 
-          : 0
+        profitableSKUs: skuMetrics.filter(m => m.status === 'profitable').length,
+        marginalSKUs: skuMetrics.filter(m => m.status === 'marginal').length,
+        lossSKUs: skuMetrics.filter(m => m.status === 'loss').length,
+        totalProfit: Number(summaryData?.total_profit) || 0,
+        avgMargin: Number(summaryData?.avg_margin) || 0,
       };
 
       return {
@@ -220,13 +216,12 @@ export function useCachedSKUProfitability() {
       };
     },
     enabled: !!tenantId && isReady,
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000
   });
 }
 
 /**
  * Recalculate and save SKU profitability to cache
- * This is now only needed for historical period-specific analysis
  */
 export function useRecalculateSKUProfitability() {
   const { client, buildSelectQuery, tenantId, isReady, shouldAddTenantFilter } = useTenantQueryBuilder();
@@ -237,7 +232,6 @@ export function useRecalculateSKUProfitability() {
     mutationFn: async () => {
       if (!tenantId) throw new Error('No tenant');
 
-      // Use fdp_sku_summary view data to populate cache
       const { data: rawSkuData, error: skuError } = await buildSelectQuery('fdp_sku_summary', '*');
 
       if (skuError) throw skuError;
@@ -278,7 +272,6 @@ export function useRecalculateSKUProfitability() {
         };
       });
 
-      // Delete old cache for this period
       let deleteQuery = client
         .from('sku_profitability_cache')
         .delete()
@@ -291,7 +284,6 @@ export function useRecalculateSKUProfitability() {
       
       await deleteQuery;
 
-      // Insert new cache (batch in chunks of 100)
       const chunkSize = 100;
       for (let i = 0; i < cacheRecords.length; i += chunkSize) {
         const chunk = cacheRecords.slice(i, i + chunkSize);

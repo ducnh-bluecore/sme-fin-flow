@@ -1,7 +1,8 @@
 /**
  * usePromotions - Hook for promotion campaigns management
  * 
- * Migrated to useTenantQueryBuilder (Schema-per-Tenant v1.4.1)
+ * @architecture Schema-per-Tenant v1.4.1 / DB-First SSOT
+ * Summary aggregation via get_promotion_campaign_summary RPC
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -23,7 +24,6 @@ export interface PromotionCampaign {
   total_revenue: number;
   total_discount_given: number;
   status: string;
-  // Marketing metrics from DB
   impressions: number;
   clicks: number;
   ctr: number;
@@ -39,7 +39,7 @@ export interface PromotionROIData {
   totalRevenue: number;
   totalDiscount: number;
   netRevenue: number;
-  discountEfficiency: number; // Net revenue per 1 VND discount
+  discountEfficiency: number;
   totalOrders: number;
   roi: number;
   roas: number;
@@ -50,7 +50,6 @@ export interface PromotionROIData {
   acos: number;
 }
 
-// KiotViet discount summary from cdp_orders
 export interface KiotVietDiscountSummary {
   channel: string;
   total_orders: number;
@@ -79,7 +78,7 @@ export interface PromotionSummary {
   worstPerformer: PromotionROIData | undefined;
 }
 
-// Main hook - now queries promotion_campaigns (SSOT)
+// Main hook - queries promotion_campaigns (SSOT)
 export const usePromotions = () => {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
@@ -98,10 +97,29 @@ export const usePromotions = () => {
   });
 };
 
-// ROI calculations hook
+// ROI calculations - DB-First via RPC for summary
 export const usePromotionROI = () => {
   const { data: campaigns = [], isLoading } = usePromotions();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
+  // DB-First: Get aggregated summary from RPC
+  const { data: dbSummary } = useQuery({
+    queryKey: ['promotion-campaign-summary', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await callRpc('get_promotion_campaign_summary', {
+        p_tenant_id: tenantId,
+      });
+      if (error) {
+        console.error('[usePromotionROI] RPC error:', error);
+        return null;
+      }
+      return data as any;
+    },
+    enabled: !!tenantId && isReady,
+  });
+
+  // Per-campaign ROI mapping (no aggregation, just per-record derivation from DB columns)
   const roiData: PromotionROIData[] = campaigns.map(camp => {
     const actualCost = camp.actual_cost || 0;
     const totalRevenue = camp.total_revenue || 0;
@@ -116,9 +134,7 @@ export const usePromotionROI = () => {
       netRevenue,
       discountEfficiency: totalDiscount > 0 ? netRevenue / totalDiscount : 0,
       totalOrders,
-      roi: actualCost > 0 
-        ? ((totalRevenue - actualCost) / actualCost) * 100 
-        : 0,
+      roi: actualCost > 0 ? ((totalRevenue - actualCost) / actualCost) * 100 : 0,
       roas: camp.roas || (actualCost > 0 ? totalRevenue / actualCost : 0),
       costPerOrder: totalOrders > 0 ? actualCost / totalOrders : 0,
       impressions: camp.impressions || 0,
@@ -128,34 +144,23 @@ export const usePromotionROI = () => {
     };
   });
 
-  // Calculate summary
-  const totalSpend = campaigns.reduce((sum, c) => sum + (c.actual_cost || 0), 0);
-  const totalBudget = campaigns.reduce((sum, c) => sum + (c.budget || 0), 0);
-  const totalRevenue = campaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
-  const totalDiscount = campaigns.reduce((sum, c) => sum + (c.total_discount_given || 0), 0);
-  const netRevenue = totalRevenue - totalDiscount;
-  const totalOrders = campaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0);
-  const totalImpressions = campaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
-  const totalClicks = campaigns.reduce((sum, c) => sum + (c.clicks || 0), 0);
-
   const sortedByRoas = [...roiData].sort((a, b) => b.roas - a.roas);
 
+  // Use DB-computed summary values
   const summary: PromotionSummary = {
-    totalCampaigns: campaigns.length,
-    activeCampaigns: campaigns.filter(c => c.status === 'active').length,
-    totalSpend,
-    totalBudget,
-    totalRevenue,
-    totalDiscount,
-    netRevenue,
-    totalOrders,
-    totalImpressions,
-    totalClicks,
-    avgROAS: roiData.length > 0 
-      ? roiData.reduce((sum, r) => sum + r.roas, 0) / roiData.length 
-      : 0,
-    avgCTR: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
-    budgetUtilization: totalBudget > 0 ? (totalSpend / totalBudget) * 100 : 0,
+    totalCampaigns: Number(dbSummary?.total_campaigns) || campaigns.length,
+    activeCampaigns: Number(dbSummary?.active_campaigns) || 0,
+    totalSpend: Number(dbSummary?.total_spend) || 0,
+    totalBudget: Number(dbSummary?.total_budget) || 0,
+    totalRevenue: Number(dbSummary?.total_revenue) || 0,
+    totalDiscount: Number(dbSummary?.total_discount) || 0,
+    netRevenue: Number(dbSummary?.net_revenue) || 0,
+    totalOrders: Number(dbSummary?.total_orders) || 0,
+    totalImpressions: Number(dbSummary?.total_impressions) || 0,
+    totalClicks: Number(dbSummary?.total_clicks) || 0,
+    avgROAS: Number(dbSummary?.avg_roas) || 0,
+    avgCTR: Number(dbSummary?.avg_ctr) || 0,
+    budgetUtilization: Number(dbSummary?.budget_utilization) || 0,
     topPerformer: sortedByRoas[0],
     worstPerformer: sortedByRoas[sortedByRoas.length - 1],
   };
@@ -163,36 +168,33 @@ export const usePromotionROI = () => {
   return { campaigns, roiData, summary, isLoading };
 };
 
-// Channel aggregation hook
+// Channel aggregation - DB-First via RPC
 export const usePromotionsByChannel = () => {
-  const { roiData } = usePromotionROI();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
-  const channelData = roiData.reduce((acc, item) => {
-    const channel = item.promotion.channel || 'Other';
-    if (!acc[channel]) {
-      acc[channel] = {
-        channel,
-        campaigns: 0,
-        spend: 0,
-        revenue: 0,
-        orders: 0,
-        impressions: 0,
-        clicks: 0,
-      };
-    }
-    acc[channel].campaigns++;
-    acc[channel].spend += item.promotion.actual_cost || 0;
-    acc[channel].revenue += item.totalRevenue;
-    acc[channel].orders += item.totalOrders;
-    acc[channel].impressions += item.impressions;
-    acc[channel].clicks += item.clicks;
-    return acc;
-  }, {} as Record<string, { channel: string; campaigns: number; spend: number; revenue: number; orders: number; impressions: number; clicks: number }>);
+  const { data: dbSummary } = useQuery({
+    queryKey: ['promotion-campaign-summary', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await callRpc('get_promotion_campaign_summary', {
+        p_tenant_id: tenantId,
+      });
+      if (error) return null;
+      return data as any;
+    },
+    enabled: !!tenantId && isReady,
+  });
 
-  return Object.values(channelData).map(ch => ({
-    ...ch,
-    roas: ch.spend > 0 ? ch.revenue / ch.spend : 0,
-    ctr: ch.impressions > 0 ? (ch.clicks / ch.impressions) * 100 : 0,
+  return ((dbSummary?.by_channel as any[]) || []).map((ch: any) => ({
+    channel: ch.channel || 'Other',
+    campaigns: Number(ch.campaigns) || 0,
+    spend: Number(ch.spend) || 0,
+    revenue: Number(ch.revenue) || 0,
+    orders: Number(ch.orders) || 0,
+    impressions: Number(ch.impressions) || 0,
+    clicks: Number(ch.clicks) || 0,
+    roas: Number(ch.roas) || 0,
+    ctr: Number(ch.ctr) || 0,
   }));
 };
 
@@ -214,6 +216,7 @@ export const useCreatePromotion = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotion-campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['promotion-campaign-summary'] });
       toast.success('Đã tạo chiến dịch khuyến mãi');
     },
     onError: (error) => {
@@ -240,6 +243,7 @@ export const useUpdatePromotion = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotion-campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['promotion-campaign-summary'] });
       toast.success('Đã cập nhật chiến dịch');
     },
     onError: (error) => {
@@ -263,6 +267,7 @@ export const useDeletePromotion = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promotion-campaigns'] });
+      queryClient.invalidateQueries({ queryKey: ['promotion-campaign-summary'] });
       toast.success('Đã xóa chiến dịch');
     },
     onError: (error) => {
