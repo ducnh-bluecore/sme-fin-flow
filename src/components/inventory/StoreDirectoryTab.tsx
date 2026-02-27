@@ -23,6 +23,8 @@ interface StoreMetrics {
   region: string;
   location_type: string;
   capacity: number;
+  display_capacity: number;
+  storage_capacity: number;
   total_sold: number;
   avg_velocity: number;
   active_fcs: number;
@@ -117,6 +119,8 @@ function useStoreMetrics() {
           region: s.region || '-',
           location_type: s.location_type,
           capacity: Number(s.capacity) || 0,
+          display_capacity: Number(s.display_capacity) || 0,
+          storage_capacity: Number(s.storage_capacity) || 0,
           total_sold: Number(demand?.total_sold) || 0,
           avg_velocity: Number(demand?.avg_velocity) || 0,
           active_fcs: Number(demand?.active_fcs) || 0,
@@ -174,19 +178,9 @@ function getCapacityColor(utilization: number): { bar: string; text: string; bad
 
 function StoreCard({ store }: { store: StoreMetrics }) {
   const accent = getTierAccent(store.tier);
-  const updateCapacity = useUpdateStoreCapacity();
-  const [editingCapacity, setEditingCapacity] = useState(false);
-  const [capacityValue, setCapacityValue] = useState(String(store.capacity));
 
   const utilization = store.capacity > 0 ? store.total_on_hand / store.capacity : 0;
   const capColor = getCapacityColor(utilization);
-
-  const handleSaveCapacity = () => {
-    const val = parseInt(capacityValue, 10);
-    if (!val || val <= 0) return;
-    updateCapacity.mutate({ storeId: store.id, capacity: val });
-    setEditingCapacity(false);
-  };
 
   return (
     <div className={cn(
@@ -224,37 +218,10 @@ function StoreCard({ store }: { store: StoreMetrics }) {
         {/* Capacity bar */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">Sức chứa</span>
-            <div className="flex items-center gap-1.5">
-              {editingCapacity ? (
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    value={capacityValue}
-                    onChange={e => setCapacityValue(e.target.value)}
-                    className="h-6 w-20 text-xs px-1.5"
-                    min={1}
-                    autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter') handleSaveCapacity(); if (e.key === 'Escape') setEditingCapacity(false); }}
-                  />
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleSaveCapacity}>
-                    <Check className="h-3 w-3 text-emerald-400" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingCapacity(false)}>
-                    <X className="h-3 w-3 text-muted-foreground" />
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <span className={cn("text-xs font-semibold font-mono", capColor.text)}>
-                    {store.total_on_hand.toLocaleString()} / {store.capacity > 0 ? store.capacity.toLocaleString() : '—'}
-                  </span>
-                  <button onClick={() => { setCapacityValue(String(store.capacity || 0)); setEditingCapacity(true); }} className="text-muted-foreground hover:text-foreground">
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                </>
-              )}
-            </div>
+            <span className="text-[10px] text-muted-foreground">Sức chứa tổng</span>
+            <span className={cn("text-xs font-semibold font-mono", capColor.text)}>
+              {store.total_on_hand.toLocaleString()} / {store.capacity > 0 ? store.capacity.toLocaleString() : '—'}
+            </span>
           </div>
           {store.capacity > 0 && (
             <div className="h-1.5 bg-muted rounded-full overflow-hidden">
@@ -262,6 +229,13 @@ function StoreCard({ store }: { store: StoreMetrics }) {
                 className={cn("h-full rounded-full transition-all", capColor.bar)}
                 style={{ width: `${Math.min(100, utilization * 100)}%` }}
               />
+            </div>
+          )}
+          {/* Display vs Storage breakdown */}
+          {(store.display_capacity > 0 || store.storage_capacity > 0) && (
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+              <span>🏪 Trưng bày: <span className="font-mono font-medium text-foreground">{store.display_capacity.toLocaleString()}</span></span>
+              <span>📦 Kho: <span className="font-mono font-medium text-foreground">{store.storage_capacity.toLocaleString()}</span></span>
             </div>
           )}
         </div>
