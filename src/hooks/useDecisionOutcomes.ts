@@ -195,42 +195,31 @@ export function useUpdateFollowupStatus() {
 
 // Hook để lấy thống kê outcomes
 export function useOutcomeStats() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { tenantId, isReady, callRpc } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['outcome-stats', tenantId],
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await buildSelectQuery('decision_outcomes', 
-        'outcome_status, actual_impact_amount, impact_variance, would_repeat');
+      const { data, error } = await callRpc('get_decision_outcome_stats', {
+        p_tenant_id: tenantId,
+      });
 
       if (error) throw error;
 
-      const typedData = (data || []) as unknown as Array<{
-        outcome_status: string;
-        actual_impact_amount: number | null;
-        impact_variance: number | null;
-        would_repeat: boolean | null;
-      }>;
-
-      const stats = {
-        totalOutcomes: typedData.length,
-        positiveCount: typedData.filter(d => d.outcome_status === 'positive').length,
-        neutralCount: typedData.filter(d => d.outcome_status === 'neutral').length,
-        negativeCount: typedData.filter(d => d.outcome_status === 'negative').length,
-        tooEarlyCount: typedData.filter(d => d.outcome_status === 'too_early').length,
-        wouldRepeatCount: typedData.filter(d => d.would_repeat === true).length,
-        totalActualImpact: typedData.reduce((sum, d) => sum + (d.actual_impact_amount || 0), 0),
-        avgVariancePercent: typedData.length > 0 
-          ? typedData.reduce((sum, d) => sum + (d.impact_variance || 0), 0) / typedData.length 
-          : 0,
-        successRate: typedData.length > 0 
-          ? (typedData.filter(d => d.outcome_status === 'positive').length / typedData.length) * 100 
-          : 0,
+      const result = data as unknown as any;
+      return {
+        totalOutcomes: Number(result?.total_outcomes) || 0,
+        positiveCount: Number(result?.positive_count) || 0,
+        neutralCount: Number(result?.neutral_count) || 0,
+        negativeCount: Number(result?.negative_count) || 0,
+        tooEarlyCount: Number(result?.too_early_count) || 0,
+        wouldRepeatCount: Number(result?.would_repeat_count) || 0,
+        totalActualImpact: Number(result?.total_actual_impact) || 0,
+        avgVariancePercent: Number(result?.avg_variance_percent) || 0,
+        successRate: Number(result?.success_rate) || 0,
       };
-
-      return stats;
     },
     enabled: !!tenantId && isReady,
   });

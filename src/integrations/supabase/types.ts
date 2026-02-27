@@ -41878,6 +41878,10 @@ export type Database = {
         Args: { p_rfm_segment: string; p_tenant_id: string }
         Returns: Json
       }
+      get_cdp_segment_summaries_computed: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_cdp_tier_summary: {
         Args: { p_tenant_id: string; p_tier_label: string }
         Returns: Json
@@ -41973,6 +41977,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: string
+      }
+      get_decision_outcome_stats: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_exchange_rate: {
         Args: {
@@ -42103,6 +42111,7 @@ export type Database = {
         Args: { p_date?: string; p_metric_code: string; p_tenant_id: string }
         Returns: number
       }
+      get_opex_breakdown: { Args: { p_tenant_id: string }; Returns: Json }
       get_pl_aggregated: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: {
