@@ -278,7 +278,7 @@ export function StoreIntelligenceTab() {
                 <div className="grid grid-cols-4 gap-2">
                   <MetricCard icon={Package} label="Tồn kho" value={`${(selectedStore.total_on_hand || 0).toLocaleString('vi-VN')}`} iconClass="text-blue-400" />
                   <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((selectedStore.total_on_hand || 0) * AVG_UNIT_COST / 1_000_000).toFixed(1)}M`} sub={`@${(AVG_UNIT_COST / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
-                  <MetricCard icon={BarChart3} label="Capacity" value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`} sub={`${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}% sử dụng`} iconClass="text-emerald-400" />
+                  <MetricCard icon={BarChart3} label="Sức chứa tổng" value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`} sub={`🏪 ${(selectedStore.display_capacity || 0).toLocaleString()} + 📦 ${(selectedStore.storage_capacity || 0).toLocaleString()} • ${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}%`} iconClass="text-emerald-400" />
                   <MetricCard 
                     icon={TrendingUp} 
                     label="Đã bán" 

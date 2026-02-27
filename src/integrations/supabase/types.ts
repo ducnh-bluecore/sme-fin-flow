@@ -19702,6 +19702,7 @@ export type Database = {
           location_type: string
           metadata: Json | null
           region: string | null
+          storage_capacity: number | null
           store_code: string
           store_name: string
           tenant_id: string
@@ -19719,6 +19720,7 @@ export type Database = {
           location_type?: string
           metadata?: Json | null
           region?: string | null
+          storage_capacity?: number | null
           store_code: string
           store_name: string
           tenant_id: string
@@ -19736,6 +19738,7 @@ export type Database = {
           location_type?: string
           metadata?: Json | null
           region?: string | null
+          storage_capacity?: number | null
           store_code?: string
           store_name?: string
           tenant_id?: string
