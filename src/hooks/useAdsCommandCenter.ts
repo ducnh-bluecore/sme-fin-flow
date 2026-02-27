@@ -219,6 +219,25 @@ export function useRejectRecommendation() {
   });
 }
 
+// ============ Product Search ============
+export function useProductSearch(search: string) {
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+
+  return useQuery({
+    queryKey: ['product-search', tenantId, search],
+    queryFn: async () => {
+      let query = buildSelectQuery('products', 'id, name, sku, selling_price, cost_price, category, subcategory, brand, description');
+      if (search.trim()) {
+        query = query.or(`name.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`);
+      }
+      const { data, error } = await query.eq('is_active', true).order('name').limit(20);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!tenantId && isReady,
+  });
+}
+
 // ============ Content ============
 export function useAdsContent(status?: string) {
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
@@ -241,10 +260,11 @@ export function useGenerateAdsContent() {
   const { activeTenant } = useTenantContext();
 
   return useMutation({
-    mutationFn: async ({ product_id, platform, content_type }: {
+    mutationFn: async ({ product_id, platform, content_type, media_urls }: {
       product_id?: string;
       platform: string;
       content_type: string;
+      media_urls?: string[];
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase.functions.invoke('ads-content-generator', {
@@ -253,6 +273,7 @@ export function useGenerateAdsContent() {
           product_id,
           platform,
           content_type,
+          media_urls,
           user_id: user?.id,
         },
       });
