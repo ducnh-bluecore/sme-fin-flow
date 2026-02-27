@@ -135,19 +135,36 @@ async function handleAllocate(
     }
 
     // ── Stage 1: Fetch lightweight data first (stores, positions, constraints) ──
-    const [storesRaw, posAgg, storeTotalsRaw, constraints, collections] =
+    // Paginated RPC helper for large result sets
+    async function fetchRpc(fnName: string, params: Record<string, any>): Promise<any[]> {
+      const PAGE_SIZE = 1000;
+      const first = await supabase.rpc(fnName, params).range(0, PAGE_SIZE - 1);
+      if (first.error) throw first.error;
+      const firstData = first.data || [];
+      if (firstData.length < PAGE_SIZE) return firstData;
+      let allData = [...firstData];
+      let offset = PAGE_SIZE;
+      while (true) {
+        const { data, error } = await supabase.rpc(fnName, params).range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+        const rows = data || [];
+        allData = allData.concat(rows);
+        if (rows.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+      }
+      return allData;
+    }
+
+    const [storesRaw, posAggData, storeTotalsData, constraints, collections] =
       await Promise.all([
         fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity,display_capacity", { is_active: true }),
-        supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
-        supabase.rpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
+        fetchRpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
+        fetchRpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
         fetchAll("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
         fetchAll("inv_collections", "id,is_new_collection,air_date"),
       ]);
 
-    if (posAgg.error) throw posAgg.error;
-    if (storeTotalsRaw.error) throw storeTotalsRaw.error;
-
-    const positions = (posAgg.data || []).map((p: any) => ({
+    const positions = posAggData.map((p: any) => ({
       store_id: p.store_id,
       fc_id: p.fc_id,
       on_hand: Number(p.total_on_hand) || 0,
@@ -199,7 +216,7 @@ async function handleAllocate(
     console.log(`[ALLOC DATA] fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
 
     const storeTotalOnHand = new Map<string, number>();
-    for (const st of (storeTotalsRaw.data || [])) {
+    for (const st of storeTotalsData) {
       storeTotalOnHand.set(st.store_id, Number(st.total_on_hand) || 0);
     }
 
