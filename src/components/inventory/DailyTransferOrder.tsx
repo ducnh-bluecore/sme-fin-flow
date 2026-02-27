@@ -473,7 +473,14 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                       <div className="p-2 rounded bg-card border border-border/50 space-y-0.5">
                                         <span className="text-[10px] text-muted-foreground uppercase">Kho nguồn</span>
                                         <p className="font-semibold text-foreground">{cc.source_on_hand ?? cc.cw_available_before ?? '—'} units</p>
-                                        <p className="text-muted-foreground">Còn {(cc.source_on_hand ?? cc.cw_available_before ?? 0) - getDisplayQty(s)} sau chuyển</p>
+                                        <p className="text-muted-foreground">
+                                          {(() => {
+                                            const src = cc.source_on_hand ?? cc.cw_available_before;
+                                            if (src == null) return '';
+                                            const remaining = src - getDisplayQty(s);
+                                            return remaining >= 0 ? `Còn ${remaining} sau chuyển` : `Thiếu ${Math.abs(remaining)} sau chuyển`;
+                                          })()}
+                                        </p>
                                       </div>
                                       <div className="p-2 rounded bg-card border border-border/50 space-y-0.5">
                                         <span className="text-[10px] text-muted-foreground uppercase">Kho đích</span>
