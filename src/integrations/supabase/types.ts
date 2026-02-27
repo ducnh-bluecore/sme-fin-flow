@@ -450,6 +450,422 @@ export type Database = {
           },
         ]
       }
+      ads_content: {
+        Row: {
+          body: string | null
+          content_type: string
+          created_at: string
+          created_by: string | null
+          hashtags: string[] | null
+          id: string
+          media_urls: string[] | null
+          platform: string
+          product_id: string | null
+          published_at: string | null
+          review_comment: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          scheduled_at: string | null
+          status: string
+          tenant_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          platform: string
+          product_id?: string | null
+          published_at?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          tenant_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          hashtags?: string[] | null
+          id?: string
+          media_urls?: string[] | null
+          platform?: string
+          product_id?: string | null
+          published_at?: string | null
+          review_comment?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          scheduled_at?: string | null
+          status?: string
+          tenant_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_content_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_content_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_content_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_content_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      ads_execution_log: {
+        Row: {
+          action_type: string
+          campaign_id: string | null
+          error_message: string | null
+          executed_at: string
+          executed_by: string | null
+          id: string
+          platform: string
+          recommendation_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          action_type: string
+          campaign_id?: string | null
+          error_message?: string | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          platform: string
+          recommendation_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          action_type?: string
+          campaign_id?: string | null
+          error_message?: string | null
+          executed_at?: string
+          executed_by?: string | null
+          id?: string
+          platform?: string
+          recommendation_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_execution_log_recommendation_id_fkey"
+            columns: ["recommendation_id"]
+            isOneToOne: false
+            referencedRelation: "ads_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_execution_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_execution_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_execution_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_execution_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      ads_platform_connections: {
+        Row: {
+          account_id: string
+          account_name: string | null
+          created_at: string
+          created_by: string | null
+          credentials: Json
+          id: string
+          is_active: boolean
+          last_synced_at: string | null
+          platform: string
+          tenant_id: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          account_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          credentials?: Json
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform: string
+          tenant_id: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          account_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          credentials?: Json
+          id?: string
+          is_active?: boolean
+          last_synced_at?: string | null
+          platform?: string
+          tenant_id?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_platform_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_platform_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_platform_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_platform_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      ads_recommendations: {
+        Row: {
+          ad_group_id: string | null
+          approved_at: string | null
+          approved_by: string | null
+          campaign_id: string | null
+          campaign_name: string | null
+          confidence: number | null
+          created_at: string
+          current_value: number | null
+          evidence: Json | null
+          execution_result: Json | null
+          expires_at: string | null
+          id: string
+          impact_estimate: number | null
+          platform: string
+          reason: string | null
+          recommendation_type: string
+          recommended_value: number | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          ad_group_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          current_value?: number | null
+          evidence?: Json | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          impact_estimate?: number | null
+          platform: string
+          reason?: string | null
+          recommendation_type: string
+          recommended_value?: number | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          ad_group_id?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          campaign_id?: string | null
+          campaign_name?: string | null
+          confidence?: number | null
+          created_at?: string
+          current_value?: number | null
+          evidence?: Json | null
+          execution_result?: Json | null
+          expires_at?: string | null
+          id?: string
+          impact_estimate?: number | null
+          platform?: string
+          reason?: string | null
+          recommendation_type?: string
+          recommended_value?: number | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_recommendations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_recommendations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_recommendations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_recommendations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      ads_rules: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          platform: string
+          priority: number
+          rule_name: string
+          rule_type: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          platform: string
+          priority?: number
+          rule_name: string
+          rule_type: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          platform?: string
+          priority?: number
+          rule_name?: string
+          rule_type?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ads_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ads_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "ads_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       ai_advisor_config: {
         Row: {
           allow_multiple_options: boolean | null

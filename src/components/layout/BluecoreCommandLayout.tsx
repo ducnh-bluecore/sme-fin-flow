@@ -14,6 +14,10 @@ import {
   Siren,
   Map,
   Bell,
+  Megaphone,
+  Plug,
+  BookOpen,
+  Sparkles,
 } from 'lucide-react';
 import { AppShell, type AppShellNavSection } from './AppShell';
 import { useTenantContext } from '@/contexts/TenantContext';
@@ -29,6 +33,16 @@ export function BluecoreCommandLayout() {
         { id: 'war-room', label: 'War Room', icon: Siren, href: '/command/war-room' },
         { id: 'capital-map', label: 'Capital Map', icon: Map, href: '/command/capital-map' },
         { id: 'overview', label: 'Tổng Quan', icon: LayoutDashboard, href: '/command/overview' },
+      ],
+    },
+    {
+      id: 'marketing',
+      label: 'MARKETING',
+      items: [
+        { id: 'ads-dashboard', label: 'Ads Command', icon: Megaphone, href: '/command/ads' },
+        { id: 'ads-connections', label: 'Kết Nối Ads', icon: Plug, href: '/command/ads/connections' },
+        { id: 'ads-rules', label: 'Rules', icon: BookOpen, href: '/command/ads/rules' },
+        { id: 'ads-content', label: 'Nội Dung AI', icon: Sparkles, href: '/command/ads/content' },
       ],
     },
     {

@@ -26,3 +26,15 @@ verify_jwt = false
 
 [functions.compute-kpi-pipeline]
 verify_jwt = false
+
+[functions.ads-sync-campaigns]
+verify_jwt = false
+
+[functions.ads-execute-action]
+verify_jwt = false
+
+[functions.ads-optimizer-engine]
+verify_jwt = false
+
+[functions.ads-content-generator]
+verify_jwt = false
