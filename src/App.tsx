@@ -144,6 +144,11 @@ const ReviewHubRoutes = lazy(() => import("./pages/review-hub/ReviewHubRoutes"))
 const SystemReviewIndex = lazy(() => import("./pages/review-hub/SystemReviewIndex"));
 const CrossSystemReview = lazy(() => import("./pages/review-hub/CrossSystemReview"));
 const DataContractView = lazy(() => import("./pages/review-hub/DataContractView"));
+// Ads Command Center pages
+const AdsDashboardPage = lazy(() => import("./pages/command/AdsDashboardPage"));
+const AdsConnectionsPage = lazy(() => import("./pages/command/AdsConnectionsPage"));
+const AdsRulesPage = lazy(() => import("./pages/command/AdsRulesPage"));
+const AdsContentPage = lazy(() => import("./pages/command/AdsContentPage"));
 
 // MDP pages - eager import to avoid reload issues
 import MDPDashboardPage from "./pages/MDPDashboardPage";
@@ -563,6 +568,11 @@ const AppRoutes = () => {
         <Route path="/command/decisions" element={<DecisionQueuePage />} />
         <Route path="/command/outcomes" element={<DecisionOutcomesPage />} />
         <Route path="/command/settings" element={<CommandSettingsPage />} />
+        {/* Ads Command Center */}
+        <Route path="/command/ads" element={<AdsDashboardPage />} />
+        <Route path="/command/ads/connections" element={<AdsConnectionsPage />} />
+        <Route path="/command/ads/rules" element={<AdsRulesPage />} />
+        <Route path="/command/ads/content" element={<AdsContentPage />} />
       </Route>
 
       {/* MDP Routes - Independent system like Control Tower */}
