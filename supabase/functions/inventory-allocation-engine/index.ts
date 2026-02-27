@@ -205,7 +205,7 @@ async function handleAllocate(
     // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
     // Batch helper: split large IN arrays to avoid URL length limits
     async function fetchAllBatched(table: string, selectCols: string, filters: Record<string, any>, inColumn: string, inValues: string[]): Promise<any[]> {
-      const BATCH_SIZE = 200;
+      const BATCH_SIZE = 50;
       const batches: Promise<any[]>[] = [];
       for (let i = 0; i < inValues.length; i += BATCH_SIZE) {
         const chunk = inValues.slice(i, i + BATCH_SIZE);
