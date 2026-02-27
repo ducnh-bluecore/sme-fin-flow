@@ -328,13 +328,36 @@ export function useTopProducts(limit: number = 10) {
 // ==================== COMBINED ANALYTICS DATA (ALL SOURCES) ====================
 
 export function useChannelAnalyticsData() {
-  const { tenantId, isReady } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const channelPerformance = useChannelPerformance();
   const dailyRevenue = useDailyChannelRevenue(90);
   const orderStatus = useOrderStatusSummary();
   const feesSummary = useChannelFeesSummary();
   const settlements = useSettlementsSummary();
   const allRevenue = useAllRevenueData();
+
+  // Use DB RPC for invoice/revenue aggregation instead of client-side .reduce()
+  const invoiceRevenueAgg = useQuery({
+    queryKey: ['channel-analytics-agg', tenantId],
+    queryFn: async () => {
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
+      const endDate = today.toISOString().split('T')[0];
+      
+      const { data, error } = await callRpc('get_channel_analytics_aggregated', {
+        p_tenant_id: tenantId,
+        p_start_date: startDate,
+        p_end_date: endDate,
+      });
+      if (error) {
+        console.warn('[useChannelAnalyticsData] RPC fallback:', error);
+        return null;
+      }
+      return (data || []) as any[];
+    },
+    enabled: !!tenantId && isReady,
+    staleTime: 60000,
+  });
 
   const isLoading = 
     channelPerformance.isLoading || 
@@ -347,53 +370,47 @@ export function useChannelAnalyticsData() {
   // Combine all channel performance data including invoices and revenues
   const combinedPerformance: ChannelPerformance[] = [...(channelPerformance.data || [])];
 
-  // Add Invoice channel (now from pre-aggregated view)
-  if (allRevenue.data?.invoices && allRevenue.data.invoices.length > 0) {
-    const invoiceRows = allRevenue.data.invoices;
-    const totalRevenue = invoiceRows.reduce((sum: number, r) => sum + Number(r.gross_revenue || 0), 0);
-    const paidAmount = invoiceRows.reduce((sum: number, r) => sum + Number(r.net_revenue || 0), 0);
-    const totalOrders = invoiceRows.reduce((sum: number, r) => sum + Number(r.total_orders || 0), 0);
-    
-    combinedPerformance.push({
-      connector_name: 'Hóa đơn B2B',
-      connector_type: 'invoice',
-      shop_name: null,
-      integration_id: 'invoice',
-      total_orders: totalOrders,
-      gross_revenue: totalRevenue,
-      net_revenue: paidAmount,
-      total_fees: 0,
-      total_cogs: 0,
-      gross_profit: paidAmount,
-      avg_order_value: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-      cancelled_orders: 0,
-      returned_orders: 0,
-      source: 'invoice',
-    });
-  }
+  // Add Invoice channel from DB-aggregated data (NO client-side .reduce())
+  if (invoiceRevenueAgg.data) {
+    const invoiceRow = invoiceRevenueAgg.data.find((r: any) => r.source_type === 'invoice');
+    if (invoiceRow && Number(invoiceRow.total_revenue) > 0) {
+      combinedPerformance.push({
+        connector_name: 'Hóa đơn B2B',
+        connector_type: 'invoice',
+        shop_name: null,
+        integration_id: 'invoice',
+        total_orders: Number(invoiceRow.total_orders) || 0,
+        gross_revenue: Number(invoiceRow.total_revenue) || 0,
+        net_revenue: Number(invoiceRow.paid_amount) || 0,
+        total_fees: 0,
+        total_cogs: 0,
+        gross_profit: Number(invoiceRow.paid_amount) || 0,
+        avg_order_value: Number(invoiceRow.avg_order_value) || 0,
+        cancelled_orders: 0,
+        returned_orders: 0,
+        source: 'invoice',
+      });
+    }
 
-  // Add Other Revenue channel (now from pre-aggregated view)
-  if (allRevenue.data?.revenues && allRevenue.data.revenues.length > 0) {
-    const revenueRows = allRevenue.data.revenues;
-    const totalRevenue = revenueRows.reduce((sum: number, r) => sum + Number(r.gross_revenue || 0), 0);
-    const totalOrders = revenueRows.reduce((sum: number, r) => sum + Number(r.total_orders || 0), 0);
-    
-    combinedPerformance.push({
-      connector_name: 'Doanh thu khác',
-      connector_type: 'revenue',
-      shop_name: null,
-      integration_id: 'revenue',
-      total_orders: totalOrders,
-      gross_revenue: totalRevenue,
-      net_revenue: totalRevenue,
-      total_fees: 0,
-      total_cogs: 0,
-      gross_profit: totalRevenue,
-      avg_order_value: totalOrders > 0 ? totalRevenue / totalOrders : 0,
-      cancelled_orders: 0,
-      returned_orders: 0,
-      source: 'revenue',
-    });
+    const revenueRow = invoiceRevenueAgg.data.find((r: any) => r.source_type === 'revenue');
+    if (revenueRow && Number(revenueRow.total_revenue) > 0) {
+      combinedPerformance.push({
+        connector_name: 'Doanh thu khác',
+        connector_type: 'revenue',
+        shop_name: null,
+        integration_id: 'revenue',
+        total_orders: Number(revenueRow.total_orders) || 0,
+        gross_revenue: Number(revenueRow.total_revenue) || 0,
+        net_revenue: Number(revenueRow.total_revenue) || 0,
+        total_fees: 0,
+        total_cogs: 0,
+        gross_profit: Number(revenueRow.total_revenue) || 0,
+        avg_order_value: Number(revenueRow.avg_order_value) || 0,
+        cancelled_orders: 0,
+        returned_orders: 0,
+        source: 'revenue',
+      });
+    }
   }
 
   return {
