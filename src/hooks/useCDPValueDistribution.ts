@@ -130,30 +130,30 @@ export function useCDPValueDistribution() {
 
 // Segment Summaries
 export function useCDPSegmentSummaries() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { tenantId, isReady, callRpc } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['cdp-segment-summaries', tenantId],
     queryFn: async (): Promise<SegmentSummary[]> => {
       if (!tenantId) return [];
 
-      const { data, error } = await buildSelectQuery('v_cdp_segment_summaries', '*');
+      const { data, error } = await callRpc('get_cdp_segment_summaries_computed', {
+        p_tenant_id: tenantId,
+      });
 
       if (error) {
         console.error('Error fetching segment summaries:', error);
         return [];
       }
 
-      // Map new view columns to SegmentSummary interface
-      const totalCustomers = (data || []).reduce((sum: number, r: any) => sum + Number(r.customer_count || 0), 0);
-      
-      return (data || []).map((row: any) => ({
+      const rows = (data as unknown as any[]) || [];
+      return rows.map((row: any) => ({
         name: row.segment || '',
         customerCount: Number(row.customer_count) || 0,
-        percentOfTotal: totalCustomers > 0 ? (Number(row.customer_count) / totalCustomers) * 100 : 0,
+        percentOfTotal: Number(row.percent_of_total) || 0,
         totalRevenue: Number(row.segment_revenue) || 0,
         avgRevenue: Number(row.avg_revenue_per_customer) || 0,
-        avgMargin: Number(row.segment_margin) / Math.max(Number(row.customer_count), 1) || 0,
+        avgMargin: Number(row.avg_margin_per_customer) || 0,
         avgFrequency: Number(row.avg_orders_per_customer) || 0,
         trend: 'stable' as const,
         trendPercent: 0,
