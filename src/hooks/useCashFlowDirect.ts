@@ -100,41 +100,36 @@ export const useCashFlowDirect = (periodType?: string) => {
 export const useCashFlowAnalysis = () => {
   const { data: cashFlows = [], isLoading: cashFlowsLoading, error } = useCashFlowDirect();
   const { data: runwayData, isLoading: runwayLoading } = useCashRunway();
+  const { tenantId, callRpc } = useTenantQueryBuilder();
 
   const isLoading = cashFlowsLoading || runwayLoading;
 
-  // Calculate summary from all periods
-  const summary: CashFlowSummary = cashFlows.reduce((acc, cf) => {
-    const inflows = cf.cash_from_customers + cf.cash_from_interest_received + cf.cash_from_other_operating +
-                    cf.cash_from_asset_sales + cf.cash_from_loans + cf.cash_from_equity;
-    
-    const outflows = cf.cash_to_suppliers + cf.cash_to_employees + cf.cash_for_rent + 
-                     cf.cash_for_utilities + cf.cash_for_taxes + cf.cash_for_interest_paid + 
-                     cf.cash_for_other_operating + cf.cash_for_asset_purchases + 
-                     cf.cash_for_investments + cf.cash_for_loan_repayments + cf.cash_for_dividends;
+  // Use RPC for summary aggregation instead of client-side .reduce()
+  const { data: summaryFromRpc } = useQuery({
+    queryKey: ['cash-flow-summary', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await callRpc('get_cash_flow_summary', {
+        p_tenant_id: tenantId,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!tenantId,
+    staleTime: 2 * 60 * 1000,
+  });
 
-    return {
-      totalInflows: acc.totalInflows + inflows,
-      totalOutflows: acc.totalOutflows + outflows,
-      netChange: acc.netChange + (inflows - outflows),
-      operatingCashFlow: acc.operatingCashFlow + cf.net_cash_operating,
-      investingCashFlow: acc.investingCashFlow + cf.net_cash_investing,
-      financingCashFlow: acc.financingCashFlow + cf.net_cash_financing,
-      cashConversionRatio: 0,
-      burnRate: 0,
-      runway: 0,
-    };
-  }, {
-    totalInflows: 0,
-    totalOutflows: 0,
-    netChange: 0,
-    operatingCashFlow: 0,
-    investingCashFlow: 0,
-    financingCashFlow: 0,
+  const summary: CashFlowSummary = {
+    totalInflows: Number(summaryFromRpc?.totalInflows) || 0,
+    totalOutflows: Number(summaryFromRpc?.totalOutflows) || 0,
+    netChange: Number(summaryFromRpc?.netChange) || 0,
+    operatingCashFlow: Number(summaryFromRpc?.operatingCashFlow) || 0,
+    investingCashFlow: Number(summaryFromRpc?.investingCashFlow) || 0,
+    financingCashFlow: Number(summaryFromRpc?.financingCashFlow) || 0,
     cashConversionRatio: 0,
     burnRate: 0,
     runway: 0,
-  });
+  };
 
   // Use SSOT for burn rate and runway from useCashRunway
   if (runwayData) {
