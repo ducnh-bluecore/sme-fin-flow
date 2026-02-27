@@ -6,59 +6,17 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-// ─── Types ───────────────────────────────────────────────────────
-
-interface ConstraintMap {
-  [key: string]: any;
-}
-
-interface StoreInfo {
-  id: string;
-  store_name: string;
-  store_code: string;
-  tier: string;
-  region: string;
-  location_type: string;
-  is_active: boolean;
-  capacity: number;
-  display_capacity: number;
-}
-
-interface AllocationRec {
-  tenant_id: string;
-  run_id: string;
-  fc_id: string;
-  fc_name: string;
-  store_id: string;
-  store_name: string;
-  sku: string | null;
-  recommended_qty: number;
-  current_on_hand: number;
-  current_weeks_cover: number;
-  projected_weeks_cover: number;
-  sales_velocity: number;
-  priority: string;
-  reason: string;
-  potential_revenue: number;
-  status: string;
-  stage: string;
-  constraint_checks: Record<string, any>;
-  explain_text: string;
-  size_breakdown: any | null;
-}
-
-// ─── Main Handler ────────────────────────────────────────────────
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
     const body = await req.json();
     const { tenant_id, user_id, action, run_type, dry_run } = body;
 
@@ -69,7 +27,7 @@ Deno.serve(async (req) => {
     if (action === "rebalance") {
       return await handleRebalance(supabase, tenant_id, user_id);
     } else if (action === "allocate") {
-      const rt = run_type || "both"; // V1, V2, or both
+      const rt = run_type || "both";
       return await handleAllocate(supabase, tenant_id, user_id, rt, dry_run || false);
     }
 
@@ -80,16 +38,16 @@ Deno.serve(async (req) => {
   }
 });
 
-// ─── Allocate: SOP 2-Round (V1 + V2) ────────────────────────────
+// ─── Allocate: Delegated to PL/pgSQL fn_allocation_engine ────────
 
 async function handleAllocate(
   supabase: any,
   tenantId: string,
   userId: string | undefined,
-  runType: "V1" | "V2" | "both",
+  runType: string,
   dryRun: boolean
 ) {
-  // Create run
+  // Create run record
   const { data: run, error: runError } = await supabase
     .from("inv_allocation_runs")
     .insert({
@@ -106,230 +64,35 @@ async function handleAllocate(
   if (runError) throw runError;
 
   try {
-    // ── Paginated fetch helper (sequential pages to avoid request bursts) ──
-    async function fetchAll(table: string, selectCols: string, filters: Record<string, any> = {}, extraFilter?: (q: any) => any): Promise<any[]> {
-      const PAGE_SIZE = 1000;
-      let offset = 0;
-      let allData: any[] = [];
+    console.log(`[ALLOC] Calling fn_allocation_engine for run ${run.id}, type=${runType}...`);
 
-      while (true) {
-        let query = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
-        for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
-        if (extraFilter) query = extraFilter(query);
+    const { data, error } = await supabase.rpc("fn_allocation_engine", {
+      p_tenant_id: tenantId,
+      p_run_id: run.id,
+      p_run_type: runType,
+    });
 
-        const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
-        if (error) throw error;
+    if (error) throw error;
 
-        const rows = data || [];
-        if (rows.length > 0) allData.push(...rows);
-        if (rows.length < PAGE_SIZE) break;
+    const result = data || { total_recommendations: 0, v1_count: 0, v2_count: 0, total_units: 0 };
+    console.log(`[ALLOC] Done:`, JSON.stringify(result));
 
-        offset += PAGE_SIZE;
-      }
-
-      return allData;
-    }
-
-    // ── Stage 1: Fetch lightweight data first (stores, positions, constraints) ──
-    // Paginated RPC helper for large result sets
-    async function fetchRpc(fnName: string, params: Record<string, any>): Promise<any[]> {
-      const PAGE_SIZE = 1000;
-      const first = await supabase.rpc(fnName, params).range(0, PAGE_SIZE - 1);
-      if (first.error) throw first.error;
-      const firstData = first.data || [];
-      if (firstData.length < PAGE_SIZE) return firstData;
-      let allData = [...firstData];
-      let offset = PAGE_SIZE;
-      while (true) {
-        const { data, error } = await supabase.rpc(fnName, params).range(offset, offset + PAGE_SIZE - 1);
-        if (error) throw error;
-        const rows = data || [];
-        if (rows.length > 0) allData.push(...rows);
-        if (rows.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
-      }
-      return allData;
-    }
-
-    const [storesRaw, posAggData, storeTotalsData, constraints, collections] =
-      await Promise.all([
-        fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity,display_capacity", { is_active: true }),
-        fetchRpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
-        fetchRpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
-        fetchAll("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
-        fetchAll("inv_collections", "id,is_new_collection,air_date"),
-      ]);
-
-    const positions = posAggData.map((p: any) => ({
-      store_id: p.store_id,
-      fc_id: p.fc_id,
-      on_hand: Number(p.total_on_hand) || 0,
-      reserved: Number(p.total_reserved) || 0,
-      in_transit: Number(p.total_in_transit) || 0,
-      safety_stock: Number(p.total_safety_stock) || 0,
-      sku: null,
-    }));
-
-    const stores: StoreInfo[] = storesRaw.map((s: any) => ({
-      ...s,
-      capacity: Number(s.capacity) || 0,
-      display_capacity: Number(s.display_capacity) || 0,
-    }));
-
-    if (!stores.length || !positions.length) {
-      await completeRun(supabase, run.id, 0, 0);
-      return jsonResponse({ run_id: run.id, recommendations: 0, message: "No data" });
-    }
-
-    const centralStores = stores.filter((s) => s.location_type === "central_warehouse");
-    const retailStores = stores.filter((s) => s.location_type !== "central_warehouse");
-
-    // ── Early exit: check if CW has any stock ──
-    const cwStock = buildCWStock(positions, centralStores);
-    console.log(`[ALLOC] stores: ${stores.length}, positions: ${positions.length}, cwStock FCs: ${cwStock.size}, central: ${centralStores.length}, retail: ${retailStores.length}`);
-
-    if (cwStock.size === 0) {
-      console.log(`[ALLOC] No CW stock found — completing with 0 recs (skipping heavy fetches)`);
-      await completeRun(supabase, run.id, 0, 0);
-      return jsonResponse({ run_id: run.id, run_type: runType, total_recommendations: 0, v1_count: 0, v2_count: 0, total_units: 0, message: "No CW stock available" });
-    }
-
-    // ── Stage 2: Only fetch data for FCs that have CW stock ──
-    const cwFcIds = [...cwStock.keys()];
-    console.log(`[ALLOC] Fetching data for ${cwFcIds.length} FCs with CW stock...`);
-
-    // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
-    // Batch helper: split large IN arrays to avoid URL length limits
-    // Uses strict concurrency limiting to avoid runtime shutdown with large catalogs
-    async function fetchAllBatched(table: string, selectCols: string, filters: Record<string, any>, inColumn: string, inValues: string[]): Promise<any[]> {
-      const BATCH_SIZE = 80;
-      const CONCURRENCY = 2;
-      const chunks: string[][] = [];
-      for (let i = 0; i < inValues.length; i += BATCH_SIZE) {
-        chunks.push(inValues.slice(i, i + BATCH_SIZE));
-      }
-
-      let allData: any[] = [];
-      const totalGroups = Math.ceil(chunks.length / CONCURRENCY);
-
-      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
-        const group = chunks.slice(i, i + CONCURRENCY);
-        const groupIndex = Math.floor(i / CONCURRENCY) + 1;
-        console.log(`[ALLOC FETCH] ${table} group ${groupIndex}/${totalGroups}`);
-
-        const results = await Promise.all(
-          group.map((chunk) => fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)))
-        );
-
-        for (const r of results) if (r.length > 0) allData.push(...r);
-      }
-
-      return allData;
-    }
-
-    // Fetch in sequence (table-by-table) to avoid 4-way parallel pressure at large scale
-    const fcs = await fetchAllBatched("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, "id", cwFcIds);
-    const sizeIntegrity = await fetchAllBatched("inv_state_size_integrity", "fc_id,is_full_size_run", {}, "fc_id", cwFcIds);
-    const skuMappings = await fetchAllBatched("inv_sku_fc_mapping", "fc_id,sku", {}, "fc_id", cwFcIds);
-    const demand = await fetchAllBatched("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, "fc_id", cwFcIds);
-
-    console.log(`[ALLOC DATA] fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
-
-    const storeTotalOnHand = new Map<string, number>();
-    for (const st of storeTotalsData) {
-      storeTotalOnHand.set(st.store_id, Number(st.total_on_hand) || 0);
-    }
-
-    const cm = buildConstraintMap(constraints);
-    const demandMap = buildDemandMap(demand);
-    const fcMap = new Map(fcs.map((f: any) => [f.id, f]));
-    const sizeIntMap = buildSizeIntegrityMap(sizeIntegrity);
-
-    const allRecs: AllocationRec[] = [];
-
-    // ── V1: Baseline by Collection/Tier ──
-    if (runType === "V1" || runType === "both") {
-      const v1Recs = runV1(
-        tenantId, run.id, stores, retailStores, centralStores,
-        positions, fcs, collections, cm, sizeIntMap, cwStock, skuMappings, demandMap, storeTotalOnHand
-      );
-      allRecs.push(...v1Recs);
-    }
-
-    // ── V2: Demand-based detail ──
-    if (runType === "V2" || runType === "both") {
-      const v2Recs = runV2(
-        tenantId, run.id, stores, retailStores, centralStores,
-        positions, demand, fcs, cm, sizeIntMap, cwStock, skuMappings, demandMap, storeTotalOnHand
-      );
-      allRecs.push(...v2Recs);
-    }
-
-    // ── Inline Size Split ──
-    const sizeSplitStart = Date.now();
-    const SIZE_BATCH = 20;
-    const SIZE_TIMEOUT_MS = 50000; // 50s guard
-    let sizeSplitDone = 0;
-    let sizeSplitSkipped = 0;
-
-    for (let i = 0; i < allRecs.length; i += SIZE_BATCH) {
-      if (Date.now() - sizeSplitStart > SIZE_TIMEOUT_MS) {
-        console.log(`[SIZE SPLIT] Timeout after ${sizeSplitDone} done, ${allRecs.length - i} remaining`);
-        break;
-      }
-      const batch = allRecs.slice(i, i + SIZE_BATCH);
-      const results = await Promise.allSettled(
-        batch.map(async (rec) => {
-          try {
-            const { data: sizeData, error: rpcError } = await supabase.rpc('fn_allocate_size_split', {
-              p_tenant_id: tenantId,
-              p_fc_id: rec.fc_id,
-              p_source_store_id: null,
-              p_dest_store_id: rec.store_id,
-              p_total_qty: rec.recommended_qty,
-            });
-            if (rpcError) {
-              console.error(`[SIZE SPLIT] RPC error for FC ${rec.fc_id}:`, rpcError.message);
-              rec.size_breakdown = [];
-              sizeSplitSkipped++;
-              return;
-            }
-            rec.size_breakdown = sizeData || [];
-            sizeSplitDone++;
-          } catch (e) {
-            console.error(`[SIZE SPLIT] Exception for FC ${rec.fc_id}:`, e);
-            rec.size_breakdown = [];
-            sizeSplitSkipped++;
-          }
-        })
-      );
-    }
-    console.log(`[SIZE SPLIT] Done: ${sizeSplitDone} split, ${sizeSplitSkipped} skipped, ${allRecs.length - sizeSplitDone - sizeSplitSkipped} remaining`);
-
-    // ── Persist ──
-    if (!dryRun && allRecs.length > 0) {
-      // Insert in batches of 500
-      for (let i = 0; i < allRecs.length; i += 500) {
-        const batch = allRecs.slice(i, i + 500);
-        const { error } = await supabase.from("inv_allocation_recommendations").insert(batch);
-        if (error) throw error;
-      }
-    }
-
-    const totalUnits = allRecs.reduce((s, r) => s + r.recommended_qty, 0);
-    const v1Count = allRecs.filter((r) => r.stage === "V1").length;
-    const v2Count = allRecs.filter((r) => r.stage === "V2").length;
-
-    await completeRun(supabase, run.id, allRecs.length, totalUnits);
+    // Update run record
+    await supabase
+      .from("inv_allocation_runs")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        total_recommendations: result.total_recommendations,
+        total_units: result.total_units,
+      })
+      .eq("id", run.id);
 
     return jsonResponse({
       run_id: run.id,
       run_type: runType,
       dry_run: dryRun,
-      total_recommendations: allRecs.length,
-      v1_count: v1Count,
-      v2_count: v2Count,
-      total_units: totalUnits,
+      ...result,
     });
   } catch (error) {
     await supabase
@@ -340,430 +103,9 @@ async function handleAllocate(
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// V1: Phủ nền theo BST — Baseline Allocation
-// ═══════════════════════════════════════════════════════════════════
-
-function runV1(
-  tenantId: string,
-  runId: string,
-  allStores: StoreInfo[],
-  retailStores: StoreInfo[],
-  centralStores: StoreInfo[],
-  positions: any[],
-  fcs: any[],
-  collections: any[],
-  cm: ConstraintMap,
-  sizeIntMap: Map<string, boolean>,
-  cwStock: Map<string, number>,
-  skuMappings: any[],
-  demandMap: Map<string, number>,
-  storeTotalOnHand: Map<string, number>
-): AllocationRec[] {
-  const recs: AllocationRec[] = [];
-
-  // ── 1. Filter FC scope by collection ──
-  const scopeFcIds = getV1ScopeFcIds(fcs, collections, cm);
-
-  // ── 2. Get min stock rules ──
-  const minStockRanges = getConstraintRanges(cm, "v1_min_store_stock_by_total_sku", "min_qty");
-  const cwReservedRanges = getConstraintRanges(cm, "cw_reserved_min_by_total_sku", "min_pcs");
-  const coreHeroMinPerSku = cm.cw_core_hero_min_per_sku?.min_pcs ?? 15;
-  const noBrokenSize = cm.no_broken_size?.enabled !== false;
-
-  // ── 3. Precompute indexes (avoid repeated filter/find in loops) ──
-  const fcById = new Map<string, any>(fcs.map((f: any) => [f.id, f]));
-
-  const fcSkuCountMap = new Map<string, number>();
-  for (const m of skuMappings) {
-    fcSkuCountMap.set(m.fc_id, (fcSkuCountMap.get(m.fc_id) || 0) + 1);
-  }
-
-  const cwStoreIds = new Set(centralStores.map((cw) => cw.id));
-  const storeFcSets = new Map<string, Set<string>>();
-  const stockByStoreFc = new Map<string, { onHand: number; inTransit: number }>();
-  const cwFcSet = new Set<string>();
-
-  for (const p of positions) {
-    const key = `${p.store_id}:${p.fc_id}`;
-    const prev = stockByStoreFc.get(key) || { onHand: 0, inTransit: 0 };
-    prev.onHand += Number(p.on_hand) || 0;
-    prev.inTransit += Number(p.in_transit) || 0;
-    stockByStoreFc.set(key, prev);
-
-    let fcSet = storeFcSets.get(p.store_id);
-    if (!fcSet) {
-      fcSet = new Set<string>();
-      storeFcSets.set(p.store_id, fcSet);
-    }
-    fcSet.add(p.fc_id);
-
-    if (cwStoreIds.has(p.store_id)) cwFcSet.add(p.fc_id);
-  }
-
-  const storeTotalSkuCount = new Map<string, number>();
-  for (const store of retailStores) {
-    storeTotalSkuCount.set(store.id, storeFcSets.get(store.id)?.size || 0);
-  }
-
-  const cwTotalSkus = cwFcSet.size;
-
-  // ── 4. Sort retail stores by tier priority: S → A → B → C ──
-  const tierOrder: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
-  const sortedRetail = [...retailStores].sort(
-    (a, b) => (tierOrder[a.tier] ?? 9) - (tierOrder[b.tier] ?? 9)
-  );
-
-  // ── 5. For each FC in scope → allocate baseline ──
-  console.log(`[V1] scopeFcIds: ${scopeFcIds.length}, cwStock entries: ${cwStock.size}, retailStores: ${sortedRetail.length}, noBrokenSize: ${noBrokenSize}`);
-  let debugSkipNoFc = 0, debugSkipSizeInt = 0, debugSkipNoCw = 0, debugSkipNoShortage = 0;
-
-  for (const fcId of scopeFcIds) {
-    const fc = fcById.get(fcId);
-    if (!fc) { debugSkipNoFc++; continue; }
-
-    // Check size integrity
-    if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) {
-      debugSkipSizeInt++;
-      continue;
-    }
-
-    // Available at CW
-    let cwAvailable = cwStock.get(fcId) ?? 0;
-    if (cwAvailable <= 0) { debugSkipNoCw++; continue; }
-
-    // CW reserve floor
-    const cwReserveMin = lookupRange(cwReservedRanges, cwTotalSkus);
-
-    // Core/Hero: higher reserve at CW
-    const isCoreHero = fc.is_core_hero === true;
-    const fcSkuCount = fcSkuCountMap.get(fcId) || 1;
-    const coreHeroReserve = isCoreHero ? coreHeroMinPerSku * fcSkuCount : 0;
-    const effectiveCwReserve = Math.max(cwReserveMin, coreHeroReserve);
-
-    for (const store of sortedRetail) {
-      if (cwAvailable <= effectiveCwReserve) break;
-
-      const totalSkuAtStore = storeTotalSkuCount.get(store.id) ?? 0;
-      const minQty = lookupRange(minStockRanges, totalSkuAtStore);
-
-      // Current stock at store for this FC
-      const stock = stockByStoreFc.get(`${store.id}:${fcId}`);
-      const currentStock = (stock?.onHand || 0) + (stock?.inTransit || 0);
-
-      const shortage = minQty - currentStock;
-      if (shortage <= 0) { debugSkipNoShortage++; continue; }
-
-      let allocQty = Math.min(shortage, cwAvailable - effectiveCwReserve);
-      if (allocQty <= 0) continue;
-
-      // ── Capacity check ──
-      let capacityCapped = false;
-      if (store.capacity > 0) {
-        const currentTotalOnHand = storeTotalOnHand.get(store.id) || 0;
-        const remainingCapacity = store.capacity - currentTotalOnHand;
-        if (remainingCapacity <= 0) continue;
-        if (allocQty > remainingCapacity) {
-          allocQty = remainingCapacity;
-          capacityCapped = true;
-        }
-      }
-      if (allocQty <= 0) continue;
-
-      const velocity = getDemandVelocity(demandMap, store.id, fcId);
-      const newCover = velocity > 0 ? (currentStock + allocQty) / (velocity * 7) : 99;
-
-      // Get demand detail for sold_7d
-      const ddKey = `${store.id}:${fcId}`;
-      const dd = demandMap.get(ddKey) || 0;
-
-      const constraintChecks = {
-        rule: "v1_min_store_stock",
-        tier: store.tier,
-        total_sku_at_store: totalSkuAtStore,
-        min_qty_required: minQty,
-        current_stock: currentStock,
-        cw_available_before: cwAvailable,
-        cw_reserve_floor: effectiveCwReserve,
-        is_core_hero: isCoreHero,
-        size_integrity: true,
-        capacity_capped: capacityCapped,
-        store_capacity: store.capacity || null,
-        source_on_hand: cwAvailable,
-        dest_on_hand: currentStock,
-        sold_7d: Math.round(dd * 7),
-      };
-
-      recs.push({
-        tenant_id: tenantId,
-        run_id: runId,
-        fc_id: fcId,
-        fc_name: fc.fc_name || fc.fc_code || "",
-        store_id: store.id,
-        store_name: store.store_name || store.store_code || "",
-        sku: null,
-        recommended_qty: allocQty,
-        current_on_hand: currentStock,
-        current_weeks_cover: velocity > 0 ? currentStock / (velocity * 7) : 99,
-        projected_weeks_cover: newCover,
-        sales_velocity: velocity,
-        priority: currentStock === 0 ? "P1" : shortage > minQty * 0.5 ? "P2" : "P3",
-        reason: `V1: ${store.store_name} thiếu ${shortage} units (min=${minQty}, tier=${store.tier})`,
-        potential_revenue: allocQty * (cm.avg_unit_price_default?.amount ?? 250000),
-        status: "pending",
-        stage: "V1",
-        constraint_checks: constraintChecks,
-        explain_text: `V1 Phủ nền: FC ${fc.fc_name || fc.fc_code}, CH ${store.store_name} (tier ${store.tier}) cần min ${minQty} units, hiện có ${currentStock}, bổ sung ${allocQty}. CW còn ${cwAvailable - allocQty} sau chia.`,
-        size_breakdown: null,
-      });
-
-      cwAvailable -= allocQty;
-      cwStock.set(fcId, cwAvailable);
-      // Update store on-hand tracker for capacity
-      storeTotalOnHand.set(store.id, (storeTotalOnHand.get(store.id) || 0) + allocQty);
-    }
-  }
-
-  console.log(`[V1 Summary] recs: ${recs.length}, skipNoFc: ${debugSkipNoFc}, skipSizeInt: ${debugSkipSizeInt}, skipNoCw: ${debugSkipNoCw}, skipNoShortage: ${debugSkipNoShortage}`);
-  return recs;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// V2: Chia chi tiết theo nhu cầu CH — Demand Allocation
-// ═══════════════════════════════════════════════════════════════════
-
-function runV2(
-  tenantId: string,
-  runId: string,
-  allStores: StoreInfo[],
-  retailStores: StoreInfo[],
-  centralStores: StoreInfo[],
-  positions: any[],
-  demand: any[],
-  fcs: any[],
-  cm: ConstraintMap,
-  sizeIntMap: Map<string, boolean>,
-  cwStock: Map<string, number>,
-  skuMappings: any[],
-  demandMap: Map<string, number>,
-  storeTotalOnHand: Map<string, number>
-): AllocationRec[] {
-  const recs: AllocationRec[] = [];
-
-  const priorityOrder: string[] = cm.v2_priority_order || ["customer_orders", "store_orders", "top_fc"];
-  const minCoverWeeks = cm.v2_min_cover_weeks?.weeks ?? 1;
-  const noBrokenSize = cm.no_broken_size?.enabled !== false;
-  const cwReservedRanges = getConstraintRanges(cm, "cw_reserved_min_by_total_sku", "min_pcs");
-  const coreHeroMinPerSku = cm.cw_core_hero_min_per_sku?.min_pcs ?? 15;
-
-  // ── Precompute indexes ──
-  const fcById = new Map<string, any>(fcs.map((f: any) => [f.id, f]));
-
-  const fcSkuCountMap = new Map<string, number>();
-  for (const m of skuMappings) {
-    fcSkuCountMap.set(m.fc_id, (fcSkuCountMap.get(m.fc_id) || 0) + 1);
-  }
-
-  const cwStoreIds = new Set(centralStores.map((cw) => cw.id));
-  const cwFcSet = new Set<string>();
-
-  // Build stock map (on_hand only for V2)
-  const onHandByStoreFc = new Map<string, number>();
-  const storeFcIdsByStore = new Map<string, Set<string>>();
-
-  for (const p of positions) {
-    const key = `${p.store_id}:${p.fc_id}`;
-    onHandByStoreFc.set(key, (onHandByStoreFc.get(key) || 0) + (Number(p.on_hand) || 0));
-
-    let set = storeFcIdsByStore.get(p.store_id);
-    if (!set) {
-      set = new Set<string>();
-      storeFcIdsByStore.set(p.store_id, set);
-    }
-    set.add(p.fc_id);
-
-    if (cwStoreIds.has(p.store_id)) cwFcSet.add(p.fc_id);
-  }
-
-  const cwTotalSkus = cwFcSet.size;
-  const cwReserveMin = lookupRange(cwReservedRanges, cwTotalSkus);
-
-  // Build demand detail map: storeId:fcId → full demand record
-  const demandDetailMap = new Map<string, any>();
-  for (const d of demand) {
-    const key = `${d.store_id}:${d.fc_id}`;
-    demandDetailMap.set(key, d);
-
-    let set = storeFcIdsByStore.get(d.store_id);
-    if (!set) {
-      set = new Set<string>();
-      storeFcIdsByStore.set(d.store_id, set);
-    }
-    set.add(d.fc_id);
-  }
-
-  // Build priority-scored list of (store, fc) pairs needing stock
-  interface DemandEntry {
-    store: StoreInfo;
-    fc: any;
-    fcId: string;
-    priorityType: string;
-    demandQty: number;
-    velocity: number;
-    currentStock: number;
-    weeksCover: number;
-  }
-
-  const entries: DemandEntry[] = [];
-
-  for (const store of retailStores) {
-    const storeFcIds = storeFcIdsByStore.get(store.id);
-    if (!storeFcIds || storeFcIds.size === 0) continue;
-
-    for (const fcId of storeFcIds) {
-      const fc = fcById.get(fcId);
-      if (!fc) continue;
-
-      if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) continue;
-
-      const currentStock = onHandByStoreFc.get(`${store.id}:${fcId}`) || 0;
-      const velocity = getDemandVelocity(demandMap, store.id, fcId);
-      const weeksCover = velocity > 0 ? currentStock / (velocity * 7) : (currentStock > 0 ? 99 : 0);
-
-      const dd = demandDetailMap.get(`${store.id}:${fcId}`);
-      const customerOrders = dd?.customer_orders_qty || 0;
-      const storeOrders = dd?.store_orders_qty || 0;
-
-      // Determine priority type & demand qty
-      for (const pType of priorityOrder) {
-        let qty = 0;
-        if (pType === "customer_orders" && customerOrders > 0) {
-          qty = customerOrders;
-        } else if (pType === "store_orders" && storeOrders > 0) {
-          qty = storeOrders;
-        } else if (pType === "top_fc" && velocity > 0 && weeksCover < minCoverWeeks) {
-          qty = Math.ceil(minCoverWeeks * velocity * 7 - currentStock);
-        }
-
-        if (qty > 0) {
-          entries.push({
-            store,
-            fc,
-            fcId,
-            priorityType: pType,
-            demandQty: qty,
-            velocity,
-            currentStock,
-            weeksCover,
-          });
-          break; // only highest-priority type per store-fc pair
-        }
-      }
-    }
-  }
-
-  // Sort: customer_orders first, then store_orders, then top_fc
-  const priorityRank: Record<string, number> = {};
-  priorityOrder.forEach((p, i) => (priorityRank[p] = i));
-  entries.sort((a, b) => {
-    const pDiff = (priorityRank[a.priorityType] ?? 9) - (priorityRank[b.priorityType] ?? 9);
-    if (pDiff !== 0) return pDiff;
-    return a.weeksCover - b.weeksCover; // more urgent first within same priority
-  });
-
-  // ── Greedy allocate ──
-  for (const entry of entries) {
-    const cwAvailable = cwStock.get(entry.fcId) ?? 0;
-
-    const isCoreHero = entry.fc.is_core_hero === true;
-    const fcSkuCount = fcSkuCountMap.get(entry.fcId) || 1;
-    const coreHeroReserve = isCoreHero ? coreHeroMinPerSku * fcSkuCount : 0;
-    const effectiveCwReserve = Math.max(cwReserveMin, coreHeroReserve);
-
-    if (cwAvailable <= effectiveCwReserve) continue;
-
-    const maxAlloc = cwAvailable - effectiveCwReserve;
-    let allocQty = Math.min(entry.demandQty, maxAlloc);
-    if (allocQty <= 0) continue;
-
-    // ── Capacity check ──
-    let capacityCapped = false;
-    if (entry.store.capacity > 0) {
-      const currentTotalOnHand = storeTotalOnHand.get(entry.store.id) || 0;
-      const remainingCapacity = entry.store.capacity - currentTotalOnHand;
-      if (remainingCapacity <= 0) continue;
-      if (allocQty > remainingCapacity) {
-        allocQty = remainingCapacity;
-        capacityCapped = true;
-      }
-    }
-    if (allocQty <= 0) continue;
-
-    const newCover =
-      entry.velocity > 0
-        ? (entry.currentStock + allocQty) / (entry.velocity * 7)
-        : 99;
-
-    const constraintChecks = {
-      rule: "v2_demand",
-      priority_type: entry.priorityType,
-      demand_qty: entry.demandQty,
-      cw_available_before: cwAvailable,
-      cw_reserve_floor: effectiveCwReserve,
-      is_core_hero: isCoreHero,
-      size_integrity: true,
-      cover_after: newCover,
-      min_cover_weeks: minCoverWeeks,
-      capacity_capped: capacityCapped,
-      store_capacity: entry.store.capacity || null,
-      source_on_hand: cwAvailable,
-      dest_on_hand: entry.currentStock,
-      sold_7d: Math.round(entry.velocity * 7),
-    };
-
-    const priorityLabel =
-      entry.priorityType === "customer_orders"
-        ? "ĐH khách"
-        : entry.priorityType === "store_orders"
-        ? "ĐH cửa hàng"
-        : "Top bán FC";
-
-    recs.push({
-      tenant_id: tenantId,
-      run_id: runId,
-      fc_id: entry.fcId,
-      fc_name: entry.fc.fc_name || entry.fc.fc_code || "",
-      store_id: entry.store.id,
-      store_name: entry.store.store_name || entry.store.store_code || "",
-      sku: null,
-      recommended_qty: allocQty,
-      current_on_hand: entry.currentStock,
-      current_weeks_cover: entry.weeksCover,
-      projected_weeks_cover: newCover,
-      sales_velocity: entry.velocity,
-      priority: entry.priorityType === "customer_orders" ? "P1" : entry.priorityType === "store_orders" ? "P2" : "P3",
-      reason: `V2: ${priorityLabel} — ${entry.store.store_name} cần ${entry.demandQty}, chia ${allocQty}`,
-      potential_revenue: allocQty * (cm.avg_unit_price_default?.amount ?? 250000),
-      status: "pending",
-      stage: "V2",
-      constraint_checks: constraintChecks,
-      explain_text: `V2 ${priorityLabel}: FC ${entry.fc.fc_name || entry.fc.fc_code}, CH ${entry.store.store_name} cần ${entry.demandQty} units (${entry.priorityType}), chia ${allocQty}. Cover sau: ${newCover.toFixed(1)}w. CW còn ${cwAvailable - allocQty}.`,
-      size_breakdown: null,
-    });
-
-    cwStock.set(entry.fcId, cwAvailable - allocQty);
-    storeTotalOnHand.set(entry.store.id, (storeTotalOnHand.get(entry.store.id) || 0) + allocQty);
-  }
-
-  return recs;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Rebalance: Delegated to PL/pgSQL fn_rebalance_engine
-// ═══════════════════════════════════════════════════════════════════
+// ─── Rebalance: Delegated to PL/pgSQL fn_rebalance_engine ───────
 
 async function handleRebalance(supabase: any, tenantId: string, userId?: string) {
-  // Create run record
   const { data: run, error: runError } = await supabase
     .from("inv_rebalance_runs")
     .insert({
@@ -790,7 +132,6 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
     const result = data || { push_suggestions: 0, push_units: 0, lateral_suggestions: 0, lateral_units: 0, total_suggestions: 0 };
     console.log(`[Rebalance] Done:`, JSON.stringify(result));
 
-    // Update run record
     await supabase
       .from("inv_rebalance_runs")
       .update({
@@ -803,10 +144,7 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
       })
       .eq("id", run.id);
 
-    return jsonResponse({
-      run_id: run.id,
-      ...result,
-    });
+    return jsonResponse({ run_id: run.id, ...result });
   } catch (error) {
     await supabase
       .from("inv_rebalance_runs")
@@ -814,130 +152,6 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
       .eq("id", run.id);
     throw error;
   }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// Helper Functions
-// ═══════════════════════════════════════════════════════════════════
-
-function buildConstraintMap(constraints: any[]): ConstraintMap {
-  const map: ConstraintMap = {};
-  for (const c of constraints) {
-    // Store the full constraint_value object, not unwrapped
-    map[c.constraint_key] = c.constraint_value;
-  }
-  return map;
-}
-
-function buildDemandMap(demand: any[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const d of demand) {
-    map.set(`${d.store_id}:${d.fc_id}`, d.avg_daily_sales || d.sales_velocity || 0);
-  }
-  return map;
-}
-
-function getDemandVelocity(demandMap: Map<string, number>, storeId: string, fcId: string): number {
-  return demandMap.get(`${storeId}:${fcId}`) || 0;
-}
-
-function buildSizeIntegrityMap(sizeIntegrity: any[]): Map<string, boolean> {
-  // Key: fc_id (global) or fc_id:store_id
-  const map = new Map<string, boolean>();
-  for (const si of sizeIntegrity) {
-    // Global FC-level: if ANY entry is false, the FC is incomplete
-    const existing = map.get(si.fc_id);
-    if (existing === false) continue; // already marked incomplete
-    map.set(si.fc_id, si.is_full_size_run);
-  }
-  return map;
-}
-
-function isSizeRunComplete(sizeIntMap: Map<string, boolean>, fcId: string): boolean {
-  // If no integrity data exists, assume complete (backward compat)
-  if (!sizeIntMap.has(fcId)) return true;
-  return sizeIntMap.get(fcId) === true;
-}
-
-function buildCWStock(positions: any[], centralStores: any[]): Map<string, number> {
-  const cwIds = new Set(centralStores.map((cw: any) => cw.id));
-  const map = new Map<string, number>();
-  for (const p of positions) {
-    if (!cwIds.has(p.store_id)) continue;
-    const fcId = p.fc_id;
-    const available = (p.on_hand || 0) - (p.reserved || 0) - (p.safety_stock || 0);
-    map.set(fcId, (map.get(fcId) || 0) + Math.max(available, 0));
-  }
-  return map;
-}
-
-function getV1ScopeFcIds(fcs: any[], collections: any[], cm: ConstraintMap): string[] {
-  const recentCount = cm.bst_scope_recent_count?.count ?? 10;
-  const restockDays = cm.restock_lookback_days?.days ?? 14;
-  const now = new Date();
-
-  // If no collections exist, fall back to all active FCs
-  if (!collections.length) {
-    return fcs.map((f: any) => f.id);
-  }
-
-  // New collections
-  const newCollIds = new Set(
-    collections.filter((c: any) => c.is_new_collection).map((c: any) => c.id)
-  );
-
-  // Recent N collections by air_date
-  const sorted = [...collections]
-    .filter((c: any) => c.air_date)
-    .sort((a, b) => new Date(b.air_date).getTime() - new Date(a.air_date).getTime());
-  const recentCollIds = new Set(sorted.slice(0, recentCount).map((c: any) => c.id));
-
-  // Combined scope
-  const scopeCollIds = new Set([...newCollIds, ...recentCollIds]);
-
-  // FCs in scope: those linked to these collections, or FCs without collection (restock/general)
-  const scopeFcIds = fcs
-    .filter((f: any) => {
-      if (f.collection_id && scopeCollIds.has(f.collection_id)) return true;
-      // FCs without collection_id = general/restock items (include all)
-      if (!f.collection_id) return true;
-      return false;
-    })
-    .map((f: any) => f.id);
-
-  return scopeFcIds;
-}
-
-/**
- * Look up a value from a ranges array based on total count.
- * Ranges: [{ max_sku: 50, min_qty: 2 }, { max_sku: 100, min_qty: 3 }, ...]
- */
-function getConstraintRanges(cm: ConstraintMap, key: string, valueField: string): { max: number; value: number }[] {
-  const raw = cm[key];
-  if (!raw?.ranges) return [{ max: 9999, value: 5 }]; // default fallback
-  return raw.ranges.map((r: any) => ({
-    max: r.max_sku ?? r.max ?? 9999,
-    value: r[valueField] ?? r.min_qty ?? r.min_pcs ?? 5,
-  }));
-}
-
-function lookupRange(ranges: { max: number; value: number }[], count: number): number {
-  for (const r of ranges) {
-    if (count <= r.max) return r.value;
-  }
-  return ranges[ranges.length - 1]?.value ?? 5;
-}
-
-async function completeRun(supabase: any, runId: string, totalRecs: number, totalUnits: number) {
-  await supabase
-    .from("inv_allocation_runs")
-    .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      total_recommendations: totalRecs,
-      total_units: totalUnits,
-    })
-    .eq("id", runId);
 }
 
 function jsonResponse(data: any, status = 200) {

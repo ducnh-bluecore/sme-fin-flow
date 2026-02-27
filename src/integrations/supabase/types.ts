@@ -41532,6 +41532,10 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_allocation_engine: {
+        Args: { p_run_id: string; p_run_type?: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_auto_tier_stores: {
         Args: { p_tenant_id: string }
         Returns: {
