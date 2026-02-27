@@ -1,115 +1,220 @@
 
-# Plan: Tach Size Khi Chay Engine + Chi tiet Size + Chinh sua So luong
+
+# Plan: Ads Command Center V2 - Ket noi API truc tiep + Tu dong thuc hien
 
 ## Tong quan
 
-3 thay doi chinh:
-1. **Engine tach size ngay khi chay** (khong can backfill rieng)
-2. **Hien thi chi tiet tung size** giong kieu le size (kho nguon, kho dich, toc do ban, sold 7 ngay, net benefit)
-3. **Cho phep chinh sua so luong** truoc khi duyet (vi day la de xuat, khong phai quyet dinh)
+Nang cap tu V1 (chi de xuat) len V2: **ket noi truc tiep API cac nen tang ads** va **tu dong thuc hien** (pause/resume/adjust budget) sau khi CEO/CMO duyet.
+
+### 4 nen tang ho tro:
+- **TikTok Ads** - `open_api/v1.3/campaign/*`
+- **Facebook/Meta Ads** - Graph API `v21.0/act_{ad_account_id}/*`
+- **Google Ads** - REST API `v18/customers/{id}/campaigns:mutate`
+- **Shopee Ads** - Open Platform API (da co data BigQuery)
 
 ---
 
-## 1. Engine tu dong tach size khi chay
+## Phan 1: Database Schema (V1 + V2)
 
-**Hien tai**: Engine tao de xuat o cap FC (size_breakdown = null), phai chay "Tach theo Size" rieng.
-
-**Thay doi**: Sau khi tao tat ca recs, goi `fn_allocate_size_split` cho tung rec truoc khi persist.
-
-### File: `supabase/functions/inventory-allocation-engine/index.ts`
-
-- Sau khi build `allRecs` (truoc buoc Persist), them 1 buoc moi:
-  - Loop qua tung rec, goi RPC `fn_allocate_size_split` voi params: `(tenant_id, fc_id, null, store_id, recommended_qty)`
-  - Gan ket qua vao `rec.size_breakdown`
-  - Xu ly theo batch (20 rec/batch) de tranh timeout
-  - Neu RPC loi cho 1 rec, set `size_breakdown = []` va tiep tuc
-- Tuong tu cho rebalance: Cap nhat `fn_rebalance_engine` RPC hoac goi size split sau khi rebalance hoan thanh
-
-### Luu y hieu nang:
-- Batch 20 recs x Promise.allSettled
-- Timeout guard: neu > 50s thi dung va de nhung rec con lai co size_breakdown = null
-- Log so luong da tach / chua tach
-
----
-
-## 2. Hien thi chi tiet tung size trong bang de xuat
-
-**Hien tai**: Bang chi hien thi ten SP, tu kho, SL, Revenue, Ly do.
-
-**Thay doi**: Khi expand 1 dong (click vao row), hien thi chi tiet tung size giong screenshot (image-179):
-
+### Bang `ads_platform_connections` - Luu API credentials cua tung nen tang
 ```text
-+------------------+------+-----------+-----+----------+-----------+--------+
-| Mau SP           | Size | Tu Kho    | SL  | Loi ich  | Muc dich  | Trang thai
-+------------------+------+-----------+-----+----------+-----------+--------+
-| Ngua Hong OLV    | FS   | OLV Giga  | [3] | 1 tr     | Can bang  | O X
-+------------------+------+-----------+-----+----------+-----------+--------+
-  Kho nguon: 98u (con 95u)  |  Kho dich: 1u (con 1u)  |  Toc do ban: 4.81u/ngay
-  Revenue DK: 2tr           |  Chi phi VC: 70K         |  Net Benefit: 1tr
-  Da ban 7 ngay: X units    |  Ton size tai dich: ...
+id, tenant_id, platform (tiktok|meta|google|shopee),
+account_id (advertiser_id/ad_account_id/customer_id),
+account_name, 
+credentials (jsonb encrypted): { access_token, app_id, app_secret, refresh_token, developer_token },
+token_expires_at (timestamptz),
+is_active, last_synced_at,
+created_by, created_at, updated_at
 ```
 
-### File: `src/components/inventory/DailyTransferOrder.tsx`
+### Bang `ads_rules` - Rule tu dong
+```text
+id, tenant_id, rule_name, platform,
+rule_type (pause|increase_budget|decrease_budget|kill|scale),
+conditions (jsonb): [{ metric, operator, value, lookback_days }],
+actions (jsonb): { action_type, value, notify_before_execute },
+is_active, priority, created_by, created_at
+```
 
-- Them state `expandedRows: Set<string>` de track dong nao dang mo
-- Click vao row -> toggle expand
-- Khi expand, hien thi grid 3 cot:
-  - **Kho nguon**: source_on_hand, con lai sau chuyen
-  - **Kho dich**: dest_on_hand, con lai sau nhan  
-  - **Toc do ban dich**: velocity (units/ngay), het hang trong X ngay
-- Them row: Revenue DK, Chi phi VC, Net Benefit
-- Them row: "Da ban 7 ngay" - lay tu `inv_state_demand.total_sold` (fetch khi expand)
-- Hien thi bang size_breakdown voi tung size co the chinh SL
+### Bang `ads_content` - Noi dung AI-generated
+```text
+id, tenant_id, platform, product_id,
+content_type (image_caption|video_script|product_listing),
+title, body, hashtags (text[]), media_urls (text[]),
+status (draft|pending_review|approved|rejected|scheduled|published),
+reviewed_by, reviewed_at, review_comment,
+scheduled_at, published_at, created_by, created_at
+```
 
-### Fetch "Da ban 7 ngay":
-- Dung du lieu tu `inv_state_demand` (da co `total_sold` field) 
-- Truyen qua props hoac fetch lazy khi expand row
-- Thuc te: Engine da fetch demand data, nen luu them `total_sold_7d` vao `constraint_checks` JSON khi tao rec
+### Bang `ads_recommendations` - De xuat tu engine
+```text
+id, tenant_id, platform, campaign_id, campaign_name, ad_group_id,
+recommendation_type (pause|resume|increase_budget|decrease_budget|kill|scale),
+reason, evidence (jsonb): { metrics, rule_id, thresholds, lookback_data },
+current_value (numeric), recommended_value (numeric),
+impact_estimate (numeric), confidence (integer 0-100),
+status (pending|approved|rejected|executing|executed|failed|expired),
+approved_by, approved_at, 
+execution_result (jsonb): { api_response, executed_at, error },
+created_at, expires_at
+```
+
+### Bang `ads_execution_log` - Audit trail moi hanh dong
+```text
+id, tenant_id, recommendation_id (FK), platform,
+action_type, campaign_id, 
+request_payload (jsonb), response_payload (jsonb),
+status (success|failed|retrying),
+executed_by, executed_at, error_message
+```
+
+RLS: Tat ca bang co policy `tenant_id = get_user_tenant_id()` cho authenticated users.
 
 ---
 
-## 3. Cho phep chinh sua so luong de xuat
+## Phan 2: Edge Functions
 
-**Hien tai**: Chi co nut Duyet / Tu choi.
+### 2.1 `ads-sync-campaigns` - Doc campaigns tu API cac nen tang
 
-**Thay doi**: 
-- Cot SL trong bang chuyen tu text -> **input number** co the chinh
-- Khi chinh SL, luu vao local state `editedQty: Record<string, number>`
-- Khi duyet, truyen `editedQty` len `onApprove` -> hook `useApproveRebalance` da ho tro `editedQty` param
-- Visual: Input co border nhe, khi thay doi hien badge "Da chinh" mau vang
-- **Size-level editing**: Trong expanded view, cho phep chinh qty tung size. Tong qty tu dong cap nhat
+Chuc nang: Goi API tung nen tang de lay danh sach campaigns + metrics ve luu vao `platform_ads_daily`.
 
-### File: `src/components/inventory/DailyTransferOrder.tsx`
+Logic cho tung platform:
+- **TikTok**: `POST /open_api/v1.3/campaign/get/` + `/report/integrated/get/`
+- **Meta**: `GET /v21.0/act_{id}/campaigns?fields=name,status,daily_budget,lifetime_budget` + insights
+- **Google**: `POST /v18/customers/{id}/googleAds:searchStream` (GAQL query)
+- **Shopee**: Da co qua BigQuery, nhung co the bo sung real-time qua Open API
 
-- Them state: `editedQty: Record<string, number>` (key = suggestion.id)
-- Cot SL: render `<Input type="number" />` thay vi text
-- onChange: cap nhat editedQty
-- Khi approve (ca don le va nhom): truyen editedQty vao onApprove
-- Khi approve toan bo P1: truyen editedQty cho tat ca P1 ids
+Output: Upsert vao `platform_ads_daily` va `promotion_campaigns`.
 
-### File: `src/hooks/inventory/useApproveRebalance.ts`
+### 2.2 `ads-execute-action` - Thuc hien hanh dong sau khi duyet
 
-- Da ho tro `editedQty` -> cap nhat `qty` khi approve
-- Them logic: neu editedQty co gia tri cho allocation_recommendations thi cap nhat `recommended_qty` thay vi `qty`
+Chuc nang: Nhan recommendation_id da approved, goi API tuong ung:
+
+```text
+Platform     | Pause                          | Resume                         | Budget
+-------------|--------------------------------|--------------------------------|--------
+TikTok       | campaign/status/update          | campaign/status/update          | campaign/update (budget)
+Meta         | POST /{campaign_id} status=PAUSED | POST /{campaign_id} status=ACTIVE | POST /{campaign_id} daily_budget=X
+Google       | campaigns:mutate (status PAUSED) | campaigns:mutate (status ENABLED) | campaigns:mutate (budget)
+Shopee       | shopee_ads/campaign/update       | shopee_ads/campaign/update       | shopee_ads/campaign/update
+```
+
+Safety checks truoc khi thuc hien:
+1. Verify recommendation chua expired
+2. Verify approver co quyen (CEO/CMO role)
+3. Double-check current campaign status truoc khi thay doi
+4. Ghi log vao `ads_execution_log`
+5. Neu fail -> status = 'failed', gui alert
+
+### 2.3 `ads-content-generator` - Tao noi dung bang AI
+
+Chuc nang: Lay thong tin san pham tu `external_products` / `inv_family_codes`, goi Lovable AI (gemini-3-flash-preview) de tao noi dung quang cao phu hop tung platform.
+
+Input: product_id, platform, content_type
+Output: title, body, hashtags -> luu vao `ads_content`
+
+### 2.4 `ads-optimizer-engine` - Phan tich va de xuat
+
+Chuc nang: Doc data tu `platform_ads_daily` + `ads_rules`, so sanh metrics voi thresholds, tao recommendations.
+
+Logic:
+1. Lay campaigns co data trong 3-7 ngay gan nhat
+2. Ap dung tung rule: neu ROAS < threshold 3 ngay lien tuc -> de xuat PAUSE
+3. Neu CM% > threshold + cash conversion tot -> de xuat SCALE (tang budget)
+4. Tinh impact estimate = projected savings/gains
+5. Insert vao `ads_recommendations` voi status = 'pending'
 
 ---
 
-## 4. Cap nhat Engine luu them 7-day sold data
+## Phan 3: UI Pages
 
-### File: `supabase/functions/inventory-allocation-engine/index.ts`
+### 3.1 Nav: Them vao BluecoreCommandLayout
 
-- Khi tao rec (V1 va V2), them vao `constraint_checks`:
-  - `sold_7d`: lay tu demand map (total_sold field)
-  - `dest_on_hand`: ton hien tai tai store dich
-  - `source_on_hand`: ton tai CW/source
+```text
+MARKETING
+  - Ads Dashboard    /command/ads
+  - Ket noi Ads      /command/ads/connections
+  - Rules            /command/ads/rules  
+  - Noi dung AI      /command/ads/content
+```
 
-Nhu vay UI co du data hien thi ma khong can fetch them.
+### 3.2 `/command/ads/connections` - Quan ly ket noi API
+
+- 4 cards cho 4 nen tang (TikTok, Meta, Google, Shopee)
+- Moi card: Form nhap API credentials (Access Token, App ID/Secret, Account ID)
+- Nut "Test ket noi" -> goi edge function verify
+- Trang thai: Connected / Disconnected / Token Expired
+- Nut "Sync campaigns" -> goi `ads-sync-campaigns`
+
+### 3.3 `/command/ads` - Ads Command Dashboard
+
+- **KPI Row**: Tong spend hom nay, ROAS TB, Campaigns active, De xuat cho duyet
+- **Recommendations Table**: Danh sach de xuat voi Approve/Reject buttons
+  - Khi Approve -> goi `ads-execute-action` -> tu dong thuc hien
+  - Hien thi execution status (executing -> executed/failed)
+- **Platform Health**: 4 mini-cards cho tung nen tang
+
+### 3.4 `/command/ads/rules` - Quan ly Rules
+
+- Bang liet ke rules (ten, platform, dieu kien, hanh dong, trang thai)
+- Dialog tao rule moi:
+  - Chon platform
+  - Chon metric (ROAS, CPA, CTR, Spend, CVR, ACOS)
+  - Chon operator + threshold
+  - Chon action (Pause, Scale +X%, Kill)
+  - Toggle notify_before_execute (bat buoc approve truoc khi thuc hien)
+
+### 3.5 `/command/ads/content` - AI Content Studio
+
+- Chon san pham, chon platform
+- Nut "Tao noi dung" -> stream AI response
+- Preview content, sua chua
+- Approve -> co the gan vao campaign (stretch goal)
+
+---
+
+## Phan 4: Bao mat & An toan
+
+### Token Storage
+- API credentials luu trong `ads_platform_connections.credentials` (jsonb)
+- Trong tuong lai co the dung Supabase Vault de encrypt
+- Access chi qua edge functions, khong bao gio tra ve client
+
+### Execution Safety
+- Moi hanh dong write (pause/resume/budget) bat buoc phai co approved recommendation
+- Khong co "1-click execute" - luon qua approval flow
+- Execution log ghi lai moi API call (request + response)
+- Rate limiting: toi da 10 actions/phut/tenant
+
+### Role-based Access
+- CHI CEO/CMO moi approve recommendations
+- Marketer co the tao rules va content nhung khong approve execution
+- Moi execution gui notification cho owner
 
 ---
 
 ## Trinh tu thuc hien
 
-1. Cap nhat `inventory-allocation-engine/index.ts`: them size split inline + luu them sold_7d/dest/source data vao constraint_checks
-2. Deploy edge function
-3. Cap nhat `DailyTransferOrder.tsx`: them expandable row, editable qty, hien thi chi tiet size
-4. Cap nhat `useApproveRebalance.ts`: ho tro update ca 2 bang (rebalance va allocation)
+1. **Database**: Tao 5 bang moi + RLS policies
+2. **Edge Function `ads-sync-campaigns`**: Ket noi doc data tu 4 nen tang
+3. **Edge Function `ads-execute-action`**: Thuc hien hanh dong sau approval  
+4. **Edge Function `ads-optimizer-engine`**: Phan tich va tao recommendations
+5. **Edge Function `ads-content-generator`**: AI content generation
+6. **UI - Connections page**: Form nhap API credentials
+7. **UI - Ads Dashboard**: KPI + recommendations + approval flow
+8. **UI - Rules Manager**: CRUD rules
+9. **UI - Content Studio**: AI content
+10. **Routing**: Cap nhat BluecoreCommandLayout + App.tsx
+11. **Deploy** tat ca edge functions
+
+---
+
+## Luu y quan trong
+
+- **TikTok Ads API**: Can tao TikTok for Business developer app, lay `app_id` + `secret`, user authorize de lay `access_token`. Base URL: `https://business-api.tiktok.com/open_api/v1.3/`
+- **Meta Marketing API**: Can Facebook App, user grant `ads_management` permission. Base URL: `https://graph.facebook.com/v21.0/`
+- **Google Ads API**: Can Google Cloud project + OAuth + `developer_token`. Base URL: `https://googleads.googleapis.com/v18/`
+- **Shopee Ads**: Dung chung voi Shopee Open Platform API da co trong connector. Base URL: `https://partner.shopeemobile.com/api/v2/`
+- Nguoi dung can tu tao developer accounts tren tung nen tang va cung cap credentials qua UI Connections page
+- Edge functions su dung `LOVABLE_API_KEY` cho AI content, cac API key ads luu trong DB (khong phai env vars)
+
