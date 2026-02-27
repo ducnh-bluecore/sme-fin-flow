@@ -41684,6 +41684,13 @@ export type Database = {
         Args: { p_days?: number; p_store_id: string; p_tenant_id: string }
         Returns: Json
       }
+      fn_store_on_hand_totals: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          store_id: string
+          total_on_hand: number
+        }[]
+      }
       fn_store_size_heatmap: {
         Args: { p_tenant_id: string }
         Returns: {

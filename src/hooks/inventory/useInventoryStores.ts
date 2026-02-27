@@ -15,21 +15,15 @@ export function useInventoryStores() {
         .limit(500);
       if (storesRes.error) throw storesRes.error;
 
-      // Paginated fetch for positions to avoid 1000-row limit
-      const PAGE_SIZE = 1000;
-      const onHandMap = new Map<string, number>();
-      let from = 0;
+      // Aggregate on_hand per store in DB instead of fetching 350k+ rows
+      const { data: aggData, error: aggError } = await supabase
+        .rpc('fn_store_on_hand_totals' as any, { p_tenant_id: tenantId });
 
-      while (true) {
-        const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, on_hand')
-          .range(from, from + PAGE_SIZE - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        for (const p of data as any[]) {
-          onHandMap.set(p.store_id, (onHandMap.get(p.store_id) || 0) + (p.on_hand || 0));
+      const onHandMap = new Map<string, number>();
+      if (!aggError && aggData) {
+        for (const row of aggData as any[]) {
+          onHandMap.set(row.store_id, Number(row.total_on_hand) || 0);
         }
-        if (data.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
       }
 
       return ((storesRes.data || []) as any[]).map((s: any) => ({
