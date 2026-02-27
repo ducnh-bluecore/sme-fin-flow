@@ -24,6 +24,7 @@ interface StoreInfo {
   location_type: string;
   is_active: boolean;
   capacity: number;
+  display_capacity: number;
 }
 
 interface AllocationRec {
@@ -136,7 +137,7 @@ async function handleAllocate(
     // ── Stage 1: Fetch lightweight data first (stores, positions, constraints) ──
     const [storesRaw, posAgg, storeTotalsRaw, constraints, collections] =
       await Promise.all([
-        fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity", { is_active: true }),
+        fetchAll("inv_stores", "id,store_name,store_code,tier,region,location_type,is_active,capacity,display_capacity", { is_active: true }),
         supabase.rpc("fn_inv_positions_agg", { p_tenant_id: tenantId }),
         supabase.rpc("fn_inv_store_totals", { p_tenant_id: tenantId }),
         fetchAll("inv_constraint_registry", "constraint_key,constraint_value", { is_active: true }),
@@ -159,6 +160,7 @@ async function handleAllocate(
     const stores: StoreInfo[] = storesRaw.map((s: any) => ({
       ...s,
       capacity: Number(s.capacity) || 0,
+      display_capacity: Number(s.display_capacity) || 0,
     }));
 
     if (!stores.length || !positions.length) {
@@ -188,7 +190,7 @@ async function handleAllocate(
     const fcFieldFilter = (q: any) => q.in("fc_id", cwFcIds);
 
     const [fcs, demand, sizeIntegrity, skuMappings] = await Promise.all([
-      fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id", { is_active: true }, fcFilter),
+      fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, fcFilter),
       fetchAll("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, fcFieldFilter),
       fetchAll("inv_state_size_integrity", "fc_id,is_full_size_run", {}, fcFieldFilter),
       fetchAll("inv_sku_fc_mapping", "fc_id,sku", {}, fcFieldFilter),

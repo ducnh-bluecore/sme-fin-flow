@@ -18907,13 +18907,16 @@ export type Database = {
           collection_id: string | null
           created_at: string
           demand_space: string | null
+          ecom_port: string[] | null
           fc_code: string
           fc_name: string
           id: string
           is_active: boolean
           is_core_hero: boolean
+          is_restock: boolean | null
           metadata: Json | null
           product_created_date: string | null
+          restock_confirmed_at: string | null
           season: string | null
           subcategory: string | null
           tenant_id: string
@@ -18924,13 +18927,16 @@ export type Database = {
           collection_id?: string | null
           created_at?: string
           demand_space?: string | null
+          ecom_port?: string[] | null
           fc_code: string
           fc_name: string
           id?: string
           is_active?: boolean
           is_core_hero?: boolean
+          is_restock?: boolean | null
           metadata?: Json | null
           product_created_date?: string | null
+          restock_confirmed_at?: string | null
           season?: string | null
           subcategory?: string | null
           tenant_id: string
@@ -18941,13 +18947,16 @@ export type Database = {
           collection_id?: string | null
           created_at?: string
           demand_space?: string | null
+          ecom_port?: string[] | null
           fc_code?: string
           fc_name?: string
           id?: string
           is_active?: boolean
           is_core_hero?: boolean
+          is_restock?: boolean | null
           metadata?: Json | null
           product_created_date?: string | null
+          restock_confirmed_at?: string | null
           season?: string | null
           subcategory?: string | null
           tenant_id?: string
@@ -19147,6 +19156,7 @@ export type Database = {
       }
       inv_rebalance_suggestions: {
         Row: {
+          action_category: string | null
           approved_at: string | null
           approved_by: string | null
           balanced_weeks_cover: number | null
@@ -19175,6 +19185,7 @@ export type Database = {
           transfer_type: string
         }
         Insert: {
+          action_category?: string | null
           approved_at?: string | null
           approved_by?: string | null
           balanced_weeks_cover?: number | null
@@ -19203,6 +19214,7 @@ export type Database = {
           transfer_type: string
         }
         Update: {
+          action_category?: string | null
           approved_at?: string | null
           approved_by?: string | null
           balanced_weeks_cover?: number | null
@@ -19683,6 +19695,7 @@ export type Database = {
           address: string | null
           capacity: number | null
           created_at: string
+          display_capacity: number | null
           id: string
           is_active: boolean
           is_transfer_eligible: boolean
@@ -19699,6 +19712,7 @@ export type Database = {
           address?: string | null
           capacity?: number | null
           created_at?: string
+          display_capacity?: number | null
           id?: string
           is_active?: boolean
           is_transfer_eligible?: boolean
@@ -19715,6 +19729,7 @@ export type Database = {
           address?: string | null
           capacity?: number | null
           created_at?: string
+          display_capacity?: number | null
           id?: string
           is_active?: boolean
           is_transfer_eligible?: boolean
@@ -41538,6 +41553,7 @@ export type Database = {
           avg_daily_sales: number
           cash_locked: number
           category: string
+          clearance_group: string
           collection_id: string
           collection_name: string
           current_stock: number

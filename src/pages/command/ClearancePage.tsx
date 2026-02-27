@@ -28,13 +28,18 @@ function ClearanceCandidatesTab() {
   const [search, setSearch] = useState('');
   const [selectedCandidate, setSelectedCandidate] = useState<ClearanceCandidate | null>(null);
   const [groupByCollection, setGroupByCollection] = useState(true);
+  const [clearanceGroupFilter, setClearanceGroupFilter] = useState<string>('all');
 
   const filtered = useMemo(() => {
     if (!candidates) return [];
-    if (!search) return candidates;
+    let result = candidates;
+    if (clearanceGroupFilter !== 'all') {
+      result = result.filter(c => c.clearance_group === clearanceGroupFilter);
+    }
+    if (!search) return result;
     const q = search.toLowerCase();
-    return candidates.filter(c => c.product_name.toLowerCase().includes(q) || c.fc_code.toLowerCase().includes(q));
-  }, [candidates, search]);
+    return result.filter(c => c.product_name.toLowerCase().includes(q) || c.fc_code.toLowerCase().includes(q));
+  }, [candidates, search, clearanceGroupFilter]);
 
   const collectionGroups = useMemo(() => {
     if (!groupByCollection) return [];
@@ -70,6 +75,14 @@ function ClearanceCandidatesTab() {
           <Input placeholder="Tìm sản phẩm..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Badge variant="secondary">{filtered.length} sản phẩm</Badge>
+        <div className="flex items-center gap-2">
+          {['all', 'aging_old', 'slow_extended', 'broken_system'].map(g => (
+            <Badge key={g} variant={clearanceGroupFilter === g ? 'default' : 'outline'} className="cursor-pointer text-[10px]"
+              onClick={() => setClearanceGroupFilter(g)}>
+              {g === 'all' ? 'Tất cả' : g === 'aging_old' ? 'Hàng cũ >300d' : g === 'slow_extended' ? 'Chậm kéo dài' : 'Lẻ size HT'}
+            </Badge>
+          ))}
+        </div>
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-xs text-muted-foreground">Nhóm theo BST</span>
           <Switch checked={groupByCollection} onCheckedChange={setGroupByCollection} />
