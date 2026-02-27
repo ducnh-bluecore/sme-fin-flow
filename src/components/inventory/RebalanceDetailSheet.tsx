@@ -117,6 +117,7 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                   <TableHead className="text-xs text-right">SL</TableHead>
                   <TableHead className="text-xs">Size</TableHead>
                   <TableHead className="text-xs">Cover</TableHead>
+                  <TableHead className="text-xs">Phân loại</TableHead>
                   <TableHead className="text-xs">TT</TableHead>
                 </TableRow>
               </TableHeader>
@@ -158,6 +159,19 @@ export function RebalanceDetailSheet({ open, onOpenChange, fcGroup, onApprove, o
                       <span className="text-muted-foreground">{s.from_weeks_cover?.toFixed(1)}w</span>
                       <span className="mx-1">→</span>
                       <span className="text-emerald-400 font-medium">{s.balanced_weeks_cover?.toFixed(1)}w</span>
+                    </TableCell>
+                    <TableCell>
+                      {s.action_category ? (
+                        <Badge variant="outline" className={cn("text-[9px]",
+                          s.action_category === 'hot_selling_broken' ? 'border-red-500/30 text-red-400' :
+                          s.action_category === 'slow_selling' ? 'border-yellow-500/30 text-yellow-400' :
+                          s.action_category === 'slow_extended' ? 'border-orange-500/30 text-orange-400' : ''
+                        )}>
+                          {s.action_category === 'hot_selling_broken' ? 'Bán chạy/Lẻ size' :
+                           s.action_category === 'slow_selling' ? 'Bán chậm' :
+                           s.action_category === 'slow_extended' ? 'Chậm kéo dài' : s.action_category}
+                        </Badge>
+                      ) : <span className="text-muted-foreground text-[10px]">—</span>}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">{s.status}</Badge>

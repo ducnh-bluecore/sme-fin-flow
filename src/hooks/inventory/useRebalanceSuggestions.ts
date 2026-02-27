@@ -27,6 +27,7 @@ export interface RebalanceSuggestion {
   approved_by: string | null;
   approved_at: string | null;
   created_at: string;
+  action_category?: string | null;
 }
 
 export function useRebalanceSuggestions(runId?: string, transferType?: 'push' | 'lateral' | 'recall') {
