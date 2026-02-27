@@ -20,7 +20,7 @@ import { useRunRebalance, useRunAllocate, useRunRecall } from '@/hooks/inventory
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useFamilyCodes } from '@/hooks/inventory/useFamilyCodes';
-import { useSourceOnHand, enrichWithSourceOnHand } from '@/hooks/inventory/useSourceOnHand';
+import { useSourceOnHand, useDestSold7d, enrichWithSourceOnHand } from '@/hooks/inventory/useSourceOnHand';
 import { buildStoreMap } from '@/lib/inventory-store-map';
 import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,7 +71,8 @@ export default function InventoryAllocationPage() {
 
   const rawSuggestions = useMemo(() => [...allocAsSuggestions, ...rebalanceSuggestions], [allocAsSuggestions, rebalanceSuggestions]);
   const { data: sourceOnHandMap } = useSourceOnHand(rawSuggestions);
-  const allSuggestions = useMemo(() => enrichWithSourceOnHand(rawSuggestions, sourceOnHandMap), [rawSuggestions, sourceOnHandMap]);
+  const { data: sold7dMap } = useDestSold7d(rawSuggestions);
+  const allSuggestions = useMemo(() => enrichWithSourceOnHand(rawSuggestions, sourceOnHandMap, sold7dMap), [rawSuggestions, sourceOnHandMap, sold7dMap]);
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
