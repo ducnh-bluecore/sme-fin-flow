@@ -41852,6 +41852,14 @@ export type Database = {
           unique_users: number
         }[]
       }
+      get_cash_flow_summary: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       get_category_pl_aggregated: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: {
@@ -41865,6 +41873,14 @@ export type Database = {
           total_cogs: number
           total_revenue: number
         }[]
+      }
+      get_cdp_rfm_summary: {
+        Args: { p_rfm_segment: string; p_tenant_id: string }
+        Returns: Json
+      }
+      get_cdp_tier_summary: {
+        Args: { p_tenant_id: string; p_tier_label: string }
+        Returns: Json
       }
       get_channel_analytics_aggregated: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
@@ -41999,6 +42015,10 @@ export type Database = {
       }
       get_fdp_period_summary: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: Json
+      }
+      get_financial_analysis_summary: {
+        Args: { p_tenant_id: string; p_year: number }
         Returns: Json
       }
       get_forecast_aggregated_inputs: {
@@ -42140,6 +42160,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: Json
       }
+      get_reconciliation_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_sku_cost_breakdown: {
         Args: {
           p_end_date?: string

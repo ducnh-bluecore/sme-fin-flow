@@ -387,44 +387,47 @@ export function useMarkSettlementReconciled() {
   });
 }
 
-// Get reconciliation statistics
+// Get reconciliation statistics - uses RPC for server-side aggregation
 export function useReconciliationStats() {
-  const { data: ecommerceOrders = [] } = useEcommerceOrders();
-  const { data: shippingOrders = [] } = useShippingOrders();
-  const { data: settlements = [] } = useChannelSettlements();
+  const { tenantId, isReady, callRpc } = useTenantQueryBuilder();
 
-  const ecommerceTotal = ecommerceOrders.reduce((acc, o) => acc + o.walletAmount, 0);
-  const ecommerceVariance = ecommerceOrders.reduce((acc, o) => acc + o.variance, 0);
-  const ecommercePendingCount = ecommerceOrders.filter(o => o.reconcileStatus === 'pending' && !o.isProcessed).length;
-  const ecommerceReconciledCount = ecommerceOrders.filter(o => o.reconcileStatus === 'reconciled').length;
+  const { data: stats } = useQuery({
+    queryKey: ['reconciliation-stats', tenantId],
+    queryFn: async () => {
+      if (!tenantId) return null;
+      const { data, error } = await callRpc('get_reconciliation_stats', {
+        p_tenant_id: tenantId,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: !!tenantId && isReady,
+    staleTime: 2 * 60 * 1000,
+  });
 
-  const shippingTotal = shippingOrders.reduce((acc, o) => acc + o.netAmount, 0);
-  const shippingPendingCount = shippingOrders.filter(o => o.reconcileStatus === 'pending' && !o.isProcessed).length;
-  const shippingReconciledCount = shippingOrders.filter(o => o.reconcileStatus === 'reconciled').length;
-
-  const settlementTotal = settlements.reduce((acc, s) => acc + s.netAmount, 0);
-  const settlementPendingCount = settlements.filter(s => !s.isReconciled).length;
-  const settlementReconciledCount = settlements.filter(s => s.isReconciled).length;
+  const e = stats?.ecommerce || {};
+  const s = stats?.shipping || {};
+  const st = stats?.settlement || {};
 
   return {
     ecommerce: {
-      total: ecommerceTotal,
-      variance: ecommerceVariance,
-      pendingCount: ecommercePendingCount,
-      reconciledCount: ecommerceReconciledCount,
-      orderCount: ecommerceOrders.length
+      total: Number(e.total) || 0,
+      variance: Number(e.variance) || 0,
+      pendingCount: Number(e.pendingCount) || 0,
+      reconciledCount: Number(e.reconciledCount) || 0,
+      orderCount: Number(e.orderCount) || 0,
     },
     shipping: {
-      total: shippingTotal,
-      pendingCount: shippingPendingCount,
-      reconciledCount: shippingReconciledCount,
-      orderCount: shippingOrders.length
+      total: Number(s.total) || 0,
+      pendingCount: Number(s.pendingCount) || 0,
+      reconciledCount: Number(s.reconciledCount) || 0,
+      orderCount: Number(s.orderCount) || 0,
     },
     settlements: {
-      total: settlementTotal,
-      pendingCount: settlementPendingCount,
-      reconciledCount: settlementReconciledCount,
-      count: settlements.length
-    }
+      total: Number(st.total) || 0,
+      pendingCount: Number(st.pendingCount) || 0,
+      reconciledCount: Number(st.reconciledCount) || 0,
+      count: Number(st.count) || 0,
+    },
   };
 }
