@@ -42001,6 +42001,10 @@ export type Database = {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: Json
       }
+      get_forecast_aggregated_inputs: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_forecast_historical_stats: {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: {
@@ -42132,6 +42136,10 @@ export type Database = {
           previous_value: number
         }[]
       }
+      get_promotion_campaign_summary: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_sku_cost_breakdown: {
         Args: {
           p_end_date?: string
@@ -42185,6 +42193,14 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_sku_profitability_view_summary: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
+      get_supplier_payment_optimization: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_tenant_activity_summary: {
         Args: { p_days?: number; p_tenant_id: string }
         Returns: Json
@@ -42209,7 +42225,20 @@ export type Database = {
           view_name: string
         }[]
       }
+      get_unified_channel_computed: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_whatif_summary: {
+        Args: {
+          p_end_date: string
+          p_hist_start_date: string
+          p_start_date: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       get_working_capital_daily: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: {

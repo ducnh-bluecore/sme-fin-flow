@@ -1,8 +1,8 @@
 /**
  * useUnifiedChannelMetrics - Unified channel metrics for MDP
  * 
- * Consolidates channel performance data for Budget Pacing and Channel Breakdown
- * Architecture v1.4.1: Migrated to useTenantQueryBuilder
+ * @architecture Schema-per-Tenant v1.4.1 / DB-First SSOT
+ * All aggregation via get_unified_channel_computed RPC
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -70,7 +70,7 @@ const getChannelDisplayName = (channel: string): string => {
 };
 
 export function useUnifiedChannelMetrics() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
   const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   const { data, isLoading, error } = useQuery({
@@ -78,34 +78,36 @@ export function useUnifiedChannelMetrics() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      // Fetch channel performance from v_channel_pl_summary
-      const { data: channelData, error: channelError } = await buildSelectQuery('v_channel_pl_summary', '*');
+      // DB-First: All aggregation in get_unified_channel_computed RPC
+      const { data: rpcResult, error: rpcError } = await callRpc('get_unified_channel_computed', {
+        p_tenant_id: tenantId,
+      });
 
-      if (channelError) {
-        console.error('[useUnifiedChannelMetrics] Error:', channelError);
+      if (rpcError) {
+        console.error('[useUnifiedChannelMetrics] RPC error:', rpcError);
         return null;
       }
 
-      // Aggregate totals
-      const totalRevenue = ((channelData as unknown as Array<Record<string, unknown>>) || []).reduce((sum: number, c: Record<string, unknown>) => 
-        sum + (Number(c.gross_revenue) || 0), 0);
-      const totalSpend = ((channelData as unknown as Array<Record<string, unknown>>) || []).reduce((sum: number, c: Record<string, unknown>) => 
-        sum + (Number(c.total_fees) || 0), 0);
+      const result = rpcResult as any;
+      if (!result) return null;
 
-      // Calculate days elapsed in period
+      const totalRevenue = Number(result.total_revenue) || 0;
+      const totalSpend = Number(result.total_spend) || 0;
+
+      // Days elapsed calculation (display formatting, allowed on FE)
       const now = new Date();
       const dayOfMonth = now.getDate();
       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
       const expectedPacing = (dayOfMonth / daysInMonth) * 100;
 
-      // Map to channel metrics
-      const channelMetrics: ChannelMetric[] = ((channelData as unknown as Array<Record<string, unknown>>) || []).map((row: Record<string, unknown>) => {
-        const revenue = Number(row.gross_revenue) || 0;
-        const spend = Number(row.total_fees) || 0;
-        const orders = Number(row.order_count) || 0;
-        const roas = spend > 0 ? revenue / spend : 0;
-        const cpa = orders > 0 ? spend / orders : 0;
-        const cmPercent = revenue > 0 ? ((Number(row.gross_profit) || 0) / revenue) * 100 : 0;
+      // Map DB-computed channel data to ChannelMetric (no business calculations)
+      const channelMetrics: ChannelMetric[] = ((result.channels as any[]) || []).map((row: any) => {
+        const revenue = Number(row.revenue) || 0;
+        const spend = Number(row.spend) || 0;
+        const orders = Number(row.orders) || 0;
+        const roas = Number(row.roas) || 0;
+        const cpa = Number(row.cpa) || 0;
+        const cmPercent = Number(row.cm_percent) || 0;
         
         return {
           channel: row.channel as string,
@@ -115,17 +117,17 @@ export function useUnifiedChannelMetrics() {
           orders,
           roas,
           cpa,
-          ctr: 0, // Not available from this view
-          cvr: orders > 0 ? (orders / Math.max(orders * 50, 1)) * 100 : 0, // Estimate
+          ctr: 0,
+          cvr: 0,
           cmPercent,
-          pacing: null, // Would need budget config
+          pacing: null,
           status: 'on-track' as const,
           isConfigured: false,
           hasBudget: false,
           budgetAmount: 0,
           budgetUtilization: 0,
-          spendShare: totalSpend > 0 ? (spend / totalSpend) * 100 : 0,
-          revenueShare: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
+          spendShare: Number(row.spend_share) || 0,
+          revenueShare: Number(row.revenue_share) || 0,
           targetROAS: 2.5,
           maxCPA: 500000,
           targetCM: 15,
@@ -140,10 +142,9 @@ export function useUnifiedChannelMetrics() {
         };
       });
 
-      // Build summary
       const summary: ChannelSummary = {
         totalActualSpend: totalSpend,
-        totalPlannedBudget: totalSpend * 1.2, // Estimate 
+        totalPlannedBudget: totalSpend * 1.2,
         overallPacing: 0,
         expectedPacing,
         variance: 0,
