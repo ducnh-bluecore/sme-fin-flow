@@ -146,11 +146,12 @@ export function usePLData() {
           .order('period_year', { ascending: true })
           .order('period_month', { ascending: true }),
 
-        // 5. Get revenue breakdown from cache
-        buildSelectQuery('pl_report_cache', 'invoice_revenue, contract_revenue, integrated_revenue, net_sales, opex_salaries, opex_rent, opex_utilities, opex_marketing, opex_depreciation, opex_insurance, opex_supplies, opex_maintenance, opex_professional, opex_other, sales_returns, sales_discounts, other_income, interest_expense, income_before_tax, income_tax')
-          .not('period_month', 'is', null)
-          .gte('period_year', parseInt(startDateStr.slice(0, 4)))
-          .lte('period_year', parseInt(endDateStr.slice(0, 4))),
+        // 5. Get revenue breakdown + opex aggregated from DB RPC (no client-side .reduce())
+        callRpc('get_pl_cache_aggregated', {
+          p_tenant_id: tenantId,
+          p_start_year: parseInt(startDateStr.slice(0, 4)),
+          p_end_year: parseInt(endDateStr.slice(0, 4)),
+        }),
       ]);
 
       // Handle errors
@@ -171,35 +172,36 @@ export function usePLData() {
       const plAggData = plAggResult.data as unknown[];
       const plAgg = (plAggData && plAggData.length > 0 ? plAggData[0] : null) as Record<string, unknown> | null;
       
-      // Sum up revenue breakdown and opex from cache rows
-      const cacheRows = (revenueBreakdownResult.data || []) as unknown as Array<Record<string, unknown>>;
+      // SSOT: All aggregation done in DB RPC get_pl_cache_aggregated - NO client-side .reduce()
+      const cacheAggData = revenueBreakdownResult.data as unknown[];
+      const cacheAgg = (cacheAggData && cacheAggData.length > 0 ? cacheAggData[0] : null) as Record<string, unknown> | null;
+
       const revenueBreakdown: RevenueBreakdown = {
-        invoiceRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.invoice_revenue) || 0), 0),
-        contractRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.contract_revenue) || 0), 0),
-        integratedRevenue: cacheRows.reduce((sum, r) => sum + (Number(r.integrated_revenue) || 0), 0),
+        invoiceRevenue: Number(cacheAgg?.invoice_revenue) || 0,
+        contractRevenue: Number(cacheAgg?.contract_revenue) || 0,
+        integratedRevenue: Number(cacheAgg?.integrated_revenue) || 0,
         totalRevenue: Number(plAgg?.net_sales) || 0,
       };
 
-      // Aggregate opex breakdown from cache
       const opexBreakdown = {
-        salaries: cacheRows.reduce((sum, r) => sum + (Number(r.opex_salaries) || 0), 0),
-        rent: cacheRows.reduce((sum, r) => sum + (Number(r.opex_rent) || 0), 0),
-        utilities: cacheRows.reduce((sum, r) => sum + (Number(r.opex_utilities) || 0), 0),
-        marketing: cacheRows.reduce((sum, r) => sum + (Number(r.opex_marketing) || 0), 0),
-        depreciation: cacheRows.reduce((sum, r) => sum + (Number(r.opex_depreciation) || 0), 0),
-        insurance: cacheRows.reduce((sum, r) => sum + (Number(r.opex_insurance) || 0), 0),
-        supplies: cacheRows.reduce((sum, r) => sum + (Number(r.opex_supplies) || 0), 0),
-        maintenance: cacheRows.reduce((sum, r) => sum + (Number(r.opex_maintenance) || 0), 0),
-        professional: cacheRows.reduce((sum, r) => sum + (Number(r.opex_professional) || 0), 0),
-        other: cacheRows.reduce((sum, r) => sum + (Number(r.opex_other) || 0), 0),
+        salaries: Number(cacheAgg?.opex_salaries) || 0,
+        rent: Number(cacheAgg?.opex_rent) || 0,
+        utilities: Number(cacheAgg?.opex_utilities) || 0,
+        marketing: Number(cacheAgg?.opex_marketing) || 0,
+        depreciation: Number(cacheAgg?.opex_depreciation) || 0,
+        insurance: Number(cacheAgg?.opex_insurance) || 0,
+        supplies: Number(cacheAgg?.opex_supplies) || 0,
+        maintenance: Number(cacheAgg?.opex_maintenance) || 0,
+        professional: Number(cacheAgg?.opex_professional) || 0,
+        other: Number(cacheAgg?.opex_other) || 0,
       };
 
-      const salesReturns = cacheRows.reduce((sum, r) => sum + (Number(r.sales_returns) || 0), 0);
-      const salesDiscounts = cacheRows.reduce((sum, r) => sum + (Number(r.sales_discounts) || 0), 0);
-      const otherIncome = cacheRows.reduce((sum, r) => sum + (Number(r.other_income) || 0), 0);
-      const interestExpense = cacheRows.reduce((sum, r) => sum + (Number(r.interest_expense) || 0), 0);
-      const incomeBeforeTax = cacheRows.reduce((sum, r) => sum + (Number(r.income_before_tax) || 0), 0);
-      const incomeTax = cacheRows.reduce((sum, r) => sum + (Number(r.income_tax) || 0), 0);
+      const salesReturns = Number(cacheAgg?.sales_returns) || 0;
+      const salesDiscounts = Number(cacheAgg?.sales_discounts) || 0;
+      const otherIncome = Number(cacheAgg?.other_income) || 0;
+      const interestExpense = Number(cacheAgg?.interest_expense) || 0;
+      const incomeBeforeTax = Number(cacheAgg?.income_before_tax) || 0;
+      const incomeTax = Number(cacheAgg?.income_tax) || 0;
 
       // Map to PLData - MARGINS ALREADY AS % FROM DB
       const plData: PLData = plAgg ? {

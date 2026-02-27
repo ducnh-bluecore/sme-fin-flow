@@ -41866,6 +41866,16 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_channel_analytics_aggregated: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          avg_order_value: number
+          paid_amount: number
+          source_type: string
+          total_orders: number
+          total_revenue: number
+        }[]
+      }
       get_channel_performance: {
         Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
         Returns: {
@@ -41876,6 +41886,22 @@ export type Database = {
           net_revenue: number
           order_count: number
           total_fees: number
+        }[]
+      }
+      get_channel_pl_computed: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          avg_order_value: number
+          channel: string
+          gross_margin: number
+          gross_profit: number
+          operating_margin: number
+          operating_profit: number
+          order_count: number
+          revenue_share: number
+          total_cogs: number
+          total_fees: number
+          total_revenue: number
         }[]
       }
       get_control_tower_summary: {
@@ -42071,6 +42097,30 @@ export type Database = {
           operating_margin_pct: number
           opex_m: number
           total_opex: number
+        }[]
+      }
+      get_pl_cache_aggregated: {
+        Args: { p_end_year: number; p_start_year: number; p_tenant_id: string }
+        Returns: {
+          contract_revenue: number
+          income_before_tax: number
+          income_tax: number
+          integrated_revenue: number
+          interest_expense: number
+          invoice_revenue: number
+          opex_depreciation: number
+          opex_insurance: number
+          opex_maintenance: number
+          opex_marketing: number
+          opex_other: number
+          opex_professional: number
+          opex_rent: number
+          opex_salaries: number
+          opex_supplies: number
+          opex_utilities: number
+          other_income: number
+          sales_discounts: number
+          sales_returns: number
         }[]
       }
       get_pl_comparison: {
