@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Loader2, Sparkles, CheckCircle2, XCircle, Eye } from 'lucide-react';
 import { useAdsContent, useGenerateAdsContent, useUpdateAdsContentStatus } from '@/hooks/useAdsCommandCenter';
+import ProductPicker from '@/components/ads/ProductPicker';
+import MediaUploader from '@/components/ads/MediaUploader';
 
 const PLATFORMS = [
   { value: 'tiktok', label: 'TikTok' },
@@ -36,9 +38,16 @@ export default function AdsContentPage() {
   const [platform, setPlatform] = useState('tiktok');
   const [contentType, setContentType] = useState('image_caption');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
 
   const handleGenerate = () => {
-    generateContent.mutate({ platform, content_type: contentType });
+    generateContent.mutate({
+      platform,
+      content_type: contentType,
+      product_id: selectedProduct?.id,
+      media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
+    });
   };
 
   return (
@@ -46,7 +55,7 @@ export default function AdsContentPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">AI Content Studio</h1>
-          <p className="text-muted-foreground">Tạo nội dung quảng cáo bằng AI</p>
+          <p className="text-muted-foreground">Tạo nội dung quảng cáo bằng AI từ thông tin sản phẩm thật</p>
         </div>
       </div>
 
@@ -55,7 +64,20 @@ export default function AdsContentPage() {
         <CardHeader>
           <CardTitle className="text-lg">Tạo nội dung mới</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Product Picker */}
+          <div className="space-y-2">
+            <Label>Sản phẩm</Label>
+            <ProductPicker value={selectedProduct} onChange={setSelectedProduct} />
+          </div>
+
+          {/* Media Uploader */}
+          <div className="space-y-2">
+            <Label>Hình ảnh sản phẩm</Label>
+            <MediaUploader value={mediaUrls} onChange={setMediaUrls} maxFiles={5} />
+          </div>
+
+          {/* Platform + Content Type + Button */}
           <div className="flex items-end gap-4">
             <div className="space-y-2 flex-1">
               <Label>Nền tảng</Label>
@@ -102,6 +124,19 @@ export default function AdsContentPage() {
 
             return (
               <Card key={content.id} className="overflow-hidden">
+                {/* Media images */}
+                {content.media_urls && content.media_urls.length > 0 && (
+                  <div className="flex gap-1 p-2 bg-muted/30 overflow-x-auto">
+                    {content.media_urls.map((url: string, i: number) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt=""
+                        className="h-24 w-24 object-cover rounded-md shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

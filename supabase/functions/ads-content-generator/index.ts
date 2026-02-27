@@ -23,7 +23,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { tenant_id, product_id, platform, content_type, user_id } = await req.json();
+    const { tenant_id, product_id, platform, content_type, media_urls, user_id } = await req.json();
     if (!tenant_id || !platform || !content_type) {
       throw new Error("tenant_id, platform, content_type required");
     }
@@ -33,12 +33,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch product info if product_id provided
+    // Fetch product info from products table (not external_products)
     let productInfo = "";
     if (product_id) {
       const { data: product } = await supabase
-        .from("external_products")
-        .select("name, sku, description, retail_price, cost_price, category, sub_category, brand, color, size, material")
+        .from("products")
+        .select("name, sku, description, selling_price, cost_price, category, subcategory, brand")
         .eq("id", product_id)
         .single();
 
@@ -48,11 +48,10 @@ Thông tin sản phẩm:
 - Tên: ${product.name || "N/A"}
 - SKU: ${product.sku || "N/A"}
 - Mô tả: ${product.description || "N/A"}
-- Giá bán: ${product.retail_price ? `${Number(product.retail_price).toLocaleString()}đ` : "N/A"}
-- Danh mục: ${product.category || "N/A"} / ${product.sub_category || "N/A"}
+- Giá bán: ${product.selling_price ? `${Number(product.selling_price).toLocaleString()}đ` : "N/A"}
+- Giá vốn: ${product.cost_price ? `${Number(product.cost_price).toLocaleString()}đ` : "N/A"}
+- Danh mục: ${product.category || "N/A"} / ${product.subcategory || "N/A"}
 - Thương hiệu: ${product.brand || "N/A"}
-- Màu: ${product.color || "N/A"}, Size: ${product.size || "N/A"}
-- Chất liệu: ${product.material || "N/A"}
         `.trim();
       }
     }
@@ -63,7 +62,8 @@ Quy tắc:
 2. Tạo nội dung hấp dẫn, chuyên nghiệp
 3. Phù hợp với nền tảng và loại nội dung được yêu cầu
 4. Trả về JSON với format: { "title": "...", "body": "...", "hashtags": ["...", "..."] }
-5. Hashtags phải relevant và trending cho nền tảng đó`;
+5. Hashtags phải relevant và trending cho nền tảng đó
+6. NẾU có thông tin sản phẩm, PHẢI dùng thông tin thật, KHÔNG được bịa thêm`;
 
     const userPrompt = `${PLATFORM_PROMPTS[platform] || "Viết nội dung quảng cáo."}
 ${CONTENT_TYPE_PROMPTS[content_type] || ""}
@@ -124,20 +124,18 @@ Hãy tạo nội dung quảng cáo phù hợp. Trả về JSON.`;
     const aiData = await aiResponse.json();
     let content = { title: "", body: "", hashtags: [] as string[] };
 
-    // Extract from tool call
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       try {
         content = JSON.parse(toolCall.function.arguments);
       } catch {
-        // Try parsing from message content as fallback
         const msgContent = aiData.choices?.[0]?.message?.content || "";
         const jsonMatch = msgContent.match(/\{[\s\S]*\}/);
         if (jsonMatch) content = JSON.parse(jsonMatch[0]);
       }
     }
 
-    // Save to ads_content
+    // Save to ads_content with media_urls
     const { data: savedContent, error: saveError } = await supabase
       .from("ads_content")
       .insert({
@@ -148,6 +146,7 @@ Hãy tạo nội dung quảng cáo phù hợp. Trả về JSON.`;
         title: content.title,
         body: content.body,
         hashtags: content.hashtags,
+        media_urls: media_urls || null,
         status: "pending_review",
         created_by: user_id || null,
       })
