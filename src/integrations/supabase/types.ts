@@ -41684,6 +41684,15 @@ export type Database = {
         Args: { p_days?: number; p_store_id: string; p_tenant_id: string }
         Returns: Json
       }
+      fn_store_inventory_value: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          avg_unit_cost: number
+          store_id: string
+          total_on_hand: number
+          total_value: number
+        }[]
+      }
       fn_store_on_hand_totals: {
         Args: { p_tenant_id: string }
         Returns: {

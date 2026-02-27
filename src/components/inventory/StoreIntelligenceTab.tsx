@@ -110,7 +110,7 @@ function MetricCard({ icon: Icon, label, value, sub, iconClass, delta }: { icon:
   );
 }
 
-const AVG_UNIT_COST = 350_000;
+// AVG_UNIT_COST removed – now fetched from DB per store
 
 function MiniTrendChart({ 
   data, 
@@ -277,7 +277,7 @@ export function StoreIntelligenceTab() {
               <CardContent className="px-4 pb-4 pt-0">
                 <div className="grid grid-cols-4 gap-2">
                   <MetricCard icon={Package} label="Tồn kho" value={`${(selectedStore.total_on_hand || 0).toLocaleString('vi-VN')}`} iconClass="text-blue-400" />
-                  <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((selectedStore.total_on_hand || 0) * AVG_UNIT_COST / 1_000_000).toFixed(1)}M`} sub={`@${(AVG_UNIT_COST / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
+                  <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((selectedStore.inventory_value || 0) / 1_000_000).toFixed(1)}M`} sub={`@${((selectedStore.avg_unit_cost || 0) / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
                   <MetricCard icon={BarChart3} label="Sức chứa tổng" value={`${(selectedStore.capacity || 0).toLocaleString('vi-VN')}`} sub={`🏪 ${(selectedStore.display_capacity || 0).toLocaleString()} + 📦 ${(selectedStore.storage_capacity || 0).toLocaleString()} • ${selectedStore.capacity > 0 ? ((selectedStore.total_on_hand || 0) / selectedStore.capacity * 100).toFixed(0) : 0}%`} iconClass="text-emerald-400" />
                   <MetricCard 
                     icon={TrendingUp} 
