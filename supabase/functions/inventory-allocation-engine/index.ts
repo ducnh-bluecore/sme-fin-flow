@@ -203,14 +203,23 @@ async function handleAllocate(
     console.log(`[ALLOC] Fetching data for ${cwFcIds.length} FCs with CW stock...`);
 
     // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
-    const fcFilter = (q: any) => q.in("id", cwFcIds);
-    const fcFieldFilter = (q: any) => q.in("fc_id", cwFcIds);
+    // Batch helper: split large IN arrays to avoid URL length limits
+    async function fetchAllBatched(table: string, selectCols: string, filters: Record<string, any>, inColumn: string, inValues: string[]): Promise<any[]> {
+      const BATCH_SIZE = 200;
+      const batches: Promise<any[]>[] = [];
+      for (let i = 0; i < inValues.length; i += BATCH_SIZE) {
+        const chunk = inValues.slice(i, i + BATCH_SIZE);
+        batches.push(fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)));
+      }
+      const results = await Promise.all(batches);
+      return results.flat();
+    }
 
     const [fcs, demand, sizeIntegrity, skuMappings] = await Promise.all([
-      fetchAll("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, fcFilter),
-      fetchAll("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, fcFieldFilter),
-      fetchAll("inv_state_size_integrity", "fc_id,is_full_size_run", {}, fcFieldFilter),
-      fetchAll("inv_sku_fc_mapping", "fc_id,sku", {}, fcFieldFilter),
+      fetchAllBatched("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, "id", cwFcIds),
+      fetchAllBatched("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, "fc_id", cwFcIds),
+      fetchAllBatched("inv_state_size_integrity", "fc_id,is_full_size_run", {}, "fc_id", cwFcIds),
+      fetchAllBatched("inv_sku_fc_mapping", "fc_id,sku", {}, "fc_id", cwFcIds),
     ]);
 
     console.log(`[ALLOC DATA] fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
