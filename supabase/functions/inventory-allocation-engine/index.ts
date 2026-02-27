@@ -106,31 +106,27 @@ async function handleAllocate(
   if (runError) throw runError;
 
   try {
-    // ── Paginated fetch helper ──
+    // ── Paginated fetch helper (sequential pages to avoid request bursts) ──
     async function fetchAll(table: string, selectCols: string, filters: Record<string, any> = {}, extraFilter?: (q: any) => any): Promise<any[]> {
       const PAGE_SIZE = 1000;
-      let query = supabase.from(table).select(selectCols, { count: 'exact' }).eq("tenant_id", tenantId);
-      for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
-      if (extraFilter) query = extraFilter(query);
-      const first = await query.range(0, PAGE_SIZE - 1);
-      if (first.error) throw first.error;
-      const firstData = first.data || [];
-      const total = first.count || firstData.length;
-      if (total <= PAGE_SIZE) return firstData;
-      const pages = Math.ceil(total / PAGE_SIZE);
-      const promises = [];
-      for (let i = 1; i < pages; i++) {
-        let q = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
-        for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
-        if (extraFilter) q = extraFilter(q);
-        promises.push(q.range(i * PAGE_SIZE, (i + 1) * PAGE_SIZE - 1));
+      let offset = 0;
+      let allData: any[] = [];
+
+      while (true) {
+        let query = supabase.from(table).select(selectCols).eq("tenant_id", tenantId);
+        for (const [k, v] of Object.entries(filters)) query = query.eq(k, v);
+        if (extraFilter) query = extraFilter(query);
+
+        const { data, error } = await query.range(offset, offset + PAGE_SIZE - 1);
+        if (error) throw error;
+
+        const rows = data || [];
+        if (rows.length > 0) allData.push(...rows);
+        if (rows.length < PAGE_SIZE) break;
+
+        offset += PAGE_SIZE;
       }
-      const results = await Promise.all(promises);
-      let allData = [...firstData];
-      for (const r of results) {
-        if (r.error) throw r.error;
-        allData = allData.concat(r.data || []);
-      }
+
       return allData;
     }
 
@@ -148,7 +144,7 @@ async function handleAllocate(
         const { data, error } = await supabase.rpc(fnName, params).range(offset, offset + PAGE_SIZE - 1);
         if (error) throw error;
         const rows = data || [];
-        allData = allData.concat(rows);
+        if (rows.length > 0) allData.push(...rows);
         if (rows.length < PAGE_SIZE) break;
         offset += PAGE_SIZE;
       }
@@ -204,31 +200,38 @@ async function handleAllocate(
 
     // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
     // Batch helper: split large IN arrays to avoid URL length limits
-    // Uses concurrency limiting to avoid timeout with many batches
+    // Uses strict concurrency limiting to avoid runtime shutdown with large catalogs
     async function fetchAllBatched(table: string, selectCols: string, filters: Record<string, any>, inColumn: string, inValues: string[]): Promise<any[]> {
-      const BATCH_SIZE = 100;
-      const CONCURRENCY = 5;
+      const BATCH_SIZE = 80;
+      const CONCURRENCY = 2;
       const chunks: string[][] = [];
       for (let i = 0; i < inValues.length; i += BATCH_SIZE) {
         chunks.push(inValues.slice(i, i + BATCH_SIZE));
       }
+
       let allData: any[] = [];
+      const totalGroups = Math.ceil(chunks.length / CONCURRENCY);
+
       for (let i = 0; i < chunks.length; i += CONCURRENCY) {
         const group = chunks.slice(i, i + CONCURRENCY);
+        const groupIndex = Math.floor(i / CONCURRENCY) + 1;
+        console.log(`[ALLOC FETCH] ${table} group ${groupIndex}/${totalGroups}`);
+
         const results = await Promise.all(
-          group.map(chunk => fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)))
+          group.map((chunk) => fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)))
         );
-        for (const r of results) allData = allData.concat(r);
+
+        for (const r of results) if (r.length > 0) allData.push(...r);
       }
+
       return allData;
     }
 
-    const [fcs, demand, sizeIntegrity, skuMappings] = await Promise.all([
-      fetchAllBatched("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, "id", cwFcIds),
-      fetchAllBatched("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, "fc_id", cwFcIds),
-      fetchAllBatched("inv_state_size_integrity", "fc_id,is_full_size_run", {}, "fc_id", cwFcIds),
-      fetchAllBatched("inv_sku_fc_mapping", "fc_id,sku", {}, "fc_id", cwFcIds),
-    ]);
+    // Fetch in sequence (table-by-table) to avoid 4-way parallel pressure at large scale
+    const fcs = await fetchAllBatched("inv_family_codes", "id,fc_code,fc_name,is_core_hero,collection_id,product_created_date", { is_active: true }, "id", cwFcIds);
+    const sizeIntegrity = await fetchAllBatched("inv_state_size_integrity", "fc_id,is_full_size_run", {}, "fc_id", cwFcIds);
+    const skuMappings = await fetchAllBatched("inv_sku_fc_mapping", "fc_id,sku", {}, "fc_id", cwFcIds);
+    const demand = await fetchAllBatched("inv_state_demand", "store_id,fc_id,avg_daily_sales,sales_velocity,customer_orders_qty,store_orders_qty", {}, "fc_id", cwFcIds);
 
     console.log(`[ALLOC DATA] fcs: ${fcs.length}, demand: ${demand.length}, sizeInt: ${sizeIntegrity.length}, skuMap: ${skuMappings.length}`);
 
@@ -368,19 +371,42 @@ function runV1(
   const coreHeroMinPerSku = cm.cw_core_hero_min_per_sku?.min_pcs ?? 15;
   const noBrokenSize = cm.no_broken_size?.enabled !== false;
 
-  // ── 3. Count total SKU per store (for tier-based lookup) ──
-  const storeTotalSkuCount = new Map<string, number>();
-  for (const store of retailStores) {
-    const storeSkuCount = new Set(
-      positions.filter((p: any) => p.store_id === store.id).map((p: any) => p.fc_id)
-    ).size;
-    storeTotalSkuCount.set(store.id, storeSkuCount);
+  // ── 3. Precompute indexes (avoid repeated filter/find in loops) ──
+  const fcById = new Map<string, any>(fcs.map((f: any) => [f.id, f]));
+
+  const fcSkuCountMap = new Map<string, number>();
+  for (const m of skuMappings) {
+    fcSkuCountMap.set(m.fc_id, (fcSkuCountMap.get(m.fc_id) || 0) + 1);
   }
 
-  // Count CW total SKUs for reserve calculation
-  const cwTotalSkus = new Set(
-    positions.filter((p: any) => centralStores.some((cw) => cw.id === p.store_id)).map((p: any) => p.fc_id)
-  ).size;
+  const cwStoreIds = new Set(centralStores.map((cw) => cw.id));
+  const storeFcSets = new Map<string, Set<string>>();
+  const stockByStoreFc = new Map<string, { onHand: number; inTransit: number }>();
+  const cwFcSet = new Set<string>();
+
+  for (const p of positions) {
+    const key = `${p.store_id}:${p.fc_id}`;
+    const prev = stockByStoreFc.get(key) || { onHand: 0, inTransit: 0 };
+    prev.onHand += Number(p.on_hand) || 0;
+    prev.inTransit += Number(p.in_transit) || 0;
+    stockByStoreFc.set(key, prev);
+
+    let fcSet = storeFcSets.get(p.store_id);
+    if (!fcSet) {
+      fcSet = new Set<string>();
+      storeFcSets.set(p.store_id, fcSet);
+    }
+    fcSet.add(p.fc_id);
+
+    if (cwStoreIds.has(p.store_id)) cwFcSet.add(p.fc_id);
+  }
+
+  const storeTotalSkuCount = new Map<string, number>();
+  for (const store of retailStores) {
+    storeTotalSkuCount.set(store.id, storeFcSets.get(store.id)?.size || 0);
+  }
+
+  const cwTotalSkus = cwFcSet.size;
 
   // ── 4. Sort retail stores by tier priority: S → A → B → C ──
   const tierOrder: Record<string, number> = { S: 0, A: 1, B: 2, C: 3 };
@@ -390,10 +416,10 @@ function runV1(
 
   // ── 5. For each FC in scope → allocate baseline ──
   console.log(`[V1] scopeFcIds: ${scopeFcIds.length}, cwStock entries: ${cwStock.size}, retailStores: ${sortedRetail.length}, noBrokenSize: ${noBrokenSize}`);
-  let debugSkipNoFc = 0, debugSkipSizeInt = 0, debugSkipNoCw = 0, debugSkipNoShortage = 0, debugAllocated = 0;
-  
+  let debugSkipNoFc = 0, debugSkipSizeInt = 0, debugSkipNoCw = 0, debugSkipNoShortage = 0;
+
   for (const fcId of scopeFcIds) {
-    const fc = fcs.find((f: any) => f.id === fcId);
+    const fc = fcById.get(fcId);
     if (!fc) { debugSkipNoFc++; continue; }
 
     // Check size integrity
@@ -411,7 +437,7 @@ function runV1(
 
     // Core/Hero: higher reserve at CW
     const isCoreHero = fc.is_core_hero === true;
-    const fcSkuCount = skuMappings.filter((m: any) => m.fc_id === fcId).length || 1;
+    const fcSkuCount = fcSkuCountMap.get(fcId) || 1;
     const coreHeroReserve = isCoreHero ? coreHeroMinPerSku * fcSkuCount : 0;
     const effectiveCwReserve = Math.max(cwReserveMin, coreHeroReserve);
 
@@ -422,11 +448,8 @@ function runV1(
       const minQty = lookupRange(minStockRanges, totalSkuAtStore);
 
       // Current stock at store for this FC
-      const storePos = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
-      const currentStock = storePos.reduce(
-        (sum: number, p: any) => sum + (p.on_hand || 0) + (p.in_transit || 0),
-        0
-      );
+      const stock = stockByStoreFc.get(`${store.id}:${fcId}`);
+      const currentStock = (stock?.onHand || 0) + (stock?.inTransit || 0);
 
       const shortage = minQty - currentStock;
       if (shortage <= 0) { debugSkipNoShortage++; continue; }
@@ -533,15 +556,50 @@ function runV2(
   const cwReservedRanges = getConstraintRanges(cm, "cw_reserved_min_by_total_sku", "min_pcs");
   const coreHeroMinPerSku = cm.cw_core_hero_min_per_sku?.min_pcs ?? 15;
 
-  const cwTotalSkus = new Set(
-    positions.filter((p: any) => centralStores.some((cw) => cw.id === p.store_id)).map((p: any) => p.fc_id)
-  ).size;
+  // ── Precompute indexes ──
+  const fcById = new Map<string, any>(fcs.map((f: any) => [f.id, f]));
+
+  const fcSkuCountMap = new Map<string, number>();
+  for (const m of skuMappings) {
+    fcSkuCountMap.set(m.fc_id, (fcSkuCountMap.get(m.fc_id) || 0) + 1);
+  }
+
+  const cwStoreIds = new Set(centralStores.map((cw) => cw.id));
+  const cwFcSet = new Set<string>();
+
+  // Build stock map (on_hand only for V2)
+  const onHandByStoreFc = new Map<string, number>();
+  const storeFcIdsByStore = new Map<string, Set<string>>();
+
+  for (const p of positions) {
+    const key = `${p.store_id}:${p.fc_id}`;
+    onHandByStoreFc.set(key, (onHandByStoreFc.get(key) || 0) + (Number(p.on_hand) || 0));
+
+    let set = storeFcIdsByStore.get(p.store_id);
+    if (!set) {
+      set = new Set<string>();
+      storeFcIdsByStore.set(p.store_id, set);
+    }
+    set.add(p.fc_id);
+
+    if (cwStoreIds.has(p.store_id)) cwFcSet.add(p.fc_id);
+  }
+
+  const cwTotalSkus = cwFcSet.size;
   const cwReserveMin = lookupRange(cwReservedRanges, cwTotalSkus);
 
   // Build demand detail map: storeId:fcId → full demand record
   const demandDetailMap = new Map<string, any>();
   for (const d of demand) {
-    demandDetailMap.set(`${d.store_id}:${d.fc_id}`, d);
+    const key = `${d.store_id}:${d.fc_id}`;
+    demandDetailMap.set(key, d);
+
+    let set = storeFcIdsByStore.get(d.store_id);
+    if (!set) {
+      set = new Set<string>();
+      storeFcIdsByStore.set(d.store_id, set);
+    }
+    set.add(d.fc_id);
   }
 
   // Build priority-scored list of (store, fc) pairs needing stock
@@ -559,19 +617,16 @@ function runV2(
   const entries: DemandEntry[] = [];
 
   for (const store of retailStores) {
-    const storeFcIds = [...new Set(
-      [...positions.filter((p: any) => p.store_id === store.id).map((p: any) => p.fc_id),
-       ...demand.filter((d: any) => d.store_id === store.id).map((d: any) => d.fc_id)]
-    )];
+    const storeFcIds = storeFcIdsByStore.get(store.id);
+    if (!storeFcIds || storeFcIds.size === 0) continue;
 
     for (const fcId of storeFcIds) {
-      const fc = fcs.find((f: any) => f.id === fcId);
+      const fc = fcById.get(fcId);
       if (!fc) continue;
 
       if (noBrokenSize && !isSizeRunComplete(sizeIntMap, fcId)) continue;
 
-      const storePos = positions.filter((p: any) => p.store_id === store.id && p.fc_id === fcId);
-      const currentStock = storePos.reduce((s: number, p: any) => s + (p.on_hand || 0), 0);
+      const currentStock = onHandByStoreFc.get(`${store.id}:${fcId}`) || 0;
       const velocity = getDemandVelocity(demandMap, store.id, fcId);
       const weeksCover = velocity > 0 ? currentStock / (velocity * 7) : (currentStock > 0 ? 99 : 0);
 
@@ -618,10 +673,10 @@ function runV2(
 
   // ── Greedy allocate ──
   for (const entry of entries) {
-    let cwAvailable = cwStock.get(entry.fcId) ?? 0;
+    const cwAvailable = cwStock.get(entry.fcId) ?? 0;
 
     const isCoreHero = entry.fc.is_core_hero === true;
-    const fcSkuCount = skuMappings.filter((m: any) => m.fc_id === entry.fcId).length || 1;
+    const fcSkuCount = fcSkuCountMap.get(entry.fcId) || 1;
     const coreHeroReserve = isCoreHero ? coreHeroMinPerSku * fcSkuCount : 0;
     const effectiveCwReserve = Math.max(cwReserveMin, coreHeroReserve);
 
