@@ -204,15 +204,23 @@ async function handleAllocate(
 
     // Fetch FCs, demand, sizeIntegrity, skuMappings — filtered to relevant FCs only
     // Batch helper: split large IN arrays to avoid URL length limits
+    // Uses concurrency limiting to avoid timeout with many batches
     async function fetchAllBatched(table: string, selectCols: string, filters: Record<string, any>, inColumn: string, inValues: string[]): Promise<any[]> {
-      const BATCH_SIZE = 50;
-      const batches: Promise<any[]>[] = [];
+      const BATCH_SIZE = 100;
+      const CONCURRENCY = 5;
+      const chunks: string[][] = [];
       for (let i = 0; i < inValues.length; i += BATCH_SIZE) {
-        const chunk = inValues.slice(i, i + BATCH_SIZE);
-        batches.push(fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)));
+        chunks.push(inValues.slice(i, i + BATCH_SIZE));
       }
-      const results = await Promise.all(batches);
-      return results.flat();
+      let allData: any[] = [];
+      for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+        const group = chunks.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(
+          group.map(chunk => fetchAll(table, selectCols, filters, (q: any) => q.in(inColumn, chunk)))
+        );
+        for (const r of results) allData = allData.concat(r);
+      }
+      return allData;
     }
 
     const [fcs, demand, sizeIntegrity, skuMappings] = await Promise.all([
