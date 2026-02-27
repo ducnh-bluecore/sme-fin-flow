@@ -49,6 +49,61 @@ function priorityRank(p: string): number {
   return PRIORITY_ORDER[p] ?? 3;
 }
 
+/** Generate rule-based note explaining the transfer logic */
+function generateRuleNote(s: RebalanceSuggestion, destTier: string): string {
+  const reason = (s.reason || '').toLowerCase();
+  const transferType = s.transfer_type || '';
+  const cc = (s as any).constraint_checks || {};
+  const notes: string[] = [];
+
+  // Transfer flow rule (A2)
+  if (transferType === 'lateral') {
+    notes.push('📋 Rule A2-TH2: Điều CH→CH do tồn CNTT thấp (lấy từ CH bán chậm → CH bán tốt/đứt size)');
+    // Check BST new restriction
+    if (/age\s*[<>]\s*60|bst.*mới|new.*collection/i.test(reason)) {
+      notes.push('⚠️ Lưu ý: Hạn chế điều BST mới (age < 60d) giữa các CH để đảm bảo trưng bày đồng bộ');
+    }
+  } else {
+    notes.push('📋 Rule A2-TH1: Điều CNTT→CH do tồn CNTT đủ');
+  }
+
+  // Allocation tier rule (A1)
+  const tierNote: Record<string, string> = {
+    S: 'Tier S – ưu tiên nhận hàng đầu tiên (Rule A1: FC > 40 → chia S)',
+    A: 'Tier A – ưu tiên nhận hàng thứ 2 (Rule A1: FC > 40 → chia A)',
+    B: 'Tier B – nhận hàng khi FC > 60 (Rule A1: FC 60-80 → chia S,A,B)',
+    C: 'Tier C – chỉ nhận khi FC > 80 (Rule A1: FC > 80 → chia tất cả)',
+  };
+  if (tierNote[destTier]) {
+    notes.push(`🏪 ${tierNote[destTier]}`);
+  }
+
+  // Reason classification (B2 product categorization)
+  if (/stockout|hết hàng|đứt size|size.?break|lẻ size/i.test(reason)) {
+    notes.push('🔴 Phân loại: Bán chạy/Lẻ size → Ưu tiên bổ sung size thiếu');
+  } else if (/slow.*extend|chậm.*kéo dài|>?\s*90\s*d/i.test(reason)) {
+    notes.push('🟡 Phân loại: Bán chậm kéo dài (>90d) → Điều sang CH tốt hơn hoặc thu hồi CNTT');
+  } else if (/slow|bán chậm/i.test(reason)) {
+    notes.push('🟠 Phân loại: Bán chậm → Theo dõi thêm 2 tuần trưng bày');
+  } else if (/V1|phủ nền|BST|allocation/i.test(reason)) {
+    notes.push('🟢 Phân loại: Phủ nền BST → Chia đều ra CH trưng bán');
+  } else if (/velocity|tốc độ bán|demand/i.test(reason)) {
+    notes.push('🔵 Phân loại: Velocity cao → Bổ sung theo nhu cầu thực tế');
+  }
+
+  // Source protection (Smart Transfer guardrail)
+  const srcOnHand = cc.source_on_hand ?? cc.cw_available_before;
+  if (srcOnHand != null) {
+    const remaining = srcOnHand - (s.qty || 0);
+    if (remaining < 3) {
+      notes.push('⚠️ Rào chắn: Kho nguồn còn < 3 units sau chuyển – cân nhắc giảm SL');
+    }
+  }
+
+  return notes.join('\n');
+}
+
+
 function summarizeReasons(suggestions: RebalanceSuggestion[]): string {
   const counts: Record<string, number> = {};
   for (const s of suggestions) {
@@ -505,6 +560,16 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                           {s.net_benefit >= 0 ? '+' : ''}{formatNumber(s.net_benefit)}
                                         </p>
                                         <p className="text-muted-foreground">VC: {formatNumber(s.logistics_cost_estimate)}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Rule-based note */}
+                                    <div className="p-3 rounded-md bg-card border border-border/50">
+                                      <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
+                                        📖 Rule Note
+                                      </h4>
+                                      <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
+                                        {generateRuleNote(s, group.tier)}
                                       </div>
                                     </div>
 
