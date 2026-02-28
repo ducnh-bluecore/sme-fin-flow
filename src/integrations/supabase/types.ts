@@ -41548,6 +41548,10 @@ export type Database = {
           total_sold: number
         }[]
       }
+      fn_batch_size_split_alloc: {
+        Args: { p_batch_size?: number; p_run_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_cash_lock_units: {
         Args: { p_tenant_id: string }
         Returns: {
