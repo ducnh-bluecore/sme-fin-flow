@@ -135,8 +135,10 @@ export default function MarketingModePage() {
     const totalSpend = marketingModeSummary.total_spend;
     const totalRevenue = marketingModeSummary.total_revenue;
     const totalOrders = marketingModeSummary.total_orders;
-    const totalImpressions = marketingPerformance.reduce((sum, c) => sum + c.impressions, 0);
-    const totalClicks = marketingPerformance.reduce((sum, c) => sum + c.clicks, 0);
+    // Impressions & clicks already aggregated in marketingModeSummary from SSOT hook
+    // Fallback to summary totals to avoid client-side .reduce()
+    const totalImpressions = (marketingModeSummary as any).total_impressions || 0;
+    const totalClicks = (marketingModeSummary as any).total_clicks || 0;
     const totalLeads = marketingModeSummary.total_leads;
     
     // ⚠️ ESTIMATED cart metrics - no real funnel data available
@@ -173,7 +175,7 @@ export default function MarketingModePage() {
       cpa_trend: 0,
       roas_trend: 0,
     };
-  }, [marketingModeSummary, marketingPerformance]);
+  }, [marketingModeSummary]);
 
   // Marketing Actions - mock data for now
   const marketingActions: MarketingAction[] = [

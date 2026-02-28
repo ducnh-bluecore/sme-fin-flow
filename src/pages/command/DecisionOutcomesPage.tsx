@@ -71,13 +71,21 @@ export default function DecisionOutcomesPage() {
 
   const pkgMap = new Map((packages || []).map((p: any) => [p.id, p]));
 
-  const avgAccuracy = outcomes && outcomes.length > 0
-    ? outcomes.reduce((s: number, r: any) => s + (r.accuracy_score || 0), 0) / outcomes.length
-    : null;
+  // Summary from DB RPC — NO client-side .reduce()
+  const { data: outcomesSummary } = useQuery({
+    queryKey: ['command-outcomes-summary', tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_decision_outcomes_summary', { p_tenant_id: tenantId });
+      if (error || !data) return { avg_accuracy: 0, high_accuracy_count: 0, total_predicted_revenue: 0, total_actual_revenue: 0 };
+      return data as any;
+    },
+    enabled: !!tenantId && isReady,
+  });
 
-  const highAccuracy = outcomes?.filter((o: any) => (o.accuracy_score || 0) >= 0.85).length || 0;
-  const totalPredictedRevenue = outcomes?.reduce((s: number, o: any) => s + ((o.predicted_impact as any)?.revenue_protected || 0), 0) || 0;
-  const totalActualRevenue = outcomes?.reduce((s: number, o: any) => s + ((o.actual_impact as any)?.revenue_protected || 0), 0) || 0;
+  const avgAccuracy = outcomesSummary ? (Number(outcomesSummary.avg_accuracy) || null) : null;
+  const highAccuracy = Number(outcomesSummary?.high_accuracy_count) || 0;
+  const totalPredictedRevenue = Number(outcomesSummary?.total_predicted_revenue) || 0;
+  const totalActualRevenue = Number(outcomesSummary?.total_actual_revenue) || 0;
 
   const overridePatterns = (() => {
     if (!approvals || approvals.length === 0) return [];

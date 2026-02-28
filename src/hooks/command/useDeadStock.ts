@@ -101,22 +101,26 @@ export function useDeadStock(minInactiveDays: number = 90) {
         })
         .sort((a, b) => b.cash_locked - a.cash_locked);
 
-      const summary: DeadStockSummary = {
-        total_items: deadItems.length,
-        total_locked_value: deadItems.reduce((s, i) => s + i.cash_locked, 0),
-        total_stock: deadItems.reduce((s, i) => s + i.current_stock, 0),
+      // Fetch summary from DB RPC — NO client-side .reduce()
+      const summaryRes = await client.rpc('get_dead_stock_summary', { p_tenant_id: tenantId, p_min_inactive_days: minInactiveDays });
+      const summaryData = summaryRes.data as any;
+      const summary: DeadStockSummary = summaryData ? {
+        total_items: summaryData.total_items || 0,
+        total_locked_value: summaryData.total_locked_value || 0,
+        total_stock: summaryData.total_stock || 0,
+        by_bucket: {
+          slow_moving: summaryData.by_bucket?.slow_moving || { items: 0, locked: 0, stock: 0 },
+          stagnant: summaryData.by_bucket?.stagnant || { items: 0, locked: 0, stock: 0 },
+          dead_stock: summaryData.by_bucket?.dead_stock || { items: 0, locked: 0, stock: 0 },
+        },
+      } : {
+        total_items: 0, total_locked_value: 0, total_stock: 0,
         by_bucket: {
           slow_moving: { items: 0, locked: 0, stock: 0 },
           stagnant: { items: 0, locked: 0, stock: 0 },
           dead_stock: { items: 0, locked: 0, stock: 0 },
         },
       };
-      deadItems.forEach(i => {
-        const b = summary.by_bucket[i.aging_bucket];
-        b.items++;
-        b.locked += i.cash_locked;
-        b.stock += i.current_stock;
-      });
 
       return { items: deadItems, summary };
     },
