@@ -226,11 +226,15 @@ export default function ChannelsPage() {
   const summary = useMemo(() => {
     const scaleCount = channelAnalysis.filter(c => c.recommendation === 'scale').length;
     const stopCount = channelAnalysis.filter(c => c.recommendation === 'stop').length;
-    const totalMargin = channelAnalysis.reduce((sum, c) => sum + c.contributionMargin, 0);
-    const totalSpend = channelAnalysis.reduce((sum, c) => sum + c.adSpend, 0);
-    const avgCashConversion = channelAnalysis.length > 0
-      ? channelAnalysis.reduce((sum, c) => sum + c.cashConversionRate, 0) / channelAnalysis.length
-      : 0;
+    let totalMargin = 0;
+    let totalSpend = 0;
+    let cashConvSum = 0;
+    for (const c of channelAnalysis) {
+      totalMargin += c.contributionMargin;
+      totalSpend += c.adSpend;
+      cashConvSum += c.cashConversionRate;
+    }
+    const avgCashConversion = channelAnalysis.length > 0 ? cashConvSum / channelAnalysis.length : 0;
 
     return { scaleCount, stopCount, totalMargin, totalSpend, avgCashConversion };
   }, [channelAnalysis]);

@@ -160,10 +160,12 @@ export function ExportAudienceDialog({
     ...rfmSegments.map(s => ({ ...s, type: 'rfm' }))
   ];
 
-  const totalCustomers = selectedSegments.reduce((sum, segId) => {
+  let _totalCustSum = 0;
+  for (const segId of selectedSegments) {
     const seg = allSegments.find(s => s.id === segId);
-    return sum + (seg?.count || 0);
-  }, 0) + importedCustomers.length;
+    _totalCustSum += seg?.count || 0;
+  }
+  const totalCustomers = _totalCustSum + importedCustomers.length;
 
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

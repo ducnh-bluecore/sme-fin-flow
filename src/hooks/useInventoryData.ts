@@ -142,7 +142,7 @@ export function useInventoryStats() {
     totalSKUs: items.length,
     outOfStock: items.filter(i => i.status === 'out').length,
     lowStock: items.filter(i => i.status === 'low').length,
-    totalValue: items.reduce((sum, i) => sum + i.value, 0),
+    totalValue: (() => { let s = 0; for (const i of items) s += i.value; return s; })(),
   };
 }
 

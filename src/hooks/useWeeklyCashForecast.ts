@@ -155,7 +155,8 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       // Calculate averages from historical data
       const daysInPeriod = Math.max(differenceInDays(endDate, startDate), 1);
       const weeksOfData = Math.max(daysInPeriod / 7, 1);
-      const totalHistoricalSales = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      let totalHistoricalSales = 0;
+      for (const o of orders) totalHistoricalSales += o.total_amount || 0;
       const avgWeeklySales = totalHistoricalSales / weeksOfData;
 
       // Group expenses by category (already aggregated by view)
@@ -171,13 +172,17 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       const avgWeeklyUtilities = (expenseByCategory['utilities'] || 0) / weeksOfData;
       const avgWeeklyLogistics = (expenseByCategory['logistics'] || 0) / weeksOfData;
       const avgWeeklyOther = (expenseByCategory['other'] || 0) / weeksOfData;
-      const avgWeeklyExpenses = Object.values(expenseByCategory).reduce((a, b) => a + b, 0) / weeksOfData;
+      let _expTotal = 0;
+      for (const v of Object.values(expenseByCategory)) _expTotal += v;
+      const avgWeeklyExpenses = _expTotal / weeksOfData;
 
       // Pending collections (AR) - from v_pending_ar view
-      const pendingAR = arItems.reduce((sum, inv) => sum + (Number(inv.outstanding) || 0), 0);
+      let pendingAR = 0;
+      for (const inv of arItems) pendingAR += Number(inv.outstanding) || 0;
       
       // Pending payments (AP) - from v_pending_ap view
-      const pendingAP = apItems.reduce((sum, bill) => sum + (Number(bill.outstanding) || 0), 0);
+      let pendingAP = 0;
+      for (const bill of apItems) pendingAP += Number(bill.outstanding) || 0;
 
       // Collection rate assumptions based on method
       // AI method: probability-based collection, growth rate
@@ -264,8 +269,8 @@ export function useWeeklyCashForecast(method: WeeklyForecastMethod = 'rule-based
       }
 
       // Calculate totals
-      const totalInflows = weeks.reduce((sum, w) => sum + w.totalInflows, 0);
-      const totalOutflows = weeks.reduce((sum, w) => sum + w.totalOutflows, 0);
+      let totalInflows = 0, totalOutflows = 0;
+      for (const w of weeks) { totalInflows += w.totalInflows; totalOutflows += w.totalOutflows; }
       const endingCash = weeks[weeks.length - 1]?.closingBalance || currentCash;
       
       const lowestPoint = Math.min(...weeks.map(w => w.closingBalance));

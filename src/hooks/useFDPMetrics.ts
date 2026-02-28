@@ -288,37 +288,44 @@ export function useFDPMetrics() {
       const returnedOrders: typeof orders = []; // No returned orders in cdp_orders
       
       const totalOrders = deliveredOrders.length;
-      const orderRevenue = deliveredOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const orderCogs = deliveredOrders.reduce((sum, o) => sum + (o.cost_of_goods || 0), 0);
-      const orderPlatformFees = deliveredOrders.reduce((sum, o) => sum + (o.platform_fee || 0), 0);
-      const orderCommissionFees = deliveredOrders.reduce((sum, o) => sum + (o.commission_fee || 0), 0);
-      const orderPaymentFees = deliveredOrders.reduce((sum, o) => sum + (o.payment_fee || 0), 0);
-      const orderShippingFees = deliveredOrders.reduce((sum, o) => sum + (o.shipping_fee || 0), 0);
-      const orderDiscounts = deliveredOrders.reduce((sum, o) => sum + ((o as any).discount_amount || 0), 0);
-      const orderReturns = returnedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      let orderRevenue = 0, orderCogs = 0, orderPlatformFees = 0;
+      let orderCommissionFees = 0, orderPaymentFees = 0, orderShippingFees = 0, orderDiscounts = 0;
+      for (const o of deliveredOrders) {
+        orderRevenue += o.total_amount || 0;
+        orderCogs += o.cost_of_goods || 0;
+        orderPlatformFees += o.platform_fee || 0;
+        orderCommissionFees += o.commission_fee || 0;
+        orderPaymentFees += o.payment_fee || 0;
+        orderShippingFees += o.shipping_fee || 0;
+        orderDiscounts += (o as any).discount_amount || 0;
+      }
+      let orderReturns = 0;
+      for (const o of returnedOrders) orderReturns += o.total_amount || 0;
 
       // ========== INVOICE METRICS ==========
       const paidInvoices = invoices.filter(i => i.status === 'paid');
-      const invoiceRevenue = paidInvoices.reduce((sum, i) => 
-        sum + (i.subtotal || i.total_amount || 0) - (i.discount_amount || 0), 0);
+      let invoiceRevenue = 0;
+      for (const i of paidInvoices) invoiceRevenue += (i.subtotal || i.total_amount || 0) - (i.discount_amount || 0);
 
       // ========== CONTRACT REVENUE ==========
-      const contractRevenue = revenues.reduce((sum, r) => sum + (r.amount || 0), 0);
+      let contractRevenue = 0;
+      for (const r of revenues) contractRevenue += r.amount || 0;
 
       // ========== EXPENSE BREAKDOWN ==========
-      const expenseCogs = expenses
-        .filter(e => e.category === 'cogs')
-        .reduce((sum, e) => sum + (e.amount || 0), 0);
-      const expenseMarketing = expenses
-        .filter(e => e.category === 'marketing')
-        .reduce((sum, e) => sum + (e.amount || 0), 0);
-      const totalOpex = expenses
-        .filter(e => !['cogs', 'marketing'].includes(e.category || ''))
-        .reduce((sum, e) => sum + (e.amount || 0), 0);
+      let expenseCogs = 0, expenseMarketing = 0, totalOpex = 0;
+      for (const e of expenses) {
+        const cat = e.category || '';
+        const amt = e.amount || 0;
+        if (cat === 'cogs') expenseCogs += amt;
+        else if (cat === 'marketing') expenseMarketing += amt;
+        else totalOpex += amt;
+      }
 
       // ========== MARKETING SPEND ==========
-      const campaignSpend = campaigns.reduce((sum, c) => sum + (c.actual_cost || 0), 0);
-      const marketingExpenseTotal = marketingExpenses.reduce((sum, m) => sum + (m.amount || 0), 0);
+      let campaignSpend = 0;
+      for (const c of campaigns) campaignSpend += c.actual_cost || 0;
+      let marketingExpenseTotal = 0;
+      for (const m of marketingExpenses) marketingExpenseTotal += m.amount || 0;
       const totalMarketingSpend = campaignSpend + marketingExpenseTotal + expenseMarketing;
 
       // ========== TOTAL FEES (from channel_fees table or orders) ==========

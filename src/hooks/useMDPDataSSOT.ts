@@ -198,8 +198,10 @@ export function useMDPDataSSOT() {
   // Mock funnel data - calculate from attribution if possible
   const funnelData = useMemo<FunnelStage[]>(() => {
     // Build funnel from attribution data
-    const totalImpressions = marketingPerformance.reduce((sum, c) => sum + (c.impressions || 0), 0) || 100000;
-    const totalClicks = marketingPerformance.reduce((sum, c) => sum + (c.clicks || 0), 0) || 5000;
+    let _impSum = 0, _clkSum = 0;
+    for (const c of marketingPerformance) { _impSum += c.impressions || 0; _clkSum += c.clicks || 0; }
+    const totalImpressions = _impSum || 100000;
+    const totalClicks = _clkSum || 5000;
     const totalOrders = ssot.marketingSummary.total_orders.value || 500;
     const addToCart = Math.round(totalClicks * 0.15); // Estimate
     
@@ -233,7 +235,8 @@ export function useMDPDataSSOT() {
 
   // Calculate totals
   const totalActualSpend = marketingModeSummary.total_spend;
-  const totalPlannedBudget = budgetPacingData.reduce((sum, b) => sum + b.plannedBudget, 0);
+  let totalPlannedBudget = 0;
+  for (const b of budgetPacingData) totalPlannedBudget += b.plannedBudget;
 
   // Construct rawQueryResults for useMDPDataQuality compatibility
   // In SSOT mode, we derive these from the dataQuality metadata

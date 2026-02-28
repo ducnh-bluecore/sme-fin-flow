@@ -139,7 +139,7 @@ export function useChurnSignalStats() {
         totalSignals: rows.length,
         criticalCount: rows.filter((r) => r.urgency_level === 'critical').length,
         highCount: rows.filter((r) => r.urgency_level === 'high').length,
-        totalLtvAtRisk: rows.reduce((sum, r) => sum + (r.ltv_at_risk ?? 0), 0),
+        totalLtvAtRisk: (() => { let s = 0; for (const r of rows) s += r.ltv_at_risk ?? 0; return s; })(),
       };
     },
     enabled: !!tenantId && isReady,

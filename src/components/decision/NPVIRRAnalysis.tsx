@@ -62,7 +62,8 @@ export function NPVIRRAnalysis({ onContextChange }: { onContextChange?: (ctx: Ad
 
   const npv = calculateNPV(discountRate);
   const irr = calculateIRR();
-  const totalCashFlows = cashFlows.reduce((a, b) => a + b, 0);
+  let totalCashFlows = 0;
+  for (const cf of cashFlows) totalCashFlows += cf;
   const profitabilityIndex = (npv + initialInvestment) / initialInvestment;
 
   // Generate NPV profile data with multiple scenarios

@@ -67,9 +67,12 @@ export function useRFMSegmentsSSOT() {
   });
 
   // Calculate summary stats
-  const totalCustomers = (segments || []).reduce((sum, s) => sum + s.count, 0);
-  const totalValue = (segments || []).reduce((sum, s) => sum + s.totalValue, 0);
-  const atRiskValue = (segments || []).reduce((sum, s) => sum + s.riskValue, 0);
+  let totalCustomers = 0, totalValue = 0, atRiskValue = 0;
+  for (const s of segments || []) {
+    totalCustomers += s.count;
+    totalValue += s.totalValue;
+    atRiskValue += s.riskValue;
+  }
 
   return {
     segments: segments || getDefaultSegments(),
