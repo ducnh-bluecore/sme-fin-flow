@@ -227,7 +227,7 @@ export function useAudienceData() {
 
     const now = new Date();
     return Array.from(customerOrders.entries()).map(([id, orders]) => {
-      const totalSpend = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      let totalSpend = 0; for (const o of orders) totalSpend += o.total_amount || 0;
       const avgOrderValue = totalSpend / orders.length;
       const frequency = orders.length;
       
@@ -239,14 +239,14 @@ export function useAudienceData() {
       const firstOrderDate = new Date(Math.min(...orders.map(o => new Date(o.order_date).getTime())));
       
       // Use actual COGS if available, otherwise estimate at 60%
-      const estimatedCOGS = orders.reduce((sum, o) => sum + (o.cost_of_goods || (o.total_amount || 0) * 0.6), 0);
+      let estimatedCOGS = 0; for (const o of orders) estimatedCOGS += o.cost_of_goods || (o.total_amount || 0) * 0.6;
       const contributionMargin = totalSpend - estimatedCOGS;
       
       // Cash status
       const paidOrders = orders.filter(o => o.payment_status === 'paid' || o.payment_status === 'completed');
       const pendingOrders = orders.filter(o => o.payment_status === 'pending' || o.payment_status === 'cod');
-      const cashCollected = paidOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const cashPending = pendingOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      let cashCollected = 0; for (const o of paidOrders) cashCollected += o.total_amount || 0;
+      let cashPending = 0; for (const o of pendingOrders) cashPending += o.total_amount || 0;
       
       // RFM Scores (1-5 scale)
       const recencyScore = recencyDays <= 7 ? 5 : recencyDays <= 30 ? 4 : recencyDays <= 60 ? 3 : recencyDays <= 90 ? 2 : 1;
@@ -303,11 +303,14 @@ export function useAudienceData() {
       color: string
     ): RFMSegment => {
       const count = customers.length;
-      const avgRevenue = count > 0 ? customers.reduce((sum, c) => sum + c.totalSpend, 0) / count : 0;
-      const avgFrequency = count > 0 ? customers.reduce((sum, c) => sum + c.frequency, 0) / count : 0;
-      const avgRecency = count > 0 ? customers.reduce((sum, c) => sum + c.recencyDays, 0) / count : 0;
-      const potentialValue = customers.reduce((sum, c) => sum + c.contributionMargin * 2, 0); // 2x potential
-      const riskValue = customers.reduce((sum, c) => sum + c.contributionMargin, 0);
+      let _revSum = 0, _freqSum = 0, _recSum = 0, potentialValue = 0, riskValue = 0;
+      for (const c of customers) {
+        _revSum += c.totalSpend; _freqSum += c.frequency; _recSum += c.recencyDays;
+        potentialValue += c.contributionMargin * 2; riskValue += c.contributionMargin;
+      }
+      const avgRevenue = count > 0 ? _revSum / count : 0;
+      const avgFrequency = count > 0 ? _freqSum / count : 0;
+      const avgRecency = count > 0 ? _recSum / count : 0;
 
       return {
         name,
@@ -351,7 +354,8 @@ export function useAudienceData() {
       .map(([cohort, customers]) => {
         const cohortDate = new Date(cohort + '-01');
         const totalCustomers = customers.length;
-        const avgLTV = customers.reduce((sum, c) => sum + c.totalSpend, 0) / totalCustomers;
+        let _ltvSum = 0; for (const c of customers) _ltvSum += c.totalSpend;
+        const avgLTV = _ltvSum / totalCustomers;
 
         // Calculate retention by month
         const retentionByMonth = [0, 1, 2, 3, 4, 5].map(monthOffset => {
@@ -387,8 +391,9 @@ export function useAudienceData() {
     if (customerMetrics.length === 0) return [];
 
     // Estimate marketing cost from channel revenue (approximation)
-    const totalChannelRevenue = channelRevenueQuery.data?.reduce((sum, cr) => sum + (cr.net_revenue || 0), 0) || 0;
-    const estimatedMarketingCost = totalChannelRevenue * 0.15; // Estimate 15% marketing spend
+    let totalChannelRevenue = 0;
+    if (channelRevenueQuery.data) for (const cr of channelRevenueQuery.data) totalChannelRevenue += cr.net_revenue || 0;
+    const estimatedMarketingCost = totalChannelRevenue * 0.15;
 
     // Group by value segment
     const segments = [
@@ -397,22 +402,22 @@ export function useAudienceData() {
       { name: 'Low-Value', filter: (c: CustomerMetric) => c.monetaryScore <= 2 },
     ];
 
-    const totalRevenue = customerMetrics.reduce((sum, c) => sum + c.totalSpend, 0);
+    let totalRevenue = 0; for (const c of customerMetrics) totalRevenue += c.totalSpend;
 
     return segments.map(segment => {
       const customers = customerMetrics.filter(segment.filter);
-      const revenue = customers.reduce((sum, c) => sum + c.totalSpend, 0);
-      const cogs = customers.reduce((sum, c) => {
-        const customerCogs = c.orders.reduce((oSum, o) => oSum + (o.cost_of_goods || (o.total_amount || 0) * 0.6), 0);
-        return sum + customerCogs;
-      }, 0);
+      let revenue = 0, cogs = 0, cashCollected = 0, cashPending = 0;
+      for (const c of customers) {
+        revenue += c.totalSpend;
+        for (const o of c.orders) cogs += o.cost_of_goods || (o.total_amount || 0) * 0.6;
+        cashCollected += c.cashCollected;
+        cashPending += c.cashPending;
+      }
       const revenueShare = totalRevenue > 0 ? revenue / totalRevenue : 0;
       const marketingCost = estimatedMarketingCost * revenueShare;
       const contributionMargin = revenue - cogs - marketingCost;
       const marginPercent = revenue > 0 ? (contributionMargin / revenue) * 100 : 0;
-      const cashCollected = customers.reduce((sum, c) => sum + c.cashCollected, 0);
-      const cashPending = customers.reduce((sum, c) => sum + c.cashPending, 0);
-      const cashAtRisk = cashPending * 0.15; // 15% estimated default rate
+      const cashAtRisk = cashPending * 0.15;
 
       let recommendation: 'scale' | 'maintain' | 'optimize' | 'stop';
       if (marginPercent >= 30 && cashAtRisk / revenue < 0.05) {
@@ -455,10 +460,9 @@ export function useAudienceData() {
         c.recencyDays >= group.minDays && c.recencyDays < group.maxDays && c.frequency >= 2
       );
       
-      const potentialLoss = customers.reduce((sum, c) => sum + c.contributionMargin, 0);
-      const avgDaysInactive = customers.length > 0 
-        ? customers.reduce((sum, c) => sum + c.recencyDays, 0) / customers.length 
-        : 0;
+      let potentialLoss = 0; for (const c of customers) potentialLoss += c.contributionMargin;
+      let _inactiveSum = 0; for (const c of customers) _inactiveSum += c.recencyDays;
+      const avgDaysInactive = customers.length > 0 ? _inactiveSum / customers.length : 0;
       
       // Win-back probability decreases with inactivity
       const winBackProbability = group.urgency === 'critical' ? 15 : group.urgency === 'high' ? 35 : 55;
@@ -517,7 +521,7 @@ export function useAudienceData() {
     }
 
     // Cash at risk insight
-    const totalCashAtRisk = segmentProfitData.reduce((sum, s) => sum + s.cashAtRisk, 0);
+    let totalCashAtRisk = 0; for (const s of segmentProfitData) totalCashAtRisk += s.cashAtRisk;
     if (totalCashAtRisk > 0) {
       insights.push({
         id: 'cash-risk',
@@ -595,13 +599,15 @@ export function useAudienceData() {
     ): AudienceSegment => {
       const size = customers.length;
       const percentage = totalCustomers > 0 ? (size / totalCustomers) * 100 : 0;
-      const totalLtv = customers.reduce((sum, c) => sum + c.totalSpend, 0);
+      let totalLtv = 0, _aovSum = 0, _freqSum = 0, contributionMargin = 0, cashLocked = 0;
+      for (const c of customers) {
+        totalLtv += c.totalSpend; _aovSum += c.avgOrderValue; _freqSum += c.frequency;
+        contributionMargin += c.contributionMargin; cashLocked += c.cashPending;
+      }
       const avgLtv = size > 0 ? totalLtv / size : 0;
-      const avgOrderValue = size > 0 ? customers.reduce((sum, c) => sum + c.avgOrderValue, 0) / size : 0;
-      const avgFrequency = size > 0 ? customers.reduce((sum, c) => sum + c.frequency, 0) / size : 0;
+      const avgOrderValue = size > 0 ? _aovSum / size : 0;
+      const avgFrequency = size > 0 ? _freqSum / size : 0;
       const retentionRate = customers.filter(c => c.frequency >= 2).length / Math.max(size, 1) * 100;
-      const contributionMargin = customers.reduce((sum, c) => sum + c.contributionMargin, 0);
-      const cashLocked = customers.reduce((sum, c) => sum + c.cashPending, 0);
       const acquisitionCost = avgLtv * 0.15; // Estimated 15% of LTV
       const profitPerCustomer = size > 0 ? contributionMargin / size : 0;
 

@@ -102,7 +102,7 @@ export function useABTestingData() {
         });
       }
 
-      const totalSampleSize = variants.reduce((sum, v) => sum + v.traffic, 0);
+      let totalSampleSize = 0; for (const v of variants) totalSampleSize += v.traffic;
       const targetSampleSize = Math.max(totalSampleSize * 1.2, 10000);
       
       // Calculate statistical confidence (simplified)
@@ -138,20 +138,20 @@ export function useABTestingData() {
     const paused = abTests.filter(t => t.status === 'paused').length;
 
     // Calculate revenue lift from winning variants
-    const revenueLift = abTests.reduce((total, test) => {
-      if (test.variants.length < 2) return total;
+    let revenueLift = 0;
+    for (const test of abTests) {
+      if (test.variants.length < 2) continue;
       const winner = test.variants.find(v => v.isWinner);
       const control = test.variants.find(v => v.isControl);
       if (winner && control && winner.revenue > control.revenue) {
-        return total + (winner.revenue - control.revenue);
+        revenueLift += winner.revenue - control.revenue;
       }
-      return total;
-    }, 0);
+    }
 
     const confidences = abTests.filter(t => t.confidence > 0).map(t => t.confidence);
-    const avgConfidence = confidences.length > 0 
-      ? confidences.reduce((a, b) => a + b, 0) / confidences.length 
-      : 0;
+    let _confSum = 0;
+    for (const c of confidences) _confSum += c;
+    const avgConfidence = confidences.length > 0 ? _confSum / confidences.length : 0;
 
     const testsWithSignificance = abTests.filter(t => t.confidence >= 95).length;
 

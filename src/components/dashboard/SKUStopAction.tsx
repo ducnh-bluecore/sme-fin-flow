@@ -172,7 +172,8 @@ export default function SKUStopAction({ stopSKUs, onAcknowledge, isSubmitting }:
 
   const criticalCount = stopSKUs.filter(s => s.severity === 'critical').length;
   const warningCount = stopSKUs.filter(s => s.severity === 'warning').length;
-  const totalMonthlyLoss = stopSKUs.reduce((sum, s) => sum + Math.abs(s.monthlyLoss), 0);
+  let totalMonthlyLoss = 0;
+  for (const s of stopSKUs) totalMonthlyLoss += Math.abs(s.monthlyLoss);
 
   const handleAcknowledge = (action: string) => {
     if (selectedSKU) {

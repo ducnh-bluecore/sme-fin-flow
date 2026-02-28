@@ -154,14 +154,15 @@ function findMatches(
     }
   }
 
-  const uniqueResults = results
-    .sort((a, b) => b.confidence - a.confidence)
-    .reduce((acc, curr) => {
-      if (!acc.find(r => r.transactionId === curr.transactionId)) {
-        acc.push(curr);
-      }
-      return acc;
-    }, [] as MatchResult[]);
+  results.sort((a, b) => b.confidence - a.confidence);
+  const seenTxIds = new Set<string>();
+  const uniqueResults: MatchResult[] = [];
+  for (const r of results) {
+    if (!seenTxIds.has(r.transactionId)) {
+      seenTxIds.add(r.transactionId);
+      uniqueResults.push(r);
+    }
+  }
 
   return uniqueResults;
 }

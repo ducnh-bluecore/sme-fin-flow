@@ -151,10 +151,14 @@ function runMonteCarloSimulation(
 ): MonteCarloResult {
   const simulations: { revenue: number; ebitda: number; cash: number }[] = [];
   
-  const weightedRevGrowth = scenarios.reduce((sum, s) => sum + s.revenueGrowth * s.probability / 100, 0);
-  const weightedMargin = scenarios.reduce((sum, s) => sum + s.grossMargin * s.probability / 100, 0);
-  const weightedOpex = scenarios.reduce((sum, s) => sum + s.opexChange * s.probability / 100, 0);
-  const weightedArDays = scenarios.reduce((sum, s) => sum + s.arDays * s.probability / 100, 0);
+  let weightedRevGrowth = 0, weightedMargin = 0, weightedOpex = 0, weightedArDays = 0;
+  for (const s of scenarios) {
+    const w = s.probability / 100;
+    weightedRevGrowth += s.revenueGrowth * w;
+    weightedMargin += s.grossMargin * w;
+    weightedOpex += s.opexChange * w;
+    weightedArDays += s.arDays * w;
+  }
   
   const revGrowthStd = Math.max(...scenarios.map(s => Math.abs(s.revenueGrowth - weightedRevGrowth)));
   const marginStd = Math.max(...scenarios.map(s => Math.abs(s.grossMargin - weightedMargin)));
@@ -202,12 +206,18 @@ function runMonteCarloSimulation(
     return histogram;
   };
   
-  const mean = ebitdaValues.reduce((a, b) => a + b, 0) / ebitdaValues.length;
-  const variance = ebitdaValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / ebitdaValues.length;
+  let _eSum = 0;
+  for (const v of ebitdaValues) _eSum += v;
+  const mean = _eSum / ebitdaValues.length;
+  let _varSum = 0;
+  for (const v of ebitdaValues) _varSum += Math.pow(v - mean, 2);
+  const variance = _varSum / ebitdaValues.length;
   const stdDev = Math.sqrt(variance);
   const var95 = getPercentile(ebitdaValues, 5);
   const cvar95Values = ebitdaValues.filter(v => v <= var95);
-  const cvar95 = cvar95Values.length > 0 ? cvar95Values.reduce((a, b) => a + b, 0) / cvar95Values.length : var95;
+  let _cvarSum = 0;
+  for (const v of cvar95Values) _cvarSum += v;
+  const cvar95 = cvar95Values.length > 0 ? _cvarSum / cvar95Values.length : var95;
   
   return {
     revenueDistribution: createHistogram(simulations.map(s => s.revenue)),

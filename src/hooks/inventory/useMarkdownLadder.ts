@@ -103,7 +103,7 @@ export function useMarkdownLadder(fcId?: string) {
       channelSteps.forEach((ladderSteps, channel) => {
         const sorted = ladderSteps.sort((a, b) => a.discount_step - b.discount_step);
         // Find the current best performing step
-        const best = sorted.reduce((a, b) => a.clearability_score > b.clearability_score ? a : b);
+        let best = sorted[0]; for (let i = 1; i < sorted.length; i++) { if (sorted[i].clearability_score > best.clearability_score) best = sorted[i]; }
         // Recommend next step up if clearability is low
         const nextIdx = sorted.findIndex(s => s.discount_step > best.discount_step);
         if (nextIdx >= 0 && best.clearability_score < 70) {

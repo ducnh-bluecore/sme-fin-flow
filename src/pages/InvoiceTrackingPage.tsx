@@ -49,7 +49,7 @@ const platformConfig = {
 // Generate stable order codes based on invoice id
 const generateOrderCode = (invoiceId: string, invoiceNumber: string) => {
   // Use invoice id hash to get consistent platform prefix
-  const hash = invoiceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  let hash = 0; for (const ch of invoiceId) hash += ch.charCodeAt(0);
   const platforms = ['SHP', 'LZD', 'TIK', 'TIK', 'SND'];
   const platformPrefix = platforms[hash % platforms.length];
   return `${platformPrefix}${invoiceNumber.replace(/[^0-9]/g, '').slice(0, 8)}`;
@@ -57,7 +57,7 @@ const generateOrderCode = (invoiceId: string, invoiceNumber: string) => {
 
 const getPlatformFromInvoice = (invoiceId: string) => {
   // Use invoice id hash to get consistent platform
-  const hash = invoiceId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  let hash = 0; for (const ch of invoiceId) hash += ch.charCodeAt(0);
   const platforms = ['shopee', 'lazada', 'tiktok', 'tiki', 'sendo'];
   return platforms[hash % platforms.length];
 };

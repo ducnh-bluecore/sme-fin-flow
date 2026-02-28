@@ -214,7 +214,7 @@ export default function CustomerEquityPage() {
                 ) : distribution && distribution.length > 0 ? (
                   <div className="space-y-4">
                     {distribution.map((segment, idx) => {
-                      const totalEquity = distribution.reduce((sum, d) => sum + (d.equity_sum ?? 0), 0);
+                      let totalEquity = 0; for (const d of distribution) totalEquity += d.equity_sum ?? 0;
                       const sharePercent = totalEquity > 0 ? ((segment.equity_sum ?? 0) / totalEquity) * 100 : 0;
                       return (
                         <div key={segment.bucket || idx} className="flex items-center gap-4">

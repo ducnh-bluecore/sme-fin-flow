@@ -136,9 +136,9 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
         // Get tenant average AOV for delta calculation
         const { data: avgData } = await buildSelectQuery('v_cdp_customer_research', 'aov');
         const avgDataRows = (avgData || []) as unknown as Array<{ aov: number }>;
-        const tenantAvgAOV = avgDataRows.length > 0
-          ? avgDataRows.reduce((sum, r) => sum + (Number(r.aov) || 0), 0) / avgDataRows.length
-          : 0;
+        let _aovSum = 0;
+        for (const r of avgDataRows) _aovSum += Number(r.aov) || 0;
+        const tenantAvgAOV = avgDataRows.length > 0 ? _aovSum / avgDataRows.length : 0;
 
         // Build filtered query
         let query = buildSelectQuery('v_cdp_customer_research', '*');
@@ -172,11 +172,16 @@ export function useHypothesisQuery(conditions: HypothesisCondition[]) {
         // Calculate aggregates
         const customerCount = dataRows.length;
         const percentOfTotal = totalCount ? Math.round((customerCount / totalCount) * 100 * 10) / 10 : 0;
-        const totalSpend = dataRows.reduce((sum, r) => sum + (Number(r.total_spend) || 0), 0);
-        const avgAOV = dataRows.reduce((sum, r) => sum + (Number(r.aov) || 0), 0) / customerCount;
+        let totalSpend = 0, _aovAcc = 0, _rrAcc = 0, marginContribution = 0;
+        for (const r of dataRows) {
+          totalSpend += Number(r.total_spend) || 0;
+          _aovAcc += Number(r.aov) || 0;
+          _rrAcc += Number(r.return_rate) || 0;
+          marginContribution += Number(r.margin_contribution) || 0;
+        }
+        const avgAOV = _aovAcc / customerCount;
         const avgAOVDelta = tenantAvgAOV > 0 ? ((avgAOV - tenantAvgAOV) / tenantAvgAOV) * 100 : 0;
-        const returnRate = dataRows.reduce((sum, r) => sum + (Number(r.return_rate) || 0), 0) / customerCount;
-        const marginContribution = dataRows.reduce((sum, r) => sum + (Number(r.margin_contribution) || 0), 0);
+        const returnRate = _rrAcc / customerCount;
 
         // Calculate return rate delta (assume 10% baseline)
         const baselineReturnRate = 10;

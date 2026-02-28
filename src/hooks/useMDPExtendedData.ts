@@ -564,8 +564,8 @@ export function useScenarioBaseData() {
       const expenses = (expensesResult.data || []) as unknown as Array<{ amount: number }>;
       const orders = (ordersResult.data || []) as unknown as Array<{ gross_revenue: number }>;
 
-      const currentBudget = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const currentRevenue = orders.reduce((sum, o) => sum + (Number(o.gross_revenue) || 0), 0);
+      let currentBudget = 0; for (const e of expenses) currentBudget += e.amount || 0;
+      let currentRevenue = 0; for (const o of orders) currentRevenue += Number(o.gross_revenue) || 0;
       const currentROAS = currentBudget > 0 ? currentRevenue / currentBudget : 0;
       const avgOrderValue = orders.length > 0 ? currentRevenue / orders.length : 0;
 
@@ -603,7 +603,7 @@ export function useFunnelData() {
 
       const orderRows = (orders || []) as unknown as Array<{ channel: string; gross_revenue: number }>;
       const totalOrders = orderRows.length;
-      const totalRevenue = orderRows.reduce((sum, o) => sum + (Number(o.gross_revenue) || 0), 0);
+      let totalRevenue = 0; for (const o of orderRows) totalRevenue += Number(o.gross_revenue) || 0;
 
       // Estimate funnel metrics
       const overall: FunnelMetrics = {

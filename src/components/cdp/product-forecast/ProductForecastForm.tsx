@@ -85,9 +85,9 @@ export function ProductForecastForm({ onClose }: ProductForecastFormProps) {
     const matchedCount = matchedData.count;
     const selectedBenchmarkData = benchmarks?.filter(b => selectedBenchmarks.includes(b.product_id)) || [];
     
-    const avgNewPct = selectedBenchmarkData.length
-      ? selectedBenchmarkData.reduce((sum, b) => sum + (b.new_customer_pct || 0), 0) / selectedBenchmarkData.length
-      : 12;
+    let _newPctSum = 0;
+    for (const b of selectedBenchmarkData) _newPctSum += b.new_customer_pct || 0;
+    const avgNewPct = selectedBenchmarkData.length ? _newPctSum / selectedBenchmarkData.length : 12;
 
     // Estimate conversion rate (10-15% typical)
     const conversionRate = 12;
