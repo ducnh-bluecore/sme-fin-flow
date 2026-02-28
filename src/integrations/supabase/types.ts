@@ -41657,6 +41657,10 @@ export type Database = {
         Args: { p_run_id: string; p_tenant_id: string }
         Returns: Json
       }
+      fn_size_breakdown: {
+        Args: { p_fc_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_size_health_details: {
         Args: {
           p_curve_state: string
