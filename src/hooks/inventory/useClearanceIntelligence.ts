@@ -134,35 +134,23 @@ export function useClearanceCandidates() {
  * Uses the new v_clearance_history_by_fc view (SKU-based matching).
  */
 export function useClearanceByChannel() {
-  const { buildQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { client, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['clearance-by-channel', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildQuery('v_clearance_history_by_fc' as any)
-        .limit(1000);
+      // DB RPC aggregation — NO client-side .reduce()
+      const { data, error } = await client.rpc('get_clearance_by_channel', { p_tenant_id: tenantId });
       if (error) throw error;
 
-      const history = (data || []) as unknown as ClearanceHistoryItem[];
-
-      const channelSummary = history.reduce((acc, item) => {
-        const ch = item.channel || 'Unknown';
-        if (!acc[ch]) {
-          acc[ch] = { channel: ch, totalUnits: 0, totalRevenue: 0, totalDiscount: 0, count: 0, avgDiscountPct: 0 };
-        }
-        acc[ch].totalUnits += item.units_sold;
-        acc[ch].totalRevenue += item.revenue_collected;
-        acc[ch].totalDiscount += item.total_discount_given;
-        acc[ch].count += 1;
-        return acc;
-      }, {} as Record<string, { channel: string; totalUnits: number; totalRevenue: number; totalDiscount: number; count: number; avgDiscountPct: number }>);
-
-      Object.values(channelSummary).forEach(ch => {
-        const total = ch.totalRevenue + ch.totalDiscount;
-        ch.avgDiscountPct = total > 0 ? Math.round((ch.totalDiscount / total) * 100) : 0;
-      });
-
-      return Object.values(channelSummary).sort((a, b) => b.totalUnits - a.totalUnits);
+      return ((data || []) as any[]).map(r => ({
+        channel: r.channel || 'Unknown',
+        totalUnits: Number(r.total_units) || 0,
+        totalRevenue: Number(r.total_revenue) || 0,
+        totalDiscount: Number(r.total_discount) || 0,
+        count: Number(r.record_count) || 0,
+        avgDiscountPct: Number(r.avg_discount_pct) || 0,
+      }));
     },
     enabled: isReady && !!tenantId,
   });

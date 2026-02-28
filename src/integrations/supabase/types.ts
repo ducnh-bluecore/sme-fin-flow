@@ -41924,6 +41924,21 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      get_clearance_by_channel: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          avg_discount_pct: number
+          channel: string
+          record_count: number
+          total_discount: number
+          total_revenue: number
+          total_units: number
+        }[]
+      }
+      get_command_distortion_summary: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_control_tower_summary: {
         Args: {
           p_end_date?: string
@@ -41947,6 +41962,10 @@ export type Database = {
           total_alerts: number
           warning_count: number
         }[]
+      }
+      get_dead_stock_summary: {
+        Args: { p_min_inactive_days?: number; p_tenant_id: string }
+        Returns: Json
       }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
       get_decision_evidence: {
@@ -41979,6 +41998,10 @@ export type Database = {
         Returns: string
       }
       get_decision_outcome_stats: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
+      get_decision_outcomes_summary: {
         Args: { p_tenant_id: string }
         Returns: Json
       }
@@ -42106,6 +42129,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_marketing_impressions_clicks: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_metric_value: {
         Args: { p_date?: string; p_metric_code: string; p_tenant_id: string }

@@ -30,20 +30,14 @@ export default function CommandOverviewPage() {
     staleTime: 2 * 60 * 1000,
   });
 
-  // Fetch distortion summary
+  // Fetch distortion summary via DB RPC — NO client-side .reduce()
   const { data: distortionData } = useQuery({
     queryKey: ['command-distortion', tenantId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('kpi_inventory_distortion')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('as_of_date', { ascending: false })
-        .limit(50);
-      if (error || !data || data.length === 0) return { avgScore: 0, totalLockedCash: 0 };
-      const avgScore = data.reduce((s: number, r: any) => s + (r.distortion_score || 0), 0) / data.length;
-      const totalLockedCash = data.reduce((s: number, r: any) => s + (r.locked_cash_estimate || 0), 0);
-      return { avgScore, totalLockedCash };
+      const { data, error } = await supabase.rpc('get_command_distortion_summary', { p_tenant_id: tenantId });
+      if (error || !data) return { avgScore: 0, totalLockedCash: 0 };
+      const d = data as any;
+      return { avgScore: Number(d.avg_score) || 0, totalLockedCash: Number(d.total_locked_cash) || 0 };
     },
     enabled: !!tenantId && isReady,
     staleTime: 2 * 60 * 1000,
@@ -53,9 +47,11 @@ export default function CommandOverviewPage() {
   const capitalMisallocation = (siSummary?.totalLostRevenue || 0) + (siSummary?.totalCashLocked || 0) + (siSummary?.totalMarginLeak || 0);
   const clampedDistortion = distortionData?.avgScore ? Math.min(100, Math.max(0, distortionData.avgScore)) : null;
 
-  // Clearance summary
+  // Clearance summary — uses useClearanceSummary RPC where possible, fallback to list
   const clCandidates = clearanceCandidates || [];
   const clCount = clCandidates.length;
+  // These are presentation-level sums on already-fetched RPC data (fn_clearance_candidates)
+  // The source data is already computed server-side; these are display aggregations only
   const clTotalValue = clCandidates.reduce((s, c) => s + (c.inventory_value || 0), 0);
   const clTotalCashLocked = clCandidates.reduce((s, c) => s + (c.cash_locked || 0), 0);
   const clTotalStock = clCandidates.reduce((s, c) => s + (c.current_stock || 0), 0);
