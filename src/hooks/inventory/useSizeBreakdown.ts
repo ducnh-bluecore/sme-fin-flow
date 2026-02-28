@@ -18,22 +18,21 @@ export interface SizeSummary {
  * Delegates all logic to database RPC fn_size_breakdown (SSOT).
  */
 export function useSizeBreakdown(fcId?: string) {
-  const { client, tenantId, isReady } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
     queryKey: ['size-breakdown', tenantId, fcId],
     queryFn: async () => {
-      const { data, error } = await client.rpc('fn_size_breakdown' as any, {
+      const { data, error } = await callRpc<{ entries: SizeStockEntry[]; summary: SizeSummary[] }>('fn_size_breakdown', {
         p_tenant_id: tenantId!,
         p_fc_id: fcId!,
       });
 
       if (error) throw error;
 
-      const result = data as any as { entries: SizeStockEntry[]; summary: SizeSummary[] };
       return {
-        entries: result?.entries || [],
-        summary: result?.summary || [],
+        entries: data?.entries || [],
+        summary: data?.summary || [],
       };
     },
     enabled: isReady && !!tenantId && !!fcId,

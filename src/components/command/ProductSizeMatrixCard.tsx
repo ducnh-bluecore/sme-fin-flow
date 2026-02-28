@@ -41,17 +41,17 @@ const CURVE_LABELS: Record<string, { label: string; className: string }> = {
 };
 
 function SizeMatrix({ fcId }: { fcId: string }) {
-  const { client, tenantId, isReady } = useTenantQueryBuilder();
+  const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data, isLoading } = useQuery({
     queryKey: ['size-breakdown', tenantId, fcId],
     queryFn: async () => {
-      const { data, error } = await client.rpc('fn_size_breakdown' as any, {
+      const { data, error } = await callRpc<{ entries: SizeStoreEntry[]; summary: Array<{ size_code: string; total: number }> }>('fn_size_breakdown', {
         p_tenant_id: tenantId!,
         p_fc_id: fcId,
       });
       if (error) throw error;
-      return data as any as { entries: SizeStoreEntry[]; summary: Array<{ size_code: string; total: number }> };
+      return data;
     },
     enabled: isReady && !!tenantId,
     staleTime: 5 * 60 * 1000,
