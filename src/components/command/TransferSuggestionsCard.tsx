@@ -108,8 +108,8 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
 
     // Build groups per dest
     for (const [destId, rows] of unified) {
-      const totalQty = rows.reduce((s: number, r: any) => s + (r.transfer_qty || 0), 0);
-      const totalBenefit = rows.reduce((s: number, r: any) => s + (r.net_benefit || 0), 0);
+      let totalQty = 0, totalBenefit = 0;
+      for (const r of rows) { totalQty += r.transfer_qty || 0; totalBenefit += r.net_benefit || 0; }
       const uniqueProducts = new Set(rows.map((r: any) => r.product_id)).size;
       groups.push({
         dest_store_id: destId,
@@ -213,8 +213,8 @@ export default function TransferSuggestionsCard({ transferByDest, detailRows, st
 
   const confirmSummary = confirmAction ? (() => {
     const rows = getTransferRows(confirmAction.ids);
-    const totalQty = rows.reduce((s, r) => s + r.transfer_qty, 0);
-    const totalBenefit = rows.reduce((s, r) => s + r.net_benefit, 0);
+    let totalQty = 0, totalBenefit = 0;
+    for (const r of rows) { totalQty += r.transfer_qty; totalBenefit += r.net_benefit; }
     return { count: rows.length, totalQty, totalBenefit };
   })() : null;
 

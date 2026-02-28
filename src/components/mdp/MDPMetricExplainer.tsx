@@ -447,15 +447,14 @@ export function MetricExplainer({
 }
 
 export function MetricExplainerPanel({ metrics, title = "Giải thích Metrics" }: MetricExplainerPanelProps) {
-  const categoryGroups = metrics.reduce((acc, key) => {
+  const categoryGroups: Record<string, MetricDefinition[]> = {};
+  for (const key of metrics) {
     const metric = MDP_METRIC_DEFINITIONS[key];
-    if (!metric) return acc;
-    
+    if (!metric) continue;
     const category = metric.category;
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(metric);
-    return acc;
-  }, {} as Record<string, MetricDefinition[]>);
+    if (!categoryGroups[category]) categoryGroups[category] = [];
+    categoryGroups[category].push(metric);
+  }
 
   const categoryLabels: Record<string, string> = {
     revenue: 'Doanh thu',

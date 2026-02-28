@@ -105,7 +105,7 @@ export default function RevenuePage() {
         status: c.status || 'inactive',
         lastSync: c.last_sync_at,
         ordersCount: deliveredOrders.length,
-        totalRevenue: deliveredOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0),
+        totalRevenue: (() => { let t = 0; for (const o of deliveredOrders) t += Number(o.total_amount || 0); return t; })(),
       };
     });
   }, [connectors, externalOrders]);
@@ -208,11 +208,11 @@ export default function RevenuePage() {
 
   // Top customers
   const topCustomers = useMemo(() => {
-    const customerTotals = revenues.reduce((acc, rev) => {
+    const customerTotals: Record<string, number> = {};
+    for (const rev of revenues) {
       const customer = rev.customer_name || 'Không xác định';
-      acc[customer] = (acc[customer] || 0) + Number(rev.amount);
-      return acc;
-    }, {} as Record<string, number>);
+      customerTotals[customer] = (customerTotals[customer] || 0) + Number(rev.amount);
+    }
 
     return Object.entries(customerTotals)
       .sort(([, a], [, b]) => b - a)

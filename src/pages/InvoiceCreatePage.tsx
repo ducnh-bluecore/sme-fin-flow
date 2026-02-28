@@ -503,7 +503,7 @@ export default function InvoiceCreatePage() {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   {Object.entries(sourceConfig).map(([key, config]) => {
                     const orderCount = orders?.filter(o => o.source === key).length || 0;
-                    const totalValue = orders?.filter(o => o.source === key).reduce((sum, o) => sum + o.total_amount, 0) || 0;
+                    let totalValue = 0; if (orders) for (const o of orders) { if (o.source === key) totalValue += o.total_amount; }
                     
                     return (
                       <Card key={key} className="border-2">

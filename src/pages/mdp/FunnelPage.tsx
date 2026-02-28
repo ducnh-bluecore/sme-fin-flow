@@ -71,16 +71,16 @@ export default function FunnelPage() {
   };
 
   // Build channel funnel data from SSOT marketingPerformance, aggregating by channel
-  const channelAggregation = marketingPerformance.reduce((acc, perf) => {
+  const channelAggregation: Record<string, { impressions: number; clicks: number; orders: number }> = {};
+  for (const perf of marketingPerformance) {
     const channel = perf.channel;
-    if (!acc[channel]) {
-      acc[channel] = { impressions: 0, clicks: 0, orders: 0 };
+    if (!channelAggregation[channel]) {
+      channelAggregation[channel] = { impressions: 0, clicks: 0, orders: 0 };
     }
-    acc[channel].impressions += perf.impressions;
-    acc[channel].clicks += perf.clicks;
-    acc[channel].orders += perf.orders;
-    return acc;
-  }, {} as Record<string, { impressions: number; clicks: number; orders: number }>);
+    channelAggregation[channel].impressions += perf.impressions;
+    channelAggregation[channel].clicks += perf.clicks;
+    channelAggregation[channel].orders += perf.orders;
+  }
 
   const colorMap: Record<string, string> = {
     'tiktok': 'text-pink-400',
