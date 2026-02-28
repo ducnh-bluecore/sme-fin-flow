@@ -73,6 +73,7 @@ export function useSizeHealthGroups() {
         p_limit: PAGE_SIZE,
         p_offset: offset,
         p_sort_by: 'lost_revenue',
+        p_created_after: null,
       });
       
       if (error) throw error;
