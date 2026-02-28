@@ -99,10 +99,18 @@ export default function CreditDebitNotesPage() {
   }) || [];
 
   // Calculate KPIs from filtered data
-  const totalCreditNotes = filteredCreditNotesByDate.filter(n => n.status !== 'cancelled').reduce((sum, n) => sum + n.total_amount, 0) || 0;
-  const totalDebitNotes = filteredDebitNotesByDate.filter(n => n.status !== 'cancelled').reduce((sum, n) => sum + n.total_amount, 0) || 0;
-  const pendingCredits = filteredCreditNotesByDate.filter(n => n.status === 'pending' || n.status === 'approved').length || 0;
-  const pendingDebits = filteredDebitNotesByDate.filter(n => n.status === 'pending' || n.status === 'approved').length || 0;
+  let totalCreditNotes = 0;
+  let pendingCredits = 0;
+  for (const n of filteredCreditNotesByDate) {
+    if (n.status !== 'cancelled') totalCreditNotes += n.total_amount;
+    if (n.status === 'pending' || n.status === 'approved') pendingCredits++;
+  }
+  let totalDebitNotes = 0;
+  let pendingDebits = 0;
+  for (const n of filteredDebitNotesByDate) {
+    if (n.status !== 'cancelled') totalDebitNotes += n.total_amount;
+    if (n.status === 'pending' || n.status === 'approved') pendingDebits++;
+  }
   const netAdjustment = totalDebitNotes - totalCreditNotes;
 
   const filteredCreditNotes = filteredCreditNotesByDate.filter(note => 
@@ -116,12 +124,12 @@ export default function CreditDebitNotesPage() {
   ) || [];
 
   // Reason breakdown for credit notes (using filtered data)
-  const creditReasonBreakdown = filteredCreditNotesByDate.reduce((acc, note) => {
+  const creditReasonBreakdown: Record<string, number> = {};
+  for (const note of filteredCreditNotesByDate) {
     if (note.status !== 'cancelled') {
-      acc[note.reason] = (acc[note.reason] || 0) + note.total_amount;
+      creditReasonBreakdown[note.reason] = (creditReasonBreakdown[note.reason] || 0) + note.total_amount;
     }
-    return acc;
-  }, {} as Record<string, number>);
+  }
 
   const creditReasonData = Object.entries(creditReasonBreakdown).map(([reason, amount]) => ({
     name: reasonLabels[reason] || reason,
@@ -130,35 +138,31 @@ export default function CreditDebitNotesPage() {
   }));
 
   // Monthly trend (using filtered data)
-  const monthlyCredits = filteredCreditNotesByDate.reduce((acc, note) => {
+  const monthlyCredits: Record<string, number> = {};
+  for (const note of filteredCreditNotesByDate) {
     if (note.status !== 'cancelled') {
       try {
         const date = new Date(note.credit_note_date);
         if (!isNaN(date.getTime())) {
           const month = format(date, 'yyyy-MM');
-          acc[month] = (acc[month] || 0) + note.total_amount;
+          monthlyCredits[month] = (monthlyCredits[month] || 0) + note.total_amount;
         }
-      } catch {
-        // Skip invalid dates
-      }
+      } catch { /* Skip invalid dates */ }
     }
-    return acc;
-  }, {} as Record<string, number>);
+  }
 
-  const monthlyDebits = filteredDebitNotesByDate.reduce((acc, note) => {
+  const monthlyDebits: Record<string, number> = {};
+  for (const note of filteredDebitNotesByDate) {
     if (note.status !== 'cancelled') {
       try {
         const date = new Date(note.debit_note_date);
         if (!isNaN(date.getTime())) {
           const month = format(date, 'yyyy-MM');
-          acc[month] = (acc[month] || 0) + note.total_amount;
+          monthlyDebits[month] = (monthlyDebits[month] || 0) + note.total_amount;
         }
-      } catch {
-        // Skip invalid dates
-      }
+      } catch { /* Skip invalid dates */ }
     }
-    return acc;
-  }, {} as Record<string, number>);
+  }
 
   const allMonths = [...new Set([...Object.keys(monthlyCredits), ...Object.keys(monthlyDebits)])].sort();
   const trendData = allMonths.map(month => {

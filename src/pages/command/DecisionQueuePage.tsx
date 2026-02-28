@@ -93,10 +93,10 @@ export default function DecisionQueuePage() {
     return true;
   });
 
-  const statusCounts = (packages || []).reduce((acc: Record<string, number>, pkg: any) => {
-    acc[pkg.status] = (acc[pkg.status] || 0) + 1;
-    return acc;
-  }, {});
+  const statusCounts: Record<string, number> = {};
+  for (const pkg of (packages || [])) {
+    statusCounts[(pkg as any).status] = (statusCounts[(pkg as any).status] || 0) + 1;
+  }
 
   return (
     <div className="space-y-6">

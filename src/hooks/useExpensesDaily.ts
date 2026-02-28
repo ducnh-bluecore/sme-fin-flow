@@ -142,21 +142,25 @@ export function useExpensesSummary() {
       if (!dailyData || dailyData.length === 0) return null;
       
       // Sum up daily values (these are already precomputed in DB)
+      let totalAmount = 0, cogs = 0, salary = 0, rent = 0, utilities = 0, marketing = 0, logistics = 0, depreciation = 0, interest = 0, tax = 0, other = 0, totalCount = 0;
+      for (const d of dailyData) {
+        totalAmount += d.totalAmount;
+        cogs += d.cogsAmount;
+        salary += d.salaryAmount;
+        rent += d.rentAmount;
+        utilities += d.utilitiesAmount;
+        marketing += d.marketingAmount;
+        logistics += d.logisticsAmount;
+        depreciation += d.depreciationAmount;
+        interest += d.interestAmount;
+        tax += d.taxAmount;
+        other += d.otherAmount;
+        totalCount += d.expenseCount;
+      }
       const summary: ExpensesSummary = {
-        totalAmount: dailyData.reduce((sum, d) => sum + d.totalAmount, 0),
-        byCategory: {
-          cogs: dailyData.reduce((sum, d) => sum + d.cogsAmount, 0),
-          salary: dailyData.reduce((sum, d) => sum + d.salaryAmount, 0),
-          rent: dailyData.reduce((sum, d) => sum + d.rentAmount, 0),
-          utilities: dailyData.reduce((sum, d) => sum + d.utilitiesAmount, 0),
-          marketing: dailyData.reduce((sum, d) => sum + d.marketingAmount, 0),
-          logistics: dailyData.reduce((sum, d) => sum + d.logisticsAmount, 0),
-          depreciation: dailyData.reduce((sum, d) => sum + d.depreciationAmount, 0),
-          interest: dailyData.reduce((sum, d) => sum + d.interestAmount, 0),
-          tax: dailyData.reduce((sum, d) => sum + d.taxAmount, 0),
-          other: dailyData.reduce((sum, d) => sum + d.otherAmount, 0),
-        },
-        totalCount: dailyData.reduce((sum, d) => sum + d.expenseCount, 0),
+        totalAmount,
+        byCategory: { cogs, salary, rent, utilities, marketing, logistics, depreciation, interest, tax, other },
+        totalCount,
         periodStart: startDateStr,
         periodEnd: endDateStr,
       };

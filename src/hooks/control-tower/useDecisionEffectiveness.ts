@@ -68,18 +68,22 @@ export function useDecisionEffectiveness(period: '7d' | '30d' | '90d' = '30d') {
         total_predicted_value: Number(row.total_predicted_value) || 0,
       }));
 
-      const totalDecisions = byModule.reduce((sum, m) => sum + m.total_decisions, 0);
-      const successfulCount = byModule.reduce((sum, m) => sum + m.successful_count, 0);
-      const failedCount = byModule.reduce((sum, m) => sum + m.failed_count, 0);
-      const pendingCount = byModule.reduce((sum, m) => sum + m.pending_count, 0);
-      const totalROI = byModule.reduce((sum, m) => sum + m.total_actual_value, 0);
+      let totalDecisions = 0, successfulCount = 0, failedCount = 0, pendingCount = 0, totalROI = 0, accuracySum = 0;
+      for (const m of byModule) {
+        totalDecisions += m.total_decisions;
+        successfulCount += m.successful_count;
+        failedCount += m.failed_count;
+        pendingCount += m.pending_count;
+        totalROI += m.total_actual_value;
+        accuracySum += m.avg_accuracy;
+      }
 
       const overallSuccessRate = totalDecisions > 0 
         ? (successfulCount / totalDecisions) * 100 
         : 0;
       
       const overallAccuracy = byModule.length > 0
-        ? byModule.reduce((sum, m) => sum + m.avg_accuracy, 0) / byModule.length
+        ? accuracySum / byModule.length
         : 0;
 
       return {

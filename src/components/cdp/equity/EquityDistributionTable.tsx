@@ -81,7 +81,8 @@ export function EquityDistributionTable() {
   }
 
   // Calculate total for percentage
-  const totalEquity = buckets?.reduce((sum, b) => sum + (b.equity_sum || 0), 0) || 0;
+  let totalEquity = 0;
+  if (buckets) { for (const b of buckets) totalEquity += b.equity_sum || 0; }
   const displayBuckets = buckets && buckets.length > 0 ? buckets : [];
 
   return (

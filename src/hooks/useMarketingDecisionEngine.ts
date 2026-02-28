@@ -188,21 +188,21 @@ export function useMarketingDecisionEngine() {
 
   // Generate CEO Snapshot
   const ceoSnapshot = useMemo<CEOMarketingSnapshot>(() => {
-    const marginCreated = profitAttribution
-      .filter(p => p.contribution_margin > 0)
-      .reduce((sum, p) => sum + p.contribution_margin, 0);
-      
-    const marginDestroyed = profitAttribution
-      .filter(p => p.contribution_margin < 0)
-      .reduce((sum, p) => sum + Math.abs(p.contribution_margin), 0);
-    
+    let marginCreated = 0;
+    let marginDestroyed = 0;
+    for (const p of profitAttribution) {
+      if (p.contribution_margin > 0) marginCreated += p.contribution_margin;
+      else if (p.contribution_margin < 0) marginDestroyed += Math.abs(p.contribution_margin);
+    }
     const netMargin = marginCreated - marginDestroyed;
     
-    const totalCashReceived = cashImpact.reduce((sum, c) => sum + c.cash_received, 0);
-    const totalCashPending = cashImpact.reduce((sum, c) => sum + c.pending_cash, 0);
-    const totalCashLocked = cashImpact.reduce((sum, c) => sum + c.cash_locked_ads, 0);
-    const totalSpend = cashImpact.reduce((sum, c) => sum + c.total_spend, 0);
-    
+    let totalCashReceived = 0, totalCashPending = 0, totalCashLocked = 0, totalSpend = 0;
+    for (const c of cashImpact) {
+      totalCashReceived += c.cash_received;
+      totalCashPending += c.pending_cash;
+      totalCashLocked += c.cash_locked_ads;
+      totalSpend += c.total_spend;
+    }
     const cashConversion = totalSpend > 0 ? totalCashReceived / totalSpend : 0;
     
     const criticalCards = decisionCards.filter(c => c.urgency === 'IMMEDIATE' || c.urgency === 'TODAY');
