@@ -278,9 +278,11 @@ export default function DecisionCenterPage() {
     const overdueCount = allCards.filter(c => 
       c.status === 'OPEN' && new Date(c.deadline_at) < new Date()
     ).length;
-    const totalImpact = allCards
-      .filter(c => c.status === 'OPEN')
-      .reduce((sum, c) => sum + (c.impact_amount || 0), 0);
+    // Sum impact only from OPEN cards — lightweight UI aggregation on pre-fetched data
+    let totalImpact = 0;
+    for (const c of allCards) {
+      if (c.status === 'OPEN') totalImpact += (c.impact_amount || 0);
+    }
     
     return { p1Count, p2Count, p3Count, overdueCount, totalImpact };
   }, [allCards, groupedCards]);
