@@ -634,13 +634,20 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                               </tr>
                                             </thead>
                                             <tbody>
-                                              {sizeBreakdown.map((sz: any, idx: number) => (
+                                              {sizeBreakdown.map((sz: any, idx: number) => {
+                                                // Compute proportional source stock based on header source_on_hand
+                                                const headerSrc = cc.source_on_hand ?? cc.cw_available_before;
+                                                const totalRawSrc = sizeBreakdown.reduce((s: number, x: any) => s + (x.source_on_hand || 0), 0);
+                                                const proportionalSrc = headerSrc != null && totalRawSrc > 0
+                                                  ? Math.round((sz.source_on_hand || 0) / totalRawSrc * headerSrc)
+                                                  : sz.source_on_hand;
+                                                return (
                                                 <tr key={idx} className="border-b last:border-b-0 hover:bg-accent/20">
                                                   <td className="px-3 py-1.5 font-mono font-semibold">{sz.size || sz.size_code || '—'}</td>
                                                   <td className="px-3 py-1.5 text-right font-mono font-semibold">{sz.qty || 0}</td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
-                                                    {sz.source_on_hand ?? '—'}
-                                                    {sz.source_on_hand != null && <span className="text-[10px] ml-1">(còn {(sz.source_on_hand || 0) - (sz.qty || 0)})</span>}
+                                                    {proportionalSrc ?? '—'}
+                                                    {proportionalSrc != null && <span className="text-[10px] ml-1">(còn {(proportionalSrc || 0) - (sz.qty || 0)})</span>}
                                                   </td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {sz.dest_on_hand ?? '—'}
@@ -655,7 +662,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                                     </span>
                                                   </td>
                                                 </tr>
-                                              ))}
+                                                );
+                                              })}
                                             </tbody>
                                           </table>
                                         </div>
