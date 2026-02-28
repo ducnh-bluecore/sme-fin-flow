@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Package, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Package, AlertTriangle, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,7 +13,6 @@ import { useQuery } from '@tanstack/react-query';
 import type { SizeHealthDetailRow } from '@/hooks/inventory/useSizeHealthGroups';
 
 interface Props {
-  /** All broken/risk products from health groups */
   products: SizeHealthDetailRow[];
   fcNames?: Map<string, string>;
   onLoadMore?: () => void;
@@ -25,6 +25,12 @@ interface SizeStoreEntry {
   size_code: string;
   store_name: string;
   on_hand: number;
+}
+
+interface SearchResult {
+  id: string;
+  fc_name: string;
+  fc_code: string;
 }
 
 const CURVE_LABELS: Record<string, { label: string; className: string }> = {
@@ -51,7 +57,7 @@ function SizeMatrix({ fcId }: { fcId: string }) {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <Skeleton className="h-20 w-full" />;
+  if (isLoading) return <div className="p-4"><Skeleton className="h-20 w-full" /></div>;
 
   const entries = data?.entries || [];
   const summary = data?.summary || [];
@@ -60,7 +66,6 @@ function SizeMatrix({ fcId }: { fcId: string }) {
     return <p className="text-xs text-muted-foreground py-3 px-4">Không có dữ liệu tồn kho cho sản phẩm này.</p>;
   }
 
-  // Build matrix: rows = stores, cols = sizes
   const sizeOrder = summary.map(s => s.size_code);
   const storeMap = new Map<string, Map<string, number>>();
   const storeTotals = new Map<string, number>();
@@ -71,10 +76,8 @@ function SizeMatrix({ fcId }: { fcId: string }) {
     storeTotals.set(e.store_name, (storeTotals.get(e.store_name) || 0) + e.on_hand);
   }
 
-  // Sort stores by total desc
   const storeNames = Array.from(storeMap.keys()).sort((a, b) => (storeTotals.get(b) || 0) - (storeTotals.get(a) || 0));
 
-  // Detect broken sizes per store (store has some sizes but missing others)
   const hasBrokenSize = (storeSizes: Map<string, number>) => {
     const presentCount = sizeOrder.filter(s => (storeSizes.get(s) || 0) > 0).length;
     return presentCount > 0 && presentCount < sizeOrder.length;
@@ -100,13 +103,11 @@ function SizeMatrix({ fcId }: { fcId: string }) {
             const isBroken = hasBrokenSize(sizes);
             return (
               <TableRow key={store} className={isBroken ? 'bg-red-50/50 dark:bg-red-950/10' : ''}>
-                <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">
-                  {store}
-                </TableCell>
+                <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{store}</TableCell>
                 {sizeOrder.map(size => {
                   const qty = sizes.get(size) || 0;
                   return (
-                    <TableCell key={size} className={`text-center text-xs font-mono ${qty === 0 ? 'text-red-500 font-bold' : 'text-foreground'}`}>
+                    <TableCell key={size} className={`text-center text-xs font-mono ${qty === 0 ? 'text-destructive font-bold' : 'text-foreground'}`}>
                       {qty === 0 ? '✗' : qty}
                     </TableCell>
                   );
@@ -126,7 +127,6 @@ function SizeMatrix({ fcId }: { fcId: string }) {
               </TableRow>
             );
           })}
-          {/* Summary row */}
           <TableRow className="bg-muted/50 font-semibold">
             <TableCell className="text-xs sticky left-0 bg-muted/50 z-10">Tổng hệ thống</TableCell>
             {sizeOrder.map(size => {
@@ -146,6 +146,23 @@ function SizeMatrix({ fcId }: { fcId: string }) {
 export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, isLoadingMore, hasMore }: Props) {
   const [expandedFc, setExpandedFc] = useState<Set<string>>(new Set());
   const [filterState, setFilterState] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+
+  // Search all FCs from DB when user types a search term
+  const { data: searchResults = [] } = useQuery({
+    queryKey: ['fc-search', tenantId, searchTerm],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery('inv_family_codes' as any, 'id,fc_name,fc_code')
+        .ilike('fc_name', `%${searchTerm}%`)
+        .eq('is_active', true)
+        .limit(30);
+      if (error) throw error;
+      return (data || []) as unknown as SearchResult[];
+    },
+    enabled: isReady && !!tenantId && searchTerm.length >= 2,
+    staleTime: 30 * 1000,
+  });
 
   const toggleFc = useCallback((fcId: string) => {
     setExpandedFc(prev => {
@@ -155,12 +172,14 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
     });
   }, []);
 
+  // When searching, show search results; otherwise show health-based list
+  const isSearching = searchTerm.length >= 2;
+
   const filtered = useMemo(() => {
     if (filterState === 'all') return products;
     return products.filter(p => p.curve_state === filterState);
   }, [products, filterState]);
 
-  // Count by state
   const stateCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const p of products) {
@@ -168,6 +187,41 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
     }
     return counts;
   }, [products]);
+
+  const renderProductRow = (id: string, name: string, curveState?: string, healthScore?: number, lostRevenue?: number, cashLocked?: number) => {
+    const isOpen = expandedFc.has(id);
+    const curveConfig = curveState ? CURVE_LABELS[curveState] : null;
+
+    return (
+      <Collapsible key={id} open={isOpen} onOpenChange={() => toggleFc(id)}>
+        <CollapsibleTrigger className="w-full">
+          <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
+            <div className="flex items-center gap-3">
+              {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              <span className="font-medium text-sm text-left">{name}</span>
+              {curveConfig && <Badge variant="outline" className={`text-[10px] ${curveConfig.className}`}>{curveConfig.label}</Badge>}
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              {healthScore != null && (
+                <span className="text-muted-foreground">
+                  Health: <strong className={healthScore < 60 ? 'text-destructive' : healthScore < 80 ? 'text-amber-600' : 'text-emerald-600'}>
+                    {Math.round(healthScore)}
+                  </strong>
+                </span>
+              )}
+              {(lostRevenue ?? 0) > 0 && <span className="text-destructive">Lost: {formatVNDCompact(lostRevenue!)}</span>}
+              {(cashLocked ?? 0) > 0 && <span className="text-amber-600">Lock: {formatVNDCompact(cashLocked!)}</span>}
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="ml-4 mt-1 border rounded-md overflow-hidden">
+            <SizeMatrix fcId={id} />
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
 
   return (
     <Card>
@@ -177,83 +231,84 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
             <Package className="h-4 w-4" />
             Tồn Kho Theo Sản Phẩm — Ma Trận Size × Cửa Hàng
           </CardTitle>
-          <span className="text-xs text-muted-foreground">{filtered.length} sản phẩm</span>
+          <span className="text-xs text-muted-foreground">
+            {isSearching ? `${searchResults.length} kết quả` : `${filtered.length} sản phẩm`}
+          </span>
         </div>
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          <Badge
-            variant={filterState === 'all' ? 'default' : 'outline'}
-            className="cursor-pointer text-[10px]"
-            onClick={() => setFilterState('all')}
-          >
-            Tất cả ({products.length})
-          </Badge>
-          {Object.entries(CURVE_LABELS).map(([state, cfg]) => (
-            stateCounts[state] ? (
-              <Badge
-                key={state}
-                variant="outline"
-                className={`cursor-pointer text-[10px] ${filterState === state ? cfg.className + ' ring-1 ring-offset-1' : ''}`}
-                onClick={() => setFilterState(state)}
-              >
-                {cfg.label} ({stateCounts[state]})
-              </Badge>
-            ) : null
-          ))}
+
+        {/* Search */}
+        <div className="relative mt-2">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Tìm sản phẩm (nhập ít nhất 2 ký tự)..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-8 h-8 text-xs"
+          />
         </div>
+
+        {/* Filter badges — only show when not searching */}
+        {!isSearching && (
+          <div className="flex gap-1.5 mt-2 flex-wrap">
+            <Badge
+              variant={filterState === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer text-[10px]"
+              onClick={() => setFilterState('all')}
+            >
+              Tất cả ({products.length})
+            </Badge>
+            {Object.entries(CURVE_LABELS).map(([state, cfg]) => (
+              stateCounts[state] ? (
+                <Badge
+                  key={state}
+                  variant="outline"
+                  className={`cursor-pointer text-[10px] ${filterState === state ? cfg.className + ' ring-1 ring-offset-1' : ''}`}
+                  onClick={() => setFilterState(state)}
+                >
+                  {cfg.label} ({stateCounts[state]})
+                </Badge>
+              ) : null
+            ))}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-1.5 pt-0">
-        {filtered.map(product => {
-          const isOpen = expandedFc.has(product.product_id);
-          const name = fcNames?.get(product.product_id) || product.product_name || product.product_id?.slice(0, 12);
-          const curveConfig = CURVE_LABELS[product.curve_state] || CURVE_LABELS.watch;
+        {/* Search results */}
+        {isSearching ? (
+          searchResults.length > 0 ? (
+            searchResults.map(fc => renderProductRow(fc.id, fc.fc_name || fc.fc_code || fc.id))
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Không tìm thấy sản phẩm "{searchTerm}"
+            </div>
+          )
+        ) : (
+          <>
+            {filtered.map(product => renderProductRow(
+              product.product_id,
+              fcNames?.get(product.product_id) || product.product_name || product.product_id?.slice(0, 12),
+              product.curve_state,
+              product.size_health_score,
+              product.lost_revenue_est,
+              product.cash_locked_value,
+            ))}
 
-          return (
-            <Collapsible key={product.product_id} open={isOpen} onOpenChange={() => toggleFc(product.product_id)}>
-              <CollapsibleTrigger className="w-full">
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-3">
-                    {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                    <span className="font-medium text-sm text-left">{name}</span>
-                    <Badge variant="outline" className={`text-[10px] ${curveConfig.className}`}>{curveConfig.label}</Badge>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-muted-foreground">
-                      Health: <strong className={product.size_health_score < 60 ? 'text-red-600' : product.size_health_score < 80 ? 'text-amber-600' : 'text-emerald-600'}>
-                        {Math.round(product.size_health_score)}
-                      </strong>
-                    </span>
-                    {product.lost_revenue_est > 0 && (
-                      <span className="text-red-600">Lost: {formatVNDCompact(product.lost_revenue_est)}</span>
-                    )}
-                    {product.cash_locked_value > 0 && (
-                      <span className="text-amber-600">Lock: {formatVNDCompact(product.cash_locked_value)}</span>
-                    )}
-                  </div>
-                </div>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="ml-4 mt-1 border rounded-md overflow-hidden">
-                  <SizeMatrix fcId={product.product_id} />
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
+            {hasMore && (
+              <button
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="w-full py-2 text-xs text-primary hover:underline disabled:opacity-50"
+              >
+                {isLoadingMore ? 'Đang tải...' : 'Tải thêm sản phẩm'}
+              </button>
+            )}
 
-        {hasMore && (
-          <button
-            onClick={onLoadMore}
-            disabled={isLoadingMore}
-            className="w-full py-2 text-xs text-primary hover:underline disabled:opacity-50"
-          >
-            {isLoadingMore ? 'Đang tải...' : 'Tải thêm sản phẩm'}
-          </button>
-        )}
-
-        {filtered.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground text-sm">
-            Không có sản phẩm nào trong nhóm này.
-          </div>
+            {filtered.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Không có sản phẩm nào trong nhóm này.
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
