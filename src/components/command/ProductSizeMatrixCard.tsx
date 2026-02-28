@@ -148,7 +148,7 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
   const [expandedFc, setExpandedFc] = useState<Set<string>>(new Set());
   const [filterState, setFilterState] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [createdAfterMonths, setCreatedAfterMonths] = useState<string>('12');
+  const [createdAfterMonths, setCreatedAfterMonths] = useState<string>('all');
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // Search all FCs from DB when user types a search term
@@ -338,7 +338,9 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
 
             {filtered.length === 0 && (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                Không có sản phẩm nào trong nhóm này.
+                {createdAfterMonths === 'all'
+                  ? 'Không có sản phẩm nào trong nhóm này.'
+                  : 'Không có sản phẩm trong khoảng ngày tạo đã chọn. Hãy đổi bộ lọc ngày.'}
               </div>
             )}
           </>
