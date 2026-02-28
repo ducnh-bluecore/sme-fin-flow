@@ -49,58 +49,92 @@ function priorityRank(p: string): number {
   return PRIORITY_ORDER[p] ?? 3;
 }
 
-/** Generate rule-based note explaining the transfer logic */
-function generateRuleNote(s: RebalanceSuggestion, destTier: string): string {
+interface RuleCheck {
+  label: string;
+  passed: boolean;
+  detail: string;
+}
+
+/** Generate rule-based checklist explaining the transfer logic */
+function generateRuleChecks(s: RebalanceSuggestion, destTier: string): RuleCheck[] {
   const reason = (s.reason || '').toLowerCase();
   const transferType = s.transfer_type || '';
   const cc = (s as any).constraint_checks || {};
-  const notes: string[] = [];
+  const checks: RuleCheck[] = [];
 
   // Transfer flow rule (A2)
   if (transferType === 'lateral') {
-    notes.push('📋 Rule A2-TH2: Điều CH→CH do tồn CNTT thấp (lấy từ CH bán chậm → CH bán tốt/đứt size)');
-    // Check BST new restriction
-    if (/age\s*[<>]\s*60|bst.*mới|new.*collection/i.test(reason)) {
-      notes.push('⚠️ Lưu ý: Hạn chế điều BST mới (age < 60d) giữa các CH để đảm bảo trưng bày đồng bộ');
-    }
+    const bstNew = /age\s*[<>]\s*60|bst.*mới|new.*collection/i.test(reason);
+    checks.push({
+      label: 'Rule A2-TH2: Điều CH→CH',
+      passed: !bstNew,
+      detail: bstNew
+        ? 'BST mới (age < 60d) – hạn chế điều giữa CH'
+        : 'Tồn CNTT thấp → lấy từ CH bán chậm',
+    });
   } else {
-    notes.push('📋 Rule A2-TH1: Điều CNTT→CH do tồn CNTT đủ');
+    checks.push({
+      label: 'Rule A2-TH1: Điều CNTT→CH',
+      passed: true,
+      detail: 'Tồn CNTT đủ để chia',
+    });
   }
 
   // Allocation tier rule (A1)
-  const tierNote: Record<string, string> = {
-    S: 'Tier S – ưu tiên nhận hàng đầu tiên (Rule A1: FC > 40 → chia S)',
-    A: 'Tier A – ưu tiên nhận hàng thứ 2 (Rule A1: FC > 40 → chia A)',
-    B: 'Tier B – nhận hàng khi FC > 60 (Rule A1: FC 60-80 → chia S,A,B)',
-    C: 'Tier C – chỉ nhận khi FC > 80 (Rule A1: FC > 80 → chia tất cả)',
+  const tierRules: Record<string, { fc: string; passed: boolean }> = {
+    S: { fc: 'FC > 40 → chia S', passed: true },
+    A: { fc: 'FC > 40 → chia A', passed: true },
+    B: { fc: 'FC 60-80 → chia S,A,B', passed: true },
+    C: { fc: 'FC > 80 → chia tất cả', passed: true },
   };
-  if (tierNote[destTier]) {
-    notes.push(`🏪 ${tierNote[destTier]}`);
+  const tierRule = tierRules[destTier];
+  if (tierRule) {
+    checks.push({
+      label: `Tier ${destTier} – ${tierRule.fc}`,
+      passed: tierRule.passed,
+      detail: `Kho đích thuộc Tier ${destTier}`,
+    });
   }
 
-  // Reason classification (B2 product categorization)
+  // Reason classification
   if (/stockout|hết hàng|đứt size|size.?break|lẻ size/i.test(reason)) {
-    notes.push('🔴 Phân loại: Bán chạy/Lẻ size → Ưu tiên bổ sung size thiếu');
+    checks.push({ label: 'Bán chạy / Lẻ size', passed: true, detail: 'Ưu tiên bổ sung size thiếu' });
   } else if (/slow.*extend|chậm.*kéo dài|>?\s*90\s*d/i.test(reason)) {
-    notes.push('🟡 Phân loại: Bán chậm kéo dài (>90d) → Điều sang CH tốt hơn hoặc thu hồi CNTT');
+    checks.push({ label: 'Bán chậm kéo dài (>90d)', passed: false, detail: 'Nên điều sang CH tốt hơn hoặc thu hồi' });
   } else if (/slow|bán chậm/i.test(reason)) {
-    notes.push('🟠 Phân loại: Bán chậm → Theo dõi thêm 2 tuần trưng bày');
+    checks.push({ label: 'Bán chậm', passed: false, detail: 'Theo dõi thêm 2 tuần trưng bày' });
   } else if (/V1|phủ nền|BST|allocation/i.test(reason)) {
-    notes.push('🟢 Phân loại: Phủ nền BST → Chia đều ra CH trưng bán');
+    checks.push({ label: 'Phủ nền BST', passed: true, detail: 'Chia đều ra CH trưng bán' });
   } else if (/velocity|tốc độ bán|demand/i.test(reason)) {
-    notes.push('🔵 Phân loại: Velocity cao → Bổ sung theo nhu cầu thực tế');
+    checks.push({ label: 'Velocity cao', passed: true, detail: 'Bổ sung theo nhu cầu thực tế' });
   }
 
-  // Source protection (Smart Transfer guardrail)
+  // Source protection guardrail
   const srcOnHand = cc.source_on_hand ?? cc.cw_available_before;
   if (srcOnHand != null) {
     const remaining = srcOnHand - (s.qty || 0);
-    if (remaining < 3) {
-      notes.push('⚠️ Rào chắn: Kho nguồn còn < 3 units sau chuyển – cân nhắc giảm SL');
-    }
+    checks.push({
+      label: 'Bảo vệ kho nguồn (≥3 units)',
+      passed: remaining >= 3,
+      detail: remaining >= 3
+        ? `Còn ${remaining} units sau chuyển`
+        : `Chỉ còn ${remaining} units – cân nhắc giảm SL`,
+    });
   }
 
-  return notes.join('\n');
+  // DOC check
+  const docAfter = cc.doc_after_transfer;
+  if (docAfter != null) {
+    checks.push({
+      label: 'DOC sau chuyển ≥ 14 ngày',
+      passed: docAfter >= 14,
+      detail: docAfter >= 14
+        ? `DOC dự kiến: ${docAfter} ngày`
+        : `DOC chỉ ${docAfter} ngày – nguy cơ thiếu hàng nguồn`,
+    });
+  }
+
+  return checks;
 }
 
 
@@ -563,13 +597,23 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                       </div>
                                     </div>
 
-                                    {/* Rule-based note */}
+                                    {/* Rule-based checklist */}
                                     <div className="p-3 rounded-md bg-card border border-border/50">
                                       <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide flex items-center gap-1.5">
-                                        📖 Rule Note
+                                        📖 Rule Check
                                       </h4>
-                                      <div className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
-                                        {generateRuleNote(s, group.tier)}
+                                      <div className="space-y-1">
+                                        {generateRuleChecks(s, group.tier).map((check, ci) => (
+                                          <div key={ci} className="flex items-start gap-2 text-xs">
+                                            <span className={`shrink-0 font-bold ${check.passed ? 'text-emerald-500' : 'text-destructive'}`}>
+                                              {check.passed ? '✓' : '✗'}
+                                            </span>
+                                            <span className="text-muted-foreground">
+                                              <span className="font-medium text-foreground/80">{check.label}</span>
+                                              {' – '}{check.detail}
+                                            </span>
+                                          </div>
+                                        ))}
                                       </div>
                                     </div>
 
