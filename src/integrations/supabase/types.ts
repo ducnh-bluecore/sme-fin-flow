@@ -41708,6 +41708,7 @@ export type Database = {
               product_id: string
               product_name: string
               size_health_score: number
+              total_on_hand: number
             }[]
           }
       fn_store_breakdown_comparison: {

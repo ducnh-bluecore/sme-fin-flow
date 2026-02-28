@@ -29,6 +29,7 @@ export interface SizeHealthDetailRow {
   markdown_risk_score: number;
   markdown_eta_days: number | null;
   product_created_date: string | null;
+  total_on_hand: number;
 }
 
 const STATE_ORDER = ['broken', 'risk', 'watch', 'healthy'] as const;

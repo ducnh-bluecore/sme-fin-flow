@@ -36,6 +36,7 @@ interface SearchResult {
 
 const CURVE_LABELS: Record<string, { label: string; className: string }> = {
   broken: { label: 'Lẻ size', className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  out_of_stock: { label: 'Hết hàng', className: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400' },
   risk: { label: 'Rủi ro', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
   watch: { label: 'Theo dõi', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
   healthy: { label: 'Tốt', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
