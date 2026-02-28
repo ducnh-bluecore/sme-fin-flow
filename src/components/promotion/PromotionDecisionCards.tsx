@@ -22,14 +22,14 @@ export const PromotionDecisionCards = ({ roiData, summary }: PromotionDecisionCa
   const bestCampaign = campaignsToScale.sort((a, b) => b.roas - a.roas)[0];
 
   // Calculate potential loss from low performers
-  const potentialLoss = campaignsToKill.reduce((sum, c) => {
-    // If ROAS < 1, calculate actual loss
+  let potentialLoss = 0;
+  for (const c of campaignsToKill) {
     if (c.roas < 1) {
-      return sum + (c.promotion.actual_cost - c.totalRevenue);
+      potentialLoss += (c.promotion.actual_cost - c.totalRevenue);
+    } else {
+      potentialLoss += (c.promotion.actual_cost * 0.3);
     }
-    // If ROAS < 3, calculate opportunity cost (could get better returns elsewhere)
-    return sum + (c.promotion.actual_cost * 0.3); // 30% of spend as opportunity cost
-  }, 0);
+  }
 
   // Budget utilization status
   const budgetStatus = summary.budgetUtilization > 90 

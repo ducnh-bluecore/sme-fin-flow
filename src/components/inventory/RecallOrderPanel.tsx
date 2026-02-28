@@ -69,14 +69,16 @@ export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, 
     for (const [storeId, items] of map) {
       const meta = storeMap[storeId];
       const avgPrice = 350000;
+      let qty = 0, val = 0;
+      for (const s of items) { qty += s.qty; val += s.qty * avgPrice; }
       groups.push({
         storeId,
         storeName: items[0]?.from_location_name || meta?.region || storeId,
         tier: meta?.tier || '',
         region: meta?.region || '',
-        totalQty: items.reduce((sum, s) => sum + s.qty, 0),
+        totalQty: qty,
         fcCount: new Set(items.map(s => s.fc_id)).size,
-        totalValue: items.reduce((sum, s) => sum + s.qty * avgPrice, 0),
+        totalValue: val,
         reasonSummary: summarizeRecallReasons(items),
         suggestions: items,
       });
@@ -85,8 +87,8 @@ export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, 
     return groups.sort((a, b) => b.totalValue - a.totalValue);
   }, [recallSuggestions, storeMap]);
 
-  const totalUnits = storeGroups.reduce((s, g) => s + g.totalQty, 0);
-  const totalValue = storeGroups.reduce((s, g) => s + g.totalValue, 0);
+  let totalUnits = 0, totalValue = 0;
+  for (const g of storeGroups) { totalUnits += g.totalQty; totalValue += g.totalValue; }
 
   const handleApproveAll = () => {
     const allIds = recallSuggestions.map(s => s.id);

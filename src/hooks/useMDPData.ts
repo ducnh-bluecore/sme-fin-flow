@@ -386,12 +386,13 @@ export function useMDPData() {
   }, [campaignsQuery.data]);
 
   const funnelData = useMemo<FunnelStage[]>(() => {
-    const totals = marketingPerformance.reduce((acc, c) => ({
-      impressions: acc.impressions + c.impressions,
-      clicks: acc.clicks + c.clicks,
-      leads: acc.leads + c.leads,
-      orders: acc.orders + c.orders,
-    }), { impressions: 0, clicks: 0, leads: 0, orders: 0 });
+    const totals = { impressions: 0, clicks: 0, leads: 0, orders: 0 };
+    for (const c of marketingPerformance) {
+      totals.impressions += c.impressions;
+      totals.clicks += c.clicks;
+      totals.leads += c.leads;
+      totals.orders += c.orders;
+    }
 
     return [
       {
@@ -495,25 +496,22 @@ export function useMDPData() {
   // Calculate real settlements data
   const settlementsTotals = useMemo(() => {
     const settlements = settlementsQuery.data || [];
-    return settlements.reduce((acc, s) => ({
-      gross_sales: acc.gross_sales + (s.gross_sales || 0),
-      total_commission: acc.total_commission + (s.total_commission || 0),
-      total_shipping_fee: acc.total_shipping_fee + (s.total_shipping_fee || 0),
-      total_payment_fee: acc.total_payment_fee + (s.total_payment_fee || 0),
-      total_service_fee: acc.total_service_fee + (s.total_service_fee || 0),
-      total_refunds: acc.total_refunds + (s.total_refunds || 0),
-      net_amount: acc.net_amount + (s.net_amount || 0),
-      total_orders: acc.total_orders + (s.total_orders || 0),
-    }), {
-      gross_sales: 0,
-      total_commission: 0,
-      total_shipping_fee: 0,
-      total_payment_fee: 0,
-      total_service_fee: 0,
-      total_refunds: 0,
-      net_amount: 0,
-      total_orders: 0,
-    });
+    const acc = {
+      gross_sales: 0, total_commission: 0, total_shipping_fee: 0,
+      total_payment_fee: 0, total_service_fee: 0, total_refunds: 0,
+      net_amount: 0, total_orders: 0,
+    };
+    for (const s of settlements) {
+      acc.gross_sales += (s.gross_sales || 0);
+      acc.total_commission += (s.total_commission || 0);
+      acc.total_shipping_fee += (s.total_shipping_fee || 0);
+      acc.total_payment_fee += (s.total_payment_fee || 0);
+      acc.total_service_fee += (s.total_service_fee || 0);
+      acc.total_refunds += (s.total_refunds || 0);
+      acc.net_amount += (s.net_amount || 0);
+      acc.total_orders += (s.total_orders || 0);
+    }
+    return acc;
   }, [settlementsQuery.data]);
 
   const profitAttribution = useMemo<ProfitAttribution[]>(() => {
@@ -542,8 +540,9 @@ export function useMDPData() {
       // Attribution: proportionally distribute total COGS based on campaign revenue share
       let cogs: number;
       if (hasRealCOGS) {
-        const totalCOGS = Object.values(cogsLookup).reduce((sum, v) => sum + v.cogs, 0);
-        const totalRev = Object.values(cogsLookup).reduce((sum, v) => sum + v.revenue, 0);
+        let totalCOGS = 0;
+        let totalRev = 0;
+        for (const v of Object.values(cogsLookup)) { totalCOGS += v.cogs; totalRev += v.revenue; }
         const cogsRatio = totalRev > 0 ? totalCOGS / totalRev : 0;
         cogs = netRevenue * cogsRatio;
         console.warn('[MDP] No real COGS data - using derived ratio. Please import order_items with unit_cogs for accurate CM.');
@@ -558,7 +557,8 @@ export function useMDPData() {
       let platformFees: number;
       if (hasRealFees) {
         const totalFees = feesByType.commission + feesByType.service;
-        const totalCampaignRevenue = activeCampaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
+        let totalCampaignRevenue = 0;
+        for (const c of activeCampaigns) totalCampaignRevenue += (c.total_revenue || 0);
         const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
         platformFees = totalFees * revenueShare;
       } else if (hasRealSettlements) {
@@ -579,7 +579,8 @@ export function useMDPData() {
       let logisticsCost: number;
       if (hasRealFees) {
         const totalShipping = feesByType.shipping;
-        const totalCampaignOrders = activeCampaigns.reduce((sum, c) => sum + (c.total_orders || 0), 0);
+        let totalCampaignOrders = 0;
+        for (const c of activeCampaigns) totalCampaignOrders += (c.total_orders || 0);
         const orderShare = totalCampaignOrders > 0 ? orders / totalCampaignOrders : 1 / totalCampaigns;
         logisticsCost = totalShipping * orderShare;
       } else if (hasRealSettlements) {
@@ -595,8 +596,9 @@ export function useMDPData() {
       let paymentFees: number;
       if (hasRealFees) {
         const totalPaymentFees = feesByType.payment;
-        const totalCampaignRevenue = activeCampaigns.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
-        const revenueShare = totalCampaignRevenue > 0 ? netRevenue / totalCampaignRevenue : 1 / totalCampaigns;
+        let totalCampaignRevenue2 = 0;
+        for (const c of activeCampaigns) totalCampaignRevenue2 += (c.total_revenue || 0);
+        const revenueShare = totalCampaignRevenue2 > 0 ? netRevenue / totalCampaignRevenue2 : 1 / totalCampaigns;
         paymentFees = totalPaymentFees * revenueShare;
       } else if (hasRealSettlements) {
         const paymentRatio = settlementsTotals.gross_sales > 0 
@@ -781,12 +783,11 @@ export function useMDPData() {
   // === SUMMARIES ===
 
   const marketingModeSummary = useMemo<MarketingModeSummary>(() => {
-    const totalSpend = marketingPerformance.reduce((sum, c) => sum + c.spend, 0);
-    const totalLeads = marketingPerformance.reduce((sum, c) => sum + c.leads, 0);
-    const totalOrders = marketingPerformance.reduce((sum, c) => sum + c.orders, 0);
-    const totalRevenue = marketingPerformance.reduce((sum, c) => sum + c.revenue, 0);
-    const totalImpressions = marketingPerformance.reduce((sum, c) => sum + c.impressions, 0);
-    const totalClicks = marketingPerformance.reduce((sum, c) => sum + c.clicks, 0);
+    let totalSpend = 0, totalLeads = 0, totalOrders = 0, totalRevenue = 0, totalImpressions = 0, totalClicks = 0;
+    for (const c of marketingPerformance) {
+      totalSpend += c.spend; totalLeads += c.leads; totalOrders += c.orders;
+      totalRevenue += c.revenue; totalImpressions += c.impressions; totalClicks += c.clicks;
+    }
 
     return {
       total_spend: totalSpend,
@@ -803,14 +804,17 @@ export function useMDPData() {
   }, [marketingPerformance, executionAlerts]);
 
   const cmoModeSummary = useMemo<CMOModeSummary>(() => {
-    const totalSpend = profitAttribution.reduce((sum, c) => sum + c.ad_spend, 0);
-    const totalGrossRevenue = profitAttribution.reduce((sum, c) => sum + c.gross_revenue, 0);
-    const totalNetRevenue = profitAttribution.reduce((sum, c) => sum + c.net_revenue, 0);
-    const totalCM = profitAttribution.reduce((sum, c) => sum + c.contribution_margin, 0);
+    let totalSpend = 0, totalGrossRevenue = 0, totalNetRevenue = 0, totalCM = 0;
+    for (const c of profitAttribution) {
+      totalSpend += c.ad_spend; totalGrossRevenue += c.gross_revenue;
+      totalNetRevenue += c.net_revenue; totalCM += c.contribution_margin;
+    }
 
-    const totalCashReceived = cashImpact.reduce((sum, c) => sum + c.cash_received, 0);
-    const totalCashPending = cashImpact.reduce((sum, c) => sum + c.pending_cash, 0);
-    const totalCashLocked = cashImpact.reduce((sum, c) => sum + c.cash_locked_ads, 0);
+    let totalCashReceived = 0, totalCashPending = 0, totalCashLocked = 0;
+    for (const c of cashImpact) {
+      totalCashReceived += c.cash_received; totalCashPending += c.pending_cash;
+      totalCashLocked += c.cash_locked_ads;
+    }
     const totalCashRevenue = totalCashReceived + totalCashPending;
 
     return {
@@ -898,8 +902,9 @@ export function useMDPData() {
       }));
   }, [expensesQuery.data, campaignsQuery.data]);
 
-  const totalPlannedBudget = budgetPacingData.reduce((sum, d) => sum + d.plannedBudget, 0);
-  const totalActualSpend = budgetPacingData.reduce((sum, d) => sum + d.actualSpend, 0);
+  let totalPlannedBudget = 0;
+  let totalActualSpend = 0;
+  for (const d of budgetPacingData) { totalPlannedBudget += d.plannedBudget; totalActualSpend += d.actualSpend; }
 
   // Raw query results for data quality
   const rawQueryResults = {
