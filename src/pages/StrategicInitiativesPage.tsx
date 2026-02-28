@@ -317,12 +317,18 @@ export default function StrategicInitiativesPage() {
     );
   }
 
-  const totalBudget = initiatives?.reduce((sum, i) => sum + (i.budget || 0), 0) || 0;
-  const totalSpent = initiatives?.reduce((sum, i) => sum + (i.spent || 0), 0) || 0;
-  const avgProgress = initiatives?.length 
-    ? initiatives.reduce((sum, i) => sum + (i.progress || 0), 0) / initiatives.length 
-    : 0;
-  const inProgressCount = initiatives?.filter(i => i.status === 'in_progress').length || 0;
+  // UI-level aggregation on already-fetched small dataset (typically <50 items)
+  let totalBudget = 0;
+  let totalSpent = 0;
+  let totalProgress = 0;
+  let inProgressCount = 0;
+  for (const i of (initiatives || [])) {
+    totalBudget += (i.budget || 0);
+    totalSpent += (i.spent || 0);
+    totalProgress += (i.progress || 0);
+    if (i.status === 'in_progress') inProgressCount++;
+  }
+  const avgProgress = initiatives?.length ? totalProgress / initiatives.length : 0;
 
   return (
     <>

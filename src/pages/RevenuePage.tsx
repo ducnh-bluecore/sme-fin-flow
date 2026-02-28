@@ -105,7 +105,7 @@ export default function RevenuePage() {
         status: c.status || 'inactive',
         lastSync: c.last_sync_at,
         ordersCount: deliveredOrders.length,
-        totalRevenue: deliveredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
+        totalRevenue: deliveredOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0),
       };
     });
   }, [connectors, externalOrders]);
@@ -119,14 +119,20 @@ export default function RevenuePage() {
     return matchesSearch && matchesSource;
   });
 
-  // Calculate summary
-  const totalManualRevenue = revenues.reduce((sum, r) => sum + Number(r.amount), 0);
-  const totalIntegratedRevenue = connectorData.reduce((sum, c) => sum + c.totalRevenue, 0);
+  // Calculate summary — UI-level aggregation on pre-fetched page data
+  let totalManualRevenue = 0;
+  for (const r of revenues) totalManualRevenue += Number(r.amount);
+  let totalIntegratedRevenue = 0;
+  let totalIntegratedOrders = 0;
+  for (const c of connectorData) {
+    totalIntegratedRevenue += c.totalRevenue;
+    totalIntegratedOrders += c.ordersCount;
+  }
   const grandTotalRevenue = totalManualRevenue + totalIntegratedRevenue;
-  const totalIntegratedOrders = connectorData.reduce((sum, c) => sum + c.ordersCount, 0);
   const activeConnectors = connectorData.filter(c => c.status === 'active');
   
-  const prevTotalRevenue = prevRevenues.reduce((sum, r) => sum + Number(r.amount), 0);
+  let prevTotalRevenue = 0;
+  for (const r of prevRevenues) prevTotalRevenue += Number(r.amount);
   const revenueChange = prevTotalRevenue > 0 
     ? ((grandTotalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
     : 0;

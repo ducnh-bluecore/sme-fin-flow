@@ -41968,6 +41968,10 @@ export type Database = {
         Returns: Json
       }
       get_decision_audit_stats: { Args: { p_tenant_id: string }; Returns: Json }
+      get_decision_center_stats: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_decision_evidence: {
         Args: { p_decision_id: string }
         Returns: {
@@ -42197,6 +42201,7 @@ export type Database = {
         Returns: Json
       }
       get_reconciliation_stats: { Args: { p_tenant_id: string }; Returns: Json }
+      get_revenue_page_summary: { Args: { p_tenant_id: string }; Returns: Json }
       get_sku_cost_breakdown: {
         Args: {
           p_end_date?: string
@@ -42254,6 +42259,10 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: Json
       }
+      get_strategic_initiatives_summary: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_supplier_payment_optimization: {
         Args: { p_tenant_id: string }
         Returns: Json
@@ -42287,6 +42296,18 @@ export type Database = {
         Returns: Json
       }
       get_user_tenant_ids: { Args: { _user_id: string }; Returns: string[] }
+      get_variance_period_totals: {
+        Args: {
+          p_current_end: string
+          p_current_start: string
+          p_prior_end: string
+          p_prior_start: string
+          p_py_end: string
+          p_py_start: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       get_whatif_summary: {
         Args: {
           p_end_date: string

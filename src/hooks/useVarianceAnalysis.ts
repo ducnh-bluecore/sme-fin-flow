@@ -205,73 +205,26 @@ export function useGenerateVarianceAnalysis() {
         opexBudget = opexPlan ? Number(opexPlan[monthKey]) || 0 : 0;
       }
       
-      // ARCHITECTURE: Hook → View → Table (v_variance_orders_monthly → cdp_orders)
-      // v_expenses_by_category_monthly → expenses
-      let ordersQuery = client
-        .from('v_variance_orders_monthly' as any)
-        .select('month_start, monthly_revenue')
-        .eq('month_start', format(periodStart, 'yyyy-MM-dd'));
+      // ARCHITECTURE: DB-First — use RPC to aggregate revenue/expense totals
+      const { data: totals, error: totalsError } = await client.rpc('get_variance_period_totals' as any, {
+        p_tenant_id: tenantId,
+        p_current_start: format(periodStart, 'yyyy-MM-dd'),
+        p_current_end: format(periodEnd, 'yyyy-MM-dd'),
+        p_prior_start: format(priorPeriodStart, 'yyyy-MM-dd'),
+        p_prior_end: format(priorPeriodEnd, 'yyyy-MM-dd'),
+        p_py_start: format(priorYearStart, 'yyyy-MM-dd'),
+        p_py_end: format(priorYearEnd, 'yyyy-MM-dd'),
+      });
 
-      let expensesQuery = client
-        .from('v_expenses_by_category_monthly' as any)
-        .select('total_amount, category')
-        .gte('expense_date', format(periodStart, 'yyyy-MM-dd'))
-        .lte('expense_date', format(periodEnd, 'yyyy-MM-dd'));
+      if (totalsError) throw totalsError;
 
-      let priorOrdersQuery = client
-        .from('v_variance_orders_monthly' as any)
-        .select('month_start, monthly_revenue')
-        .eq('month_start', format(priorPeriodStart, 'yyyy-MM-dd'));
-
-      let priorExpensesQuery = client
-        .from('v_expenses_by_category_monthly' as any)
-        .select('total_amount')
-        .gte('expense_date', format(priorPeriodStart, 'yyyy-MM-dd'))
-        .lte('expense_date', format(priorPeriodEnd, 'yyyy-MM-dd'));
-
-      let pyOrdersQuery = client
-        .from('v_variance_orders_monthly' as any)
-        .select('month_start, monthly_revenue')
-        .eq('month_start', format(priorYearStart, 'yyyy-MM-dd'));
-
-      let pyExpensesQuery = client
-        .from('v_expenses_by_category_monthly' as any)
-        .select('total_amount')
-        .gte('expense_date', format(priorYearStart, 'yyyy-MM-dd'))
-        .lte('expense_date', format(priorYearEnd, 'yyyy-MM-dd'));
-
-      if (shouldAddTenantFilter) {
-        ordersQuery = ordersQuery.eq('tenant_id', tenantId);
-        expensesQuery = expensesQuery.eq('tenant_id', tenantId);
-        priorOrdersQuery = priorOrdersQuery.eq('tenant_id', tenantId);
-        priorExpensesQuery = priorExpensesQuery.eq('tenant_id', tenantId);
-        pyOrdersQuery = pyOrdersQuery.eq('tenant_id', tenantId);
-        pyExpensesQuery = pyExpensesQuery.eq('tenant_id', tenantId);
-      }
-
-      const [
-        { data: orders },
-        { data: expenses },
-        { data: priorOrders },
-        { data: priorExpenses },
-        { data: pyOrders },
-        { data: pyExpenses },
-      ] = await Promise.all([
-        ordersQuery,
-        expensesQuery,
-        priorOrdersQuery,
-        priorExpensesQuery,
-        pyOrdersQuery,
-        pyExpensesQuery,
-      ]);
-      
-      // Calculate totals from aggregated view data
-      const actualRevenue = (orders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
-      const actualExpense = (expenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
-      const priorRevenue = (priorOrders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
-      const priorExpense = (priorExpenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
-      const pyRevenue = (pyOrders as any[])?.reduce((sum, o) => sum + Number(o.monthly_revenue), 0) || 0;
-      const pyExpense = (pyExpenses as any[])?.reduce((sum, e) => sum + Number(e.total_amount), 0) || 0;
+      const rpcResult = totals as any;
+      const actualRevenue = Number(rpcResult?.actual_revenue) || 0;
+      const actualExpense = Number(rpcResult?.actual_expense) || 0;
+      const priorRevenue = Number(rpcResult?.prior_revenue) || 0;
+      const priorExpense = Number(rpcResult?.prior_expense) || 0;
+      const pyRevenue = Number(rpcResult?.py_revenue) || 0;
+      const pyExpense = Number(rpcResult?.py_expense) || 0;
       
       // Use scenario budget or fallback to actuals if no budget
       const finalRevenueBudget = revenueBudget || actualRevenue;
