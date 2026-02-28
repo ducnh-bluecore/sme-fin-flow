@@ -80,9 +80,10 @@ function SizeMatrix({ fcId }: { fcId: string }) {
 
   const storeNames = Array.from(storeMap.keys()).sort((a, b) => (storeTotals.get(b) || 0) - (storeTotals.get(a) || 0));
 
-  const hasBrokenSize = (storeSizes: Map<string, number>) => {
+  const getStoreStatus = (storeSizes: Map<string, number>, total: number): 'out_of_stock' | 'broken' | 'full' => {
+    if (total === 0) return 'out_of_stock';
     const presentCount = sizeOrder.filter(s => (storeSizes.get(s) || 0) > 0).length;
-    return presentCount > 0 && presentCount < sizeOrder.length;
+    return presentCount < sizeOrder.length ? 'broken' : 'full';
   };
 
   return (
@@ -102,9 +103,9 @@ function SizeMatrix({ fcId }: { fcId: string }) {
           {storeNames.map(store => {
             const sizes = storeMap.get(store)!;
             const total = storeTotals.get(store) || 0;
-            const isBroken = hasBrokenSize(sizes);
+            const status = getStoreStatus(sizes, total);
             return (
-              <TableRow key={store} className={isBroken ? 'bg-red-50/50 dark:bg-red-950/10' : ''}>
+              <TableRow key={store} className={status === 'broken' ? 'bg-red-50/50 dark:bg-red-950/10' : ''}>
                 <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{store}</TableCell>
                 {sizeOrder.map(size => {
                   const qty = sizes.get(size) || 0;
@@ -116,7 +117,11 @@ function SizeMatrix({ fcId }: { fcId: string }) {
                 })}
                 <TableCell className="text-center text-xs font-mono font-semibold">{total}</TableCell>
                 <TableCell className="text-center">
-                  {isBroken ? (
+                  {status === 'out_of_stock' ? (
+                    <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                      Hết hàng
+                    </Badge>
+                  ) : status === 'broken' ? (
                     <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
                       <AlertTriangle className="h-3 w-3 mr-0.5" /> Lẻ size
                     </Badge>
