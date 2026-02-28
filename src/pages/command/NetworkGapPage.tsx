@@ -52,10 +52,9 @@ export default function NetworkGapPage() {
   // Lọc bỏ dữ liệu lỗi: chỉ giữ rows thực sự thiếu hàng hoặc có doanh thu rủi ro
   const validRows = (gapRows || []).filter((r: any) => (r.true_shortage_units || 0) > 0 || (r.revenue_at_risk || 0) > 0);
   
-  const totalShortage = validRows.reduce((s: number, r: any) => s + (r.true_shortage_units || 0), 0);
-  const totalRevenueAtRisk = validRows.reduce((s: number, r: any) => s + (r.revenue_at_risk || 0), 0);
-  const totalNetGap = validRows.reduce((s: number, r: any) => s + (r.net_gap_units || 0), 0);
-  const totalReallocatable = (gapRows || []).reduce((s: number, r: any) => s + (r.reallocatable_units || 0), 0);
+  let totalShortage = 0, totalRevenueAtRisk = 0, totalNetGap = 0, totalReallocatable = 0;
+  for (const r of validRows) { totalShortage += (r.true_shortage_units || 0); totalRevenueAtRisk += (r.revenue_at_risk || 0); totalNetGap += (r.net_gap_units || 0); }
+  for (const r of (gapRows || [])) { totalReallocatable += ((r as any).reallocatable_units || 0); }
   const stylesAffected = validRows.length;
   const stylesNeedProduction = validRows.filter((r: any) => (r.true_shortage_units || 0) > 0).length;
 

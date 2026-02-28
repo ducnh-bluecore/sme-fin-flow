@@ -84,11 +84,11 @@ export function ExtendedAlertConfigDialog({ open, onOpenChange }: ExtendedAlertC
     await initDefaults.mutateAsync();
   };
 
-  const categorizedConfigs = configs.reduce((acc, config) => {
-    if (!acc[config.category]) acc[config.category] = [];
-    acc[config.category].push(config);
-    return acc;
-  }, {} as Record<AlertCategory, ExtendedAlertConfigInput[]>);
+  const categorizedConfigs: Record<string, ExtendedAlertConfigInput[]> = {};
+  for (const config of configs) {
+    if (!categorizedConfigs[config.category]) categorizedConfigs[config.category] = [];
+    categorizedConfigs[config.category].push(config);
+  }
 
   const formatThreshold = (config: ExtendedAlertConfigInput) => {
     if (!config.threshold_value) return '';

@@ -183,15 +183,11 @@ const mockHistoryData = [
 const generateAIInsights = (alerts: MarketingRiskAlert[]) => {
   const insights: { type: 'warning' | 'info' | 'success'; title: string; description: string }[] = [];
   
-  const typeCount = alerts.reduce((acc, a) => {
-    acc[a.type] = (acc[a.type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const typeCount: Record<string, number> = {};
+  for (const a of alerts) { typeCount[a.type] = (typeCount[a.type] || 0) + 1; }
   
-  const channelCount = alerts.reduce((acc, a) => {
-    acc[a.channel] = (acc[a.channel] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  const channelCount: Record<string, number> = {};
+  for (const a of alerts) { channelCount[a.channel] = (channelCount[a.channel] || 0) + 1; }
 
   // Pattern: Multiple negative margin alerts
   if ((typeCount['negative_margin'] || 0) >= 2) {
@@ -310,16 +306,17 @@ export default function RiskAlertsPage() {
   }, [riskAlerts, searchQuery, severityFilter, typeFilter, sortBy]);
 
   // Stats
-  const stats = useMemo(() => ({
-    total: riskAlerts.length,
-    critical: riskAlerts.filter(a => a.severity === 'critical').length,
-    warning: riskAlerts.filter(a => a.severity === 'warning').length,
-    totalImpact: riskAlerts.reduce((sum, a) => sum + a.impact_amount, 0),
-    byType: Object.keys(RISK_TYPE_CONFIG).reduce((acc, type) => {
-      acc[type] = riskAlerts.filter(a => a.type === type).length;
-      return acc;
-    }, {} as Record<string, number>),
-  }), [riskAlerts]);
+  const stats = useMemo(() => {
+    let totalImpact = 0, critical = 0, warning = 0;
+    for (const a of riskAlerts) {
+      totalImpact += a.impact_amount;
+      if (a.severity === 'critical') critical++;
+      if (a.severity === 'warning') warning++;
+    }
+    const byType: Record<string, number> = {};
+    for (const type of Object.keys(RISK_TYPE_CONFIG)) { byType[type] = riskAlerts.filter(a => a.type === type).length; }
+    return { total: riskAlerts.length, critical, warning, totalImpact, byType };
+  }, [riskAlerts]);
 
   // AI Insights
   const aiInsights = useMemo(() => generateAIInsights(riskAlerts), [riskAlerts]);
@@ -1015,9 +1012,11 @@ export default function RiskAlertsPage() {
                   <span className="font-medium text-sm">Xu hướng</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Trung bình {Math.round(mockHistoryData.reduce((s, d) => s + d.count, 0) / mockHistoryData.length)} alerts/ngày. 
-                  Tỷ lệ xử lý: {Math.round(mockHistoryData.reduce((s, d) => s + d.resolved, 0) / mockHistoryData.reduce((s, d) => s + d.count, 0) * 100)}%.
-                  Tổng thiệt hại 7 ngày: -{formatCurrency(mockHistoryData.reduce((s, d) => s + d.impact, 0))}đ.
+                  {(() => {
+                    let tc = 0, tr = 0, ti = 0;
+                    for (const d of mockHistoryData) { tc += d.count; tr += d.resolved; ti += d.impact; }
+                    return `Trung bình ${Math.round(tc / mockHistoryData.length)} alerts/ngày. Tỷ lệ xử lý: ${Math.round(tr / tc * 100)}%. Tổng thiệt hại 7 ngày: -${formatCurrency(ti)}đ.`;
+                  })()}
                 </p>
               </div>
             </CardContent>

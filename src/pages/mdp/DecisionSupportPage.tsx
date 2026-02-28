@@ -195,17 +195,17 @@ export default function DecisionSupportPage() {
     return channelDecisions;
   }, [channelDecisions, filterType]);
 
-  const stats = useMemo(() => ({
-    scaleCount: channelDecisions.filter(d => d.recommendation === 'scale').length,
-    stopCount: channelDecisions.filter(d => d.recommendation === 'stop').length,
-    reduceCount: channelDecisions.filter(d => d.recommendation === 'reduce').length,
-    totalPotentialLoss: channelDecisions
-      .filter(d => d.recommendation === 'stop')
-      .reduce((sum, d) => sum + Math.abs(d.margin), 0),
-    totalPotentialGain: channelDecisions
-      .filter(d => d.recommendation === 'scale')
-      .reduce((sum, d) => sum + d.margin * 0.5, 0),
-  }), [channelDecisions]);
+  const stats = useMemo(() => {
+    let totalPotentialLoss = 0, totalPotentialGain = 0;
+    const scaleCount = channelDecisions.filter(d => d.recommendation === 'scale').length;
+    const stopCount = channelDecisions.filter(d => d.recommendation === 'stop').length;
+    const reduceCount = channelDecisions.filter(d => d.recommendation === 'reduce').length;
+    for (const d of channelDecisions) {
+      if (d.recommendation === 'stop') totalPotentialLoss += Math.abs(d.margin);
+      if (d.recommendation === 'scale') totalPotentialGain += d.margin * 0.5;
+    }
+    return { scaleCount, stopCount, reduceCount, totalPotentialLoss, totalPotentialGain };
+  }, [channelDecisions]);
 
   const handleAction = (decision: ChannelDecision, action: string) => {
     toast.success(`Đã ghi nhận: ${action} kênh ${decision.channel}`);

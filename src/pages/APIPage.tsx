@@ -60,7 +60,8 @@ export default function APIPage() {
     enabled: !!tenantId && isReady,
   });
   
-  const totalRequests = apiKeys.reduce((sum, k) => sum + (k.requests_count || 0), 0);
+  let totalRequests = 0;
+  for (const k of apiKeys) totalRequests += (k.requests_count || 0);
 
   const handleCopyKey = (keyPrefix: string) => {
     navigator.clipboard.writeText(keyPrefix + '...');
