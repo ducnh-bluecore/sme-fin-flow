@@ -22,6 +22,45 @@ interface InvStoreRow {
   region: string | null;
   is_active: boolean;
   is_transfer_eligible: boolean;
+  display_capacity: number;
+  storage_capacity: number;
+  capacity: number;
+}
+
+function InlineCapacityEdit({ store, field, onSave }: { store: InvStoreRow; field: 'display_capacity' | 'storage_capacity'; onSave: (id: string, updates: Partial<InvStoreRow>) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(store[field] || 0));
+
+  if (!editing) {
+    return (
+      <button
+        className="font-mono text-xs hover:bg-muted px-2 py-1 rounded cursor-pointer text-right w-full"
+        onClick={() => { setValue(String(store[field] || 0)); setEditing(true); }}
+      >
+        {(store[field] || 0).toLocaleString()}
+      </button>
+    );
+  }
+
+  const handleSave = () => {
+    const num = parseInt(value) || 0;
+    const otherField = field === 'display_capacity' ? 'storage_capacity' : 'display_capacity';
+    const otherVal = store[otherField] || 0;
+    onSave(store.id, { [field]: num, capacity: num + otherVal } as any);
+    setEditing(false);
+  };
+
+  return (
+    <Input
+      type="number"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={handleSave}
+      onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
+      className="h-7 w-20 text-xs font-mono text-right"
+      autoFocus
+    />
+  );
 }
 
 export default function CommandSettingsPage() {
@@ -109,7 +148,7 @@ export default function CommandSettingsPage() {
     queryKey: ['inv-stores-settings', tenantId],
     queryFn: async () => {
       const { data, error } = await buildQuery('inv_stores' as any)
-        .select('id,store_code,store_name,location_type,tier,region,is_active,is_transfer_eligible')
+        .select('id,store_code,store_name,location_type,tier,region,is_active,is_transfer_eligible,display_capacity,storage_capacity,capacity')
         .order('store_name');
       if (error) return [];
       return (data || []) as unknown as InvStoreRow[];
@@ -125,6 +164,8 @@ export default function CommandSettingsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inv-stores-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-store-directory-stores'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-stores'] });
       toast.success('Đã cập nhật kho');
     },
     onError: (e: any) => toast.error(`Lỗi: ${e.message}`),
@@ -359,7 +400,9 @@ export default function CommandSettingsPage() {
                       <TableHead>Tên Kho</TableHead>
                       <TableHead className="w-[140px]">Loại Kho</TableHead>
                       <TableHead className="w-[80px]">Tier</TableHead>
-                      <TableHead className="w-[100px]">Khu Vực</TableHead>
+                      <TableHead className="text-right w-[90px]">🏪 Trưng bày</TableHead>
+                      <TableHead className="text-right w-[90px]">📦 Kho</TableHead>
+                      <TableHead className="text-right w-[80px]">Tổng</TableHead>
                       <TableHead className="text-center w-[120px]">
                         <span className="flex items-center gap-1 justify-center">
                           <ArrowLeftRight className="h-3 w-3" />
@@ -396,7 +439,23 @@ export default function CommandSettingsPage() {
                               {store.tier || '—'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{store.region || '—'}</TableCell>
+                          <TableCell className="text-right">
+                            <InlineCapacityEdit
+                              store={store}
+                              field="display_capacity"
+                              onSave={(id, updates) => updateStore.mutate({ id, updates })}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <InlineCapacityEdit
+                              store={store}
+                              field="storage_capacity"
+                              onSave={(id, updates) => updateStore.mutate({ id, updates })}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs font-semibold text-muted-foreground">
+                            {(store.capacity || 0).toLocaleString()}
+                          </TableCell>
                           <TableCell className="text-center">
                             <Switch
                               checked={store.is_transfer_eligible}
