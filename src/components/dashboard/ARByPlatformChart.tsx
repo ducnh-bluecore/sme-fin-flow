@@ -41,20 +41,21 @@ function ARByPlatformChartComponent() {
 
   // NO MOCK DATA - Use real data only with explicit distribution
   const platformData = useMemo(() => {
-    const totalAR = arAgingData?.reduce((sum, item) => sum + item.value, 0) || 0;
+    let totalAR = 0;
+    if (arAgingData) for (const item of arAgingData) totalAR += item.value;
     
     if (totalAR === 0) {
-      // Return empty array - will trigger empty state
       return [];
     }
 
-    // Distribute total AR across platforms based on typical channel contribution
-    // TODO: Replace with actual per-platform AR from external_orders when available
     const distribution = [0.35, 0.25, 0.20, 0.12, 0.08];
-    const overdueRate = arAgingData 
-      ? (arAgingData.filter(b => ['31-60 ngày', '61-90 ngày', '>90 ngày'].includes(b.bucket))
-          .reduce((sum, b) => sum + b.value, 0) / totalAR)
-      : 0.15;
+    let overdueTotal = 0;
+    if (arAgingData) {
+      for (const b of arAgingData) {
+        if (['31-60 ngày', '61-90 ngày', '>90 ngày'].includes(b.bucket)) overdueTotal += b.value;
+      }
+    }
+    const overdueRate = totalAR > 0 ? overdueTotal / totalAR : 0.15;
       
     return PLATFORMS.map((platform, index) => {
       const platformAR = totalAR * distribution[index];

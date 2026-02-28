@@ -107,12 +107,10 @@ export function LTVByCohort() {
   }
 
   // Calculate average metrics for summary (null-safe)
-  const avgRetention3m = cohorts.length > 0 
-    ? cohorts.reduce((sum, c) => sum + safeNumber(c.retention_rate_3m), 0) / cohorts.length 
-    : 0;
-  const avgLTV12m = cohorts.length > 0 
-    ? cohorts.reduce((sum, c) => sum + safeNumber(c.estimated_ltv_12m), 0) / cohorts.length 
-    : 0;
+  let sumRet = 0, sumLTV = 0;
+  for (const c of cohorts) { sumRet += safeNumber(c.retention_rate_3m); sumLTV += safeNumber(c.estimated_ltv_12m); }
+  const avgRetention3m = cohorts.length > 0 ? sumRet / cohorts.length : 0;
+  const avgLTV12m = cohorts.length > 0 ? sumLTV / cohorts.length : 0;
 
   return (
     <div className="space-y-6">

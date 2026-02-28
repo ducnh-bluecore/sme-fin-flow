@@ -65,8 +65,11 @@ export default function TaxCompliancePage() {
   const isLoading = loadingObligations || loadingFilings;
   const hasData = taxObligations.length > 0;
   
-  const totalTaxDue = taxObligations.reduce((sum, t) => sum + (t.status !== 'paid' ? Number(t.amount) : 0), 0);
-  const totalPaid = taxObligations.reduce((sum, t) => sum + (t.status === 'paid' ? Number(t.amount) : 0), 0);
+  let totalTaxDue = 0, totalPaid = 0;
+  for (const t of taxObligations) {
+    if (t.status !== 'paid') totalTaxDue += Number(t.amount);
+    else totalPaid += Number(t.amount);
+  }
 
   // Calculate upcoming deadlines from obligations
   const upcomingDeadlines = taxObligations

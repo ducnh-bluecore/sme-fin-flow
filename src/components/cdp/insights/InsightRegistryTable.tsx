@@ -54,11 +54,11 @@ const ownerColors: Record<string, string> = {
 
 export function InsightRegistryTable({ insights, onToggle }: InsightRegistryTableProps) {
   // Group by topic
-  const groupedByTopic = insights.reduce((acc, insight) => {
-    if (!acc[insight.topic]) acc[insight.topic] = [];
-    acc[insight.topic].push(insight);
-    return acc;
-  }, {} as Record<string, InsightRegistryItem[]>);
+  const groupedByTopic: Record<string, InsightRegistryItem[]> = {};
+  for (const insight of insights) {
+    if (!groupedByTopic[insight.topic]) groupedByTopic[insight.topic] = [];
+    groupedByTopic[insight.topic].push(insight);
+  }
 
   return (
     <div className="space-y-6">

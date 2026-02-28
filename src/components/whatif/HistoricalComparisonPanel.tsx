@@ -87,17 +87,17 @@ export function HistoricalComparisonPanel() {
     const historical = forecastData.filter(d => !d.isForecast);
     const forecast = forecastData.filter(d => d.isForecast);
 
-    const historicalRevenue = historical.reduce((sum, m) => sum + m.revenue, 0);
-    const forecastRevenue = forecast.reduce((sum, m) => sum + m.revenue, 0);
-    const historicalProfit = historical.reduce((sum, m) => sum + m.netProfit, 0);
-    const forecastProfit = forecast.reduce((sum, m) => sum + m.netProfit, 0);
+    let historicalRevenue = 0, forecastRevenue = 0, historicalProfit = 0, forecastProfit = 0;
+    for (const m of historical) { historicalRevenue += m.revenue; historicalProfit += m.netProfit; }
+    for (const m of forecast) { forecastRevenue += m.revenue; forecastProfit += m.netProfit; }
 
     // Calculate YoY if we have enough data
     const currentYear = historical.slice(-12);
     const prevYear = historical.slice(0, 12);
     
-    const currentYearRevenue = currentYear.reduce((sum, m) => sum + m.revenue, 0);
-    const prevYearRevenue = prevYear.reduce((sum, m) => sum + m.revenue, 0);
+    let currentYearRevenue = 0, prevYearRevenue = 0;
+    for (const m of currentYear) currentYearRevenue += m.revenue;
+    for (const m of prevYear) prevYearRevenue += m.revenue;
     const yoyGrowth = prevYearRevenue > 0 ? ((currentYearRevenue - prevYearRevenue) / prevYearRevenue) * 100 : 0;
 
     return {

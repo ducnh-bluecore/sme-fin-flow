@@ -74,12 +74,13 @@ export default function BudgetOptimizerPage() {
       };
     }
 
-    const totalAllocatedBudget = channelBudgets.reduce((acc, c) => acc + (c.allocatedBudget || 0), 0);
-    const totalActualSpend = channelBudgets.reduce((acc, c) => acc + c.actualSpend, 0);
-    const totalSuggestedBudget = channelBudgets.reduce((acc, c) => acc + c.suggestedBudget, 0);
-    const totalCurrentRevenue = channelBudgets.reduce((acc, c) => acc + c.currentRevenue, 0);
-    const totalProjectedRevenue = channelBudgets.reduce((acc, c) => acc + c.projectedRevenue, 0);
-    const avgConfidence = channelBudgets.reduce((acc, c) => acc + c.confidence, 0) / channelBudgets.length;
+    let totalAllocatedBudget = 0, totalActualSpend = 0, totalSuggestedBudget = 0, totalCurrentRevenue = 0, totalProjectedRevenue = 0, totalConfidence = 0;
+    for (const c of channelBudgets) {
+      totalAllocatedBudget += (c.allocatedBudget || 0); totalActualSpend += c.actualSpend;
+      totalSuggestedBudget += c.suggestedBudget; totalCurrentRevenue += c.currentRevenue;
+      totalProjectedRevenue += c.projectedRevenue; totalConfidence += c.confidence;
+    }
+    const avgConfidence = totalConfidence / channelBudgets.length;
     const avgROAS = totalActualSpend > 0 ? totalCurrentRevenue / totalActualSpend : 0;
     const avgProjectedROAS = totalSuggestedBudget > 0 ? totalProjectedRevenue / totalSuggestedBudget : 0;
     const overallSpendRate = totalAllocatedBudget > 0 ? (totalActualSpend / totalAllocatedBudget) * 100 : 0;
@@ -113,8 +114,9 @@ export default function BudgetOptimizerPage() {
       };
     }
 
-    const totalProfit = profitAttribution.reduce((acc, p) => acc + p.contribution_margin, 0);
-    const avgMargin = profitAttribution.reduce((acc, p) => acc + p.contribution_margin_percent, 0) / profitAttribution.length;
+    let totalProfit = 0, totalMargin = 0;
+    for (const p of profitAttribution) { totalProfit += p.contribution_margin; totalMargin += p.contribution_margin_percent; }
+    const avgMargin = totalMargin / profitAttribution.length;
     const profitableChannels = profitAttribution.filter(p => p.status === 'profitable').length;
     const lossChannels = profitAttribution.filter(p => p.status === 'loss' || p.status === 'critical').length;
 
@@ -131,9 +133,9 @@ export default function BudgetOptimizerPage() {
       };
     }
 
-    const totalCashReceived = cashImpact.reduce((acc, c) => acc + c.cash_received, 0);
-    const totalPending = cashImpact.reduce((acc, c) => acc + c.pending_cash, 0);
-    const avgCashScore = cashImpact.reduce((acc, c) => acc + c.cash_impact_score, 0) / cashImpact.length;
+    let totalCashReceived = 0, totalPending = 0, totalCashScore = 0;
+    for (const c of cashImpact) { totalCashReceived += c.cash_received; totalPending += c.pending_cash; totalCashScore += c.cash_impact_score; }
+    const avgCashScore = totalCashScore / cashImpact.length;
 
     return { totalCashReceived, totalPending, avgCashScore };
   }, [cashImpact]);
