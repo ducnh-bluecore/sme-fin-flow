@@ -140,9 +140,12 @@ export function CampaignPerformanceTable({
 
   // Summary stats
   const stats = useMemo(() => {
-    const critical = enhancedCampaigns.filter(c => c.health === 'critical').length;
-    const danger = enhancedCampaigns.filter(c => c.health === 'danger').length;
-    const totalCM = enhancedCampaigns.reduce((sum, c) => sum + c.contribution_margin, 0);
+    let critical = 0, danger = 0, totalCM = 0;
+    for (const c of enhancedCampaigns) {
+      if (c.health === 'critical') critical++;
+      if (c.health === 'danger') danger++;
+      totalCM += c.contribution_margin;
+    }
     return { critical, danger, totalCM };
   }, [enhancedCampaigns]);
 

@@ -72,8 +72,9 @@ export function RiskAlertsPanel({ alerts, onAction }: RiskAlertsPanelProps) {
     };
   };
 
-  const totalImpact = alerts.reduce((sum, a) => sum + a.impact_amount, 0);
-  const criticalCount = alerts.filter(a => a.severity === 'critical').length;
+  let totalImpact = 0;
+  let criticalCount = 0;
+  for (const a of alerts) { totalImpact += a.impact_amount; if (a.severity === 'critical') criticalCount++; }
 
   return (
     <Card className="border-border bg-card shadow-sm">

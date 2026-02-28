@@ -82,8 +82,7 @@ export function SourceProgressTable({ jobId }: SourceProgressTableProps) {
           Total: {sources.length} sources
         </span>
         <span className="text-muted-foreground">
-          {sources.reduce((sum, s) => sum + s.processed_records, 0).toLocaleString()} / {' '}
-          {sources.reduce((sum, s) => sum + s.total_records, 0).toLocaleString()} records
+          {(() => { let p = 0, t = 0; for (const s of sources) { p += s.processed_records; t += s.total_records; } return `${p.toLocaleString()} / ${t.toLocaleString()} records`; })()}
         </span>
       </div>
     </div>

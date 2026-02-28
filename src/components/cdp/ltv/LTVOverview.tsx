@@ -177,7 +177,8 @@ export function LTVOverview() {
     { tier: 'Bronze', count: safeNumber(summary.bronze_count), color: 'bg-orange-600' },
   ];
 
-  const totalTierCount = summaryTierData.reduce((sum, t) => sum + t.count, 0);
+  let totalTierCount = 0;
+  for (const t of summaryTierData) totalTierCount += t.count;
   const totalCustomers = displayData.totalCustomers;
   const atRiskCount = safeNumber(summary.at_risk_count);
 

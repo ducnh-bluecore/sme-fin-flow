@@ -104,8 +104,8 @@ export function RebalanceSimulationTab({ suggestions }: Props) {
     const shortageAtDest = Math.max(0, minCoverWeeks * toVelocity * 7 - toOnHand);
     const effectiveUnits = Math.min(transferQty, shortageAtDest);
     const fcSuggestions = suggestions.filter(s => s.fc_id === selectedFC);
-    const totalSuggestedQty = fcSuggestions.reduce((s, r) => s + r.qty, 0);
-    const totalSuggestedRevenue = fcSuggestions.reduce((s, r) => s + r.potential_revenue_gain, 0);
+    let totalSuggestedQty = 0, totalSuggestedRevenue = 0;
+    for (const r of fcSuggestions) { totalSuggestedQty += r.qty; totalSuggestedRevenue += r.potential_revenue_gain; }
     const avgRevenuePerUnit = totalSuggestedQty > 0 ? totalSuggestedRevenue / totalSuggestedQty : 0;
     const revenueGain = effectiveUnits * avgRevenuePerUnit;
 

@@ -10,11 +10,10 @@ export function RebalanceSummaryCards({ suggestions }: Props) {
   const pending = suggestions.filter(s => s.status === 'pending');
   const pushPending = pending.filter(s => s.transfer_type === 'push');
   const lateralPending = pending.filter(s => s.transfer_type === 'lateral');
-  const pushUnits = pushPending.reduce((s, r) => s + r.qty, 0);
-  const lateralUnits = lateralPending.reduce((s, r) => s + r.qty, 0);
-  
-  // Net benefit = revenue - logistics cost (only pending)
-  const totalNetBenefit = pending.reduce((s, r) => s + ((r.potential_revenue_gain || 0) - (r.logistics_cost_estimate || 0)), 0);
+  let pushUnits = 0, lateralUnits = 0, totalNetBenefit = 0;
+  for (const r of pushPending) pushUnits += r.qty;
+  for (const r of lateralPending) lateralUnits += r.qty;
+  for (const r of pending) totalNetBenefit += ((r.potential_revenue_gain || 0) - (r.logistics_cost_estimate || 0));
   
   // Unique stores with P1 pending
   const p1Pending = pending.filter(s => s.priority === 'P1');
