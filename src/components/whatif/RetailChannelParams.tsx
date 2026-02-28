@@ -536,9 +536,8 @@ export function RetailChannelParamsPanel({
 
   // Calculate total revenue share with null safety
   const channels = params?.channels || defaultRetailParams.channels;
-  const totalShare = Object.values(channels)
-    .filter((c) => c?.enabled)
-    .reduce((sum, c) => sum + (c?.revenueShare || 0), 0);
+  let totalShare = 0;
+  for (const c of Object.values(channels)) { if (c?.enabled) totalShare += c?.revenueShare || 0; }
 
   const isValidShare = Math.abs(totalShare - 100) < 0.1;
   const shareDifference = totalShare - 100;
@@ -556,7 +555,7 @@ export function RetailChannelParamsPanel({
       .filter(([_, c]) => c?.enabled)
       .map(([key, c]) => ({ key, share: c?.revenueShare || 0 }));
 
-    const currentTotal = enabledChannels.reduce((sum, c) => sum + c.share, 0);
+    let currentTotal = 0; for (const c of enabledChannels) currentTotal += c.share;
     
     if (currentTotal === 0) {
       // If all shares are 0, distribute equally
@@ -1013,8 +1012,8 @@ export function RetailChannelParamsPanel({
                 tiktok: channelRevenues.tiktok * ((params.costs.marketingAdsCost?.tiktok ?? 15) / 100),
               };
 
-              const totalAdsCost = Object.values(adsCosts).reduce((sum, v) => sum + v, 0);
-              const totalRevenue = Object.values(channelRevenues).reduce((sum, v) => sum + v, 0);
+              let totalAdsCost = 0; for (const v of Object.values(adsCosts)) totalAdsCost += v;
+              let totalRevenue = 0; for (const v of Object.values(channelRevenues)) totalRevenue += v;
               const avgAdsRate = totalRevenue > 0 ? (totalAdsCost / totalRevenue * 100) : 0;
 
               return (
@@ -1268,11 +1267,14 @@ export function RetailChannelParamsPanel({
               </Label>
 
               {(() => {
-                const totalRevenue = Object.values(params.channels).reduce((sum, ch) => {
-                  if (!ch.enabled) return sum;
-                  const channelRev = baseRevenue * (ch.revenueShare / 100) * (1 + ch.growthRate / 100);
-                  return sum + channelRev;
-                }, 0);
+                const totalRevenue = (() => {
+                  let sum = 0;
+                  for (const ch of Object.values(params.channels)) {
+                    if (!ch.enabled) continue;
+                    sum += baseRevenue * (ch.revenueShare / 100) * (1 + ch.growthRate / 100);
+                  }
+                  return sum;
+                })();
 
                 const facebookCost = totalRevenue * ((params.costs.generalMarketingCost?.facebookAds ?? 3) / 100);
                 const googleCost = totalRevenue * ((params.costs.generalMarketingCost?.googleAds ?? 2) / 100);

@@ -59,12 +59,10 @@ export function useWinScoreboard() {
       const healthToday = (healthTodayRes.data || []) as any[];
       const healthPast = (healthPastRes.data || []) as any[];
       
-      const avgToday = healthToday.length > 0
-        ? healthToday.reduce((s: number, r: any) => s + (Number(r.size_health_score) || 0), 0) / healthToday.length
-        : 0;
-      const avgPast = healthPast.length > 0
-        ? healthPast.reduce((s: number, r: any) => s + (Number(r.size_health_score) || 0), 0) / healthPast.length
-        : 0;
+      let sumToday = 0; for (const r of healthToday) sumToday += Number((r as any).size_health_score) || 0;
+      const avgToday = healthToday.length > 0 ? sumToday / healthToday.length : 0;
+      let sumPast = 0; for (const r of healthPast) sumPast += Number((r as any).size_health_score) || 0;
+      const avgPast = healthPast.length > 0 ? sumPast / healthPast.length : 0;
 
       return {
         rescuedRevenue,

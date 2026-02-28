@@ -93,10 +93,10 @@ export function SKUProfitabilityPanel() {
 
   // Summary stats
   const summary = useMemo(() => {
-    const baseRevenue = simulatedResults.reduce((sum, s) => sum + s.revenue, 0);
-    const baseProfit = simulatedResults.reduce((sum, s) => sum + s.profit, 0);
-    const simRevenue = simulatedResults.reduce((sum, s) => sum + s.simRevenue, 0);
-    const simProfit = simulatedResults.reduce((sum, s) => sum + s.simProfit, 0);
+    let baseRevenue = 0, baseProfit = 0, simRevenue = 0, simProfit = 0;
+    for (const s of simulatedResults) {
+      baseRevenue += s.revenue; baseProfit += s.profit; simRevenue += s.simRevenue; simProfit += s.simProfit;
+    }
     
     return {
       baseRevenue,

@@ -80,8 +80,8 @@ export function useExpensePlanSummary(months: number = 6) {
       s.year === now.getFullYear() && s.month <= (now.getMonth() + 1)
     );
 
-    const ytdPlanned = ytdSummaries.reduce((sum, s) => sum + s.totalPlanned, 0);
-    const ytdActual = ytdSummaries.reduce((sum, s) => sum + s.totalActual, 0);
+    let ytdPlanned = 0, ytdActual = 0;
+    for (const s of ytdSummaries) { ytdPlanned += s.totalPlanned; ytdActual += s.totalActual; }
     const ytdVariance = ytdActual - ytdPlanned;
 
     return {

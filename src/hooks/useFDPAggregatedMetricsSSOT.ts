@@ -238,10 +238,8 @@ export function useFDPAggregatedMetricsSSOT() {
         : 0;
 
       // Marketing spend - single SUM from DB would be better, but this is small dataset
-      const totalMarketingSpend = marketingExpenses.reduce(
-        (sum, e) => sum + (Number(e.amount) || 0), 
-        0
-      );
+      let totalMarketingSpend = 0;
+      for (const e of marketingExpenses) totalMarketingSpend += Number(e.amount) || 0;
       
       const roas = calculateROAS(totalRevenue, totalMarketingSpend).value;
       const cac = calculateCAC(totalMarketingSpend, uniqueCustomers).value;

@@ -98,15 +98,18 @@ export function LTVBySource() {
   }
 
   // Calculate totals (null-safe)
-  const totalCustomers = sources.reduce((sum, s) => sum + safeNumber(s.customer_count), 0);
-  const avgLTV = totalCustomers > 0 
-    ? sources.reduce((sum, s) => sum + safeNumber(s.avg_ltv_24m) * safeNumber(s.customer_count), 0) / totalCustomers 
-    : 0;
+  let totalCustomers = 0, _weightedLtv = 0;
+  for (const s of sources) {
+    totalCustomers += safeNumber(s.customer_count);
+    _weightedLtv += safeNumber(s.avg_ltv_24m) * safeNumber(s.customer_count);
+  }
+  const avgLTV = totalCustomers > 0 ? _weightedLtv / totalCustomers : 0;
 
   // Find best source
-  const bestSource = sources.reduce((best, s) => 
-    safeNumber(s.avg_ltv_24m) > safeNumber(best?.avg_ltv_24m) ? s : best
-  , sources[0]);
+  let bestSource = sources[0];
+  for (const s of sources) {
+    if (safeNumber(s.avg_ltv_24m) > safeNumber(bestSource?.avg_ltv_24m)) bestSource = s;
+  }
 
   return (
     <div className="space-y-6">

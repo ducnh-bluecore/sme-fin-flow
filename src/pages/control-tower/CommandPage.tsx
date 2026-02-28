@@ -53,7 +53,9 @@ export default function CommandPage() {
 
   // Total exposure
   const totalExposure = useMemo(() => {
-    return alerts.reduce((sum, a) => sum + (a.impact_amount || 0), 0);
+    let sum = 0;
+    for (const a of alerts) sum += a.impact_amount || 0;
+    return sum;
   }, [alerts]);
 
   // Nearest deadline

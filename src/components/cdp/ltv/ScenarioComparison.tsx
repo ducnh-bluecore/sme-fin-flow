@@ -624,9 +624,10 @@ export function ScenarioComparison({ results, isLoading, inputScenarios }: Scena
 
   const baseline = adjustedResults[0];
   const scenarios = adjustedResults.slice(1);
-  const bestScenario = scenarios.length > 0 
-    ? scenarios.reduce((best, s) => safeNumber(s.delta_percent_12m) > safeNumber(best.delta_percent_12m) ? s : best, scenarios[0])
-    : undefined;
+  let bestScenario = scenarios.length > 0 ? scenarios[0] : undefined;
+  for (const s of scenarios) {
+    if (bestScenario && safeNumber(s.delta_percent_12m) > safeNumber(bestScenario.delta_percent_12m)) bestScenario = s;
+  }
 
   return (
     <div className="space-y-4">

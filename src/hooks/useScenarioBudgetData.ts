@@ -226,18 +226,17 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
         const startMonth = (q - 1) * 3;
         const quarterMonths = monthly.slice(startMonth, startMonth + 3);
         
+        let pR = 0, pO = 0, pE = 0, aR = 0, aO = 0, aE = 0, rV = 0, oV = 0, eV = 0;
+        for (const m of quarterMonths) {
+          pR += m.plannedRevenue; pO += m.plannedOpex; pE += m.plannedEbitda;
+          aR += m.actualRevenue; aO += m.actualOpex; aE += m.actualEbitda;
+          rV += m.revenueVariance; oV += m.opexVariance; eV += m.ebitdaVariance;
+        }
         quarterly.push({
-          quarter: q,
-          year,
-          plannedRevenue: quarterMonths.reduce((s, m) => s + m.plannedRevenue, 0),
-          plannedOpex: quarterMonths.reduce((s, m) => s + m.plannedOpex, 0),
-          plannedEbitda: quarterMonths.reduce((s, m) => s + m.plannedEbitda, 0),
-          actualRevenue: quarterMonths.reduce((s, m) => s + m.actualRevenue, 0),
-          actualOpex: quarterMonths.reduce((s, m) => s + m.actualOpex, 0),
-          actualEbitda: quarterMonths.reduce((s, m) => s + m.actualEbitda, 0),
-          revenueVariance: quarterMonths.reduce((s, m) => s + m.revenueVariance, 0),
-          opexVariance: quarterMonths.reduce((s, m) => s + m.opexVariance, 0),
-          ebitdaVariance: quarterMonths.reduce((s, m) => s + m.ebitdaVariance, 0)
+          quarter: q, year,
+          plannedRevenue: pR, plannedOpex: pO, plannedEbitda: pE,
+          actualRevenue: aR, actualOpex: aO, actualEbitda: aE,
+          revenueVariance: rV, opexVariance: oV, ebitdaVariance: eV,
         });
       }
 
@@ -245,12 +244,12 @@ export function useScenarioBudgetData({ selectedScenarioId, targetYear }: Props 
       const currentMonth = new Date().getMonth() + 1;
       const ytdMonths = monthly.filter(m => m.month <= currentMonth);
       
-      const ytdPlannedRevenue = ytdMonths.reduce((s, m) => s + m.plannedRevenue, 0);
-      const ytdPlannedOpex = ytdMonths.reduce((s, m) => s + m.plannedOpex, 0);
-      const ytdPlannedEbitda = ytdMonths.reduce((s, m) => s + m.plannedEbitda, 0);
-      const ytdActualRevenue = ytdMonths.reduce((s, m) => s + m.actualRevenue, 0);
-      const ytdActualOpex = ytdMonths.reduce((s, m) => s + m.actualOpex, 0);
-      const ytdActualEbitda = ytdMonths.reduce((s, m) => s + m.actualEbitda, 0);
+      let ytdPlannedRevenue = 0, ytdPlannedOpex = 0, ytdPlannedEbitda = 0;
+      let ytdActualRevenue = 0, ytdActualOpex = 0, ytdActualEbitda = 0;
+      for (const m of ytdMonths) {
+        ytdPlannedRevenue += m.plannedRevenue; ytdPlannedOpex += m.plannedOpex; ytdPlannedEbitda += m.plannedEbitda;
+        ytdActualRevenue += m.actualRevenue; ytdActualOpex += m.actualOpex; ytdActualEbitda += m.actualEbitda;
+      }
 
       let favorableCount = 0;
       let unfavorableCount = 0;

@@ -239,9 +239,9 @@ export function useCalculateForecast() {
 
       // Calculate average new customer % from benchmarks
       const benchmarkData = benchmarks as unknown as ProductBenchmark[] || [];
-      const avgNewCustomerPct = benchmarkData.length
-        ? benchmarkData.reduce((sum, b) => sum + (b.new_customer_pct || 0), 0) / benchmarkData.length
-        : 12;
+      let _bmSum = 0;
+      for (const b of benchmarkData) _bmSum += b.new_customer_pct || 0;
+      const avgNewCustomerPct = benchmarkData.length ? _bmSum / benchmarkData.length : 12;
 
       // 3. Get category conversion rate
       const { data: conversionData } = await buildSelectQuery('v_cdp_category_conversion_stats', 'category_penetration_pct, orders_per_buyer')
