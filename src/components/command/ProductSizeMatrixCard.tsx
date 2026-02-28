@@ -46,7 +46,7 @@ function SizeMatrix({ fcId }: { fcId: string }) {
   const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['size-breakdown', tenantId, fcId],
+    queryKey: ['size-breakdown-v2', tenantId, fcId],
     queryFn: async () => {
       const { data, error } = await callRpc<{ entries: SizeStoreEntry[]; summary: Array<{ size_code: string; total: number }> }>('fn_size_breakdown', {
         p_tenant_id: tenantId!,
@@ -56,7 +56,8 @@ function SizeMatrix({ fcId }: { fcId: string }) {
       return data;
     },
     enabled: isReady && !!tenantId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   if (isLoading) return <div className="p-4"><Skeleton className="h-20 w-full" /></div>;
