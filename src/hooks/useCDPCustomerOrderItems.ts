@@ -183,10 +183,10 @@ export function useCDPCustomerOrderItems(customerId: string | undefined) {
           .in('id', productIds);
         
         if (productData) {
-          productInfoMap = productData.reduce((acc, p) => {
-            acc[p.id] = { name: p.name || '', sku: p.sku || '' };
-            return acc;
-          }, {} as Record<string, { name: string; sku: string }>);
+          productInfoMap = {};
+          for (const p of productData) {
+            productInfoMap[p.id] = { name: p.name || '', sku: p.sku || '' };
+          }
         }
       }
 

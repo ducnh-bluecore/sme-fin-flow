@@ -212,9 +212,11 @@ export function useWorkingCapitalSummary() {
       let cccTrend: 'improving' | 'stable' | 'worsening' = 'stable';
       if (trend.length >= 6) {
         const recentCCC = trend.slice(0, 3).map(m => m.ccc_days);
-        const avgRecent = recentCCC.reduce((a, b) => a + b, 0) / 3;
+        let _recentSum = 0; for (const v of recentCCC) _recentSum += v;
+        const avgRecent = _recentSum / 3;
         const oldCCC = trend.slice(-3).map(m => m.ccc_days);
-        const avgOld = oldCCC.reduce((a, b) => a + b, 0) / 3;
+        let _oldSum = 0; for (const v of oldCCC) _oldSum += v;
+        const avgOld = _oldSum / 3;
         
         if (avgRecent < avgOld - 5) cccTrend = 'improving';
         else if (avgRecent > avgOld + 5) cccTrend = 'worsening';

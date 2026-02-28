@@ -155,8 +155,11 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
   const handleExport = () => exportRebalanceToExcel(filtered, editedQty);
 
   const selectedSuggestions = filtered.filter(s => selectedIds.has(s.id));
-  const selectedQty = selectedSuggestions.reduce((sum, s) => sum + (editedQty[s.id] ?? s.qty), 0);
-  const selectedRevenue = selectedSuggestions.reduce((sum, s) => sum + s.potential_revenue_gain, 0);
+  let selectedQty = 0, selectedRevenue = 0;
+  for (const s of selectedSuggestions) {
+    selectedQty += editedQty[s.id] ?? s.qty;
+    selectedRevenue += s.potential_revenue_gain;
+  }
 
   if (filtered.length === 0) {
     return (
@@ -265,8 +268,8 @@ export function RebalanceBoardTable({ suggestions, onApprove, onReject, transfer
             <TableBody>
               {Array.from(grouped.entries()).map(([groupName, items]) => {
                 const isCollapsed = collapsedGroups.has(groupName);
-                const groupQty = items.reduce((s, x) => s + (editedQty[x.id] ?? x.qty), 0);
-                const groupRevenue = items.reduce((s, x) => s + x.potential_revenue_gain, 0);
+                let groupQty = 0, groupRevenue = 0;
+                for (const x of items) { groupQty += editedQty[x.id] ?? x.qty; groupRevenue += x.potential_revenue_gain; }
                 const groupPending = items.filter(x => x.status === 'pending');
                 const totalCols = 8 + (showTypeCol ? 1 : 0) + (showCostCols ? 2 : 0) + 3;
 

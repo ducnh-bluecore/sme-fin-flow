@@ -89,8 +89,8 @@ export function useStoreStats() {
     active: stores?.filter(s => s.status === 'active').length || 0,
     maintenance: stores?.filter(s => s.status === 'maintenance').length || 0,
     closed: stores?.filter(s => s.status === 'closed').length || 0,
-    totalRevenue: stores?.reduce((sum, s) => sum + s.revenue, 0) || 0,
-    totalOrders: stores?.reduce((sum, s) => sum + s.orders, 0) || 0,
+    totalRevenue: (() => { let s = 0; if (stores) for (const st of stores) s += st.revenue; return s; })(),
+    totalOrders: (() => { let s = 0; if (stores) for (const st of stores) s += st.orders; return s; })(),
   };
 
   return { stats, isLoading };

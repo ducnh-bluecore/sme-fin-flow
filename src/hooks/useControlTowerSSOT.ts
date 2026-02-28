@@ -126,9 +126,11 @@ export function useControlTowerAnalyticsSSoT() {
     })),
     categoryData: data.categoryData.map(c => ({
       name: c.category,
-      value: data.categoryData.length > 0 
-        ? Math.round((c.value / data.categoryData.reduce((s, x) => s + x.value, 0)) * 100) 
-        : 0,
+      value: (() => {
+        if (data.categoryData.length === 0) return 0;
+        let catTotal = 0; for (const x of data.categoryData) catTotal += x.value;
+        return Math.round((c.value / catTotal) * 100);
+      })(),
       color: getCategoryColor(c.category),
     })),
     storePerformance: data.storeData.map(s => ({

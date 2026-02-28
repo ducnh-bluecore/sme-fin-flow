@@ -326,16 +326,14 @@ export function useMDPDataReadiness(): MDPDataReadinessResult {
       .filter(s => s.importance === 'critical' && s.status === 'missing')
       .map(s => s.name);
 
-    const totalWeight = sources.reduce((sum, s) => {
+    let totalWeight = 0;
+    let achievedWeight = 0;
+    for (const s of sources) {
       const weight = s.importance === 'critical' ? 3 : s.importance === 'important' ? 2 : 1;
-      return sum + weight;
-    }, 0);
-
-    const achievedWeight = sources.reduce((sum, s) => {
-      const weight = s.importance === 'critical' ? 3 : s.importance === 'important' ? 2 : 1;
+      totalWeight += weight;
       const score = s.status === 'ready' ? 1 : s.status === 'partial' ? 0.5 : 0;
-      return sum + (weight * score);
-    }, 0);
+      achievedWeight += weight * score;
+    }
 
     const overallScore = totalWeight > 0 ? Math.round((achievedWeight / totalWeight) * 100) : 0;
 

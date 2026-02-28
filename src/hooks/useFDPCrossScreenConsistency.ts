@@ -202,10 +202,8 @@ async function runConsistencyChecks(
   const channelTotal = channelTotalResult.data;
   const bankAccounts = bankAccountsResult.data || [];
   
-  const totalBankBalance = bankAccounts.reduce(
-    (sum, acc) => sum + (Number(acc.current_balance) || 0), 
-    0
-  );
+  let totalBankBalance = 0;
+  for (const acc of bankAccounts) totalBankBalance += Number(acc.current_balance) || 0;
 
   // Run each check
   for (const checkDef of CROSS_SCREEN_CHECKS) {

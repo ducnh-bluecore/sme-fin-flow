@@ -956,7 +956,7 @@ export function FDPDocumentation({ searchQuery }: FDPDocumentationProps) {
       <div className="space-y-3">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-emerald-500" />
-          Tất cả tính năng theo Menu ({fdpSections.length} nhóm, {fdpSections.reduce((acc, s) => acc + s.subSections.length, 0)}+ trang)
+          Tất cả tính năng theo Menu ({fdpSections.length} nhóm, {(() => { let c = 0; for (const s of fdpSections) c += s.subSections.length; return c; })()}+ trang)
         </h3>
 
         {filteredSections.map((section) => {
