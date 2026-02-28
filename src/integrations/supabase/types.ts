@@ -41661,29 +41661,55 @@ export type Database = {
         Args: { p_fc_id: string; p_tenant_id: string }
         Returns: Json
       }
-      fn_size_health_details: {
-        Args: {
-          p_curve_state: string
-          p_limit?: number
-          p_offset?: number
-          p_sort_by?: string
-          p_tenant_id: string
-        }
-        Returns: {
-          cash_locked_value: number
-          core_size_missing: boolean
-          curve_state: string
-          deviation_score: number
-          lost_revenue_est: number
-          lost_units_est: number
-          margin_leak_value: number
-          markdown_eta_days: number
-          markdown_risk_score: number
-          product_id: string
-          product_name: string
-          size_health_score: number
-        }[]
-      }
+      fn_size_health_details:
+        | {
+            Args: {
+              p_curve_state: string
+              p_limit?: number
+              p_offset?: number
+              p_sort_by?: string
+              p_tenant_id: string
+            }
+            Returns: {
+              cash_locked_value: number
+              core_size_missing: boolean
+              curve_state: string
+              deviation_score: number
+              lost_revenue_est: number
+              lost_units_est: number
+              margin_leak_value: number
+              markdown_eta_days: number
+              markdown_risk_score: number
+              product_id: string
+              product_name: string
+              size_health_score: number
+            }[]
+          }
+        | {
+            Args: {
+              p_created_after?: string
+              p_curve_state: string
+              p_limit?: number
+              p_offset?: number
+              p_sort_by?: string
+              p_tenant_id: string
+            }
+            Returns: {
+              cash_locked_value: number
+              core_size_missing: boolean
+              curve_state: string
+              deviation_score: number
+              lost_revenue_est: number
+              lost_units_est: number
+              margin_leak_value: number
+              markdown_eta_days: number
+              markdown_risk_score: number
+              product_created_date: string
+              product_id: string
+              product_name: string
+              size_health_score: number
+            }[]
+          }
       fn_store_breakdown_comparison: {
         Args: { p_store_id: string; p_tenant_id: string }
         Returns: Json

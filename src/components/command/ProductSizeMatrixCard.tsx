@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Package, AlertTriangle, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, Package, AlertTriangle, Search, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -147,6 +148,7 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
   const [expandedFc, setExpandedFc] = useState<Set<string>>(new Set());
   const [filterState, setFilterState] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [createdAfterMonths, setCreatedAfterMonths] = useState<string>('12');
   const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
 
   // Search all FCs from DB when user types a search term
@@ -175,10 +177,19 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
   // When searching, show search results; otherwise show health-based list
   const isSearching = searchTerm.length >= 2;
 
+  const createdAfterDate = useMemo(() => {
+    if (createdAfterMonths === 'all') return null;
+    const d = new Date();
+    d.setMonth(d.getMonth() - parseInt(createdAfterMonths));
+    return d.toISOString().split('T')[0];
+  }, [createdAfterMonths]);
+
   const filtered = useMemo(() => {
-    if (filterState === 'all') return products;
-    return products.filter(p => p.curve_state === filterState);
-  }, [products, filterState]);
+    let list = products;
+    if (filterState !== 'all') list = list.filter(p => p.curve_state === filterState);
+    if (createdAfterDate) list = list.filter(p => p.product_created_date && p.product_created_date >= createdAfterDate);
+    return list;
+  }, [products, filterState, createdAfterDate]);
 
   const stateCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -188,7 +199,7 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
     return counts;
   }, [products]);
 
-  const renderProductRow = (id: string, name: string, curveState?: string, healthScore?: number, lostRevenue?: number, cashLocked?: number) => {
+  const renderProductRow = (id: string, name: string, curveState?: string, healthScore?: number, lostRevenue?: number, cashLocked?: number, createdDate?: string | null) => {
     const isOpen = expandedFc.has(id);
     const curveConfig = curveState ? CURVE_LABELS[curveState] : null;
 
@@ -200,6 +211,12 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
               {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               <span className="font-medium text-sm text-left">{name}</span>
               {curveConfig && <Badge variant="outline" className={`text-[10px] ${curveConfig.className}`}>{curveConfig.label}</Badge>}
+              {createdDate && (
+                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                  <Calendar className="h-3 w-3" />
+                  {createdDate}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4 text-xs">
               {healthScore != null && (
@@ -247,28 +264,43 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
           />
         </div>
 
-        {/* Filter badges — only show when not searching */}
+        {/* Filter badges + date filter — only show when not searching */}
         {!isSearching && (
-          <div className="flex gap-1.5 mt-2 flex-wrap">
-            <Badge
-              variant={filterState === 'all' ? 'default' : 'outline'}
-              className="cursor-pointer text-[10px]"
-              onClick={() => setFilterState('all')}
-            >
-              Tất cả ({products.length})
-            </Badge>
-            {Object.entries(CURVE_LABELS).map(([state, cfg]) => (
-              stateCounts[state] ? (
-                <Badge
-                  key={state}
-                  variant="outline"
-                  className={`cursor-pointer text-[10px] ${filterState === state ? cfg.className + ' ring-1 ring-offset-1' : ''}`}
-                  onClick={() => setFilterState(state)}
-                >
-                  {cfg.label} ({stateCounts[state]})
-                </Badge>
-              ) : null
-            ))}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <div className="flex gap-1.5 flex-wrap flex-1">
+              <Badge
+                variant={filterState === 'all' ? 'default' : 'outline'}
+                className="cursor-pointer text-[10px]"
+                onClick={() => setFilterState('all')}
+              >
+                Tất cả ({products.length})
+              </Badge>
+              {Object.entries(CURVE_LABELS).map(([state, cfg]) => (
+                stateCounts[state] ? (
+                  <Badge
+                    key={state}
+                    variant="outline"
+                    className={`cursor-pointer text-[10px] ${filterState === state ? cfg.className + ' ring-1 ring-offset-1' : ''}`}
+                    onClick={() => setFilterState(state)}
+                  >
+                    {cfg.label} ({stateCounts[state]})
+                  </Badge>
+                ) : null
+              ))}
+            </div>
+            <Select value={createdAfterMonths} onValueChange={setCreatedAfterMonths}>
+              <SelectTrigger className="h-7 w-[150px] text-[10px]">
+                <Calendar className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3" className="text-xs">3 tháng gần đây</SelectItem>
+                <SelectItem value="6" className="text-xs">6 tháng gần đây</SelectItem>
+                <SelectItem value="12" className="text-xs">12 tháng gần đây</SelectItem>
+                <SelectItem value="24" className="text-xs">24 tháng gần đây</SelectItem>
+                <SelectItem value="all" className="text-xs">Tất cả thời gian</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
       </CardHeader>
@@ -291,6 +323,7 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
               product.size_health_score,
               product.lost_revenue_est,
               product.cash_locked_value,
+              product.product_created_date,
             ))}
 
             {hasMore && (

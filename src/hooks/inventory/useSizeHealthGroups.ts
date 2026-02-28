@@ -28,6 +28,7 @@ export interface SizeHealthDetailRow {
   margin_leak_value: number;
   markdown_risk_score: number;
   markdown_eta_days: number | null;
+  product_created_date: string | null;
 }
 
 const STATE_ORDER = ['broken', 'risk', 'watch', 'healthy'] as const;
