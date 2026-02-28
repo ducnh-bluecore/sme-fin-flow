@@ -65,11 +65,11 @@ const flushEvents = async () => {
 
   try {
     // Group events by tenant
-    const eventsByTenant = eventsToSend.reduce((acc, event) => {
-      if (!acc[event.tenant_id]) acc[event.tenant_id] = [];
-      acc[event.tenant_id].push(event);
-      return acc;
-    }, {} as Record<string, PendingEvent[]>);
+    const eventsByTenant: Record<string, PendingEvent[]> = {};
+    for (const event of eventsToSend) {
+      if (!eventsByTenant[event.tenant_id]) eventsByTenant[event.tenant_id] = [];
+      eventsByTenant[event.tenant_id].push(event);
+    }
 
     // Send events for each tenant
     for (const [tenantId, events] of Object.entries(eventsByTenant)) {

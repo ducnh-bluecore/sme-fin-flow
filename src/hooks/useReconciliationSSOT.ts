@@ -396,14 +396,16 @@ export function useAutoMatchSSOT() {
     }
 
     // Deduplicate
-    return results
-      .sort((a, b) => b.confidence - a.confidence)
-      .reduce((acc, curr) => {
-        if (!acc.find(r => r.transactionId === curr.transactionId)) {
-          acc.push(curr);
-        }
-        return acc;
-      }, [] as MatchResult[]);
+    results.sort((a, b) => b.confidence - a.confidence);
+    const seen = new Set<string>();
+    const deduped: MatchResult[] = [];
+    for (const curr of results) {
+      if (!seen.has(curr.transactionId)) {
+        seen.add(curr.transactionId);
+        deduped.push(curr);
+      }
+    }
+    return deduped;
   }, [invoices, transactions, invoiceStatus, bankTxnState]);
 
   /**

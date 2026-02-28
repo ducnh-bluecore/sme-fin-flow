@@ -151,9 +151,14 @@ function useCVRSInputData() {
         const marketing = (marketingExpenses as any[]) || [];
 
         const totalCustomers = customers.length || 1;
-        const totalRevenue = customers.reduce((sum, c) => sum + (c.revenue || 0), 0);
-        const totalOrders = customers.reduce((sum, c) => sum + (c.order_count || 0), 0);
-        const totalMarketingSpend = marketing.reduce((sum, e) => sum + (e.amount || 0), 0);
+        let totalRevenue = 0;
+        let totalOrders = 0;
+        for (const c of customers) {
+          totalRevenue += c.revenue || 0;
+          totalOrders += c.order_count || 0;
+        }
+        let totalMarketingSpend = 0;
+        for (const e of marketing) totalMarketingSpend += e.amount || 0;
 
         // LTV = Average revenue per customer
         const avgCustomerLTV = totalRevenue / totalCustomers;
@@ -165,12 +170,15 @@ function useCVRSInputData() {
         const ltvCacRatio = avgCAC > 0 ? avgCustomerLTV / avgCAC : 3;
 
         // AR metrics
-        const totalAR = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+        let totalAR = 0;
+        for (const inv of invoices) totalAR += inv.total_amount || 0;
         const now = new Date();
-        const overdueInvoices = invoices.filter(inv => 
-          inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < now)
-        );
-        const overdueAR = overdueInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+        let overdueAR = 0;
+        for (const inv of invoices) {
+          if (inv.status === 'overdue' || (inv.due_date && new Date(inv.due_date) < now)) {
+            overdueAR += inv.total_amount || 0;
+          }
+        }
         const overdueARPercent = totalAR > 0 ? (overdueAR / totalAR) * 100 : 0;
 
         // DSO from working_capital_metrics or estimate
@@ -187,7 +195,8 @@ function useCVRSInputData() {
         const avgOrdersPerCustomer = totalOrders / totalCustomers;
 
         // Concentration risk (top 10 customers)
-        const top10Revenue = customers.slice(0, 10).reduce((sum, c) => sum + (c.revenue || 0), 0);
+        let top10Revenue = 0;
+        for (const c of customers.slice(0, 10)) top10Revenue += c.revenue || 0;
         const concentrationPercent = totalRevenue > 0 ? (top10Revenue / totalRevenue) * 100 : 0;
 
         return {
@@ -404,8 +413,12 @@ function calculateMarketingAccountabilityScore(
   let recommendation = 'Analyze channel efficiency';
 
   if (profitAttribution && profitAttribution.length > 0) {
-    const totalProfit = profitAttribution.reduce((sum, p) => sum + (p.contributionMargin || 0), 0);
-    const totalSpend = profitAttribution.reduce((sum, p) => sum + (p.spend || 0), 0);
+    let totalProfit = 0;
+    let totalSpend = 0;
+    for (const p of profitAttribution) {
+      totalProfit += p.contributionMargin || 0;
+      totalSpend += p.spend || 0;
+    }
     const profitRoas = totalSpend > 0 ? totalProfit / totalSpend : 0;
 
     if (profitRoas >= 2) {

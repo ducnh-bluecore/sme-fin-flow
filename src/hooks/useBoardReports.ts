@@ -539,7 +539,8 @@ async function generateKeyMetrics(
     }
   });
 
-  const totalCustomerRevenue = Object.values(customerRevenue).reduce((sum, c) => sum + c.amount, 0);
+  let totalCustomerRevenue = 0;
+  for (const c of Object.values(customerRevenue)) totalCustomerRevenue += c.amount;
   const topCustomers = Object.values(customerRevenue)
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 5)
@@ -732,8 +733,11 @@ async function generateCashFlowAnalysis(
     net: Number(cf.net_flow) || 0,
   }));
 
-  const recentInflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.inflow, 0) / Math.max(monthlyTrend.slice(-3).length, 1);
-  const recentOutflow = monthlyTrend.slice(-3).reduce((sum, m) => sum + m.outflow, 0) / Math.max(monthlyTrend.slice(-3).length, 1);
+  const recent = monthlyTrend.slice(-3);
+  let recentInflowSum = 0, recentOutflowSum = 0;
+  for (const m of recent) { recentInflowSum += m.inflow; recentOutflowSum += m.outflow; }
+  const recentInflow = recentInflowSum / Math.max(recent.length, 1);
+  const recentOutflow = recentOutflowSum / Math.max(recent.length, 1);
   const burnRate = recentOutflow - recentInflow;
 
   const { data: bankAccounts } = await client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);

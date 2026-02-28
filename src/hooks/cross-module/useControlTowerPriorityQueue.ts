@@ -141,11 +141,18 @@ export function useControlTowerQueueStats() {
         CDP: pending.filter((r) => r.source_module === 'CDP').length,
       };
 
+      let totalImpact = 0;
+      let criticalCount = 0;
+      for (const r of pending) {
+        totalImpact += r.impact_amount ?? 0;
+        if ((r.priority_score ?? 0) >= 80) criticalCount++;
+      }
+
       return {
         totalPending: pending.length,
         byModule,
-        totalImpact: pending.reduce((sum, r) => sum + (r.impact_amount ?? 0), 0),
-        criticalCount: pending.filter((r) => (r.priority_score ?? 0) >= 80).length,
+        totalImpact,
+        criticalCount,
       };
     },
     enabled: !!tenantId && isReady,

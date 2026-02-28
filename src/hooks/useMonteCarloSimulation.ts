@@ -76,11 +76,14 @@ export function runMonteCarloSimulation(
   results.sort((a, b) => a - b);
 
   // Calculate statistics
-  const mean = results.reduce((a, b) => a + b, 0) / results.length;
+  let sum = 0;
+  for (const v of results) sum += v;
+  const mean = sum / results.length;
   const median = results[Math.floor(results.length / 2)];
   
-  const squaredDiffs = results.map(v => Math.pow(v - mean, 2));
-  const variance = squaredDiffs.reduce((a, b) => a + b, 0) / results.length;
+  let varianceSum = 0;
+  for (const v of results) varianceSum += Math.pow(v - mean, 2);
+  const variance = varianceSum / results.length;
   const stdDev = Math.sqrt(variance);
 
   const p5 = results[Math.floor(results.length * 0.05)];
@@ -114,15 +117,16 @@ export function runMonteCarloSimulation(
   }));
 
   // Stressed case (expected value after all scenarios)
-  const stressedCase = enabledScenarios.reduce((value, scenario) => {
-    return value * (1 + (scenario.impactPercent / 100) * scenario.probability);
-  }, baseValue);
+  let stressedCase = baseValue;
+  for (const scenario of enabledScenarios) {
+    stressedCase *= (1 + (scenario.impactPercent / 100) * scenario.probability);
+  }
 
   // Risk metrics
   const lossResults = results.filter(r => r < baseValue);
-  const expectedLoss = lossResults.length > 0 
-    ? lossResults.reduce((a, b) => a + (baseValue - b), 0) / results.length
-    : 0;
+  let expectedLossSum = 0;
+  for (const r of lossResults) expectedLossSum += baseValue - r;
+  const expectedLoss = lossResults.length > 0 ? expectedLossSum / results.length : 0;
   const maxLoss = baseValue - min;
   const probabilityOfLoss = lossResults.length / results.length;
 

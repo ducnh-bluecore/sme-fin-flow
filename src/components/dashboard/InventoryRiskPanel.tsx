@@ -84,7 +84,8 @@ export function InventoryRiskPanel() {
 
   const deadStock = agingBuckets.find(b => b.minDays >= 181);
   const slowMoving = agingBuckets.filter(b => b.minDays >= 91);
-  const slowMovingValue = slowMoving.reduce((s, b) => s + b.totalValue, 0);
+  let slowMovingValue = 0;
+  for (const b of slowMoving) slowMovingValue += b.totalValue;
   const slowMovingPercent = summary.totalValue > 0 ? (slowMovingValue / summary.totalValue) * 100 : 0;
 
   return (

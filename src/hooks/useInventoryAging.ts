@@ -95,19 +95,24 @@ export const useInventoryAging = () => {
     bucket.percentage = totalValue > 0 ? (bucket.totalValue / totalValue) * 100 : 0;
   });
 
+  let totalQuantity = 0;
+  let totalAgeSum = 0;
+  for (const item of items) {
+    totalQuantity += item.quantity;
+    totalAgeSum += calculateAgeDays(item.received_date);
+  }
+  let slowMovingValue = 0;
+  for (const b of agingBuckets) {
+    if (b.minDays >= 91) slowMovingValue += b.totalValue;
+  }
+
   const summary = {
     totalItems: items.length,
-    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalQuantity,
     totalValue,
-    avgAge: items.length > 0 
-      ? items.reduce((sum, item) => sum + calculateAgeDays(item.received_date), 0) / items.length 
-      : 0,
-    slowMovingValue: agingBuckets
-      .filter(b => b.minDays >= 91)
-      .reduce((sum, b) => sum + b.totalValue, 0),
-    slowMovingPercentage: totalValue > 0 
-      ? (agingBuckets.filter(b => b.minDays >= 91).reduce((sum, b) => sum + b.totalValue, 0) / totalValue) * 100 
-      : 0,
+    avgAge: items.length > 0 ? totalAgeSum / items.length : 0,
+    slowMovingValue,
+    slowMovingPercentage: totalValue > 0 ? (slowMovingValue / totalValue) * 100 : 0,
   };
 
   return {
