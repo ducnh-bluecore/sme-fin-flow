@@ -8,6 +8,7 @@ import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useSizeIntelligence } from '@/hooks/inventory/useSizeIntelligence';
 import { useSizeControlTower } from '@/hooks/inventory/useSizeControlTower';
 import TransferSuggestionsCard from '@/components/command/TransferSuggestionsCard';
+import ProductSizeMatrixCard from '@/components/command/ProductSizeMatrixCard';
 import HealthStrip from '@/components/command/SizeControlTower/HealthStrip';
 import StoreHeatmap from '@/components/command/SizeControlTower/StoreHeatmap';
 import ActionImpactPanel from '@/components/command/SizeControlTower/ActionImpactPanel';
@@ -96,8 +97,18 @@ export default function AssortmentPage() {
   });
 
   const brokenDetails = detailCache['broken'] || [];
+  const riskDetails = detailCache['risk'] || [];
+  const allProductDetails = useMemo(() => [...brokenDetails, ...riskDetails], [brokenDetails, riskDetails]);
   const evidencePack = evidenceProductId ? evidencePackMap.get(evidenceProductId) : null;
   const evidenceRow = evidenceProductId ? brokenDetails.find(r => r.product_id === evidenceProductId) : null;
+
+  // Auto-load broken and risk details for product tab
+  useEffect(() => {
+    if (isReady && tenantId) {
+      loadGroupDetails('broken');
+      loadGroupDetails('risk');
+    }
+  }, [isReady, tenantId]);
 
   // Evidence Drawer data via single RPC
   const { data: drawerPackData } = useQuery({
@@ -156,8 +167,9 @@ export default function AssortmentPage() {
       <DecisionFeed brokenDetails={brokenDetails} onViewEvidence={(pid) => setEvidenceProductId(pid)} />
 
       <Tabs defaultValue="transfers" className="w-full">
-        <TabsList className="w-full grid grid-cols-2">
-          <TabsTrigger value="transfers">🔄 Đề Xuất Điều Chuyển</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="transfers">🔄 Theo Cửa Hàng</TabsTrigger>
+          <TabsTrigger value="products">📦 Theo Sản Phẩm</TabsTrigger>
           <TabsTrigger value="heatmap">🗺️ Heatmap & Impact</TabsTrigger>
         </TabsList>
 
@@ -177,6 +189,19 @@ export default function AssortmentPage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground text-sm">Chưa có đề xuất điều chuyển</div>
           )}
+        </TabsContent>
+
+        <TabsContent value="products">
+          <ProductSizeMatrixCard
+            products={allProductDetails}
+            fcNames={fcNames}
+            onLoadMore={() => {
+              loadGroupDetails('broken', true);
+              loadGroupDetails('risk', true);
+            }}
+            isLoadingMore={loadingStates['broken'] || loadingStates['risk']}
+            hasMore={(brokenDetails.length % PAGE_SIZE === 0 && brokenDetails.length > 0) || (riskDetails.length % PAGE_SIZE === 0 && riskDetails.length > 0)}
+          />
         </TabsContent>
 
         <TabsContent value="heatmap">
