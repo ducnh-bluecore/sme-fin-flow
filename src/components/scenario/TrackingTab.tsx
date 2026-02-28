@@ -51,15 +51,15 @@ export const TrackingTab = forwardRef<HTMLDivElement, TrackingTabProps>(function
         isPast,
         isCurrent,
         status: isPast ? (variancePercent >= -5 ? 'on-track' : 'behind') : isCurrent ? 'current' : 'future',
-        cumulativePlanned: monthlyData.slice(0, idx + 1).reduce((sum, d) => sum + d.value, 0),
-        cumulativeActual: actualValues.slice(0, idx + 1).reduce((sum, v) => sum + (v || 0), 0),
+        cumulativePlanned: (() => { let s = 0; for (let i = 0; i <= idx; i++) s += monthlyData[i].value; return s; })(),
+        cumulativeActual: (() => { let s = 0; for (let i = 0; i <= idx; i++) s += (actualValues[i] || 0); return s; })(),
         percentOfTotal: m.percentOfTotal,
       };
     });
   }, [monthlyData, actualValues, currentMonth]);
 
-  const ytdPlanned = trackingData.slice(0, currentMonth + 1).reduce((sum, d) => sum + d.planned, 0);
-  const ytdActual = trackingData.slice(0, currentMonth + 1).reduce((sum, d) => sum + d.actual, 0);
+  let ytdPlanned = 0, ytdActual = 0;
+  for (let i = 0; i <= currentMonth && i < trackingData.length; i++) { ytdPlanned += trackingData[i].planned; ytdActual += trackingData[i].actual; }
   const ytdVariance = ytdActual - ytdPlanned;
   const ytdVariancePercent = ytdPlanned > 0 ? (ytdVariance / ytdPlanned) * 100 : 0;
 

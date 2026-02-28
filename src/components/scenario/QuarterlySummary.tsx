@@ -31,7 +31,7 @@ export const QuarterlySummary = memo(function QuarterlySummary({
           const startIdx = q * 3;
           const endIdx = startIdx + 3;
           const qData = monthlyData.slice(startIdx, endIdx);
-          const qTotal = qData.reduce((sum, m) => sum + (m.value || 0), 0);
+          let qTotal = 0; for (const m of qData) qTotal += m.value || 0;
           const qPercent = totalPlanned > 0 ? (qTotal / totalPlanned) * 100 : 25;
           const qTarget = targetTotal / 4;
 

@@ -102,10 +102,12 @@ export default function DataHubPage() {
   });
 
   const completedJobs = (importJobs as ImportJob[]).filter((j) => j.status === 'completed');
-  const totalRecords = completedJobs.reduce((sum, j) => sum + (j.records_processed || 0), 0);
-  const activeConnectors = integrations.filter(c => c.status === 'active').length;
-  const errorConnectors = integrations.filter(c => c.status === 'error').length;
-  const totalBankBalance = bankAccounts.reduce((sum, acc) => sum + (acc.current_balance || 0), 0);
+  let totalRecords = 0;
+  for (const j of completedJobs) totalRecords += j.records_processed || 0;
+  let activeConnectors = 0, errorConnectors = 0;
+  for (const c of integrations) { if (c.status === 'active') activeConnectors++; else if (c.status === 'error') errorConnectors++; }
+  let totalBankBalance = 0;
+  for (const acc of bankAccounts) totalBankBalance += acc.current_balance || 0;
 
   // Filter out bigquery from other connectors list (shown separately above)
   const filteredConnectors = integrations.filter(c => 

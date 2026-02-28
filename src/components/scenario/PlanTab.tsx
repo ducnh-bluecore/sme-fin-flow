@@ -41,10 +41,9 @@ export const PlanTab = forwardRef<HTMLDivElement, PlanTabProps>(function PlanTab
   isLoading,
 }, ref) {
   const currentMonthlyAvg = currentTotal / 12;
-  const totalPlanned = useMemo(
-    () => monthlyData.reduce((sum, m) => sum + m.value, 0),
-    [monthlyData]
-  );
+  const totalPlanned = useMemo(() => {
+    let sum = 0; for (const m of monthlyData) sum += m.value; return sum;
+  }, [monthlyData]);
 
   const chartData = useMemo(() => {
     return monthlyData.map((m, idx) => ({
@@ -55,8 +54,8 @@ export const PlanTab = forwardRef<HTMLDivElement, PlanTabProps>(function PlanTab
       percentOfTotal: m.percentOfTotal,
       locked: m.locked,
       variance: m.value - currentMonthlyAvg,
-      cumulativePlanned: monthlyData.slice(0, idx + 1).reduce((sum, d) => sum + d.value, 0),
-      cumulativeActual: actualValues.slice(0, idx + 1).reduce((sum, v) => sum + (v || 0), 0),
+      cumulativePlanned: (() => { let s = 0; for (let i = 0; i <= idx; i++) s += monthlyData[i].value; return s; })(),
+      cumulativeActual: (() => { let s = 0; for (let i = 0; i <= idx; i++) s += actualValues[i] || 0; return s; })(),
     }));
   }, [monthlyData, currentMonthlyAvg, actualValues]);
 

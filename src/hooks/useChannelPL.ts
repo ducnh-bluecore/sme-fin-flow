@@ -154,14 +154,14 @@ export function useChannelPL(channelName: string, months: number = 12) {
         // cdp_orders only contains completed orders (no status filter needed)
         const completedOrders = monthOrders;
 
-        // Map to cdp_orders column names
-        const grossRevenue = completedOrders.reduce((sum, o) => sum + (o.gross_revenue || 0), 0);
-        const platformFee = 0; // cdp_orders doesn't have fee columns
+        let grossRevenue = 0, cogsTotal = 0, netRevenueTotal = 0;
+        for (const o of completedOrders) { grossRevenue += o.gross_revenue || 0; cogsTotal += o.cogs || 0; netRevenueTotal += o.net_revenue || 0; }
+        const platformFee = 0;
         const commissionFee = 0;
         const paymentFee = 0;
         const shippingFee = 0;
-        const cogs = completedOrders.reduce((sum, o) => sum + (o.cogs || 0), 0);
-        const netRevenue = completedOrders.reduce((sum, o) => sum + (o.net_revenue || 0), 0);
+        const cogs = cogsTotal;
+        const netRevenue = netRevenueTotal;
 
         const totalFees = platformFee + commissionFee + paymentFee + shippingFee;
         const grossProfit = grossRevenue - totalFees - cogs;
@@ -171,7 +171,7 @@ export function useChannelPL(channelName: string, months: number = 12) {
           const expDate = parseISO(e.expense_date);
           return expDate >= monthStart && expDate <= monthEnd;
         });
-        const adsCost = monthAds.reduce((sum, e) => sum + (e.amount || 0), 0);
+        let adsCost = 0; for (const e of monthAds) adsCost += e.amount || 0;
 
         const operatingProfit = grossProfit - adsCost;
         const orderCount = completedOrders.length;
@@ -201,35 +201,15 @@ export function useChannelPL(channelName: string, months: number = 12) {
       });
 
       // Calculate totals
-      const totals = monthlyData.reduce((acc, m) => ({
-        totalRevenue: acc.totalRevenue + m.grossRevenue,
-        totalFees: acc.totalFees + m.totalFees,
-        totalCogs: acc.totalCogs + m.cogs,
-        totalAds: acc.totalAds + m.adsCost,
-        grossProfit: acc.grossProfit + m.grossProfit,
-        operatingProfit: acc.operatingProfit + m.operatingProfit,
-        orderCount: acc.orderCount + m.orderCount,
-        platformFee: acc.platformFee + m.platformFee,
-        commissionFee: acc.commissionFee + m.commissionFee,
-        paymentFee: acc.paymentFee + m.paymentFee,
-        shippingFee: acc.shippingFee + m.shippingFee,
-        returnedCount: acc.returnedCount + (m.returnRate > 0 ? Math.round(m.orderCount * m.returnRate / 100) : 0),
-        totalOrdersIncludingReturns: acc.totalOrdersIncludingReturns + m.orderCount + Math.round(m.orderCount * m.returnRate / 100),
-      }), {
-        totalRevenue: 0,
-        totalFees: 0,
-        totalCogs: 0,
-        totalAds: 0,
-        grossProfit: 0,
-        operatingProfit: 0,
-        orderCount: 0,
-        platformFee: 0,
-        commissionFee: 0,
-        paymentFee: 0,
-        shippingFee: 0,
-        returnedCount: 0,
-        totalOrdersIncludingReturns: 0,
-      });
+      const totals = { totalRevenue: 0, totalFees: 0, totalCogs: 0, totalAds: 0, grossProfit: 0, operatingProfit: 0, orderCount: 0, platformFee: 0, commissionFee: 0, paymentFee: 0, shippingFee: 0, returnedCount: 0, totalOrdersIncludingReturns: 0 };
+      for (const m of monthlyData) {
+        totals.totalRevenue += m.grossRevenue; totals.totalFees += m.totalFees; totals.totalCogs += m.cogs;
+        totals.totalAds += m.adsCost; totals.grossProfit += m.grossProfit; totals.operatingProfit += m.operatingProfit;
+        totals.orderCount += m.orderCount; totals.platformFee += m.platformFee; totals.commissionFee += m.commissionFee;
+        totals.paymentFee += m.paymentFee; totals.shippingFee += m.shippingFee;
+        const returnCount = m.returnRate > 0 ? Math.round(m.orderCount * m.returnRate / 100) : 0;
+        totals.returnedCount += returnCount; totals.totalOrdersIncludingReturns += m.orderCount + returnCount;
+      }
 
       // Calculate margins
       const grossMargin = totals.totalRevenue > 0 ? (totals.grossProfit / totals.totalRevenue) * 100 : 0;

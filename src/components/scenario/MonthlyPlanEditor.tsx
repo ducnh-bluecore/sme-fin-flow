@@ -55,7 +55,7 @@ export function MonthlyPlanEditor({
   // Initialize with saved plan or even distribution
   const initialDistribution = useMemo(() => {
     if (savedPlan && savedPlan.length === 12) {
-      const total = savedPlan.reduce((sum, v) => sum + v, 0);
+      let total = 0; for (const v of savedPlan) total += v;
       return MONTHS.map((month, idx) => ({
         month,
         value: savedPlan[idx],
@@ -77,7 +77,7 @@ export function MonthlyPlanEditor({
   // Update when savedPlan changes
   useEffect(() => {
     if (savedPlan && savedPlan.length === 12) {
-      const total = savedPlan.reduce((sum, v) => sum + v, 0);
+      let total = 0; for (const v of savedPlan) total += v;
       setMonthlyData(
         MONTHS.map((month, idx) => ({
           month,
@@ -89,10 +89,9 @@ export function MonthlyPlanEditor({
     }
   }, [savedPlan]);
 
-  const totalPlanned = useMemo(
-    () => monthlyData.reduce((sum, m) => sum + m.value, 0),
-    [monthlyData]
-  );
+  const totalPlanned = useMemo(() => {
+    let sum = 0; for (const m of monthlyData) sum += m.value; return sum;
+  }, [monthlyData]);
 
   const formatValue = useCallback(
     (value: number) => {
@@ -136,7 +135,7 @@ export function MonthlyPlanEditor({
       });
 
       // Recalculate percentages
-      const total = updated.reduce((sum, m) => sum + m.value, 0);
+      let total = 0; for (const m of updated) total += m.value;
       return updated.map((m) => ({
         ...m,
         percentOfTotal: total > 0 ? (m.value / total) * 100 : 100 / 12,
@@ -169,7 +168,7 @@ export function MonthlyPlanEditor({
 
   const applySeasonalPattern = useCallback(() => {
     const seasonalFactors = [0.85, 0.88, 0.92, 0.95, 1.0, 1.02, 0.98, 1.0, 1.05, 1.1, 1.12, 1.13];
-    const totalFactor = seasonalFactors.reduce((a, b) => a + b, 0);
+    let totalFactor = 0; for (const f of seasonalFactors) totalFactor += f;
 
     setMonthlyData((prev) => {
       const updated = prev.map((m, i) => {
@@ -180,7 +179,7 @@ export function MonthlyPlanEditor({
         };
       });
 
-      const total = updated.reduce((sum, m) => sum + m.value, 0);
+      let total = 0; for (const m of updated) total += m.value;
       return updated.map((m) => ({
         ...m,
         percentOfTotal: total > 0 ? (m.value / total) * 100 : 100 / 12,

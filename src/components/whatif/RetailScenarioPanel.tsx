@@ -89,11 +89,12 @@ function calculateRetailScenario(
     });
   
   // Calculate totals
-  const totalBaseRevenue = channels.reduce((sum, ch) => sum + ch.baseRevenue, 0);
-  const totalProjectedRevenue = channels.reduce((sum, ch) => sum + ch.projectedRevenue, 0);
+  let totalBaseRevenue = 0, totalProjectedRevenue = 0, totalCommission = 0, totalAdsCost = 0;
+  for (const ch of channels) {
+    totalBaseRevenue += ch.baseRevenue; totalProjectedRevenue += ch.projectedRevenue;
+    totalCommission += ch.commission; totalAdsCost += ch.adsCost;
+  }
   const totalCogs = totalProjectedRevenue * (params.costs.cogsRate / 100);
-  const totalCommission = channels.reduce((sum, ch) => sum + ch.commission, 0);
-  const totalAdsCost = channels.reduce((sum, ch) => sum + ch.adsCost, 0);
   
   // General marketing costs
   const generalMarketing = (

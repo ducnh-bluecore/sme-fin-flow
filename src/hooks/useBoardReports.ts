@@ -406,20 +406,23 @@ async function generateFinancialHighlights(
   const prevMonths = (prevFinancialData || []) as any[];
   const cashFlows = (cashFlowData || []) as any[];
 
-  const totalRevenue = months.reduce((sum, m) => sum + (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0), 0);
-  const collectedRevenue = months.reduce((sum, m) => sum + (Number(m.invoice_paid) || 0), 0);
+  let totalRevenue = 0, collectedRevenue = 0, totalExpenses = 0, cogs = 0;
+  for (const m of months) {
+    totalRevenue += (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0);
+    collectedRevenue += Number(m.invoice_paid) || 0;
+    totalExpenses += Number(m.total_expense) || 0;
+    cogs += Number(m.cogs) || 0;
+  }
   const uncollectedRevenue = totalRevenue - collectedRevenue;
-  
-  const totalExpenses = months.reduce((sum, m) => sum + (Number(m.total_expense) || 0), 0);
-  const cogs = months.reduce((sum, m) => sum + (Number(m.cogs) || 0), 0);
   const opex = totalExpenses - cogs;
   
-  const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
-  const cashInflows = cashFlows.reduce((sum, cf) => sum + (Number(cf.total_inflow) || 0), 0);
-  const cashOutflows = cashFlows.reduce((sum, cf) => sum + (Number(cf.total_outflow) || 0), 0);
+  let cashBalance = 0;
+  if (bankAccounts) { for (const acc of bankAccounts) cashBalance += acc.current_balance || 0; }
+  let cashInflows = 0, cashOutflows = 0;
+  for (const cf of cashFlows) { cashInflows += Number(cf.total_inflow) || 0; cashOutflows += Number(cf.total_outflow) || 0; }
 
-  const prevRevenue = prevMonths.reduce((sum, m) => sum + (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0), 0);
-  const prevTotalExpenses = prevMonths.reduce((sum, m) => sum + (Number(m.total_expense) || 0), 0);
+  let prevRevenue = 0, prevTotalExpenses = 0;
+  for (const m of prevMonths) { prevRevenue += (Number(m.invoice_revenue) || 0) + (Number(m.other_revenue) || 0); prevTotalExpenses += Number(m.total_expense) || 0; }
   const prevNetIncome = prevRevenue - prevTotalExpenses;
 
   const netIncome = totalRevenue - totalExpenses;
@@ -513,14 +516,15 @@ async function generateKeyMetrics(
   const avgInvoiceValue = Number(invoiceMetrics?.avg_invoice_value) || 0;
 
   // Use v_pending_ap view for AP
-  const totalAP = apItems.reduce((sum, b) => sum + (Number(b.outstanding) || 0), 0);
+  let totalAP = 0; for (const b of apItems) totalAP += Number(b.outstanding) || 0;
 
   // Calculate ratios
-  const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
-  const currentAssets = cashBalance + totalAR;
+  let cashBalanceLocal = 0;
+  if (bankAccounts) { for (const acc of bankAccounts) cashBalanceLocal += acc.current_balance || 0; }
+  const currentAssets = cashBalanceLocal + totalAR;
   const currentLiabilities = totalAP || 1; // Avoid division by zero
   const currentRatio = currentLiabilities > 0 ? currentAssets / currentLiabilities : 0;
-  const quickRatio = currentLiabilities > 0 ? cashBalance / currentLiabilities : 0;
+  const quickRatio = currentLiabilities > 0 ? cashBalanceLocal / currentLiabilities : 0;
 
   // Top customers from v_board_report_invoices view
   const customerRevenue: Record<string, { name: string; amount: number }> = {};
@@ -734,7 +738,7 @@ async function generateCashFlowAnalysis(
 
   const { data: bankAccounts } = await client.from('bank_accounts').select('current_balance').eq('tenant_id', tenantId);
 
-  const cashBalance = bankAccounts?.reduce((sum, acc) => sum + (acc.current_balance || 0), 0) || 0;
+  let cashBalance = 0; if (bankAccounts) { for (const acc of bankAccounts) cashBalance += acc.current_balance || 0; }
   const cashRunwayMonths = burnRate > 0 ? cashBalance / burnRate : 12;
 
   return {

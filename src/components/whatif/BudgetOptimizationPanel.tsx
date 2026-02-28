@@ -255,17 +255,12 @@ export function BudgetOptimizationPanel({ channels, totalBudget }: BudgetOptimiz
     });
 
     // Calculate totals
-    const totalsBefore = {
-      budget: channelComparison.reduce((sum, c) => sum + c.currentBudget, 0),
-      revenue: channelComparison.reduce((sum, c) => sum + c.currentRevenue, 0),
-      profit: channelComparison.reduce((sum, c) => sum + c.currentProfit, 0),
-    };
-    
-    const totalsAfter = {
-      budget: channelComparison.reduce((sum, c) => sum + c.newBudget, 0),
-      revenue: channelComparison.reduce((sum, c) => sum + c.newRevenue, 0),
-      profit: channelComparison.reduce((sum, c) => sum + c.newProfit, 0),
-    };
+    const totalsBefore = { budget: 0, revenue: 0, profit: 0 };
+    const totalsAfter = { budget: 0, revenue: 0, profit: 0 };
+    for (const c of channelComparison) {
+      totalsBefore.budget += c.currentBudget; totalsBefore.revenue += c.currentRevenue; totalsBefore.profit += c.currentProfit;
+      totalsAfter.budget += c.newBudget; totalsAfter.revenue += c.newRevenue; totalsAfter.profit += c.newProfit;
+    }
 
     const overallROIBefore = totalsBefore.budget > 0 ? (totalsBefore.profit / totalsBefore.budget) * 100 : 0;
     const overallROIAfter = totalsAfter.budget > 0 ? (totalsAfter.profit / totalsAfter.budget) * 100 : 0;

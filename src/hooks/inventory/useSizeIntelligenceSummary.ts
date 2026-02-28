@@ -126,8 +126,8 @@ export function useSizeIntelligenceSummary() {
     totalMarginLeak: ml?.total_margin_leak ?? 0,
     marginLeakBySizeBreak: ml?.leak_by_size_break ?? 0,
     marginLeakByMarkdown: ml?.leak_by_markdown ?? 0,
-    transferOpportunities: tDest.reduce((s: number, d: any) => s + (d.transfer_count || 0), 0),
-    totalTransferNetBenefit: tDest.reduce((s: number, d: any) => s + (d.total_net_benefit || 0), 0),
+    transferOpportunities: (() => { let s = 0; for (const d of tDest) s += ((d as any).transfer_count || 0); return s; })(),
+    totalTransferNetBenefit: (() => { let s = 0; for (const d of tDest) s += ((d as any).total_net_benefit || 0); return s; })(),
   };
 
   return {

@@ -134,7 +134,9 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
     });
     map.forEach(ch => {
       const rows = history.filter(h => h.channel === ch.channel);
-      ch.avgDiscount = rows.length > 0 ? Math.round(rows.reduce((s, r) => s + r.avg_discount_pct, 0) / rows.length) : 0;
+      let discSum = 0;
+      for (const r of rows) discSum += r.avg_discount_pct;
+      ch.avgDiscount = rows.length > 0 ? Math.round(discSum / rows.length) : 0;
     });
     return Array.from(map.values()).sort((a, b) => b.units - a.units);
   }, [history]);
@@ -226,7 +228,7 @@ export default function ProductDetailPanel({ candidate, onBack }: { candidate: C
                       });
                       return Array.from(storeMap.entries())
                         .map(([store, sizes]) => {
-                          const total = Array.from(sizes.values()).reduce((s, v) => s + v, 0);
+                          let total = 0; for (const v of sizes.values()) total += v;
                           return { store, sizes, total };
                         })
                         .sort((a, b) => b.total - a.total)

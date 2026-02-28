@@ -114,27 +114,13 @@ export function useChannelPLSSOT(channelName: string) {
       }));
 
       // Aggregate totals from monthly data - simple sum, no complex calculations
-      const totals = monthlyData.reduce((acc, m) => ({
-        totalRevenue: acc.totalRevenue + m.grossRevenue,
-        totalFees: acc.totalFees + m.totalFees,
-        totalCogs: acc.totalCogs + m.cogs,
-        grossProfit: acc.grossProfit + m.grossProfit,
-        orderCount: acc.orderCount + m.orderCount,
-        platformFee: acc.platformFee + m.platformFee,
-        commissionFee: acc.commissionFee + m.commissionFee,
-        paymentFee: acc.paymentFee + m.paymentFee,
-        shippingFee: acc.shippingFee + m.shippingFee,
-      }), {
-        totalRevenue: 0,
-        totalFees: 0,
-        totalCogs: 0,
-        grossProfit: 0,
-        orderCount: 0,
-        platformFee: 0,
-        commissionFee: 0,
-        paymentFee: 0,
-        shippingFee: 0,
-      });
+      const totals = { totalRevenue: 0, totalFees: 0, totalCogs: 0, grossProfit: 0, orderCount: 0, platformFee: 0, commissionFee: 0, paymentFee: 0, shippingFee: 0 };
+      for (const m of monthlyData) {
+        totals.totalRevenue += m.grossRevenue; totals.totalFees += m.totalFees; totals.totalCogs += m.cogs;
+        totals.grossProfit += m.grossProfit; totals.orderCount += m.orderCount;
+        totals.platformFee += m.platformFee; totals.commissionFee += m.commissionFee;
+        totals.paymentFee += m.paymentFee; totals.shippingFee += m.shippingFee;
+      }
 
       // Simple derived metrics
       const grossMargin = totals.totalRevenue > 0 

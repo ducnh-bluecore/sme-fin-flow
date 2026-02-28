@@ -150,8 +150,8 @@ function MonthlyProfitTrendChartComponent({
   // Summary statistics
   const summary = useMemo(() => {
     const lastMonth = monthlyTrendData[monthlyTrendData.length - 1];
-    const totalBaseEbitda = monthlyTrendData.reduce((sum, m) => sum + m.baseEbitda, 0);
-    const totalProjectedEbitda = monthlyTrendData.reduce((sum, m) => sum + m.projectedEbitda, 0);
+    let totalBaseEbitda = 0, totalProjectedEbitda = 0;
+    for (const m of monthlyTrendData) { totalBaseEbitda += m.baseEbitda; totalProjectedEbitda += m.projectedEbitda; }
     const ebitdaDiff = totalProjectedEbitda - totalBaseEbitda;
     const ebitdaChangePercent = totalBaseEbitda !== 0 
       ? ((totalProjectedEbitda / totalBaseEbitda) - 1) * 100 
