@@ -154,16 +154,16 @@ export default function InventoryAllocationPage() {
         <CapacityOptimizationCard stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, tier: s.tier || 'C', total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, utilization: s.capacity > 0 ? (s.total_on_hand || 0) / s.capacity : 0 }))} />
 
         {/* Action Bar */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <div className="min-w-0">
             {latestAllocRun && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground truncate">
                 Allocation gần nhất: {new Date(latestAllocRun.created_at).toLocaleString('vi-VN')}
                 {latestAllocRun.status === 'completed' && ` • ${latestAllocRun.total_recommendations || allocRecs.length} đề xuất`}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {hasMissingSize && (
               <Button
                 variant="outline"
@@ -218,7 +218,7 @@ export default function InventoryAllocationPage() {
         <RebalanceSummaryCards suggestions={allSuggestions} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="transfer" className="gap-1.5">
               <ClipboardList className="h-3.5 w-3.5" />
               Lệnh Điều Chuyển
