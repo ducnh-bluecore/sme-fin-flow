@@ -32,7 +32,7 @@ export interface SizeHealthDetailRow {
   total_on_hand: number;
 }
 
-const STATE_ORDER = ['broken', 'risk', 'watch', 'healthy'] as const;
+const STATE_ORDER = ['broken', 'risk', 'watch', 'healthy', 'out_of_stock'] as const;
 const PAGE_SIZE = 50;
 
 export function useSizeHealthGroups() {
