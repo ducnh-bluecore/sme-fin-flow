@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Plus, Pencil, Trash2, Shield, Tag, BarChart3, Store, Warehouse, ArrowLeftRight } from 'lucide-react';
+import RecallTierRulesEditor from '@/components/command/RecallTierRulesEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -132,6 +133,13 @@ export default function CommandSettingsPage() {
     },
   });
 
+  const updateConstraintValue = async (id: string, newValue: any) => {
+    const { error } = await buildUpdateQuery('inv_constraint_registry' as any, { constraint_value: newValue })
+      .eq('id', id);
+    if (error) throw error;
+    queryClient.invalidateQueries({ queryKey: ['inv-constraints-settings'] });
+  };
+
   const togglePolicy = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { error } = await buildUpdateQuery('sem_allocation_policies' as any, { is_active })
@@ -254,39 +262,50 @@ export default function CommandSettingsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Mã</TableHead>
-                      <TableHead>Giá Trị</TableHead>
-                      <TableHead>Mô Tả</TableHead>
-                      <TableHead className="text-center">Trạng Thái</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {constraints.map((c: any) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-mono text-xs">{c.constraint_key}</TableCell>
-                        <TableCell className="font-semibold">{JSON.stringify(c.constraint_value)}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{c.description || '—'}</TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant={c.is_active ? 'default' : 'outline'}
-                            className="h-6 text-xs px-2"
-                            onClick={() => toggleConstraint.mutate({ id: c.id, is_active: !c.is_active })}
-                          >
-                            {c.is_active ? 'BẬT' : 'TẮT'}
-                          </Button>
-                        </TableCell>
+            <div className="space-y-4">
+              {/* Special editor for recall tier rules */}
+              {constraints.filter((c: any) => c.constraint_key === 'fc_recall_tier_rules').map((c: any) => (
+                <RecallTierRulesEditor
+                  key={c.id}
+                  constraintId={c.id}
+                  currentValue={c.constraint_value}
+                  onSave={updateConstraintValue}
+                />
+              ))}
+              <Card>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Mã</TableHead>
+                        <TableHead>Giá Trị</TableHead>
+                        <TableHead>Mô Tả</TableHead>
+                        <TableHead className="text-center">Trạng Thái</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {constraints.filter((c: any) => c.constraint_key !== 'fc_recall_tier_rules').map((c: any) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-mono text-xs">{c.constraint_key}</TableCell>
+                          <TableCell className="font-semibold text-xs max-w-[300px] truncate">{JSON.stringify(c.constraint_value)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{c.description || '—'}</TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant={c.is_active ? 'default' : 'outline'}
+                              className="h-6 text-xs px-2"
+                              onClick={() => toggleConstraint.mutate({ id: c.id, is_active: !c.is_active })}
+                            >
+                              {c.is_active ? 'BẬT' : 'TẮT'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </TabsContent>
 
