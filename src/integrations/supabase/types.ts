@@ -41561,6 +41561,15 @@ export type Database = {
         Args: { p_batch_size?: number; p_run_id: string; p_tenant_id: string }
         Returns: Json
       }
+      fn_batch_size_split_v2: {
+        Args: {
+          p_max_records?: number
+          p_run_id: string
+          p_table_name?: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       fn_cash_lock_units: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -41791,6 +41800,10 @@ export type Database = {
           total_sold: number
           weeks_of_cover: number
         }[]
+      }
+      fn_trigger_async_size_split: {
+        Args: { p_run_id: string; p_table_name?: string; p_tenant_id: string }
+        Returns: undefined
       }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }

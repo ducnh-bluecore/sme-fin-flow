@@ -177,7 +177,7 @@ async function batchSizeSplit(
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
     try {
-      const { data, error } = await supabase.rpc("fn_batch_size_split", {
+      const { data, error } = await supabase.rpc("fn_batch_size_split_v2", {
         p_tenant_id: tenantId,
         p_run_id: runId,
         p_table_name: tableName,
