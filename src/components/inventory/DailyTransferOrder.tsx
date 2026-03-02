@@ -56,7 +56,7 @@ interface RuleCheck {
 }
 
 /** Generate rule-based checklist explaining the transfer logic */
-function generateRuleChecks(s: RebalanceSuggestion, destTier: string): RuleCheck[] {
+function generateRuleChecks(s: RebalanceSuggestion, destTier: string, sizeQtyOverrides?: Record<string, number>): RuleCheck[] {
   const reason = (s.reason || '').toLowerCase();
   const transferType = s.transfer_type || '';
   const cc = (s as any).constraint_checks || {};
@@ -118,12 +118,14 @@ function generateRuleChecks(s: RebalanceSuggestion, destTier: string): RuleCheck
     const violatedSizes: string[] = [];
 
     for (const sz of sizeBreakdownForRule) {
+      const sizeKey = sz.size || sz.size_code;
+      const sizeQty = sizeQtyOverrides?.[sizeKey] ?? sz.qty ?? 0;
       const propSrc = totalRawSrc > 0
         ? Math.round((sz.source_on_hand || 0) / totalRawSrc * srcOnHand)
         : sz.source_on_hand || 0;
-      const remaining = propSrc - (sz.qty || 0);
+      const remaining = propSrc - sizeQty;
       if (remaining < 3) {
-        violatedSizes.push(`${sz.size || sz.size_code}: còn ${remaining}`);
+        violatedSizes.push(`${sizeKey}: còn ${remaining}`);
       }
     }
 
@@ -198,6 +200,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
+  // Per-size qty edits: suggestionId → { sizeKey → qty }
+  const [editedSizeQty, setEditedSizeQty] = useState<Record<string, Record<string, number>>>({});
 
   const toggleRow = useCallback((id: string) => {
     setExpandedRows(prev => {
@@ -207,13 +211,45 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
     });
   }, []);
 
+  const handleSizeQtyChange = useCallback((suggestionId: string, sizeKey: string, qty: number) => {
+    setEditedSizeQty(prev => {
+      const next = { ...prev, [suggestionId]: { ...(prev[suggestionId] || {}), [sizeKey]: qty } };
+      return next;
+    });
+    // Also update editedQty with the new total so downstream (approve, export) still works
+    setEditedQty(prev => {
+      // We'll recompute total in getDisplayQty; store a marker here
+      return { ...prev, [suggestionId]: -1 }; // marker, actual total computed via getDisplayQty
+    });
+  }, []);
+
   const handleQtyChange = useCallback((id: string, qty: number) => {
     setEditedQty(prev => ({ ...prev, [id]: qty }));
   }, []);
 
+  /** Get the effective total qty for a suggestion, auto-summing from per-size edits if available */
   const getDisplayQty = useCallback((s: RebalanceSuggestion) => {
-    return editedQty[s.id] ?? s.qty;
-  }, [editedQty]);
+    const sizeEdits = editedSizeQty[s.id];
+    const sizeBreakdown = (s as any).size_breakdown as any[] | null;
+    if (sizeEdits && sizeBreakdown && sizeBreakdown.length > 0) {
+      return sizeBreakdown.reduce((sum: number, sz: any, idx: number) => {
+        const key = sz.size || sz.size_code || String(idx);
+        return sum + (sizeEdits[key] ?? sz.qty ?? 0);
+      }, 0);
+    }
+    return editedQty[s.id] != null && editedQty[s.id] !== -1 ? editedQty[s.id] : s.qty;
+  }, [editedQty, editedSizeQty]);
+
+  /** Get edited qty for a specific size within a suggestion */
+  const getSizeQty = useCallback((suggestionId: string, sz: any, idx: number) => {
+    const key = sz.size || sz.size_code || String(idx);
+    return editedSizeQty[suggestionId]?.[key] ?? sz.qty ?? 0;
+  }, [editedSizeQty]);
+
+  /** Check if any size was edited for a suggestion */
+  const isSizeEdited = useCallback((suggestionId: string) => {
+    return !!editedSizeQty[suggestionId] && Object.keys(editedSizeQty[suggestionId]).length > 0;
+  }, [editedSizeQty]);
 
   // Build store info map for capacity checks
   const storeInfoMap = useMemo(() => {
@@ -243,7 +279,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
         storeName: items[0]?.to_location_name || meta?.region || storeId,
         tier: meta?.tier || '',
         region: meta?.region || '',
-        totalQty: items.reduce((sum, s) => sum + (editedQty[s.id] ?? s.qty), 0),
+        totalQty: items.reduce((sum, s) => sum + getDisplayQty(s), 0),
         fcCount: new Set(items.map(s => s.fc_id)).size,
         highestPriority,
         totalRevenue: items.reduce((sum, s) => sum + s.potential_revenue_gain, 0),
@@ -253,7 +289,19 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
     }
 
     return groups.sort((a, b) => priorityRank(a.highestPriority) - priorityRank(b.highestPriority) || b.totalRevenue - a.totalRevenue);
-  }, [suggestions, storeMap, editedQty]);
+  }, [suggestions, storeMap, getDisplayQty]);
+
+  // Build effective editedQty map with computed totals for approval/export
+  const effectiveEditedQty = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const s of suggestions) {
+      const displayQty = getDisplayQty(s);
+      if (displayQty !== s.qty) {
+        result[s.id] = displayQty;
+      }
+    }
+    return result;
+  }, [suggestions, getDisplayQty]);
 
   // Priority counts
   const priorityCounts = useMemo(() => {
@@ -281,7 +329,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
     const p1Ids = storeGroups
       .filter(g => normalizePriority(g.highestPriority) === 'P1')
       .flatMap(g => g.suggestions.map(s => s.id));
-    if (p1Ids.length > 0) onApprove(p1Ids, editedQty);
+    if (p1Ids.length > 0) onApprove(p1Ids, effectiveEditedQty);
   };
 
   const handleExportExcel = () => {
@@ -499,7 +547,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                         const isExpanded = expandedRows.has(s.id);
                         const cc = (s as any).constraint_checks || {};
                         const sizeBreakdown = (s as any).size_breakdown as any[] | null;
-                        const isEdited = s.id in editedQty && editedQty[s.id] !== s.qty;
+                        const hasSizeData = sizeBreakdown && sizeBreakdown.length > 0;
+                        const isEdited = isSizeEdited(s.id) || (s.id in editedQty && editedQty[s.id] !== s.qty && editedQty[s.id] !== -1);
 
                         return (
                           <>
@@ -514,7 +563,9 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                     {(() => {
                                       const agg: Record<string, number> = {};
                                       for (const sz of sizeBreakdown) {
-                                        agg[sz.size] = (agg[sz.size] || 0) + (sz.qty || 1);
+                                        const key = sz.size || sz.size_code;
+                                        const editedVal = editedSizeQty[s.id]?.[key];
+                                        agg[key] = (agg[key] || 0) + (editedVal ?? sz.qty ?? 1);
                                       }
                                       return Object.entries(agg).map(([size, qty]) => (
                                         <span key={size} className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
@@ -537,13 +588,17 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                               </td>
                               <td className="px-3 py-2 text-right" onClick={e => e.stopPropagation()}>
                                 <div className="flex items-center justify-end gap-1.5">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    value={getDisplayQty(s)}
-                                    onChange={e => handleQtyChange(s.id, parseInt(e.target.value) || 0)}
-                                    className="w-16 h-7 text-right font-mono font-semibold text-sm px-1.5"
-                                  />
+                                  {hasSizeData ? (
+                                    <span className="font-mono font-semibold text-sm">{getDisplayQty(s)}</span>
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      value={getDisplayQty(s)}
+                                      onChange={e => handleQtyChange(s.id, parseInt(e.target.value) || 0)}
+                                      className="w-16 h-7 text-right font-mono font-semibold text-sm px-1.5"
+                                    />
+                                  )}
                                   {isEdited && (
                                     <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/30 text-[9px] px-1">
                                       Đã chỉnh
@@ -559,7 +614,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                     size="icon"
                                     variant="ghost"
                                     className="h-7 w-7 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-                                    onClick={() => onApprove([s.id], editedQty)}
+                                    onClick={() => onApprove([s.id], effectiveEditedQty)}
                                   >
                                     <CheckCircle2 className="h-4 w-4" />
                                   </Button>
@@ -626,7 +681,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                         📖 Rule Check
                                       </h4>
                                       <div className="space-y-1">
-                                        {generateRuleChecks(s, group.tier).map((check, ci) => (
+                                        {generateRuleChecks(s, group.tier, editedSizeQty[s.id]).map((check, ci) => (
                                           <div key={ci} className="flex items-start gap-2 text-xs">
                                             <span className={`shrink-0 font-bold ${check.passed ? 'text-emerald-500' : 'text-destructive'}`}>
                                               {check.passed ? '✓' : '✗'}
@@ -660,16 +715,27 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                               {sizeBreakdown.map((sz: any, idx: number) => {
                                                 // Compute proportional source stock based on header source_on_hand
                                                 const headerSrc = cc.source_on_hand ?? cc.cw_available_before;
-                                                const totalRawSrc = sizeBreakdown.reduce((s: number, x: any) => s + (x.source_on_hand || 0), 0);
+                                                const totalRawSrc = sizeBreakdown.reduce((sm: number, x: any) => sm + (x.source_on_hand || 0), 0);
                                                 const proportionalSrc = headerSrc != null && totalRawSrc > 0
                                                   ? Math.round((sz.source_on_hand || 0) / totalRawSrc * headerSrc)
                                                   : sz.source_on_hand;
-                                                const sizeRemaining = (proportionalSrc || 0) - (sz.qty || 0);
+                                                const sizeKey = sz.size || sz.size_code || String(idx);
+                                                const currentSizeQty = getSizeQty(s.id, sz, idx);
+                                                const sizeRemaining = (proportionalSrc || 0) - currentSizeQty;
                                                 const isViolated = proportionalSrc != null && sizeRemaining < 3;
                                                 return (
                                                 <tr key={idx} className={`border-b last:border-b-0 hover:bg-accent/20 ${isViolated ? 'bg-red-500/10' : ''}`}>
-                                                  <td className="px-3 py-1.5 font-mono font-semibold">{sz.size || sz.size_code || '—'}</td>
-                                                  <td className="px-3 py-1.5 text-right font-mono font-semibold">{sz.qty || 0}</td>
+                                                  <td className="px-3 py-1.5 font-mono font-semibold">{sizeKey}</td>
+                                                  <td className="px-3 py-1.5 text-right">
+                                                    <Input
+                                                      type="number"
+                                                      min={0}
+                                                      max={proportionalSrc ?? undefined}
+                                                      value={currentSizeQty}
+                                                      onChange={e => handleSizeQtyChange(s.id, sizeKey, parseInt(e.target.value) || 0)}
+                                                      className="w-14 h-6 text-right font-mono font-semibold text-xs px-1 inline-block"
+                                                    />
+                                                  </td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {proportionalSrc ?? '—'}
                                                     {proportionalSrc != null && (
@@ -680,7 +746,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                                   </td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {sz.dest_on_hand ?? '—'}
-                                                    {sz.dest_on_hand != null && <span className="text-[10px] ml-1">(+{sz.qty || 0}→{(sz.dest_on_hand || 0) + (sz.qty || 0)})</span>}
+                                                    {sz.dest_on_hand != null && <span className="text-[10px] ml-1">(+{currentSizeQty}→{(sz.dest_on_hand || 0) + currentSizeQty})</span>}
                                                   </td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {sz.dest_velocity != null ? `${sz.dest_velocity.toFixed(2)}u/d` : '—'}
@@ -717,9 +783,9 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                 <div className="px-4 py-2 bg-muted/30 border-t flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
                     {group.suggestions.length} đề xuất · {group.totalQty} units
-                    {Object.keys(editedQty).length > 0 && (
+                    {Object.keys(effectiveEditedQty).length > 0 && (
                       <Badge className="ml-2 bg-amber-500/15 text-amber-400 border-amber-500/30 text-[10px]">
-                        {Object.keys(editedQty).filter(id => group.suggestions.some(s => s.id === id)).length} đã chỉnh sửa
+                        {Object.keys(effectiveEditedQty).filter(id => group.suggestions.some(s => s.id === id)).length} đã chỉnh sửa
                       </Badge>
                     )}
                   </span>
@@ -736,7 +802,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                     <Button
                       size="sm"
                       className="h-7 text-xs gap-1"
-                      onClick={() => onApprove(group.suggestions.map(s => s.id), editedQty)}
+                      onClick={() => onApprove(group.suggestions.map(s => s.id), effectiveEditedQty)}
                     >
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Duyệt nhóm
