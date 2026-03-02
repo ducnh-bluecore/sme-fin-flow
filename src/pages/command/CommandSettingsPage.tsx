@@ -22,6 +22,7 @@ interface InvStoreRow {
   region: string | null;
   is_active: boolean;
   is_transfer_eligible: boolean;
+  is_fill_enabled: boolean;
   display_capacity: number;
   storage_capacity: number;
   capacity: number;
@@ -148,7 +149,7 @@ export default function CommandSettingsPage() {
     queryKey: ['inv-stores-settings', tenantId],
     queryFn: async () => {
       const { data, error } = await buildQuery('inv_stores' as any)
-        .select('id,store_code,store_name,location_type,tier,region,is_active,is_transfer_eligible,display_capacity,storage_capacity,capacity')
+        .select('id,store_code,store_name,location_type,tier,region,is_active,is_transfer_eligible,is_fill_enabled,display_capacity,storage_capacity,capacity')
         .order('store_name');
       if (error) return [];
       return (data || []) as unknown as InvStoreRow[];
@@ -403,6 +404,7 @@ export default function CommandSettingsPage() {
                       <TableHead className="text-right w-[90px]">🏪 Trưng bày</TableHead>
                       <TableHead className="text-right w-[90px]">📦 Kho</TableHead>
                       <TableHead className="text-right w-[80px]">Tổng</TableHead>
+                      <TableHead className="text-center w-[100px]">Phủ Nền</TableHead>
                       <TableHead className="text-center w-[120px]">
                         <span className="flex items-center gap-1 justify-center">
                           <ArrowLeftRight className="h-3 w-3" />
@@ -455,6 +457,12 @@ export default function CommandSettingsPage() {
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs font-semibold text-muted-foreground">
                             {(store.capacity || 0).toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Switch
+                              checked={store.is_fill_enabled}
+                              onCheckedChange={(checked) => updateStore.mutate({ id: store.id, updates: { is_fill_enabled: checked } })}
+                            />
                           </TableCell>
                           <TableCell className="text-center">
                             <Switch

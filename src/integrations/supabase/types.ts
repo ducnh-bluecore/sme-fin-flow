@@ -19698,6 +19698,7 @@ export type Database = {
           display_capacity: number | null
           id: string
           is_active: boolean
+          is_fill_enabled: boolean
           is_transfer_eligible: boolean
           location_type: string
           metadata: Json | null
@@ -19716,6 +19717,7 @@ export type Database = {
           display_capacity?: number | null
           id?: string
           is_active?: boolean
+          is_fill_enabled?: boolean
           is_transfer_eligible?: boolean
           location_type?: string
           metadata?: Json | null
@@ -19734,6 +19736,7 @@ export type Database = {
           display_capacity?: number | null
           id?: string
           is_active?: boolean
+          is_fill_enabled?: boolean
           is_transfer_eligible?: boolean
           location_type?: string
           metadata?: Json | null
