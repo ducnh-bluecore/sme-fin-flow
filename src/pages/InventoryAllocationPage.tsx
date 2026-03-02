@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw, DatabaseZap } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
@@ -107,6 +107,7 @@ export default function InventoryAllocationPage() {
   const queryClient = useQueryClient();
   const [isRecalcTier, setIsRecalcTier] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
+  const [isSyncAndRun, setIsSyncAndRun] = useState(false);
 
   // Check if there are records missing size_breakdown
   const hasMissingSize = useMemo(() => {
@@ -158,7 +159,49 @@ export default function InventoryAllocationPage() {
     approveRebalance.mutate({ suggestionIds: ids, action: 'rejected' });
   };
 
-  const isRunning = runRebalance.isPending || runAllocate.isPending || runRecall.isPending;
+  const handleSyncAndRun = useCallback(async () => {
+    if (!tenantId) return;
+    setIsSyncAndRun(true);
+    try {
+      // Step 1: Sync inventory from KiotViet
+      toast.info('Bước 1/2: Đang đồng bộ tồn kho từ KiotViet...');
+      const { data: storesData } = await supabase.from('inv_stores')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true);
+      const totalStores = storesData?.length || 0;
+      const chunkSize = 5;
+      const totalChunks = Math.ceil(totalStores / chunkSize);
+      
+      for (let chunk = 0; chunk < totalChunks; chunk++) {
+        const { error } = await supabase.functions.invoke('sync-inventory-positions', {
+          body: { chunk },
+        });
+        if (error) throw new Error(`Sync chunk ${chunk} failed: ${error.message}`);
+      }
+      toast.success(`Đồng bộ tồn kho hoàn tất (${totalStores} cửa hàng)`);
+
+      // Step 2: Run allocation engine (V1 + V2)
+      toast.info('Bước 2/2: Đang chạy Engine phân bổ...');
+      const { data: { user } } = await supabase.auth.getUser();
+      const response = await supabase.functions.invoke('inventory-allocation-engine', {
+        body: { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: 'both' },
+      });
+      if (response.error) throw response.error;
+
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-recs'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-allocation-latest-run'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-state-positions'] });
+      const d = response.data;
+      toast.success(`Hoàn tất! Đã tạo ${d.total_recommendations} đề xuất (${d.total_units} units)`);
+    } catch (err: any) {
+      toast.error(`Lỗi: ${err.message}`);
+    } finally {
+      setIsSyncAndRun(false);
+    }
+  }, [tenantId, queryClient]);
+
+  const isRunning = runRebalance.isPending || runAllocate.isPending || runRecall.isPending || isSyncAndRun;
 
   return (
     <>
@@ -227,6 +270,11 @@ export default function InventoryAllocationPage() {
                 <DropdownMenuItem onClick={() => runRecall.mutate()} className="gap-2">
                   <RotateCcw className="h-4 w-4" />
                   Thu hồi hàng hóa
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSyncAndRun} disabled={isSyncAndRun} className="gap-2 font-medium">
+                  <DatabaseZap className="h-4 w-4" />
+                  {isSyncAndRun ? 'Đang đồng bộ & chạy...' : 'Đồng bộ tồn kho & Chạy Engine'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
