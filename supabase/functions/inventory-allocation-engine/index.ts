@@ -162,7 +162,7 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
   }
 }
 
-// ─── Batch Size Split — single DB call ───────────────────────────
+// ─── Batch Size Split — retry loop until all records processed ───
 
 async function batchSizeSplit(
   supabase: any,
@@ -170,24 +170,40 @@ async function batchSizeSplit(
   runId: string,
   tableName: "alloc" | "rebalance"
 ) {
-  try {
-    const { data, error } = await supabase.rpc("fn_batch_size_split", {
-      p_tenant_id: tenantId,
-      p_run_id: runId,
-      p_table_name: tableName,
-      p_max_records: 5000,
-    });
+  const BATCH = 2000;
+  const MAX_ROUNDS = 10;
+  let totalUpdated = 0;
+  let totalSkipped = 0;
 
-    if (error) {
-      console.error(`[SizeSplit] RPC error:`, error.message);
-      return { updated: 0, skipped: 0, error: error.message };
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    try {
+      const { data, error } = await supabase.rpc("fn_batch_size_split", {
+        p_tenant_id: tenantId,
+        p_run_id: runId,
+        p_table_name: tableName,
+        p_max_records: BATCH,
+      });
+
+      if (error) {
+        console.error(`[SizeSplit] Round ${round} RPC error:`, error.message);
+        break;
+      }
+
+      const result = data || { updated: 0, skipped: 0, total: 0 };
+      totalUpdated += result.updated || 0;
+      totalSkipped += result.skipped || 0;
+
+      console.log(`[SizeSplit] Round ${round}: ${result.updated}/${result.total} updated`);
+
+      // If processed fewer than batch size, all done
+      if ((result.total || 0) < BATCH) break;
+    } catch (err) {
+      console.error(`[SizeSplit] Round ${round} exception:`, err);
+      break;
     }
-
-    return data || { updated: 0, skipped: 0 };
-  } catch (err) {
-    console.error(`[SizeSplit] Exception:`, err);
-    return { updated: 0, skipped: 0, error: String(err) };
   }
+
+  return { updated: totalUpdated, skipped: totalSkipped };
 }
 
 function jsonResponse(data: any, status = 200) {
