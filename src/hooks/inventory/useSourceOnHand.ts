@@ -4,7 +4,7 @@ import type { RebalanceSuggestion } from './useRebalanceSuggestions';
 
 /**
  * Fetch source & dest on-hand inventory for a list of suggestions.
- * Groups by (store_id, fc_id) so we can enrich each suggestion.
+ * Groups by (store_id, fc_id) using ONLY the latest snapshot_date per store.
  */
 export function useSourceOnHand(suggestions: RebalanceSuggestion[]) {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
@@ -26,30 +26,58 @@ export function useSourceOnHand(suggestions: RebalanceSuggestion[]) {
     queryFn: async () => {
       if (storeArr.length === 0 || fcArr.length === 0) return new Map<string, number>();
 
+      // Step 1: Get latest snapshot_date per store
+      const latestSnapshotMap = new Map<string, string>();
+      const STORE_BATCH = 30;
+      for (let si = 0; si < storeArr.length; si += STORE_BATCH) {
+        const storeBatch = storeArr.slice(si, si + STORE_BATCH);
+        const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, snapshot_date')
+          .in('store_id', storeBatch)
+          .order('snapshot_date', { ascending: false })
+          .limit(500);
+        if (error) throw error;
+        for (const row of (data || []) as any[]) {
+          // Keep only first (latest) per store
+          if (!latestSnapshotMap.has(row.store_id)) {
+            latestSnapshotMap.set(row.store_id, row.snapshot_date);
+          }
+        }
+      }
+
+      // Step 2: Fetch on_hand filtered by latest snapshot per store
+      // Group stores by their latest snapshot_date for efficient querying
+      const dateToStores = new Map<string, string[]>();
+      for (const [storeId, snapDate] of latestSnapshotMap) {
+        if (!dateToStores.has(snapDate)) dateToStores.set(snapDate, []);
+        dateToStores.get(snapDate)!.push(storeId);
+      }
+
       const PAGE_SIZE = 1000;
       const map = new Map<string, number>();
-
-      // Batch fc_ids in chunks to avoid URL length limits
       const FC_BATCH = 50;
-      for (let fi = 0; fi < fcArr.length; fi += FC_BATCH) {
-        const fcBatch = fcArr.slice(fi, fi + FC_BATCH);
-        let offset = 0;
-        let hasMore = true;
 
-        while (hasMore) {
-          const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, fc_id, on_hand')
-            .in('store_id', storeArr)
-            .in('fc_id', fcBatch)
-            .range(offset, offset + PAGE_SIZE - 1);
+      for (const [snapDate, stores] of dateToStores) {
+        for (let fi = 0; fi < fcArr.length; fi += FC_BATCH) {
+          const fcBatch = fcArr.slice(fi, fi + FC_BATCH);
+          let offset = 0;
+          let hasMore = true;
 
-          if (error) throw error;
-          const rows = (data || []) as any[];
-          for (const row of rows) {
-            const key = `${row.store_id}|${row.fc_id}`;
-            map.set(key, (map.get(key) || 0) + (row.on_hand || 0));
+          while (hasMore) {
+            const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, fc_id, on_hand')
+              .in('store_id', stores)
+              .in('fc_id', fcBatch)
+              .eq('snapshot_date', snapDate)
+              .range(offset, offset + PAGE_SIZE - 1);
+
+            if (error) throw error;
+            const rows = (data || []) as any[];
+            for (const row of rows) {
+              const key = `${row.store_id}|${row.fc_id}`;
+              map.set(key, (map.get(key) || 0) + (row.on_hand || 0));
+            }
+            hasMore = rows.length === PAGE_SIZE;
+            offset += PAGE_SIZE;
           }
-          hasMore = rows.length === PAGE_SIZE;
-          offset += PAGE_SIZE;
         }
       }
 
@@ -125,7 +153,10 @@ export function useDestSold7d(suggestions: RebalanceSuggestion[]) {
   });
 }
 
-/** Enrich suggestions with source_on_hand, dest_on_hand, and sold_7d from lookup maps */
+/**
+ * Enrich suggestions with FRESH source_on_hand, dest_on_hand, and sold_7d.
+ * Always overrides engine-baked values with live data to prevent stale readings.
+ */
 export function enrichWithSourceOnHand(
   suggestions: RebalanceSuggestion[],
   positionMap: Map<string, number> | undefined,
@@ -140,19 +171,18 @@ export function enrichWithSourceOnHand(
     const sold7d = sold7dMap?.get(destKey);
 
     const existingCC = (s as any).constraint_checks || {};
-    const needsEnrich = (sourceOnHand != null && existingCC.source_on_hand == null) ||
-                        (destOnHand != null && existingCC.dest_on_hand == null && existingCC.current_stock == null) ||
-                        (sold7d != null && existingCC.sold_7d == null);
+    const hasUpdates = sourceOnHand != null || destOnHand != null || sold7d != null;
 
-    if (!needsEnrich) return s;
+    if (!hasUpdates) return s;
 
     return {
       ...s,
       constraint_checks: {
         ...existingCC,
-        ...(sourceOnHand != null && existingCC.source_on_hand == null ? { source_on_hand: sourceOnHand } : {}),
-        ...(destOnHand != null && existingCC.dest_on_hand == null && existingCC.current_stock == null ? { dest_on_hand: destOnHand } : {}),
-        ...(sold7d != null && existingCC.sold_7d == null ? { sold_7d: sold7d } : {}),
+        // Always override with fresh live data
+        ...(sourceOnHand != null ? { source_on_hand: sourceOnHand } : {}),
+        ...(destOnHand != null ? { dest_on_hand: destOnHand, current_stock: destOnHand } : {}),
+        ...(sold7d != null ? { sold_7d: sold7d } : {}),
       },
     } as any;
   });
