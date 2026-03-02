@@ -1,9 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from "../_shared/auth.ts";
 
-const BATCH_PER_ROUND = 500;
+const BATCH_PER_ROUND = 1000;
 const MAX_ROUNDS = 20;
-const MAX_SECONDS = 50;
+const MAX_SECONDS = 55;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const runId = body.run_id || null;
     const tenantId = ctx.tenantId;
-    const table = body.table || 'both'; // 'alloc', 'rebalance', or 'both'
+    const table = body.table || 'both';
 
     const startTime = Date.now();
     let allocResult = { updated: 0, skipped: 0 };
@@ -59,15 +59,15 @@ async function batchBackfill(
     }
 
     try {
+      // Use v2 set-based function for performance
       const params: any = {
         p_tenant_id: tenantId,
         p_table_name: tableName,
         p_max_records: BATCH_PER_ROUND,
       };
-      // If runId provided, pass it; otherwise the RPC processes all null records
       if (runId) params.p_run_id = runId;
 
-      const { data, error } = await supabase.rpc('fn_batch_size_split', params);
+      const { data, error } = await supabase.rpc('fn_batch_size_split_v2', params);
 
       if (error) {
         console.error(`[Backfill] ${tableName} round ${round} error:`, error.message);
