@@ -9,6 +9,7 @@ export interface FamilyCode {
   season: string | null;
   is_core_hero: boolean;
   is_active: boolean;
+  collection_id: string | null;
 }
 
 export function useFamilyCodes() {
@@ -19,7 +20,7 @@ export function useFamilyCodes() {
     queryFn: async () => {
       const { data, error } = await buildSelectQuery(
         'inv_family_codes',
-        'id, fc_code, fc_name, category, season, is_core_hero, is_active'
+        'id, fc_code, fc_name, category, season, is_core_hero, is_active, collection_id'
       )
         .eq('is_active', true)
         .order('fc_name', { ascending: true })

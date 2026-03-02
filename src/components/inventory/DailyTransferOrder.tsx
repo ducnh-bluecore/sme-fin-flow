@@ -33,6 +33,8 @@ interface Props {
   suggestions: RebalanceSuggestion[];
   storeMap: StoreMap;
   fcNameMap: Record<string, string>;
+  fcCodeMap?: Record<string, string>;
+  fcCollectionMap?: Record<string, string>;
   stores?: StoreInfo[];
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
@@ -196,7 +198,7 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
   P3: 'bg-muted text-muted-foreground border-border',
 };
 
-export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = [], onApprove, onReject }: Props) {
+export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
@@ -557,7 +559,14 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                               </td>
                               <td className="px-2 py-2">
-                                <div className="font-medium text-foreground">{fcNameMap[s.fc_id] || s.fc_name || s.fc_id}</div>
+                                <div className="font-medium text-foreground">
+                                  {fcCodeMap[s.fc_id] ? `${fcCodeMap[s.fc_id]} - ` : ''}{fcNameMap[s.fc_id] || s.fc_name || s.fc_id}
+                                </div>
+                                {fcCollectionMap[s.fc_id] && (
+                                  <Badge variant="outline" className="text-[10px] mt-0.5 px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
+                                    {fcCollectionMap[s.fc_id]}
+                                  </Badge>
+                                )}
                                 {sizeBreakdown && sizeBreakdown.length > 0 && (
                                   <div className="flex gap-1 mt-1 flex-wrap">
                                     {(() => {

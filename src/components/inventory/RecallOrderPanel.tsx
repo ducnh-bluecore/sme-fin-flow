@@ -23,6 +23,8 @@ interface Props {
   suggestions: RebalanceSuggestion[];
   storeMap: StoreMap;
   fcNameMap: Record<string, string>;
+  fcCodeMap?: Record<string, string>;
+  fcCollectionMap?: Record<string, string>;
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
 }
@@ -53,7 +55,7 @@ function summarizeRecallReasons(suggestions: RebalanceSuggestion[]): string {
     .join(' · ');
 }
 
-export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, onReject }: Props) {
+export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, onApprove, onReject }: Props) {
   const recallSuggestions = useMemo(() => suggestions.filter(s => s.transfer_type === 'recall' && s.status === 'pending'), [suggestions]);
 
   // Group by source store (from_location)
@@ -188,7 +190,14 @@ export function RecallOrderPanel({ suggestions, storeMap, fcNameMap, onApprove, 
                         return (
                           <tr key={s.id} className="border-b last:border-b-0 hover:bg-accent/30">
                             <td className="px-4 py-2">
-                              <div className="font-medium text-foreground">{fcNameMap[s.fc_id] || s.fc_name || s.fc_id}</div>
+                              <div className="font-medium text-foreground">
+                                {fcCodeMap[s.fc_id] ? `${fcCodeMap[s.fc_id]} - ` : ''}{fcNameMap[s.fc_id] || s.fc_name || s.fc_id}
+                              </div>
+                              {fcCollectionMap[s.fc_id] && (
+                                <Badge variant="outline" className="text-[10px] mt-0.5 px-1.5 py-0 bg-primary/10 text-primary border-primary/30">
+                                  {fcCollectionMap[s.fc_id]}
+                                </Badge>
+                              )}
                             </td>
                             <td className="px-3 py-2 text-right font-mono font-semibold text-foreground">{s.qty}</td>
                             <td className="px-3 py-2 text-right">
