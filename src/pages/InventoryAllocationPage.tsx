@@ -20,6 +20,7 @@ import { useRunRebalance, useRunAllocate, useRunRecall } from '@/hooks/inventory
 import { useApproveRebalance } from '@/hooks/inventory/useApproveRebalance';
 import { useInventoryStores } from '@/hooks/inventory/useInventoryStores';
 import { useFamilyCodes } from '@/hooks/inventory/useFamilyCodes';
+import { useCollections } from '@/hooks/inventory/useCollections';
 import { useSourceOnHand, useDestSold7d, enrichWithSourceOnHand } from '@/hooks/inventory/useSourceOnHand';
 import { buildStoreMap } from '@/lib/inventory-store-map';
 import { useMemo } from 'react';
@@ -75,12 +76,29 @@ export default function InventoryAllocationPage() {
   const allSuggestions = useMemo(() => enrichWithSourceOnHand(rawSuggestions, sourceOnHandMap, sold7dMap), [rawSuggestions, sourceOnHandMap, sold7dMap]);
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
+  const { data: collections = [] } = useCollections();
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
   const fcNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     familyCodes.forEach(fc => { map[fc.id] = fc.fc_name; });
     return map;
   }, [familyCodes]);
+  const fcCodeMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    familyCodes.forEach(fc => { map[fc.id] = fc.fc_code; });
+    return map;
+  }, [familyCodes]);
+  const fcCollectionMap = useMemo(() => {
+    const collMap: Record<string, string> = {};
+    collections.forEach(c => { collMap[c.id] = c.collection_name; });
+    const map: Record<string, string> = {};
+    familyCodes.forEach(fc => {
+      if (fc.collection_id && collMap[fc.collection_id]) {
+        map[fc.id] = collMap[fc.collection_id];
+      }
+    });
+    return map;
+  }, [familyCodes, collections]);
   const runRebalance = useRunRebalance();
   const runAllocate = useRunAllocate();
   const runRecall = useRunRecall();
@@ -260,6 +278,8 @@ export default function InventoryAllocationPage() {
               suggestions={allSuggestions.filter(s => s.transfer_type !== 'recall')}
               storeMap={storeMap}
               fcNameMap={fcNameMap}
+              fcCodeMap={fcCodeMap}
+              fcCollectionMap={fcCollectionMap}
               stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, total_sold: s.total_sold || 0 }))}
               onApprove={handleApprove}
               onReject={handleReject}
@@ -270,6 +290,8 @@ export default function InventoryAllocationPage() {
               suggestions={allSuggestions}
               storeMap={storeMap}
               fcNameMap={fcNameMap}
+              fcCodeMap={fcCodeMap}
+              fcCollectionMap={fcCollectionMap}
               onApprove={handleApprove}
               onReject={handleReject}
             />
