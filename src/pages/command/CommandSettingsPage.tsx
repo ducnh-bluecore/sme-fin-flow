@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Settings, Plus, Pencil, Trash2, Shield, Tag, BarChart3, Store, Warehouse, ArrowLeftRight } from 'lucide-react';
 import RecallTierRulesEditor from '@/components/command/RecallTierRulesEditor';
+import PolicyEditor from '@/components/command/settings/PolicyEditor';
+import CriticalityEditor from '@/components/command/settings/CriticalityEditor';
+import SizeCurveEditor from '@/components/command/settings/SizeCurveEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -140,17 +143,6 @@ export default function CommandSettingsPage() {
     queryClient.invalidateQueries({ queryKey: ['inv-constraints-settings'] });
   };
 
-  const togglePolicy = useMutation({
-    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await buildUpdateQuery('sem_allocation_policies' as any, { is_active })
-        .eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sem-policies'] });
-      toast.success('Đã cập nhật chính sách');
-    },
-  });
 
   // === Inventory Stores ===
   const { data: invStores } = useQuery({
@@ -180,12 +172,6 @@ export default function CommandSettingsPage() {
     onError: (e: any) => toast.error(`Lỗi: ${e.message}`),
   });
 
-  const classColor: Record<string, string> = {
-    CORE: 'default',
-    HERO: 'secondary',
-    LONGTAIL: 'outline',
-  };
-
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
@@ -204,52 +190,7 @@ export default function CommandSettingsPage() {
 
         {/* === Allocation Policies === */}
         <TabsContent value="policies" className="space-y-4">
-          {!policies || policies.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <Shield className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Chưa cấu hình chính sách phân bổ</p>
-                <p className="text-xs mt-1">Chính sách định nghĩa trọng số và ràng buộc cho các loại phân bổ BASE, DYNAMIC, SCARCITY, REPAIR</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {policies.map((p: any) => (
-                <Card key={p.id}>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Badge variant={p.is_active ? 'default' : 'outline'}>{p.policy_type}</Badge>
-                        <div>
-                          <p className="font-semibold text-sm">{p.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {p.effective_from} → {p.effective_to || 'liên tục'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {p.weights && Object.keys(p.weights).length > 0 && (
-                          <div className="flex gap-1">
-                            {Object.entries(p.weights as Record<string, number>).slice(0, 4).map(([k, v]) => (
-                              <span key={k} className="text-xs bg-muted px-2 py-0.5 rounded">{k}: {v}</span>
-                            ))}
-                          </div>
-                        )}
-                        <Button
-                          size="sm"
-                          variant={p.is_active ? 'outline' : 'default'}
-                          className="h-7 text-xs"
-                          onClick={() => togglePolicy.mutate({ id: p.id, is_active: !p.is_active })}
-                        >
-                          {p.is_active ? 'Tắt' : 'Bật'}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <PolicyEditor policies={policies || []} />
         </TabsContent>
 
         {/* === Constraints (inv_constraint_registry) === */}
@@ -311,87 +252,12 @@ export default function CommandSettingsPage() {
 
         {/* === SKU Criticality === */}
         <TabsContent value="criticality" className="space-y-4">
-          {!criticalities || criticalities.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <Tag className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Chưa phân loại SKU</p>
-                <p className="text-xs mt-1">Phân loại CORE, HERO, LONGTAIL để ưu tiên phân bổ</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Mẫu</TableHead>
-                      <TableHead>Phân Loại</TableHead>
-                      <TableHead>Hiệu Lực Từ</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {criticalities.map((c: any) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-mono text-xs">{c.sku_id}</TableCell>
-                        <TableCell>{c.style_id || '—'}</TableCell>
-                        <TableCell>
-                          <Badge variant={classColor[c.criticality_class] as any || 'secondary'}>
-                            {c.criticality_class}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{c.effective_from}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+          <CriticalityEditor criticalities={criticalities || []} />
         </TabsContent>
 
         {/* === Size Curve Profiles === */}
         <TabsContent value="curves" className="space-y-4">
-          {!curves || curves.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <BarChart3 className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Chưa có biểu đồ size</p>
-                <p className="text-xs mt-1">Thiết lập tỷ lệ size lý tưởng theo danh mục để giám sát sức khỏe cơ cấu</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {curves.map((c: any) => (
-                <Card key={c.id}>
-                  <CardContent className="pt-5 pb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="font-semibold text-sm">{c.profile_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {[c.category_id, c.brand_id, c.season_code].filter(Boolean).join(' · ') || 'Tất cả danh mục'}
-                        </p>
-                      </div>
-                      <Badge variant={c.is_current ? 'default' : 'outline'}>
-                        {c.is_current ? 'Đang dùng' : 'Không dùng'}
-                      </Badge>
-                    </div>
-                    {c.size_ratios && Object.keys(c.size_ratios).length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {Object.entries(c.size_ratios as Record<string, number>).map(([size, ratio]) => (
-                          <div key={size} className="bg-muted rounded px-3 py-1 text-xs">
-                            <span className="font-semibold">{size}</span>
-                            <span className="text-muted-foreground ml-1">{(Number(ratio) * 100).toFixed(0)}%</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <SizeCurveEditor curves={curves || []} />
         </TabsContent>
 
         {/* === Store Management === */}
