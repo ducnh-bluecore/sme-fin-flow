@@ -47,7 +47,6 @@ async function handleAllocate(
   runType: string,
   dryRun: boolean
 ) {
-  // Create run record
   const { data: run, error: runError } = await supabase
     .from("inv_allocation_runs")
     .insert({
@@ -88,9 +87,9 @@ async function handleAllocate(
       })
       .eq("id", run.id);
 
-    // Inline size splitting - auto backfill size_breakdown
-    const sizeResult = await backfillSizeSplit(supabase, tenantId, run.id, "inv_allocation_recommendations", "store_id", "recommended_qty");
-    console.log(`[ALLOC] Size split: ${sizeResult.updated} updated, ${sizeResult.skipped} skipped`);
+    // Batch size split in DB — single RPC call, no N+1
+    const sizeResult = await batchSizeSplit(supabase, tenantId, run.id, "alloc");
+    console.log(`[ALLOC] Size split:`, JSON.stringify(sizeResult));
 
     return jsonResponse({
       run_id: run.id,
@@ -149,9 +148,9 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
       })
       .eq("id", run.id);
 
-    // Inline size splitting for rebalance suggestions
-    const sizeResult = await backfillSizeSplit(supabase, tenantId, run.id, "inv_rebalance_suggestions", "to_location", "qty");
-    console.log(`[Rebalance] Size split: ${sizeResult.updated} updated, ${sizeResult.skipped} skipped`);
+    // Batch size split in DB — single RPC call, no N+1
+    const sizeResult = await batchSizeSplit(supabase, tenantId, run.id, "rebalance");
+    console.log(`[Rebalance] Size split:`, JSON.stringify(sizeResult));
 
     return jsonResponse({ run_id: run.id, size_split: sizeResult, ...result });
   } catch (error) {
@@ -163,69 +162,32 @@ async function handleRebalance(supabase: any, tenantId: string, userId?: string)
   }
 }
 
-// ─── Inline Size Split Backfill ──────────────────────────────────
+// ─── Batch Size Split — single DB call ───────────────────────────
 
-const SIZE_BATCH = 20;
-const SIZE_MAX_SECONDS = 50;
-
-async function backfillSizeSplit(
+async function batchSizeSplit(
   supabase: any,
   tenantId: string,
   runId: string,
-  tableName: string,
-  destColumn: string,
-  qtyColumn: string
+  tableName: "alloc" | "rebalance"
 ) {
-  let updated = 0;
-  let skipped = 0;
-  const startTime = Date.now();
+  try {
+    const { data, error } = await supabase.rpc("fn_batch_size_split", {
+      p_tenant_id: tenantId,
+      p_run_id: runId,
+      p_table_name: tableName,
+      p_max_records: 5000,
+    });
 
-  const { data: records, error: fetchError } = await supabase
-    .from(tableName)
-    .select(`id, fc_id, ${destColumn}, ${qtyColumn}`)
-    .eq("tenant_id", tenantId)
-    .eq("run_id", runId)
-    .is("size_breakdown", null)
-    .limit(2000);
+    if (error) {
+      console.error(`[SizeSplit] RPC error:`, error.message);
+      return { updated: 0, skipped: 0, error: error.message };
+    }
 
-  if (fetchError || !records?.length) {
-    return { updated, skipped };
+    return data || { updated: 0, skipped: 0 };
+  } catch (err) {
+    console.error(`[SizeSplit] Exception:`, err);
+    return { updated: 0, skipped: 0, error: String(err) };
   }
-
-  console.log(`[SizeSplit] ${tableName}: ${records.length} records`);
-
-  for (let i = 0; i < records.length; i += SIZE_BATCH) {
-    if ((Date.now() - startTime) / 1000 > SIZE_MAX_SECONDS) break;
-
-    const batch = records.slice(i, i + SIZE_BATCH);
-    await Promise.allSettled(
-      batch.map(async (rec: any) => {
-        try {
-          const { data: sizeData, error: rpcError } = await supabase.rpc(
-            "fn_allocate_size_split",
-            {
-              p_tenant_id: tenantId,
-              p_fc_id: rec.fc_id,
-              p_source_store_id: null,
-              p_dest_store_id: rec[destColumn],
-              p_total_qty: rec[qtyColumn] || 0,
-            }
-          );
-          if (rpcError) { skipped++; return; }
-
-          const { error: updateError } = await supabase
-            .from(tableName)
-            .update({ size_breakdown: sizeData || [] })
-            .eq("id", rec.id);
-
-          if (updateError) skipped++;
-          else updated++;
-        } catch { skipped++; }
-      })
-    );
-  }
-
-  return { updated, skipped, elapsed_ms: Date.now() - startTime };
 }
 
 function jsonResponse(data: any, status = 200) {
