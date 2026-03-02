@@ -1,8 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireAuth, isErrorResponse, corsHeaders, jsonResponse, errorResponse } from "../_shared/auth.ts";
 
-const BATCH_SIZE = 20;
-const MAX_SECONDS = 45; // loop internally for ~45s
+const BATCH_PER_ROUND = 500;
+const MAX_ROUNDS = 20;
+const MAX_SECONDS = 50;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,35 +17,23 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const runId = body.run_id || null;
     const tenantId = ctx.tenantId;
+    const table = body.table || 'both'; // 'alloc', 'rebalance', or 'both'
 
     const startTime = Date.now();
-    let totalUpdated = 0;
-    let totalSkipped = 0;
+    let allocResult = { updated: 0, skipped: 0 };
+    let rebalResult = { updated: 0, skipped: 0 };
 
-    // Process allocation recommendations
-    const allocResult = await backfillTable(
-      ctx.supabase, tenantId, runId,
-      'inv_allocation_recommendations', 'store_id', 'recommended_qty',
-      startTime, MAX_SECONDS
-    );
-    totalUpdated += allocResult.updated;
-    totalSkipped += allocResult.skipped;
+    if (table === 'alloc' || table === 'both') {
+      allocResult = await batchBackfill(ctx.supabase, tenantId, runId, 'alloc', startTime);
+    }
 
-    // Process rebalance suggestions if still have time
-    const elapsed = (Date.now() - startTime) / 1000;
-    if (elapsed < MAX_SECONDS) {
-      const rebalResult = await backfillTable(
-        ctx.supabase, tenantId, runId,
-        'inv_rebalance_suggestions', 'to_location', 'qty',
-        startTime, MAX_SECONDS
-      );
-      totalUpdated += rebalResult.updated;
-      totalSkipped += rebalResult.skipped;
+    if ((table === 'rebalance' || table === 'both') && (Date.now() - startTime) / 1000 < MAX_SECONDS) {
+      rebalResult = await batchBackfill(ctx.supabase, tenantId, runId, 'rebalance', startTime);
     }
 
     return jsonResponse({
-      updated_count: totalUpdated,
-      skipped_count: totalSkipped,
+      alloc: allocResult,
+      rebalance: rebalResult,
       elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
     });
   } catch (err) {
@@ -53,92 +42,50 @@ Deno.serve(async (req) => {
   }
 });
 
-async function backfillTable(
+async function batchBackfill(
   supabase: any,
   tenantId: string,
   runId: string | null,
-  tableName: string,
-  destColumn: string,   // 'store_id' or 'to_location'
-  qtyColumn: string,    // 'recommended_qty' or 'qty'
+  tableName: 'alloc' | 'rebalance',
   startTime: number,
-  maxSeconds: number
 ) {
-  let updated = 0;
-  let skipped = 0;
+  let totalUpdated = 0;
+  let totalSkipped = 0;
 
-  // Query records with null size_breakdown
-  let query = supabase
-    .from(tableName)
-    .select(`id, fc_id, ${destColumn}, ${qtyColumn}`)
-    .eq('tenant_id', tenantId)
-    .is('size_breakdown', null)
-    .limit(1000);
-
-  if (runId) {
-    query = query.eq('run_id', runId);
-  }
-
-  const { data: records, error: fetchError } = await query;
-  if (fetchError) {
-    console.error(`Error fetching ${tableName}:`, fetchError);
-    return { updated, skipped };
-  }
-  if (!records || records.length === 0) {
-    return { updated, skipped };
-  }
-
-  console.log(`[Backfill] ${tableName}: ${records.length} records to process`);
-
-  // Process in batches
-  for (let i = 0; i < records.length; i += BATCH_SIZE) {
-    // Time check
-    if ((Date.now() - startTime) / 1000 > maxSeconds) {
-      console.log(`[Backfill] Time limit reached after ${updated} updates`);
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    if ((Date.now() - startTime) / 1000 > MAX_SECONDS) {
+      console.log(`[Backfill] ${tableName}: time limit at round ${round}`);
       break;
     }
 
-    const batch = records.slice(i, i + BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map(async (rec: any) => {
-        try {
-          const { data: sizeData, error: rpcError } = await supabase.rpc(
-            'fn_allocate_size_split',
-            {
-              p_tenant_id: tenantId,
-              p_fc_id: rec.fc_id,
-              p_source_store_id: null,  // central warehouse
-              p_dest_store_id: rec[destColumn],
-              p_total_qty: rec[qtyColumn] || 0,
-            }
-          );
+    try {
+      const params: any = {
+        p_tenant_id: tenantId,
+        p_table_name: tableName,
+        p_max_records: BATCH_PER_ROUND,
+      };
+      // If runId provided, pass it; otherwise the RPC processes all null records
+      if (runId) params.p_run_id = runId;
 
-          if (rpcError) {
-            console.error(`RPC error for ${rec.id}:`, rpcError.message);
-            skipped++;
-            return;
-          }
+      const { data, error } = await supabase.rpc('fn_batch_size_split', params);
 
-          // Update the record with size_breakdown
-          const breakdown = sizeData || [];
-          const { error: updateError } = await supabase
-            .from(tableName)
-            .update({ size_breakdown: breakdown })
-            .eq('id', rec.id);
+      if (error) {
+        console.error(`[Backfill] ${tableName} round ${round} error:`, error.message);
+        break;
+      }
 
-          if (updateError) {
-            console.error(`Update error for ${rec.id}:`, updateError.message);
-            skipped++;
-          } else {
-            updated++;
-          }
-        } catch (e) {
-          console.error(`Exception for ${rec.id}:`, e);
-          skipped++;
-        }
-      })
-    );
+      const result = data || { updated: 0, skipped: 0, total: 0 };
+      totalUpdated += result.updated || 0;
+      totalSkipped += result.skipped || 0;
+
+      console.log(`[Backfill] ${tableName} round ${round}: ${result.updated}/${result.total}`);
+
+      if ((result.total || 0) < BATCH_PER_ROUND) break;
+    } catch (err) {
+      console.error(`[Backfill] ${tableName} round ${round} exception:`, err);
+      break;
+    }
   }
 
-  console.log(`[Backfill] ${tableName}: ${updated} updated, ${skipped} skipped`);
-  return { updated, skipped };
+  return { updated: totalUpdated, skipped: totalSkipped };
 }
