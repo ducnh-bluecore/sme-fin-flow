@@ -109,9 +109,32 @@ function generateRuleChecks(s: RebalanceSuggestion, destTier: string): RuleCheck
     checks.push({ label: 'Velocity cao', passed: true, detail: 'Bổ sung theo nhu cầu thực tế' });
   }
 
-  // Source protection guardrail
+  // Source protection guardrail — per-size when available
+  const sizeBreakdownForRule = (s as any).size_breakdown as any[] | null;
   const srcOnHand = cc.source_on_hand ?? cc.cw_available_before;
-  if (srcOnHand != null) {
+
+  if (sizeBreakdownForRule && sizeBreakdownForRule.length > 0 && srcOnHand != null) {
+    const totalRawSrc = sizeBreakdownForRule.reduce((sum: number, x: any) => sum + (x.source_on_hand || 0), 0);
+    const violatedSizes: string[] = [];
+
+    for (const sz of sizeBreakdownForRule) {
+      const propSrc = totalRawSrc > 0
+        ? Math.round((sz.source_on_hand || 0) / totalRawSrc * srcOnHand)
+        : sz.source_on_hand || 0;
+      const remaining = propSrc - (sz.qty || 0);
+      if (remaining < 3) {
+        violatedSizes.push(`${sz.size || sz.size_code}: còn ${remaining}`);
+      }
+    }
+
+    checks.push({
+      label: 'Bảo vệ kho nguồn (≥3 units/size)',
+      passed: violatedSizes.length === 0,
+      detail: violatedSizes.length === 0
+        ? `Tất cả size còn ≥3 units sau chuyển`
+        : `${violatedSizes.join(', ')} – cân nhắc giảm SL`,
+    });
+  } else if (srcOnHand != null) {
     const remaining = srcOnHand - (s.qty || 0);
     checks.push({
       label: 'Bảo vệ kho nguồn (≥3 units)',
@@ -641,13 +664,19 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, stores = 
                                                 const proportionalSrc = headerSrc != null && totalRawSrc > 0
                                                   ? Math.round((sz.source_on_hand || 0) / totalRawSrc * headerSrc)
                                                   : sz.source_on_hand;
+                                                const sizeRemaining = (proportionalSrc || 0) - (sz.qty || 0);
+                                                const isViolated = proportionalSrc != null && sizeRemaining < 3;
                                                 return (
-                                                <tr key={idx} className="border-b last:border-b-0 hover:bg-accent/20">
+                                                <tr key={idx} className={`border-b last:border-b-0 hover:bg-accent/20 ${isViolated ? 'bg-red-500/10' : ''}`}>
                                                   <td className="px-3 py-1.5 font-mono font-semibold">{sz.size || sz.size_code || '—'}</td>
                                                   <td className="px-3 py-1.5 text-right font-mono font-semibold">{sz.qty || 0}</td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {proportionalSrc ?? '—'}
-                                                    {proportionalSrc != null && <span className="text-[10px] ml-1">(còn {(proportionalSrc || 0) - (sz.qty || 0)})</span>}
+                                                    {proportionalSrc != null && (
+                                                      <span className={`text-[10px] ml-1 ${isViolated ? 'text-red-400 font-semibold' : ''}`}>
+                                                        (còn {sizeRemaining}){isViolated && ' ⚠'}
+                                                      </span>
+                                                    )}
                                                   </td>
                                                   <td className="px-3 py-1.5 text-right text-muted-foreground">
                                                     {sz.dest_on_hand ?? '—'}
