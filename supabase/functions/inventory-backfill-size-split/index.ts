@@ -15,9 +15,22 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const runId = body.run_id || null;
+    let runId = body.run_id || null;
     const tenantId = ctx.tenantId;
     const table = body.table || 'both';
+
+    // Auto-detect latest run_id if not provided
+    if (!runId) {
+      const { data: latestRun } = await ctx.supabase
+        .from('inv_rebalance_runs')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      runId = latestRun?.id || null;
+      if (runId) console.log(`[Backfill] Auto-detected run_id: ${runId}`);
+    }
 
     const startTime = Date.now();
     let allocResult = { updated: 0, skipped: 0 };
