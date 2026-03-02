@@ -41568,7 +41568,7 @@ export type Database = {
         Args: {
           p_max_records?: number
           p_run_id: string
-          p_table_name?: string
+          p_table_name: string
           p_tenant_id: string
         }
         Returns: Json
