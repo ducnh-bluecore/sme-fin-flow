@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       return await handleRebalance(supabase, tenant_id, user_id);
     } else if (action === "allocate") {
       const rt = run_type || "both";
-      return await handleAllocate(supabase, tenant_id, user_id, rt, dry_run || false);
+      return await handleAllocate(supabase, tenant_id, user_id, rt, dry_run || false, body.collection_ids);
     }
 
     return jsonResponse({ error: "Unknown action. Use 'rebalance' or 'allocate'" }, 400);
@@ -45,7 +45,8 @@ async function handleAllocate(
   tenantId: string,
   userId: string | undefined,
   runType: string,
-  dryRun: boolean
+  dryRun: boolean,
+  collectionIds?: string[]
 ) {
   const { data: run, error: runError } = await supabase
     .from("inv_allocation_runs")
@@ -70,8 +71,8 @@ async function handleAllocate(
       p_run_id: run.id,
       p_run_type: runType,
     };
-    if (body.collection_ids && Array.isArray(body.collection_ids) && body.collection_ids.length > 0) {
-      rpcParams.p_collection_ids = body.collection_ids;
+    if (collectionIds && Array.isArray(collectionIds) && collectionIds.length > 0) {
+      rpcParams.p_collection_ids = collectionIds;
     }
     const { data, error } = await supabase.rpc("fn_allocation_engine", rpcParams);
 
