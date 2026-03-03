@@ -28024,6 +28024,107 @@ export type Database = {
           },
         ]
       }
+      sem_criticality_rules: {
+        Row: {
+          core_min_sizes: number
+          core_min_stores: number
+          core_percentile: number
+          created_at: string
+          hero_min_sizes: number
+          hero_min_stores: number
+          hero_percentile: number
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          last_run_count: number | null
+          longtail_min_sizes: number
+          longtail_min_stores: number
+          lookback_days: number
+          rule_name: string
+          tenant_id: string
+          updated_at: string
+          weight_margin: number
+          weight_revenue: number
+          weight_units_sold: number
+          weight_velocity: number
+        }
+        Insert: {
+          core_min_sizes?: number
+          core_min_stores?: number
+          core_percentile?: number
+          created_at?: string
+          hero_min_sizes?: number
+          hero_min_stores?: number
+          hero_percentile?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          last_run_count?: number | null
+          longtail_min_sizes?: number
+          longtail_min_stores?: number
+          lookback_days?: number
+          rule_name?: string
+          tenant_id: string
+          updated_at?: string
+          weight_margin?: number
+          weight_revenue?: number
+          weight_units_sold?: number
+          weight_velocity?: number
+        }
+        Update: {
+          core_min_sizes?: number
+          core_min_stores?: number
+          core_percentile?: number
+          created_at?: string
+          hero_min_sizes?: number
+          hero_min_stores?: number
+          hero_percentile?: number
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          last_run_count?: number | null
+          longtail_min_sizes?: number
+          longtail_min_stores?: number
+          lookback_days?: number
+          rule_name?: string
+          tenant_id?: string
+          updated_at?: string
+          weight_margin?: number
+          weight_revenue?: number
+          weight_units_sold?: number
+          weight_velocity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_criticality_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_criticality_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_criticality_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_criticality_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       sem_markdown_caps: {
         Row: {
           category: string | null
@@ -41537,6 +41638,10 @@ export type Database = {
       }
       fn_allocation_engine: {
         Args: { p_run_id: string; p_run_type?: string; p_tenant_id: string }
+        Returns: Json
+      }
+      fn_auto_classify_criticality: {
+        Args: { p_tenant_id: string }
         Returns: Json
       }
       fn_auto_tier_stores: {
