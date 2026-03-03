@@ -28338,6 +28338,89 @@ export type Database = {
           },
         ]
       }
+      sem_size_health_rules: {
+        Row: {
+          core_sizes: string[]
+          created_at: string
+          id: string
+          is_active: boolean
+          max_curve_deviation_pct: number
+          min_stock_threshold: number
+          shallow_depth_threshold: number
+          tenant_id: string
+          threshold_critical: number
+          threshold_warning: number
+          updated_at: string
+          weight_core_missing: number
+          weight_curve_deviation: number
+          weight_depth_score: number
+          weight_missing_ratio: number
+        }
+        Insert: {
+          core_sizes?: string[]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_curve_deviation_pct?: number
+          min_stock_threshold?: number
+          shallow_depth_threshold?: number
+          tenant_id: string
+          threshold_critical?: number
+          threshold_warning?: number
+          updated_at?: string
+          weight_core_missing?: number
+          weight_curve_deviation?: number
+          weight_depth_score?: number
+          weight_missing_ratio?: number
+        }
+        Update: {
+          core_sizes?: string[]
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_curve_deviation_pct?: number
+          min_stock_threshold?: number
+          shallow_depth_threshold?: number
+          tenant_id?: string
+          threshold_critical?: number
+          threshold_warning?: number
+          updated_at?: string
+          weight_core_missing?: number
+          weight_curve_deviation?: number
+          weight_depth_score?: number
+          weight_missing_ratio?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sem_size_health_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sem_size_health_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_size_health_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "sem_size_health_rules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       sem_sku_criticality: {
         Row: {
           created_at: string | null
