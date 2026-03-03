@@ -66,14 +66,15 @@ async function handleAllocate(
   try {
     console.log(`[ALLOC] Calling fn_allocation_engine for run ${run.id}, type=${runType}...`);
 
+    const normalizedCollectionIds =
+      Array.isArray(collectionIds) && collectionIds.length > 0 ? collectionIds : null;
+
     const rpcParams: any = {
       p_tenant_id: tenantId,
       p_run_id: run.id,
       p_run_type: runType,
+      p_collection_ids: normalizedCollectionIds,
     };
-    if (collectionIds && Array.isArray(collectionIds) && collectionIds.length > 0) {
-      rpcParams.p_collection_ids = collectionIds;
-    }
     const { data, error } = await supabase.rpc("fn_allocation_engine", rpcParams);
 
     if (error) throw error;
