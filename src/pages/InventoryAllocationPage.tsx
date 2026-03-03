@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw, DatabaseZap } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw, DatabaseZap, Filter, X } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { InventoryHeroHeader } from '@/components/inventory/InventoryHeroHeader';
 import { CapacityOptimizationCard } from '@/components/inventory/CapacityOptimizationCard';
 import { RebalanceSummaryCards } from '@/components/inventory/RebalanceSummaryCards';
@@ -32,7 +34,7 @@ import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggesti
 
 export default function InventoryAllocationPage() {
   const [activeTab, setActiveTab] = useState('transfer');
-
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
   const { data: latestRebalanceRun } = useLatestRebalanceRun();
   const { data: rebalanceSuggestions = [] } = useRebalanceSuggestions(latestRebalanceRun?.id);
   const { data: latestAllocRun } = useLatestAllocationRun();
@@ -184,8 +186,12 @@ export default function InventoryAllocationPage() {
       // Step 2: Run allocation engine (V1 + V2)
       toast.info('Bước 2/2: Đang chạy Engine phân bổ...');
       const { data: { user } } = await supabase.auth.getUser();
+      const allocBody: any = { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: 'both' };
+      if (selectedCollectionIds.length > 0) {
+        allocBody.collection_ids = selectedCollectionIds;
+      }
       const response = await supabase.functions.invoke('inventory-allocation-engine', {
-        body: { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: 'both' },
+        body: allocBody,
       });
       if (response.error) throw response.error;
 
@@ -224,7 +230,43 @@ export default function InventoryAllocationPage() {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Collection filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" />
+                  {selectedCollectionIds.length === 0 ? 'Tất cả BST' : `${selectedCollectionIds.length} BST`}
+                  {selectedCollectionIds.length > 0 && (
+                    <span
+                      role="button"
+                      className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      onClick={(e) => { e.stopPropagation(); setSelectedCollectionIds([]); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2 max-h-72 overflow-y-auto" align="end">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Chọn BST để phân bổ</p>
+                {collections.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
+                    <Checkbox
+                      checked={selectedCollectionIds.includes(c.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedCollectionIds(prev =>
+                          checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
+                        );
+                      }}
+                    />
+                    <span className="truncate">{c.collection_name}</span>
+                    {c.is_new_collection && <span className="text-xs text-primary font-medium">Mới</span>}
+                  </label>
+                ))}
+                {collections.length === 0 && <p className="text-xs text-muted-foreground p-2">Không có BST nào</p>}
+              </PopoverContent>
+            </Popover>
             {hasMissingSize && (
               <Button
                 variant="outline"
@@ -247,15 +289,15 @@ export default function InventoryAllocationPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => runAllocate.mutate('V1')} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V1', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
                   <Layers className="h-4 w-4" />
                   V1: Phủ nền theo BST
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => runAllocate.mutate('V2')} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V2', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
                   <Target className="h-4 w-4" />
                   V2: Chia theo nhu cầu CH
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => runAllocate.mutate('both')} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'both', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
                   <Package className="h-4 w-4" />
                   V1 + V2 (đầy đủ)
                 </DropdownMenuItem>

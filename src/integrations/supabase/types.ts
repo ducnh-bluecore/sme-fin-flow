@@ -41719,10 +41719,20 @@ export type Database = {
         }
         Returns: Json
       }
-      fn_allocation_engine: {
-        Args: { p_run_id: string; p_run_type?: string; p_tenant_id: string }
-        Returns: Json
-      }
+      fn_allocation_engine:
+        | {
+            Args: { p_run_id: string; p_run_type?: string; p_tenant_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_collection_ids?: string[]
+              p_run_id: string
+              p_run_type?: string
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
       fn_auto_classify_criticality: {
         Args: { p_tenant_id: string }
         Returns: Json
