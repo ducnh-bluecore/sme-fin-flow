@@ -18,15 +18,29 @@ export function useFamilyCodes() {
   return useQuery({
     queryKey: ['inv-family-codes', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'inv_family_codes',
-        'id, fc_code, fc_name, category, season, is_core_hero, is_active, collection_id'
-      )
-        .eq('is_active', true)
-        .order('fc_name', { ascending: true })
-        .limit(10000);
-      if (error) throw error;
-      return (data || []) as unknown as FamilyCode[];
+      const pageSize = 1000;
+      let from = 0;
+      const allRows: FamilyCode[] = [];
+
+      while (true) {
+        const { data, error } = await buildSelectQuery(
+          'inv_family_codes',
+          'id, fc_code, fc_name, category, season, is_core_hero, is_active, collection_id'
+        )
+          .eq('is_active', true)
+          .order('fc_name', { ascending: true })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+
+        const batch = ((data || []) as unknown as FamilyCode[]);
+        allRows.push(...batch);
+
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return allRows;
     },
     enabled: isReady,
   });

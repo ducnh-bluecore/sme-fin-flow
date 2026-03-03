@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { Fragment, useState, useMemo, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -553,8 +553,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
                         const isEdited = isSizeEdited(s.id) || (s.id in editedQty && editedQty[s.id] !== s.qty && editedQty[s.id] !== -1);
 
                         return (
-                          <>
-                            <tr key={s.id} className={`border-b last:border-b-0 hover:bg-accent/30 cursor-pointer ${isExpanded ? 'bg-accent/20' : ''}`} onClick={() => toggleRow(s.id)}>
+                          <Fragment key={s.id}>
+                            <tr className={`border-b last:border-b-0 hover:bg-accent/30 cursor-pointer ${isExpanded ? 'bg-accent/20' : ''}`} onClick={() => toggleRow(s.id)}>
                               <td className="px-4 py-2 text-muted-foreground">
                                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                               </td>
@@ -781,7 +781,7 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </Fragment>
                         );
                       })}
                     </tbody>
