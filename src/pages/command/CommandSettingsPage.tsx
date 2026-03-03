@@ -5,6 +5,7 @@ import RecallTierRulesEditor from '@/components/command/RecallTierRulesEditor';
 import PolicyEditor from '@/components/command/settings/PolicyEditor';
 import CriticalityEditor from '@/components/command/settings/CriticalityEditor';
 import SizeCurveEditor from '@/components/command/settings/SizeCurveEditor';
+import SizeHealthRulesEditor from '@/components/command/settings/SizeHealthRulesEditor';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -186,6 +187,7 @@ export default function CommandSettingsPage() {
           <TabsTrigger value="constraints">Ràng Buộc</TabsTrigger>
           <TabsTrigger value="criticality">Phân Loại SKU</TabsTrigger>
           <TabsTrigger value="curves">Biểu Đồ Size</TabsTrigger>
+          <TabsTrigger value="size-health">Định Nghĩa Lẻ Size</TabsTrigger>
         </TabsList>
 
         {/* === Allocation Policies === */}
@@ -258,6 +260,11 @@ export default function CommandSettingsPage() {
         {/* === Size Curve Profiles === */}
         <TabsContent value="curves" className="space-y-4">
           <SizeCurveEditor curves={curves || []} />
+        </TabsContent>
+
+        {/* === Size Health Rules === */}
+        <TabsContent value="size-health" className="space-y-4">
+          <SizeHealthRulesEditor />
         </TabsContent>
 
         {/* === Store Management === */}
