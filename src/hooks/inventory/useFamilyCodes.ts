@@ -24,7 +24,7 @@ export function useFamilyCodes() {
       )
         .eq('is_active', true)
         .order('fc_name', { ascending: true })
-        .limit(2000);
+        .limit(10000);
       if (error) throw error;
       return (data || []) as unknown as FamilyCode[];
     },
