@@ -27,6 +27,10 @@ const SYSTEM_PROMPT = `Bạn là Chief Retail Strategist của Bluecore — tư 
 - Tỷ lệ (giao dịch/khách - 1) phản ánh % đơn hàng từ khách không để lại info.
   Tỷ lệ này cao → vấn đề thu thập data khách, KHÔNG PHẢI tín hiệu tích cực.
 - KHÔNG ĐƯỢC nói "conversion rate" hay "repeat purchase" từ data này.
+- "Tỷ lệ quay lại" (return_rate) = repeat_customer_count / customer_count.
+  CHỈ SỐ NÀY HIỆN KHÔNG ĐÁNG TIN vì ID "khách lẻ" xuất hiện mỗi ngày đều bị đếm là "repeat".
+  → BỎ QUA hoàn toàn metric này khi phân tích. KHÔNG đề cập, KHÔNG dùng làm insight.
+  Nếu data có trường returnRate/return_rate → ghi chú ngắn "metric chưa chính xác do data khách lẻ" rồi bỏ qua.
 
 **TƯ DUY PHÂN TÍCH BẮT BUỘC:**
 - Traffic vs Ticket Size: Store bán ít vì ít khách vào (traffic) hay vì khách vào nhưng mua ít/rẻ (AOV)?
