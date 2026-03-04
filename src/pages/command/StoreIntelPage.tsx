@@ -18,12 +18,13 @@ import { useStoreTopFC } from '@/hooks/inventory/useStoreTopFC';
 import { useStoreTopCollections } from '@/hooks/inventory/useStoreTopCollections';
 import { useStoreKpiTarget, useUpsertStoreKpiTarget, computeKpiComparison, getCurrentPeriodValue, useStoreKpiTargetHistory } from '@/hooks/inventory/useStoreKpiTargets';
 import { useStoreMonthlyRevenue, useAllStoresMonthlyRevenue } from '@/hooks/inventory/useStoreMonthlyRevenue';
+import { useStorePerformanceBenchmark } from '@/hooks/inventory/useStorePerformanceBenchmark';
 import {
   Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart,
   Layers, Calendar, Star, FolderOpen, Target, Save, CheckCircle2,
   AlertTriangle, XCircle, ArrowLeft, ArrowUpDown, GitCompareArrows,
-  Trophy, ChevronRight,
+  Trophy, ChevronRight, Activity, Gauge,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine, ComposedChart, Area,
@@ -372,6 +373,199 @@ function KpiTargetForm({ storeId, storeName }: { storeId: string; storeName: str
   );
 }
 
+// ─── Store Benchmark Panel ──────────────────────────────────────────
+
+function BenchmarkMetric({ label, storeVal, chainVal, tierVal, format: fmt }: {
+  label: string; storeVal: number; chainVal: number; tierVal: number; format: (v: number) => string;
+}) {
+  const vsChain = chainVal > 0 ? ((storeVal - chainVal) / chainVal * 100) : 0;
+  const vsTier = tierVal > 0 ? ((storeVal - tierVal) / tierVal * 100) : 0;
+  const DeltaBadge = ({ pct }: { pct: number }) => (
+    <span className={`text-[10px] font-medium tabular-nums ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+    </span>
+  );
+
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
+      <span className="text-xs text-muted-foreground w-32">{label}</span>
+      <span className="text-xs font-semibold tabular-nums w-24 text-right">{fmt(storeVal)}</span>
+      <div className="flex items-center gap-1 w-28 justify-end">
+        <span className="text-[10px] text-muted-foreground">vs chuỗi:</span>
+        <DeltaBadge pct={vsChain} />
+      </div>
+      <div className="flex items-center gap-1 w-28 justify-end">
+        <span className="text-[10px] text-muted-foreground">vs tier:</span>
+        <DeltaBadge pct={vsTier} />
+      </div>
+    </div>
+  );
+}
+
+function StoreBenchmarkPanel({ storeId, storeTier }: { storeId: string; storeTier: string }) {
+  const { data: benchmark, isLoading } = useStorePerformanceBenchmark(storeId);
+
+  if (isLoading) return (
+    <Card><CardContent className="py-6"><div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-6 bg-muted animate-pulse rounded" />)}</div></CardContent></Card>
+  );
+
+  if (!benchmark || !benchmark.store) return null;
+
+  const s = benchmark.store;
+  const c = benchmark.chain_avg;
+  const t = benchmark.same_tier_avg;
+
+  // Identify weakest metrics vs tier
+  const metrics = [
+    { key: 'revenue', label: 'Doanh thu/ngày', gap: t.avg_daily_revenue > 0 ? (s.avg_daily_revenue - t.avg_daily_revenue) / t.avg_daily_revenue * 100 : 0 },
+    { key: 'txn', label: 'Số đơn/ngày', gap: t.avg_daily_txn > 0 ? (s.avg_daily_txn - t.avg_daily_txn) / t.avg_daily_txn * 100 : 0 },
+    { key: 'aov', label: 'AOV', gap: t.avg_aov > 0 ? (s.avg_aov - t.avg_aov) / t.avg_aov * 100 : 0 },
+    { key: 'customers', label: 'Khách/ngày', gap: t.avg_daily_customers > 0 ? (s.avg_daily_customers - t.avg_daily_customers) / t.avg_daily_customers * 100 : 0 },
+    { key: 'rpc', label: 'Revenue/Khách', gap: t.revenue_per_customer > 0 ? (s.revenue_per_customer - t.revenue_per_customer) / t.revenue_per_customer * 100 : 0 },
+  ];
+
+  const weakMetrics = metrics.filter(m => m.gap < -10).sort((a, b) => a.gap - b.gap);
+  const strongMetrics = metrics.filter(m => m.gap > 10).sort((a, b) => b.gap - a.gap);
+
+  // Monthly gap analysis
+  const monthlyGap = benchmark.monthly_gap || [];
+  const underperformingMonths = monthlyGap.filter(m => m.achievement_pct !== null && m.achievement_pct < 100);
+
+  return (
+    <Card>
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          Phân tích chuyên sâu
+          <Badge variant="outline" className="text-[10px] ml-auto">vs {c.store_count} stores · Tier {storeTier} ({t.store_count} stores)</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0 space-y-4">
+        {/* Benchmark comparison table */}
+        <div>
+          <BenchmarkMetric label="Doanh thu/ngày" storeVal={s.avg_daily_revenue} chainVal={c.avg_daily_revenue} tierVal={t.avg_daily_revenue} format={v => fmtVnd(v)} />
+          <BenchmarkMetric label="Số đơn/ngày" storeVal={s.avg_daily_txn} chainVal={c.avg_daily_txn} tierVal={t.avg_daily_txn} format={v => v.toFixed(1)} />
+          <BenchmarkMetric label="AOV" storeVal={s.avg_aov} chainVal={c.avg_aov} tierVal={t.avg_aov} format={v => `${(v/1000).toFixed(0)}K`} />
+          <BenchmarkMetric label="Khách/ngày" storeVal={s.avg_daily_customers} chainVal={c.avg_daily_customers} tierVal={t.avg_daily_customers} format={v => v.toFixed(1)} />
+          <BenchmarkMetric label="Revenue/Khách" storeVal={s.revenue_per_customer} chainVal={c.revenue_per_customer} tierVal={t.revenue_per_customer} format={v => fmtVnd(v)} />
+        </div>
+
+        {/* Diagnosis */}
+        {(weakMetrics.length > 0 || strongMetrics.length > 0) && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5 text-primary" />Chẩn đoán hiệu suất</h4>
+            {weakMetrics.length > 0 && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-red-400">
+                  <TrendingDown className="h-3.5 w-3.5" />Điểm yếu so với Tier {storeTier}
+                </div>
+                {weakMetrics.map(m => (
+                  <div key={m.key} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{m.label}</span>
+                    <span className="text-red-400 font-medium tabular-nums">{m.gap.toFixed(1)}% so với TB tier</span>
+                  </div>
+                ))}
+                <p className="text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-red-500/10">
+                  {weakMetrics.some(m => m.key === 'customers') && weakMetrics.some(m => m.key === 'txn')
+                    ? '💡 Lượng khách & đơn thấp → cần xem xét vị trí, marketing địa phương, hoặc giờ mở cửa.'
+                    : weakMetrics.some(m => m.key === 'aov') || weakMetrics.some(m => m.key === 'rpc')
+                    ? '💡 Giá trị đơn thấp → cần review merchandising, upsell strategy, hoặc mix sản phẩm tại cửa hàng.'
+                    : weakMetrics.some(m => m.key === 'customers')
+                    ? '💡 Ít khách → cần đánh giá traffic nguồn, visibility, và chương trình thu hút khách.'
+                    : '💡 Cần phân tích thêm nguyên nhân để có hành động cụ thể.'
+                  }
+                </p>
+              </div>
+            )}
+            {strongMetrics.length > 0 && (
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                  <TrendingUp className="h-3.5 w-3.5" />Điểm mạnh
+                </div>
+                {strongMetrics.map(m => (
+                  <div key={m.key} className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{m.label}</span>
+                    <span className="text-emerald-400 font-medium tabular-nums">+{m.gap.toFixed(1)}% so với TB tier</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Monthly gap table */}
+        {monthlyGap.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-primary" />Gap theo tháng</h4>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Tháng</TableHead>
+                  <TableHead className="text-xs text-right">Thực tế</TableHead>
+                  <TableHead className="text-xs text-right">Mục tiêu</TableHead>
+                  <TableHead className="text-xs text-right">Đạt %</TableHead>
+                  <TableHead className="text-xs text-right">Đơn</TableHead>
+                  <TableHead className="text-xs text-right">AOV</TableHead>
+                  <TableHead className="text-xs text-right">Khách</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {monthlyGap.map(m => (
+                  <TableRow key={m.month}>
+                    <TableCell className="text-xs font-medium">{m.month}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{fmtVnd(m.actual_revenue)}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums text-muted-foreground">{m.target_revenue ? fmtVnd(m.target_revenue) : '—'}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">
+                      {m.achievement_pct !== null ? (
+                        <span className={m.achievement_pct >= 100 ? 'text-emerald-400' : m.achievement_pct >= 80 ? 'text-amber-400' : 'text-red-400'}>
+                          {m.achievement_pct}%
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{m.total_txn.toLocaleString('vi-VN')}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{`${(m.avg_aov/1000).toFixed(0)}K`}</TableCell>
+                    <TableCell className="text-xs text-right tabular-nums">{m.total_customers.toLocaleString('vi-VN')}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* Revenue decomposition insight */}
+        {underperformingMonths.length > 0 && (
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-400 mb-1.5">
+              <AlertTriangle className="h-3.5 w-3.5" />Phân tích nguyên nhân không đạt target
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Revenue = Số khách × Đơn/khách × AOV. 
+              {(() => {
+                const avgAchieve = underperformingMonths.reduce((sum, m) => sum + (m.achievement_pct || 0), 0) / underperformingMonths.length;
+                const revenueGapPct = (100 - avgAchieve).toFixed(0);
+                
+                // Check which component is weakest vs tier
+                const txnGap = t.avg_daily_txn > 0 ? (s.avg_daily_txn - t.avg_daily_txn) / t.avg_daily_txn * 100 : 0;
+                const aovGap = t.avg_aov > 0 ? (s.avg_aov - t.avg_aov) / t.avg_aov * 100 : 0;
+                const custGap = t.avg_daily_customers > 0 ? (s.avg_daily_customers - t.avg_daily_customers) / t.avg_daily_customers * 100 : 0;
+
+                const factors: string[] = [];
+                if (custGap < -10) factors.push(`khách hàng thấp hơn TB tier ${Math.abs(custGap).toFixed(0)}%`);
+                if (txnGap < -10) factors.push(`số đơn thấp hơn ${Math.abs(txnGap).toFixed(0)}%`);
+                if (aovGap < -10) factors.push(`AOV thấp hơn ${Math.abs(aovGap).toFixed(0)}%`);
+
+                return factors.length > 0
+                  ? ` Store thiếu ~${revenueGapPct}% target, nguyên nhân chính: ${factors.join(', ')}.`
+                  : ` Store thiếu ~${revenueGapPct}% target. Các chỉ số gần mức trung bình tier — cần review lại target hoặc yếu tố bên ngoài.`;
+              })()}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Ranking View ───────────────────────────────────────────────────
 
 function StoreRankingView({ stores, onSelect, compareIds, onToggleCompare }: {
@@ -665,13 +859,10 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
         <MetricCard icon={TrendingUp} label="Đã bán" value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} sub={profileLoading ? '' : (profile?.periodStart && profile?.periodEnd ? `${format(parseISO(profile.periodStart), 'dd/MM')} - ${format(parseISO(profile.periodEnd), 'dd/MM')}` : '')} iconClass="text-pink-400" />
       </div>
 
-      {/* KPI vs Target progress */}
-      {kpiComparison && kpiComparison.status !== 'no_target' && kpiComparison.target && (
-        <div className="grid grid-cols-4 gap-2">
-          <KpiProgressCard label="Doanh thu" actual={kpiComparison.actual.revenue} target={kpiComparison.target.revenue_target} unit="M" icon={DollarSign} iconClass="text-amber-400" />
-          <KpiProgressCard label="Đơn hàng" actual={kpiComparison.actual.orders} target={kpiComparison.target.orders_target} unit="" icon={ShoppingCart} iconClass="text-blue-400" />
-          <KpiProgressCard label="Khách hàng" actual={kpiComparison.actual.customers} target={kpiComparison.target.customers_target} unit="" icon={Users} iconClass="text-cyan-400" />
-          <KpiProgressCard label="AOV" actual={kpiComparison.actual.aov} target={kpiComparison.target.aov_target} unit="K" icon={TrendingUp} iconClass="text-emerald-400" />
+      {/* KPI vs Target progress - only revenue */}
+      {kpiComparison && kpiComparison.status !== 'no_target' && kpiComparison.target && kpiComparison.target.revenue_target > 0 && (
+        <div className="grid grid-cols-1 max-w-sm">
+          <KpiProgressCard label="Doanh thu vs Mục tiêu" actual={kpiComparison.actual.revenue} target={kpiComparison.target.revenue_target} unit="M" icon={DollarSign} iconClass="text-amber-400" />
         </div>
       )}
 
@@ -754,6 +945,7 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
 
         <TabsContent value="kpi-target" className="space-y-3">
           <KpiTargetForm storeId={storeId} storeName={store.store_name} />
+          <StoreBenchmarkPanel storeId={storeId} storeTier={store.tier} />
         </TabsContent>
 
         <TabsContent value="top-collection">
