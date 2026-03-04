@@ -42127,6 +42127,15 @@ export type Database = {
           total_on_hand: number
         }[]
       }
+      fn_store_performance_benchmark: {
+        Args: {
+          p_from_date?: string
+          p_store_id: string
+          p_tenant_id: string
+          p_to_date?: string
+        }
+        Returns: Json
+      }
       fn_store_size_heatmap: {
         Args: { p_tenant_id: string }
         Returns: {
