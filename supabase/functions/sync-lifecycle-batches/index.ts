@@ -109,22 +109,45 @@ Deno.serve(async (req) => {
     if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
     const accessToken = await getAccessToken(JSON.parse(saJson));
 
-    // 2. Load FCs with product_created_date
-    const { data: fcs, error: fcErr } = await supabase
-      .from('inv_family_codes')
-      .select('id, fc_code, product_created_date')
-      .eq('tenant_id', TENANT_ID)
-      .eq('is_active', true)
-      .not('product_created_date', 'is', null);
+    // 2. Load ALL FCs with product_created_date (paginated, exclude non-fashion)
+    const NON_FASHION_PREFIXES = ['SP', 'GIFT', 'BAG', 'BOX', 'LB', 'BVSE', 'VC0', 'VCOLV'];
+    const fcs: { id: string; fc_code: string; product_created_date: string }[] = [];
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    let hasMore = true;
 
-    if (fcErr) throw new Error(`FCs: ${fcErr.message}`);
-    if (!fcs?.length) {
-      return new Response(JSON.stringify({ success: true, message: 'No FCs with product_created_date' }), {
+    while (hasMore) {
+      const { data: page, error: fcErr } = await supabase
+        .from('inv_family_codes')
+        .select('id, fc_code, product_created_date')
+        .eq('tenant_id', TENANT_ID)
+        .eq('is_active', true)
+        .not('product_created_date', 'is', null)
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (fcErr) throw new Error(`FCs: ${fcErr.message}`);
+      if (!page?.length) { hasMore = false; break; }
+      
+      // Filter out non-fashion items
+      for (const fc of page) {
+        const upper = fc.fc_code.toUpperCase();
+        const isExcluded = NON_FASHION_PREFIXES.some(p => upper.startsWith(p))
+          || upper.includes('BAO LI XI') || upper.includes('SO TAY')
+          || upper.startsWith('333.0'); // raw materials prefix
+        if (!isExcluded) fcs.push(fc);
+      }
+
+      from += PAGE_SIZE;
+      if (page.length < PAGE_SIZE) hasMore = false;
+    }
+
+    if (!fcs.length) {
+      return new Response(JSON.stringify({ success: true, message: 'No fashion FCs with product_created_date' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[lifecycle] Processing ${fcs.length} FCs`);
+    console.log(`[lifecycle] Processing ${fcs.length} fashion FCs (excluded non-fashion)`);
 
     // Build FC code → id map
     const fcMap = new Map<string, { id: string; createdDate: string }>();
