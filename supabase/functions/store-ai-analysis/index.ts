@@ -84,13 +84,20 @@ Deno.serve(async (req) => {
       return errorResponse('ANTHROPIC_API_KEY chưa được cấu hình. Vào Settings > API Keys để thêm.', 500);
     }
 
-    const { storeData } = await req.json();
-    if (!storeData) {
-      return errorResponse('Missing storeData', 400);
+    const { storeData, messages: chatMessages } = await req.json();
+    if (!storeData && !chatMessages) {
+      return errorResponse('Missing storeData or messages', 400);
     }
 
-    // Build the analysis prompt from template data
-    const userPrompt = `Phân tích chi tiết cửa hàng sau:
+    // Build messages array
+    let messages: { role: string; content: string }[] = [];
+
+    if (chatMessages && Array.isArray(chatMessages) && chatMessages.length > 0) {
+      // Follow-up conversation: use provided message history
+      messages = chatMessages;
+    } else if (storeData) {
+      // Initial analysis: build the analysis prompt from template data
+      const userPrompt = `Phân tích chi tiết cửa hàng sau:
 
 **Tên store:** ${storeData.storeName}
 **Tier:** ${storeData.tier}
@@ -124,7 +131,10 @@ ${storeData.monthlyGap?.map((m: any) => `- ${m.month}: ${(m.actual_revenue / 1e6
 
 Hãy phân tích và đưa ra nhận định chiến lược theo cấu trúc đã định.`;
 
-    console.log(`[store-ai-analysis] Calling Claude for store: ${storeData.storeName}`);
+      messages = [{ role: 'user', content: userPrompt }];
+    }
+
+    console.log(`[store-ai-analysis] Calling Claude, messages: ${messages.length}`);
 
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
@@ -137,7 +147,7 @@ Hãy phân tích và đưa ra nhận định chiến lược theo cấu trúc đ
         model: 'claude-sonnet-4-20250514',
         max_tokens: 8192,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+        messages,
         stream: true,
       }),
     });
