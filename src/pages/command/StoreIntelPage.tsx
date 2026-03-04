@@ -241,33 +241,65 @@ function RevenueVsTargetChart({ storeId, storeName }: { storeId: string; storeNa
 
 // ─── KPI Target Form ────────────────────────────────────────────────
 
+function generateMonthOptions(): string[] {
+  const months: string[] = [];
+  const now = new Date();
+  // From Jan 2024 to current month + 1
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth() + 2; // +1 for 0-index, +1 for next month
+  for (let y = 2024; y <= endYear + 1; y++) {
+    for (let m = 1; m <= 12; m++) {
+      if (y * 12 + m > endYear * 12 + endMonth) break;
+      if (y === 2024 && m < 1) continue;
+      months.push(`${y}-${String(m).padStart(2, '0')}`);
+    }
+  }
+  return months;
+}
+
 function KpiTargetForm({ storeId, storeName }: { storeId: string; storeName: string }) {
+  const allMonths = useMemo(() => generateMonthOptions(), []);
   const currentPeriod = getCurrentPeriodValue();
-  const { data: existingTarget } = useStoreKpiTarget(storeId, currentPeriod);
+
+  // Range mode: from → to
+  const [fromMonth, setFromMonth] = useState(currentPeriod);
+  const [toMonth, setToMonth] = useState(currentPeriod);
+  const { data: existingTarget } = useStoreKpiTarget(storeId, fromMonth);
   const upsert = useUpsertStoreKpiTarget();
 
   const [revenue, setRevenue] = useState('');
-  const [orders, setOrders] = useState('');
-  const [customers, setCustomers] = useState('');
-  const [aov, setAov] = useState('');
 
   useMemo(() => {
     if (existingTarget) {
       setRevenue(String(existingTarget.revenue_target || ''));
-      setOrders(String(existingTarget.orders_target || ''));
-      setCustomers(String(existingTarget.customers_target || ''));
-      setAov(String(existingTarget.aov_target || ''));
+    } else {
+      setRevenue('');
     }
   }, [existingTarget]);
 
+  const isRange = fromMonth !== toMonth && toMonth > fromMonth;
+  const monthsInRange = useMemo(() => {
+    return allMonths.filter(m => m >= fromMonth && m <= toMonth);
+  }, [allMonths, fromMonth, toMonth]);
+
+  const navigateMonth = (direction: -1 | 1) => {
+    const idx = allMonths.indexOf(fromMonth);
+    const newIdx = Math.max(0, Math.min(allMonths.length - 1, idx + direction));
+    setFromMonth(allMonths[newIdx]);
+    if (!isRange) setToMonth(allMonths[newIdx]);
+  };
+
   const handleSave = async () => {
     try {
-      await upsert.mutateAsync({
-        store_id: storeId, period_value: currentPeriod,
-        revenue_target: Number(revenue) || 0, orders_target: Number(orders) || 0,
-        customers_target: Number(customers) || 0, aov_target: Number(aov) || 0,
-      });
-      toast.success(`Đã lưu mục tiêu KPI cho ${storeName}`);
+      const targets = isRange ? monthsInRange : [fromMonth];
+      for (const period of targets) {
+        await upsert.mutateAsync({
+          store_id: storeId, period_value: period,
+          revenue_target: Number(revenue) || 0, orders_target: 0,
+          customers_target: 0, aov_target: 0,
+        });
+      }
+      toast.success(`Đã lưu mục tiêu doanh thu cho ${storeName} (${targets.length} tháng)`);
     } catch (e: any) {
       toast.error('Lỗi khi lưu: ' + (e.message || ''));
     }
@@ -278,32 +310,63 @@ function KpiTargetForm({ storeId, storeName }: { storeId: string; storeName: str
       <CardHeader className="py-3 px-4">
         <CardTitle className="text-sm flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
-          Mục tiêu tháng {currentPeriod}
+          Mục tiêu doanh thu
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <div className="grid grid-cols-4 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Doanh thu (VNĐ)</label>
+      <CardContent className="px-4 pb-4 pt-0 space-y-3">
+        {/* Month range selector */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigateMonth(-1)}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </Button>
+          <div className="flex items-center gap-1.5">
+            <Select value={fromMonth} onValueChange={v => { setFromMonth(v); if (toMonth < v) setToMonth(v); }}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allMonths.map(m => (
+                  <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">→</span>
+            <Select value={toMonth} onValueChange={setToMonth}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allMonths.filter(m => m >= fromMonth).map(m => (
+                  <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigateMonth(1)}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+          {isRange && (
+            <Badge variant="secondary" className="text-xs">{monthsInRange.length} tháng</Badge>
+          )}
+        </div>
+
+        {/* Revenue target */}
+        <div className="flex items-end gap-3">
+          <div className="space-y-1 flex-1 max-w-xs">
+            <label className="text-xs text-muted-foreground">Doanh thu mục tiêu (VNĐ)</label>
             <Input type="number" value={revenue} onChange={e => setRevenue(e.target.value)} placeholder="0" className="h-9 text-sm" />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Số đơn hàng</label>
-            <Input type="number" value={orders} onChange={e => setOrders(e.target.value)} placeholder="0" className="h-9 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Số khách hàng</label>
-            <Input type="number" value={customers} onChange={e => setCustomers(e.target.value)} placeholder="0" className="h-9 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">AOV (VNĐ)</label>
-            <Input type="number" value={aov} onChange={e => setAov(e.target.value)} placeholder="0" className="h-9 text-sm" />
-          </div>
+          <Button onClick={handleSave} disabled={upsert.isPending} className="gap-2 h-9" size="sm">
+            <Save className="h-3.5 w-3.5" />
+            {upsert.isPending ? 'Đang lưu...' : isRange ? `Áp dụng ${monthsInRange.length} tháng` : 'Lưu mục tiêu'}
+          </Button>
         </div>
-        <Button onClick={handleSave} disabled={upsert.isPending} className="mt-3 gap-2" size="sm">
-          <Save className="h-3.5 w-3.5" />
-          {upsert.isPending ? 'Đang lưu...' : 'Lưu mục tiêu'}
-        </Button>
+
+        {isRange && (
+          <p className="text-xs text-muted-foreground">
+            💡 Cùng một mức doanh thu sẽ được áp dụng cho {monthsInRange.length} tháng từ {fromMonth} đến {toMonth}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
