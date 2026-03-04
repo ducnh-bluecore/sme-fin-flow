@@ -252,17 +252,21 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
                             </Badge>
                           </TableCell>
                           {hasSizes && sizeOrder.map(size => {
-                            const onHand = sizes.get(size) || 0;
-                            const maxQty = tab === 'pull' ? onHand : (currentSizes.get(size) || 0);
+                            // Pull: show SOURCE store's stock; Push: show CURRENT store's stock (what we can send)
+                            const destOnHand = sizes.get(size) || 0;
+                            const myOnHand = currentSizes.get(size) || 0;
+                            const displayOnHand = tab === 'pull' ? destOnHand : myOnHand;
+                            const maxQty = tab === 'pull' ? destOnHand : myOnHand;
+                            const canInput = displayOnHand > 0;
                             const inputVal = storeQty[size] || 0;
 
                             return (
                               <TableCell key={size} className="text-center px-0.5 py-1">
                                 <div className="flex flex-col items-center gap-0.5">
-                                  <span className={`text-[10px] font-mono ${onHand === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
-                                    {onHand === 0 ? '-' : onHand}
+                                  <span className={`text-[10px] font-mono ${displayOnHand === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                    {displayOnHand === 0 ? '-' : displayOnHand}
                                   </span>
-                                  {isChecked && onHand > 0 && (
+                                  {isChecked && canInput && (
                                     <Input
                                       type="number"
                                       min={0}
