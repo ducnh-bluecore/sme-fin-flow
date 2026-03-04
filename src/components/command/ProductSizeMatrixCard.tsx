@@ -165,6 +165,8 @@ function SizeMatrix({ fcId, fcName }: { fcId: string; fcName?: string }) {
           storeName={transferStore.name}
           storeId={transferStore.name}
           currentOnHand={transferStore.total}
+          sizeOrder={sizeOrder}
+          sizeEntries={entries}
         />
       )}
     </>
