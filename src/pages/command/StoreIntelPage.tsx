@@ -19,6 +19,7 @@ import { useStoreTopCollections } from '@/hooks/inventory/useStoreTopCollections
 import { useStoreKpiTarget, useUpsertStoreKpiTarget, computeKpiComparison, getCurrentPeriodValue, useStoreKpiTargetHistory } from '@/hooks/inventory/useStoreKpiTargets';
 import { useStoreMonthlyRevenue, useAllStoresMonthlyRevenue } from '@/hooks/inventory/useStoreMonthlyRevenue';
 import { useStorePerformanceBenchmark } from '@/hooks/inventory/useStorePerformanceBenchmark';
+import { useStoreProductMix, type PriceSegment, type CategoryMix, type CollectionMix, type ProductRank } from '@/hooks/inventory/useStoreProductMix';
 import {
   Store, Palette, Ruler, ShoppingBag, X, Package, DollarSign,
   TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart,
@@ -568,6 +569,126 @@ function StoreBenchmarkPanel({ storeId, storeTier }: { storeId: string; storeTie
   );
 }
 
+// ─── Product Mix Panel ──────────────────────────────────────────────
+
+function MixRow({ label, storePct, chainPct, tierPct, storeRev, storeQty }: {
+  label: string; storePct: number; chainPct: number; tierPct?: number; storeRev?: number; storeQty?: number;
+}) {
+  const DeltaBadge = ({ pct }: { pct: number }) => (
+    <span className={`text-[10px] font-medium tabular-nums ${pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+      {pct >= 0 ? '+' : ''}{pct.toFixed(1)}pp
+    </span>
+  );
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+      <span className="text-xs text-muted-foreground w-28 truncate" title={label}>{label}</span>
+      <span className="text-xs font-semibold tabular-nums w-16 text-right">{storePct.toFixed(1)}%</span>
+      {storeRev !== undefined && <span className="text-[10px] text-muted-foreground/60 tabular-nums w-20 text-right">{fmtVnd(storeRev)}</span>}
+      <div className="flex items-center gap-1.5 w-36 justify-end">
+        <span className="text-[10px] text-muted-foreground">chuỗi:</span>
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{chainPct.toFixed(1)}%</span>
+        <DeltaBadge pct={storePct - chainPct} />
+      </div>
+      {tierPct !== undefined && (
+        <div className="flex items-center gap-1.5 w-36 justify-end">
+          <span className="text-[10px] text-muted-foreground">tier:</span>
+          <span className="text-[10px] text-muted-foreground/60 tabular-nums">{tierPct.toFixed(1)}%</span>
+          <DeltaBadge pct={storePct - tierPct} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductMixPanel({ storeId }: { storeId: string }) {
+  const { data: mix, isLoading } = useStoreProductMix(storeId);
+
+  if (isLoading) return (
+    <Card><CardContent className="py-6"><div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-6 bg-muted animate-pulse rounded" />)}</div></CardContent></Card>
+  );
+  if (!mix) return null;
+
+  const { price_segments, categories, collections, top_products, bottom_products } = mix;
+
+  return (
+    <Card>
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ShoppingBag className="h-4 w-4 text-primary" />
+          Phân tích sản phẩm bán ra
+          <Badge variant="outline" className="text-[10px] ml-auto">3 tháng gần nhất</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0 space-y-5">
+
+        {/* Price Segments */}
+        {price_segments.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5 text-primary" />Phân khúc giá (% doanh thu)</h4>
+            {price_segments.map(seg => (
+              <MixRow key={seg.band} label={seg.band} storePct={seg.store_pct} chainPct={seg.chain_pct} tierPct={seg.tier_pct} storeRev={seg.store_revenue} />
+            ))}
+          </div>
+        )}
+
+        {/* Categories */}
+        {categories.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5"><Layers className="h-3.5 w-3.5 text-primary" />Loại sản phẩm (% doanh thu)</h4>
+            {categories.slice(0, 8).map(cat => (
+              <MixRow key={cat.category} label={cat.category || 'Khác'} storePct={cat.store_pct} chainPct={cat.chain_pct} tierPct={cat.tier_pct} storeRev={cat.store_revenue} />
+            ))}
+          </div>
+        )}
+
+        {/* Collections */}
+        {collections.length > 0 && (
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold flex items-center gap-1.5"><Palette className="h-3.5 w-3.5 text-primary" />Nhóm SP - BST (% doanh thu)</h4>
+            {collections.map(col => (
+              <MixRow key={col.collection} label={col.collection} storePct={col.store_pct} chainPct={col.chain_pct} storeRev={col.store_revenue} />
+            ))}
+          </div>
+        )}
+
+        {/* Top & Bottom Products */}
+        {(top_products.length > 0 || bottom_products.length > 0) && (
+          <div className="grid grid-cols-2 gap-4">
+            {top_products.length > 0 && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><Trophy className="h-3.5 w-3.5 text-emerald-500" />Top 5 SP bán chạy</h4>
+                {top_products.map((p, i) => (
+                  <div key={p.sku} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
+                    <span className="text-[10px] font-bold text-muted-foreground w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs truncate" title={p.product_name}>{p.product_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.sku} · {p.qty} sp · {fmtVnd(p.revenue)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {bottom_products.length > 0 && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-red-400" />5 SP bán yếu nhất</h4>
+                {bottom_products.map((p, i) => (
+                  <div key={p.sku} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
+                    <span className="text-[10px] font-bold text-muted-foreground w-4">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs truncate" title={p.product_name}>{p.product_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{p.sku} · {p.qty} sp · {fmtVnd(p.revenue)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Ranking View ───────────────────────────────────────────────────
 
 function StoreRankingView({ stores, onSelect, compareIds, onToggleCompare }: {
@@ -948,6 +1069,7 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
         <TabsContent value="kpi-target" className="space-y-3">
           <KpiTargetForm storeId={storeId} storeName={store.store_name} />
           <StoreBenchmarkPanel storeId={storeId} storeTier={store.tier} />
+          <ProductMixPanel storeId={storeId} />
         </TabsContent>
 
         <TabsContent value="top-collection">
