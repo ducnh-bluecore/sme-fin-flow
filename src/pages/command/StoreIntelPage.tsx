@@ -982,13 +982,7 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
         <MetricCard icon={BarChart3} label="Sức chứa" value={`${(store.capacity || 0).toLocaleString('vi-VN')}`} sub={`${store.capacity > 0 ? ((store.total_on_hand || 0) / store.capacity * 100).toFixed(0) : 0}% đầy`} iconClass="text-emerald-400" />
         <MetricCard icon={TrendingUp} label="Đã bán" value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} sub={profileLoading ? '' : (profile?.periodStart && profile?.periodEnd ? `${format(parseISO(profile.periodStart), 'dd/MM')} - ${format(parseISO(profile.periodEnd), 'dd/MM')}` : '')} iconClass="text-pink-400" />
       </div>
-
-      {/* KPI vs Target progress - only revenue */}
-      {kpiComparison && kpiComparison.status !== 'no_target' && kpiComparison.target && kpiComparison.target.revenue_target > 0 && (
-        <div className="grid grid-cols-1 max-w-sm">
-          <KpiProgressCard label="Doanh thu vs Mục tiêu" actual={kpiComparison.actual.revenue} target={kpiComparison.target.revenue_target} unit="M" icon={DollarSign} iconClass="text-amber-400" />
-        </div>
-      )}
+      {/* KPI vs Target removed — tab KPI & Targets already shows monthly gap detail */}
 
       {/* Revenue Chart 6 months */}
       <RevenueVsTargetChart storeId={storeId} storeName={store.store_name} />
