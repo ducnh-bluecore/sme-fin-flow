@@ -31,16 +31,21 @@ interface Props {
   sizeEntries: SizeStoreEntry[];
 }
 
+// Per-store, per-size qty map: storeId -> { size -> qty }
+type SizeQtyMap = Map<string, Record<string, number>>;
+
 export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, storeName, storeId, currentOnHand, sizeOrder, sizeEntries }: Props) {
   const { data: allStores, isLoading } = useStoreVelocity(open ? fcId : undefined);
   const createTransfer = useCreateManualTransfer();
-  const [selected, setSelected] = useState<Map<string, number>>(new Map());
+  const [selectedStores, setSelectedStores] = useState<Set<string>>(new Set());
+  const [sizeQtyMap, setSizeQtyMap] = useState<SizeQtyMap>(new Map());
   const [tab, setTab] = useState<'pull' | 'push'>('pull');
 
   const currentStore = useMemo(() => allStores?.find(s => s.store_name === storeName), [allStores, storeName]);
   const currentVelocity = currentStore?.avg_daily_sales ?? 0;
+  const hasSizes = sizeOrder.length > 0;
 
-  // Build per-store, per-size map from sizeEntries
+  // Build per-store, per-size on_hand map from sizeEntries
   const storeSizeMap = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     for (const e of sizeEntries) {
@@ -51,10 +56,8 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
     return map;
   }, [sizeEntries]);
 
-  // Current store's sizes (for Push tab header)
   const currentSizes = storeSizeMap.get(storeName) || new Map<string, number>();
 
-  // Pull: other stores with stock, sorted by slowest velocity
   const pullStores = useMemo(() => {
     if (!allStores) return [];
     return allStores
@@ -62,7 +65,6 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
       .sort((a, b) => a.avg_daily_sales - b.avg_daily_sales);
   }, [allStores, storeName]);
 
-  // Push: other stores sorted by fastest velocity
   const pushStores = useMemo(() => {
     if (!allStores) return [];
     return allStores
@@ -71,63 +73,90 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
   }, [allStores, storeName]);
 
   const toggleStore = (storeKey: string) => {
-    setSelected(prev => {
-      const next = new Map(prev);
-      next.has(storeKey) ? next.delete(storeKey) : next.set(storeKey, 1);
+    setSelectedStores(prev => {
+      const next = new Set(prev);
+      if (next.has(storeKey)) {
+        next.delete(storeKey);
+        // Also clear qty
+        setSizeQtyMap(m => { const n = new Map(m); n.delete(storeKey); return n; });
+      } else {
+        next.add(storeKey);
+      }
       return next;
     });
   };
 
-  const updateQty = (storeKey: string, qty: number) => {
-    setSelected(prev => {
+  const updateSizeQty = (storeKey: string, size: string, qty: number) => {
+    setSizeQtyMap(prev => {
       const next = new Map(prev);
-      next.set(storeKey, Math.max(0, qty));
+      const existing = next.get(storeKey) || {};
+      next.set(storeKey, { ...existing, [size]: Math.max(0, qty) });
       return next;
     });
   };
+
+  const getStoreTotal = (storeKey: string) => {
+    const sizes = sizeQtyMap.get(storeKey);
+    if (!sizes) return 0;
+    return Object.values(sizes).reduce((a, b) => a + b, 0);
+  };
+
+  const grandTotal = useMemo(() => {
+    let total = 0;
+    for (const storeKey of selectedStores) {
+      total += getStoreTotal(storeKey);
+    }
+    return total;
+  }, [selectedStores, sizeQtyMap]);
 
   const handleSubmit = () => {
-    const lines = Array.from(selected.entries())
-      .filter(([_, qty]) => qty > 0)
-      .map(([key, qty]) => {
-        const store = allStores?.find(s => s.store_id === key);
-        if (tab === 'pull') {
-          return {
-            fcId, fcName,
-            fromStoreId: store?.store_id || key,
-            fromStoreName: store?.store_name || key,
-            toStoreId: storeId,
-            toStoreName: storeName,
-            qty,
-          };
-        } else {
-          return {
-            fcId, fcName,
-            fromStoreId: storeId,
-            fromStoreName: storeName,
-            toStoreId: store?.store_id || key,
-            toStoreName: store?.store_name || key,
-            qty,
-          };
-        }
-      });
+    const lines: { fcId: string; fcName: string; fromStoreId: string; fromStoreName: string; toStoreId: string; toStoreName: string; qty: number }[] = [];
+    
+    for (const storeKey of selectedStores) {
+      const total = getStoreTotal(storeKey);
+      if (total <= 0) continue;
+      const store = allStores?.find(s => s.store_id === storeKey);
+      if (tab === 'pull') {
+        lines.push({
+          fcId, fcName,
+          fromStoreId: store?.store_id || storeKey,
+          fromStoreName: store?.store_name || storeKey,
+          toStoreId: storeId,
+          toStoreName: storeName,
+          qty: total,
+        });
+      } else {
+        lines.push({
+          fcId, fcName,
+          fromStoreId: storeId,
+          fromStoreName: storeName,
+          toStoreId: store?.store_id || storeKey,
+          toStoreName: store?.store_name || storeKey,
+          qty: total,
+        });
+      }
+    }
 
     if (lines.length === 0) return;
     createTransfer.mutate(lines, {
       onSuccess: () => {
-        setSelected(new Map());
+        setSelectedStores(new Set());
+        setSizeQtyMap(new Map());
         onOpenChange(false);
       },
     });
   };
 
+  const resetState = () => {
+    setSelectedStores(new Set());
+    setSizeQtyMap(new Map());
+  };
+
   const stores = tab === 'pull' ? pullStores : pushStores;
-  const totalSelected = Array.from(selected.values()).reduce((a, b) => a + b, 0);
-  const hasSizes = sizeOrder.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
@@ -162,7 +191,7 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
           </div>
         )}
 
-        <Tabs value={tab} onValueChange={v => { setTab(v as 'pull' | 'push'); setSelected(new Map()); }} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={tab} onValueChange={v => { setTab(v as 'pull' | 'push'); resetState(); }} className="flex-1 flex flex-col min-h-0">
           <TabsList className="w-full">
             <TabsTrigger value="pull" className="flex-1 gap-1.5 text-xs">
               <ArrowDownToLine className="h-3.5 w-3.5" />
@@ -186,61 +215,71 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
                 {tab === 'pull' ? 'Không có kho nào còn hàng.' : 'Không có kho nào khả dụng.'}
               </p>
             ) : (
-              <ScrollArea className="h-[350px]">
+              <ScrollArea className="h-[400px]">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8" />
-                      <TableHead className="text-xs sticky left-0 bg-background z-10">Cửa hàng</TableHead>
-                      {hasSizes && sizeOrder.map(size => (
-                        <TableHead key={size} className="text-[10px] text-center min-w-[36px] px-1">{size}</TableHead>
-                      ))}
-                      <TableHead className="text-xs text-center">Tổng</TableHead>
+                      <TableHead className="text-xs sticky left-0 bg-background z-10 min-w-[120px]">Cửa hàng</TableHead>
                       <TableHead className="text-xs text-center">
                         <span className="flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vel.</span>
                       </TableHead>
-                      <TableHead className="text-xs text-center">Đã bán</TableHead>
-                      <TableHead className="text-xs text-center w-20">SL</TableHead>
+                      {/* Size columns: show on_hand on top, input below when checked */}
+                      {hasSizes && sizeOrder.map(size => (
+                        <TableHead key={size} className="text-[10px] text-center min-w-[52px] px-0.5">{size}</TableHead>
+                      ))}
+                      <TableHead className="text-xs text-center min-w-[50px]">Tổng tồn</TableHead>
+                      <TableHead className="text-xs text-center min-w-[50px]">Chuyển</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {stores.map(store => {
                       const key = store.store_id;
-                      const isChecked = selected.has(key);
-                      const qty = selected.get(key) || 1;
+                      const isChecked = selectedStores.has(key);
                       const sizes = storeSizeMap.get(store.store_name) || new Map<string, number>();
+                      const storeQty = sizeQtyMap.get(key) || {};
+                      const storeTotal = getStoreTotal(key);
+
                       return (
                         <TableRow key={key} className={isChecked ? 'bg-primary/5' : ''}>
                           <TableCell className="p-2">
                             <Checkbox checked={isChecked} onCheckedChange={() => toggleStore(key)} />
                           </TableCell>
                           <TableCell className="text-xs font-medium sticky left-0 bg-background z-10 whitespace-nowrap">{store.store_name}</TableCell>
-                          {hasSizes && sizeOrder.map(size => {
-                            const sQty = sizes.get(size) || 0;
-                            return (
-                              <TableCell key={size} className={`text-center text-[10px] font-mono px-1 ${sQty === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
-                                {sQty === 0 ? '-' : sQty}
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell className="text-center text-xs font-mono font-semibold">{store.on_hand}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className={`text-[10px] font-mono ${store.avg_daily_sales >= 1 ? 'text-emerald-600' : store.avg_daily_sales > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
                               {store.avg_daily_sales.toFixed(1)}/d
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-center text-xs font-mono">{store.total_sold}</TableCell>
-                          <TableCell className="text-center p-1">
-                            {isChecked && (
-                              <Input
-                                type="number"
-                                min={1}
-                                max={tab === 'pull' ? store.on_hand : currentOnHand}
-                                value={qty}
-                                onChange={e => updateQty(key, parseInt(e.target.value) || 0)}
-                                className="h-7 w-16 text-xs text-center mx-auto"
-                              />
-                            )}
+                          {hasSizes && sizeOrder.map(size => {
+                            const onHand = sizes.get(size) || 0;
+                            const maxQty = tab === 'pull' ? onHand : (currentSizes.get(size) || 0);
+                            const inputVal = storeQty[size] || 0;
+
+                            return (
+                              <TableCell key={size} className="text-center px-0.5 py-1">
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className={`text-[10px] font-mono ${onHand === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                    {onHand === 0 ? '-' : onHand}
+                                  </span>
+                                  {isChecked && onHand > 0 && (
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={maxQty}
+                                      value={inputVal || ''}
+                                      placeholder="0"
+                                      onChange={e => updateSizeQty(key, size, parseInt(e.target.value) || 0)}
+                                      className="h-6 w-11 text-[10px] text-center p-0 font-mono"
+                                    />
+                                  )}
+                                </div>
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center text-xs font-mono font-semibold">{store.on_hand}</TableCell>
+                          <TableCell className="text-center text-xs font-mono font-bold text-primary">
+                            {isChecked && storeTotal > 0 ? storeTotal : ''}
                           </TableCell>
                         </TableRow>
                       );
@@ -255,18 +294,18 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
 
         <DialogFooter className="gap-2">
           <div className="flex-1 text-xs text-muted-foreground">
-            {selected.size > 0 && (
-              <span>Đã chọn {selected.size} kho · Tổng: {totalSelected} sp</span>
+            {selectedStores.size > 0 && grandTotal > 0 && (
+              <span>Đã chọn {selectedStores.size} kho · Tổng: {grandTotal} sp</span>
             )}
           </div>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Hủy</Button>
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={selected.size === 0 || totalSelected === 0 || createTransfer.isPending}
+            disabled={selectedStores.size === 0 || grandTotal === 0 || createTransfer.isPending}
           >
             {createTransfer.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
-            Tạo lệnh ({totalSelected} sp)
+            Tạo lệnh ({grandTotal} sp)
           </Button>
         </DialogFooter>
       </DialogContent>
