@@ -42108,6 +42108,18 @@ export type Database = {
           total_value: number
         }[]
       }
+      fn_store_monthly_revenue: {
+        Args: { p_months?: number; p_store_id?: string; p_tenant_id: string }
+        Returns: {
+          avg_aov: number
+          days_with_data: number
+          month_value: string
+          store_id: string
+          total_customers: number
+          total_revenue: number
+          total_transactions: number
+        }[]
+      }
       fn_store_on_hand_totals: {
         Args: { p_tenant_id: string }
         Returns: {
