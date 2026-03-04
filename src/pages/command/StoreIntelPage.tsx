@@ -390,12 +390,14 @@ function BenchmarkMetric({ label, storeVal, chainVal, tierVal, format: fmt }: {
     <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
       <span className="text-xs text-muted-foreground w-32">{label}</span>
       <span className="text-xs font-semibold tabular-nums w-24 text-right">{fmt(storeVal)}</span>
-      <div className="flex items-center gap-1 w-28 justify-end">
+      <div className="flex items-center gap-1.5 w-44 justify-end">
         <span className="text-[10px] text-muted-foreground">vs chuỗi:</span>
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{fmt(chainVal)}</span>
         <DeltaBadge pct={vsChain} />
       </div>
-      <div className="flex items-center gap-1 w-28 justify-end">
+      <div className="flex items-center gap-1.5 w-44 justify-end">
         <span className="text-[10px] text-muted-foreground">vs tier:</span>
+        <span className="text-[10px] text-muted-foreground/60 tabular-nums">{fmt(tierVal)}</span>
         <DeltaBadge pct={vsTier} />
       </div>
     </div>
