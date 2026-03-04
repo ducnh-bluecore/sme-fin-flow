@@ -1,5 +1,8 @@
 project_id = "ujteggwzllzbhbwrqsmk"
 
+[functions.sync-lifecycle-batches]
+verify_jwt = false
+
 [functions.build-knowledge-snapshots]
 verify_jwt = false
 
