@@ -19000,6 +19000,166 @@ export type Database = {
           },
         ]
       }
+      inv_lifecycle_batches: {
+        Row: {
+          batch_number: number
+          batch_qty: number
+          batch_start_date: string
+          created_at: string
+          fc_id: string
+          id: string
+          is_completed: boolean | null
+          lifecycle_template_id: string | null
+          source: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          batch_number?: number
+          batch_qty: number
+          batch_start_date: string
+          created_at?: string
+          fc_id: string
+          id?: string
+          is_completed?: boolean | null
+          lifecycle_template_id?: string | null
+          source?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          batch_number?: number
+          batch_qty?: number
+          batch_start_date?: string
+          created_at?: string
+          fc_id?: string
+          id?: string
+          is_completed?: boolean | null
+          lifecycle_template_id?: string | null
+          source?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_lifecycle_batches_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "inv_family_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_fc_id_fkey"
+            columns: ["fc_id"]
+            isOneToOne: false
+            referencedRelation: "v_clearance_history_by_fc"
+            referencedColumns: ["fc_id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_lifecycle_template_id_fkey"
+            columns: ["lifecycle_template_id"]
+            isOneToOne: false
+            referencedRelation: "inv_lifecycle_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_batches_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
+      inv_lifecycle_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean | null
+          lifecycle_days: number
+          markdown_after_days: number | null
+          markdown_pct: number | null
+          milestones: Json
+          template_name: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          lifecycle_days?: number
+          markdown_after_days?: number | null
+          markdown_pct?: number | null
+          milestones?: Json
+          template_name: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          lifecycle_days?: number
+          markdown_after_days?: number | null
+          markdown_pct?: number | null
+          milestones?: Json
+          template_name?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_lifecycle_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_lifecycle_templates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inv_manual_transfers: {
         Row: {
           approved_at: string | null
