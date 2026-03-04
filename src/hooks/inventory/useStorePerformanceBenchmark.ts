@@ -42,14 +42,21 @@ export interface StoreBenchmark {
   period: { from: string; to: string };
 }
 
-export function useStorePerformanceBenchmark(storeId: string | null, fromDate?: string, toDate?: string) {
+export function useStorePerformanceBenchmark(storeId: string | null, fromDate?: string, toDate?: string, lookbackDays = 30) {
   const { tenantId, isReady } = useTenantQueryBuilder();
 
   return useQuery({
-    queryKey: ['store-benchmark', tenantId, storeId, fromDate, toDate],
+    queryKey: ['store-benchmark', tenantId, storeId, fromDate, toDate, lookbackDays],
     queryFn: async () => {
       const params: any = { p_tenant_id: tenantId, p_store_id: storeId };
-      if (fromDate) params.p_from_date = fromDate;
+      if (fromDate) {
+        params.p_from_date = fromDate;
+      } else {
+        // Default: lookback N days instead of just current month
+        const d = new Date();
+        d.setDate(d.getDate() - lookbackDays);
+        params.p_from_date = d.toISOString().split('T')[0];
+      }
       if (toDate) params.p_to_date = toDate;
 
       const { data, error } = await supabase.rpc('fn_store_performance_benchmark' as any, params);
