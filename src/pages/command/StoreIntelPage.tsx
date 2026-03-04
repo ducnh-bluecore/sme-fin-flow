@@ -25,12 +25,13 @@ import {
   TrendingUp, TrendingDown, BarChart3, Users, RotateCcw, ShoppingCart,
   Layers, Calendar, Star, FolderOpen, Target, Save, CheckCircle2,
   AlertTriangle, XCircle, ArrowLeft, ArrowUpDown, GitCompareArrows,
-  Trophy, ChevronRight, Activity, Gauge,
+  Trophy, ChevronRight, Activity, Gauge, Sparkles,
 } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ReferenceLine, ComposedChart, Area,
 } from 'recharts';
 import { toast } from 'sonner';
+import { StoreAIAnalysisTab } from '@/components/command/StoreAIAnalysisTab';
 
 // ─── Constants ───────────────────────────────────────────────────────
 
@@ -994,11 +995,12 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full grid grid-cols-4 h-9">
+        <TabsList className="w-full grid grid-cols-5 h-9">
           <TabsTrigger value="overview" className="text-xs gap-1.5"><BarChart3 className="h-3 w-3" />Tổng quan</TabsTrigger>
           <TabsTrigger value="kpi-target" className="text-xs gap-1.5"><Target className="h-3 w-3" />KPI & Mục tiêu</TabsTrigger>
           <TabsTrigger value="top-collection" className="text-xs gap-1.5"><FolderOpen className="h-3 w-3" />Top BST</TabsTrigger>
           <TabsTrigger value="top-fc" className="text-xs gap-1.5"><Star className="h-3 w-3" />Top FC</TabsTrigger>
+          <TabsTrigger value="ai-analysis" className="text-xs gap-1.5"><Sparkles className="h-3 w-3" />AI</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-3">
@@ -1147,6 +1149,10 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-analysis">
+          <StoreAIAnalysisTab storeId={storeId} storeName={store.store_name} storeTier={store.tier || 'C'} lookbackDays={lookbackDays} />
         </TabsContent>
       </Tabs>
     </div>
