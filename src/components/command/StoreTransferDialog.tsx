@@ -6,11 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowDownToLine, ArrowUpFromLine, TrendingUp, Package, Loader2 } from 'lucide-react';
 import { useStoreVelocity, type StoreVelocityRow } from '@/hooks/inventory/useStoreVelocity';
 import { useCreateManualTransfer } from '@/hooks/inventory/useCreateManualTransfer';
+
+export interface SizeStoreEntry {
+  sku: string;
+  size_code: string;
+  store_name: string;
+  on_hand: number;
+}
 
 interface Props {
   open: boolean;
@@ -20,9 +27,11 @@ interface Props {
   storeName: string;
   storeId: string;
   currentOnHand: number;
+  sizeOrder: string[];
+  sizeEntries: SizeStoreEntry[];
 }
 
-export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, storeName, storeId, currentOnHand }: Props) {
+export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, storeName, storeId, currentOnHand, sizeOrder, sizeEntries }: Props) {
   const { data: allStores, isLoading } = useStoreVelocity(open ? fcId : undefined);
   const createTransfer = useCreateManualTransfer();
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
@@ -31,7 +40,21 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
   const currentStore = useMemo(() => allStores?.find(s => s.store_name === storeName), [allStores, storeName]);
   const currentVelocity = currentStore?.avg_daily_sales ?? 0;
 
-  // Pull: other stores with stock, sorted by slowest velocity (take from slow stores)
+  // Build per-store, per-size map from sizeEntries
+  const storeSizeMap = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const e of sizeEntries) {
+      if (!map.has(e.store_name)) map.set(e.store_name, new Map());
+      const sizeMap = map.get(e.store_name)!;
+      sizeMap.set(e.size_code, (sizeMap.get(e.size_code) || 0) + e.on_hand);
+    }
+    return map;
+  }, [sizeEntries]);
+
+  // Current store's sizes (for Push tab header)
+  const currentSizes = storeSizeMap.get(storeName) || new Map<string, number>();
+
+  // Pull: other stores with stock, sorted by slowest velocity
   const pullStores = useMemo(() => {
     if (!allStores) return [];
     return allStores
@@ -39,7 +62,7 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
       .sort((a, b) => a.avg_daily_sales - b.avg_daily_sales);
   }, [allStores, storeName]);
 
-  // Push: other stores sorted by fastest velocity (send to fast stores)
+  // Push: other stores sorted by fastest velocity
   const pushStores = useMemo(() => {
     if (!allStores) return [];
     return allStores
@@ -50,11 +73,7 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
   const toggleStore = (storeKey: string) => {
     setSelected(prev => {
       const next = new Map(prev);
-      if (next.has(storeKey)) {
-        next.delete(storeKey);
-      } else {
-        next.set(storeKey, 1);
-      }
+      next.has(storeKey) ? next.delete(storeKey) : next.set(storeKey, 1);
       return next;
     });
   };
@@ -71,7 +90,7 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
     const lines = Array.from(selected.entries())
       .filter(([_, qty]) => qty > 0)
       .map(([key, qty]) => {
-        const store = allStores?.find(s => s.store_id === key || s.store_name === key);
+        const store = allStores?.find(s => s.store_id === key);
         if (tab === 'pull') {
           return {
             fcId, fcName,
@@ -104,10 +123,11 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
 
   const stores = tab === 'pull' ? pullStores : pushStores;
   const totalSelected = Array.from(selected.values()).reduce((a, b) => a + b, 0);
+  const hasSizes = sizeOrder.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
             <Package className="h-4 w-4" />
@@ -117,6 +137,30 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
             Cửa hàng: <strong>{storeName}</strong> · Tồn kho: <strong>{currentOnHand}</strong> · Velocity: <strong>{currentVelocity.toFixed(1)}</strong> sp/ngày
           </DialogDescription>
         </DialogHeader>
+
+        {/* Current store size breakdown (for Push tab context) */}
+        {tab === 'push' && hasSizes && (
+          <div className="rounded-md border bg-muted/30 p-2.5">
+            <p className="text-[10px] text-muted-foreground mb-1.5 font-medium">Tồn hiện tại tại {storeName}:</p>
+            <div className="flex gap-2 flex-wrap">
+              {sizeOrder.map(size => {
+                const qty = currentSizes.get(size) || 0;
+                return (
+                  <div key={size} className="text-center">
+                    <div className="text-[10px] text-muted-foreground">{size}</div>
+                    <div className={`text-xs font-mono font-semibold ${qty === 0 ? 'text-destructive' : 'text-foreground'}`}>
+                      {qty === 0 ? '✗' : qty}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="text-center border-l pl-2 ml-1">
+                <div className="text-[10px] text-muted-foreground">Tổng</div>
+                <div className="text-xs font-mono font-bold">{currentOnHand}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Tabs value={tab} onValueChange={v => { setTab(v as 'pull' | 'push'); setSelected(new Map()); }} className="flex-1 flex flex-col min-h-0">
           <TabsList className="w-full">
@@ -147,13 +191,16 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-8" />
-                      <TableHead className="text-xs">Cửa hàng</TableHead>
-                      <TableHead className="text-xs text-center">Tồn kho</TableHead>
+                      <TableHead className="text-xs sticky left-0 bg-background z-10">Cửa hàng</TableHead>
+                      {hasSizes && sizeOrder.map(size => (
+                        <TableHead key={size} className="text-[10px] text-center min-w-[36px] px-1">{size}</TableHead>
+                      ))}
+                      <TableHead className="text-xs text-center">Tổng</TableHead>
                       <TableHead className="text-xs text-center">
-                        <span className="flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Velocity</span>
+                        <span className="flex items-center justify-center gap-1"><TrendingUp className="h-3 w-3" /> Vel.</span>
                       </TableHead>
                       <TableHead className="text-xs text-center">Đã bán</TableHead>
-                      <TableHead className="text-xs text-center w-20">Số lượng</TableHead>
+                      <TableHead className="text-xs text-center w-20">SL</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -161,13 +208,22 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
                       const key = store.store_id;
                       const isChecked = selected.has(key);
                       const qty = selected.get(key) || 1;
+                      const sizes = storeSizeMap.get(store.store_name) || new Map<string, number>();
                       return (
                         <TableRow key={key} className={isChecked ? 'bg-primary/5' : ''}>
                           <TableCell className="p-2">
                             <Checkbox checked={isChecked} onCheckedChange={() => toggleStore(key)} />
                           </TableCell>
-                          <TableCell className="text-xs font-medium">{store.store_name}</TableCell>
-                          <TableCell className="text-center text-xs font-mono">{store.on_hand}</TableCell>
+                          <TableCell className="text-xs font-medium sticky left-0 bg-background z-10 whitespace-nowrap">{store.store_name}</TableCell>
+                          {hasSizes && sizeOrder.map(size => {
+                            const sQty = sizes.get(size) || 0;
+                            return (
+                              <TableCell key={size} className={`text-center text-[10px] font-mono px-1 ${sQty === 0 ? 'text-muted-foreground' : 'text-foreground'}`}>
+                                {sQty === 0 ? '-' : sQty}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center text-xs font-mono font-semibold">{store.on_hand}</TableCell>
                           <TableCell className="text-center">
                             <Badge variant="outline" className={`text-[10px] font-mono ${store.avg_daily_sales >= 1 ? 'text-emerald-600' : store.avg_daily_sales > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
                               {store.avg_daily_sales.toFixed(1)}/d
@@ -191,6 +247,7 @@ export default function StoreTransferDialog({ open, onOpenChange, fcId, fcName, 
                     })}
                   </TableBody>
                 </Table>
+                <ScrollBar orientation="horizontal" />
               </ScrollArea>
             )}
           </TabsContent>
