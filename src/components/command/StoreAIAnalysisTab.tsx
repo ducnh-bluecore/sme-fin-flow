@@ -191,11 +191,11 @@ export function StoreAIAnalysisTab({ storeId, storeName, storeTier, lookbackDays
             </p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[500px]">
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+          <ScrollArea className="h-[600px]">
+            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed pr-4">
               <ReactMarkdown>{analysis || '...'}</ReactMarkdown>
               {isLoading && (
-                <span className="inline-block w-2 h-4 bg-violet-400 animate-pulse ml-0.5" />
+                <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5" />
               )}
             </div>
           </ScrollArea>
