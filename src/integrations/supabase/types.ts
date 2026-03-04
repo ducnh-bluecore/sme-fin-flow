@@ -19000,6 +19000,89 @@ export type Database = {
           },
         ]
       }
+      inv_manual_transfers: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string | null
+          created_by: string | null
+          fc_id: string
+          fc_name: string | null
+          from_store_id: string
+          from_store_name: string | null
+          id: string
+          qty: number
+          reason: string | null
+          status: string
+          tenant_id: string
+          to_store_id: string
+          to_store_name: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fc_id: string
+          fc_name?: string | null
+          from_store_id: string
+          from_store_name?: string | null
+          id?: string
+          qty?: number
+          reason?: string | null
+          status?: string
+          tenant_id: string
+          to_store_id: string
+          to_store_name?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          fc_id?: string
+          fc_name?: string | null
+          from_store_id?: string
+          from_store_name?: string | null
+          id?: string
+          qty?: number
+          reason?: string | null
+          status?: string
+          tenant_id?: string
+          to_store_id?: string
+          to_store_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_manual_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_manual_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_manual_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_manual_transfers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inv_markdown_events: {
         Row: {
           channel: string
@@ -42001,6 +42084,10 @@ export type Database = {
           total_sold: number
           weeks_of_cover: number
         }[]
+      }
+      fn_store_velocity_for_fc: {
+        Args: { p_fc_id: string; p_tenant_id: string }
+        Returns: Json
       }
       fn_trigger_async_size_split: {
         Args: { p_run_id: string; p_table_name?: string; p_tenant_id: string }
