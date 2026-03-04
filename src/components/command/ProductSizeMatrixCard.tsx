@@ -12,6 +12,7 @@ import { formatVNDCompact } from '@/lib/formatters';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { useQuery } from '@tanstack/react-query';
 import type { SizeHealthDetailRow } from '@/hooks/inventory/useSizeHealthGroups';
+import StoreTransferDialog from './StoreTransferDialog';
 
 interface Props {
   products: SizeHealthDetailRow[];
@@ -42,8 +43,9 @@ const CURVE_LABELS: Record<string, { label: string; className: string }> = {
   healthy: { label: 'Tốt', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
 };
 
-function SizeMatrix({ fcId }: { fcId: string }) {
+function SizeMatrix({ fcId, fcName }: { fcId: string; fcName?: string }) {
   const { callRpc, tenantId, isReady } = useTenantQueryBuilder();
+  const [transferStore, setTransferStore] = useState<{ name: string; total: number } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['size-breakdown-v2', tenantId, fcId],
@@ -88,66 +90,84 @@ function SizeMatrix({ fcId }: { fcId: string }) {
   };
 
   return (
-    <ScrollArea className="w-full">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="text-xs sticky left-0 bg-background z-10 min-w-[140px]">Cửa hàng</TableHead>
-            {sizeOrder.map(size => (
-              <TableHead key={size} className="text-xs text-center min-w-[50px]">{size}</TableHead>
-            ))}
-            <TableHead className="text-xs text-center font-semibold min-w-[60px]">Tổng</TableHead>
-            <TableHead className="text-xs text-center min-w-[70px]">Trạng thái</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {storeNames.map(store => {
-            const sizes = storeMap.get(store)!;
-            const total = storeTotals.get(store) || 0;
-            const status = getStoreStatus(sizes, total);
-            return (
-              <TableRow key={store} className={status === 'broken' ? 'bg-red-50/50 dark:bg-red-950/10' : ''}>
-                <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{store}</TableCell>
-                {sizeOrder.map(size => {
-                  const qty = sizes.get(size) || 0;
-                  return (
-                    <TableCell key={size} className={`text-center text-xs font-mono ${qty === 0 ? 'text-destructive font-bold' : 'text-foreground'}`}>
-                      {qty === 0 ? '✗' : qty}
-                    </TableCell>
-                  );
-                })}
-                <TableCell className="text-center text-xs font-mono font-semibold">{total}</TableCell>
-                <TableCell className="text-center">
-                  {status === 'out_of_stock' ? (
-                    <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
-                      Hết hàng
-                    </Badge>
-                  ) : status === 'broken' ? (
-                    <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-                      <AlertTriangle className="h-3 w-3 mr-0.5" /> Lẻ size
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                      Đủ size
-                    </Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            );
-          })}
-          <TableRow className="bg-muted/50 font-semibold">
-            <TableCell className="text-xs sticky left-0 bg-muted/50 z-10">Tổng hệ thống</TableCell>
-            {sizeOrder.map(size => {
-              const s = summary.find(x => x.size_code === size);
-              return <TableCell key={size} className="text-center text-xs font-mono">{s?.total || 0}</TableCell>;
+    <>
+      <ScrollArea className="w-full">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs sticky left-0 bg-background z-10 min-w-[140px]">Cửa hàng</TableHead>
+              {sizeOrder.map(size => (
+                <TableHead key={size} className="text-xs text-center min-w-[50px]">{size}</TableHead>
+              ))}
+              <TableHead className="text-xs text-center font-semibold min-w-[60px]">Tổng</TableHead>
+              <TableHead className="text-xs text-center min-w-[70px]">Trạng thái</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {storeNames.map(store => {
+              const sizes = storeMap.get(store)!;
+              const total = storeTotals.get(store) || 0;
+              const status = getStoreStatus(sizes, total);
+              return (
+                <TableRow
+                  key={store}
+                  className={`cursor-pointer hover:bg-accent/50 transition-colors ${status === 'broken' ? 'bg-red-50/50 dark:bg-red-950/10' : ''}`}
+                  onClick={() => setTransferStore({ name: store, total })}
+                >
+                  <TableCell className="text-xs font-medium sticky left-0 bg-background z-10">{store}</TableCell>
+                  {sizeOrder.map(size => {
+                    const qty = sizes.get(size) || 0;
+                    return (
+                      <TableCell key={size} className={`text-center text-xs font-mono ${qty === 0 ? 'text-destructive font-bold' : 'text-foreground'}`}>
+                        {qty === 0 ? '✗' : qty}
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className="text-center text-xs font-mono font-semibold">{total}</TableCell>
+                  <TableCell className="text-center">
+                    {status === 'out_of_stock' ? (
+                      <Badge variant="outline" className="text-[10px] bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                        Hết hàng
+                      </Badge>
+                    ) : status === 'broken' ? (
+                      <Badge variant="outline" className="text-[10px] bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" /> Lẻ size
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        Đủ size
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
             })}
-            <TableCell className="text-center text-xs font-mono">{summary.reduce((a, b) => a + b.total, 0)}</TableCell>
-            <TableCell />
-          </TableRow>
-        </TableBody>
-      </Table>
-      <ScrollBar orientation="horizontal" />
-    </ScrollArea>
+            <TableRow className="bg-muted/50 font-semibold">
+              <TableCell className="text-xs sticky left-0 bg-muted/50 z-10">Tổng hệ thống</TableCell>
+              {sizeOrder.map(size => {
+                const s = summary.find(x => x.size_code === size);
+                return <TableCell key={size} className="text-center text-xs font-mono">{s?.total || 0}</TableCell>;
+              })}
+              <TableCell className="text-center text-xs font-mono">{summary.reduce((a, b) => a + b.total, 0)}</TableCell>
+              <TableCell />
+            </TableRow>
+          </TableBody>
+        </Table>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+
+      {transferStore && (
+        <StoreTransferDialog
+          open={!!transferStore}
+          onOpenChange={open => !open && setTransferStore(null)}
+          fcId={fcId}
+          fcName={fcName || fcId}
+          storeName={transferStore.name}
+          storeId={transferStore.name}
+          currentOnHand={transferStore.total}
+        />
+      )}
+    </>
   );
 }
 
@@ -240,7 +260,7 @@ export default function ProductSizeMatrixCard({ products, fcNames, onLoadMore, i
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="ml-4 mt-1 border rounded-md overflow-hidden">
-            <SizeMatrix fcId={id} />
+            <SizeMatrix fcId={id} fcName={name} />
           </div>
         </CollapsibleContent>
       </Collapsible>
