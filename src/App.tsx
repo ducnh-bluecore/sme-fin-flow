@@ -218,6 +218,7 @@ import CommandSettingsPage from "./pages/command/CommandSettingsPage";
 import WarRoomPage from "./pages/command/WarRoomPage";
 import CapitalMapPage from "./pages/command/CapitalMapPage";
 import DeadStockPage from "./pages/command/DeadStockPage";
+const StoreIntelPage = lazy(() => import("./pages/command/StoreIntelPage"));
 
 const queryClient = new QueryClient();
 
@@ -561,6 +562,7 @@ const AppRoutes = () => {
         <Route path="/command/dead-stock" element={<DeadStockPage />} />
         <Route path="/command/overview" element={<CommandOverviewPage />} />
         <Route path="/command/allocation" element={<CommandAllocationPage />} />
+        <Route path="/command/stores" element={<Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}><StoreIntelPage /></Suspense>} />
         <Route path="/command/assortment" element={<AssortmentPage />} />
         <Route path="/command/clearance" element={<ClearancePage />} />
         <Route path="/command/network-gap" element={<NetworkGapPage />} />

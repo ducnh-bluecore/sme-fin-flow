@@ -29604,6 +29604,80 @@ export type Database = {
           },
         ]
       }
+      store_kpi_targets: {
+        Row: {
+          aov_target: number | null
+          created_at: string | null
+          customers_target: number | null
+          id: string
+          notes: string | null
+          orders_target: number | null
+          period_type: string
+          period_value: string
+          revenue_target: number | null
+          store_id: string
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          aov_target?: number | null
+          created_at?: string | null
+          customers_target?: number | null
+          id?: string
+          notes?: string | null
+          orders_target?: number | null
+          period_type?: string
+          period_value: string
+          revenue_target?: number | null
+          store_id: string
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          aov_target?: number | null
+          created_at?: string | null
+          customers_target?: number | null
+          id?: string
+          notes?: string | null
+          orders_target?: number | null
+          period_type?: string
+          period_value?: string
+          revenue_target?: number | null
+          store_id?: string
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_kpi_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_kpi_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "store_kpi_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "store_kpi_targets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       stores: {
         Row: {
           address: string | null

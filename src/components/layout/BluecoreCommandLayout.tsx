@@ -18,6 +18,7 @@ import {
   Plug,
   BookOpen,
   Sparkles,
+  Store,
 } from 'lucide-react';
 import { AppShell, type AppShellNavSection } from './AppShell';
 import { useTenantContext } from '@/contexts/TenantContext';
@@ -50,6 +51,7 @@ export function BluecoreCommandLayout() {
       label: 'OPERATIONS',
       items: [
         { id: 'allocation', label: 'Phân Bổ', icon: ArrowRightLeft, href: '/command/allocation' },
+        { id: 'stores', label: 'Chi Nhánh', icon: Store, href: '/command/stores' },
         { id: 'assortment', label: 'Cơ Cấu Size', icon: Layers3, href: '/command/assortment' },
         { id: 'clearance', label: 'Thanh Lý', icon: Tags, href: '/command/clearance' },
         { id: 'network-gap', label: 'Nguồn Cung', icon: Network, href: '/command/network-gap' },
