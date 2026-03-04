@@ -56,6 +56,20 @@ const STATUS_CONFIG = {
 
 const COMPARE_COLORS = ['hsl(var(--primary))', 'hsl(45, 93%, 47%)', 'hsl(330, 81%, 60%)'];
 
+/** Smart VND formatter: auto-switch M/B based on magnitude */
+function fmtVnd(v: number, forceUnit?: 'M' | 'B'): string {
+  if (!v && v !== 0) return '—';
+  const abs = Math.abs(v);
+  if (forceUnit === 'B' || (!forceUnit && abs >= 1_000_000_000)) {
+    return `${(v / 1_000_000_000).toFixed(2)}B`;
+  }
+  if (forceUnit === 'M' || (!forceUnit && abs >= 1_000_000)) {
+    return `${(v / 1_000_000).toFixed(1)}M`;
+  }
+  if (abs >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return v.toLocaleString('vi-VN');
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────
 
 function DeltaBadge({ value }: { value: number | null | undefined }) {
@@ -144,8 +158,7 @@ function KpiProgressCard({ label, actual, target, unit, icon: Icon, iconClass }:
   const displayPct = target > 0 ? (actual / target) * 100 : 0;
   const statusColor = displayPct >= 100 ? 'text-emerald-400' : displayPct >= 80 ? 'text-blue-400' : displayPct >= 60 ? 'text-amber-400' : 'text-red-400';
   const formatVal = (v: number) => {
-    if (unit === 'M') return `${(v / 1_000_000).toFixed(1)}M`;
-    if (unit === 'K') return `${(v / 1000).toFixed(0)}K`;
+    if (unit === 'M' || unit === 'K') return fmtVnd(v);
     return v.toLocaleString('vi-VN');
   };
   return (
@@ -207,12 +220,12 @@ function RevenueVsTargetChart({ storeId, storeName }: { storeId: string; storeNa
             <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}M`} />
+              <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => fmtVnd(v)} />
               <Tooltip
                 contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
                 formatter={(value: number, name: string) => {
                   const label = name === 'revenue' ? 'Doanh thu' : name === 'target' ? 'Mục tiêu' : name;
-                  return [`${(value / 1_000_000).toFixed(1)}M`, label];
+                  return [fmtVnd(value), label];
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '11px' }} />
@@ -401,12 +414,12 @@ function StoreRankingView({ stores, onSelect, compareIds, onToggleCompare }: {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-xs text-right tabular-nums font-medium">
-                    {rev > 0 ? `${(rev / 1_000_000).toFixed(1)}M` : '—'}
+                    {rev > 0 ? fmtVnd(rev) : '—'}
                   </TableCell>
                   <TableCell className="text-xs text-right tabular-nums">{txn > 0 ? txn.toLocaleString('vi-VN') : '—'}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">{(s.total_on_hand || 0).toLocaleString('vi-VN')}</TableCell>
                   <TableCell className="text-xs text-right tabular-nums">
-                    {s.inventory_value ? `${(s.inventory_value / 1_000_000).toFixed(1)}M` : '—'}
+                    {s.inventory_value ? fmtVnd(s.inventory_value) : '—'}
                   </TableCell>
                   <TableCell className="px-1">
                     <div className="h-1.5 rounded-full bg-muted overflow-hidden w-full">
@@ -496,7 +509,7 @@ function StoreComparisonView({ storeIds, stores }: { storeIds: string[]; stores:
                 <TableCell className="text-xs font-medium">Giá trị tồn</TableCell>
                 {storeIds.map(id => (
                   <TableCell key={id} className="text-xs text-right tabular-nums">
-                    {storeMap.get(id)?.inventory_value ? `${(storeMap.get(id)!.inventory_value / 1_000_000).toFixed(1)}M` : '—'}
+                    {storeMap.get(id)?.inventory_value ? fmtVnd(storeMap.get(id)!.inventory_value) : '—'}
                   </TableCell>
                 ))}
               </TableRow>
@@ -521,8 +534,8 @@ function StoreComparisonView({ storeIds, stores }: { storeIds: string[]; stores:
                 <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => `${(v / 1_000_000).toFixed(0)}M`} />
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} formatter={(v: number) => [`${(v / 1_000_000).toFixed(1)}M`]} />
+                  <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={v => fmtVnd(v)} />
+                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '11px' }} formatter={(v: number) => [fmtVnd(v)]} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
                   {storeNames.map((name, i) => (
                     <Line key={name} type="monotone" dataKey={name} stroke={COMPARE_COLORS[i]} strokeWidth={2} dot={{ r: 3 }} />
@@ -584,7 +597,7 @@ function StoreDetailView({ store, lookbackDays, onBack }: { store: any; lookback
       {/* Inventory summary */}
       <div className="grid grid-cols-4 gap-2">
         <MetricCard icon={Package} label="Tồn kho" value={`${(store.total_on_hand || 0).toLocaleString('vi-VN')}`} iconClass="text-blue-400" />
-        <MetricCard icon={DollarSign} label="Giá trị tồn" value={`${((store.inventory_value || 0) / 1_000_000).toFixed(1)}M`} sub={`@${((store.avg_unit_cost || 0) / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
+        <MetricCard icon={DollarSign} label="Giá trị tồn" value={fmtVnd(store.inventory_value || 0)} sub={`@${((store.avg_unit_cost || 0) / 1000).toFixed(0)}k/unit`} iconClass="text-amber-400" />
         <MetricCard icon={BarChart3} label="Sức chứa" value={`${(store.capacity || 0).toLocaleString('vi-VN')}`} sub={`${store.capacity > 0 ? ((store.total_on_hand || 0) / store.capacity * 100).toFixed(0) : 0}% đầy`} iconClass="text-emerald-400" />
         <MetricCard icon={TrendingUp} label="Đã bán" value={profileLoading ? '...' : `${(profile?.totalSold || 0).toLocaleString('vi-VN')}`} sub={profileLoading ? '' : (profile?.periodStart && profile?.periodEnd ? `${format(parseISO(profile.periodStart), 'dd/MM')} - ${format(parseISO(profile.periodEnd), 'dd/MM')}` : '')} iconClass="text-pink-400" />
       </div>
@@ -769,6 +782,8 @@ export default function StoreIntelPage() {
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [lookbackDays, setLookbackDays] = useState(30);
 
+  // Filter out central warehouse for ranking (still accessible via detail)
+  const retailStores = useMemo(() => stores.filter((s: any) => s.location_type !== 'central_warehouse'), [stores]);
   const selectedStore = useMemo(() => stores.find((s: any) => s.id === selectedStoreId), [stores, selectedStoreId]);
 
   const handleToggleCompare = (id: string) => {
@@ -789,7 +804,7 @@ export default function StoreIntelPage() {
           <div className="p-2 rounded-lg bg-primary/10"><Store className="h-5 w-5 text-primary" /></div>
           <div>
             <h1 className="text-lg font-bold leading-tight">Chi Nhánh</h1>
-            <p className="text-xs text-muted-foreground">{stores.length} cửa hàng • Phân tích hiệu suất & KPI</p>
+            <p className="text-xs text-muted-foreground">{retailStores.length} cửa hàng • Phân tích hiệu suất & KPI</p>
           </div>
         </div>
         {!selectedStoreId && (
@@ -819,12 +834,12 @@ export default function StoreIntelPage() {
         <>
           {/* Comparison view if 2+ stores selected */}
           {compareIds.length >= 2 && (
-            <StoreComparisonView storeIds={compareIds} stores={stores} />
+            <StoreComparisonView storeIds={compareIds} stores={retailStores} />
           )}
 
           {/* Ranking table */}
           <StoreRankingView
-            stores={stores}
+            stores={retailStores}
             onSelect={setSelectedStoreId}
             compareIds={compareIds}
             onToggleCompare={handleToggleCompare}
