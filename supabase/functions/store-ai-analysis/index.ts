@@ -135,7 +135,7 @@ Hãy phân tích và đưa ra nhận định chiến lược theo cấu trúc đ
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
         stream: true,
