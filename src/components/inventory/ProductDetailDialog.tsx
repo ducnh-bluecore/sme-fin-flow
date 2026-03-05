@@ -153,28 +153,54 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(detail.milestones || []).map((m, i) => {
-                    const sc = milestoneStatusConfig[m.status] || milestoneStatusConfig.no_data;
-                    const gap = m.actual_pct != null ? Math.round(m.actual_pct - m.target_pct) : null;
-                    // Map milestone days to correct stage ranges
-                    const stageRanges: Record<number, string> = { 60: '0–60d', 120: '61–120d', 150: '121–150d', 180: '151–180d' };
-                    const rangeLabel = stageRanges[m.day] || `0–${m.day}d`;
-                    return (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium text-sm">{rangeLabel}</TableCell>
-                        <TableCell className="text-center tabular-nums text-sm">{m.target_pct}%</TableCell>
-                        <TableCell className="text-center tabular-nums text-sm">
-                          {m.actual_pct != null ? `${m.actual_pct}%` : '—'}
-                        </TableCell>
-                        <TableCell className={cn('text-center tabular-nums text-sm', gap != null && gap < 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400')}>
-                          {gap != null ? `${gap > 0 ? '+' : ''}${gap}%` : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={cn('text-sm', sc.className)}>{sc.icon} {sc.label}</span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {(() => {
+                    const stageRanges: Record<number, string> = {
+                      60: '0–60d',
+                      120: '61–120d',
+                      150: '121–150d',
+                      180: '151–180d',
+                    };
+
+                    const formatPct = (value: number | null) => {
+                      if (value == null || Number.isNaN(value)) return '—';
+                      const rounded = Math.round(value * 10) / 10;
+                      return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}%`;
+                    };
+
+                    return (detail.milestones || []).map((m, i, arr) => {
+                      const stageStartDay = i === 0 ? 0 : (arr[i - 1]?.day ?? 0) + 1;
+                      const stageEndDay = m.day;
+                      const isCurrentStage = ageDays >= stageStartDay && ageDays <= stageEndDay;
+
+                      const displayActualPct = m.actual_pct ?? (isCurrentStage ? detail.current_sell_through : null);
+                      const gap = displayActualPct != null ? Math.round((displayActualPct - m.target_pct) * 10) / 10 : null;
+
+                      const derivedStatus: keyof typeof milestoneStatusConfig =
+                        gap == null ? 'no_data' : gap >= 0 ? 'ahead' : gap >= -5 ? 'on_track' : 'behind';
+
+                      const statusKey: keyof typeof milestoneStatusConfig =
+                        isCurrentStage && m.actual_pct == null
+                          ? derivedStatus
+                          : ((m.status in milestoneStatusConfig ? m.status : 'no_data') as keyof typeof milestoneStatusConfig);
+
+                      const sc = milestoneStatusConfig[statusKey] || milestoneStatusConfig.no_data;
+                      const rangeLabel = stageRanges[m.day] || `${stageStartDay}–${m.day}d`;
+
+                      return (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium text-sm">{rangeLabel}</TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">{m.target_pct}%</TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">{formatPct(displayActualPct)}</TableCell>
+                          <TableCell className={cn('text-center tabular-nums text-sm', gap != null && gap < 0 ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400')}>
+                            {gap != null ? `${gap > 0 ? '+' : ''}${Number.isInteger(gap) ? gap.toFixed(0) : gap.toFixed(1)}%` : '—'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={cn('text-sm', sc.className)}>{sc.icon} {sc.label}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    });
+                  })()}
                 </TableBody>
               </Table>
             </div>
