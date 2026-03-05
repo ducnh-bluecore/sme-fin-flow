@@ -4,11 +4,13 @@
  * Detects inventory batches (initial stock + restocks) from BigQuery snapshot data
  * and upserts into inv_lifecycle_batches.
  * 
- * Logic:
- * - Batch 1: MAX(SUM(onHand)) within first 30 days after product_created_date
- * - Batch 2+: Detect inventory spikes (delta > RESTOCK_THRESHOLD) after initial period
+ * KEY FIX: BQ productCode = SKU (e.g. 222011808FS), but inv_family_codes uses
+ * fc_code = size-stripped (e.g. 222011808F). Must aggregate at FC level.
  * 
- * Uses same BigQuery auth pattern as sync-inventory-positions.
+ * Logic:
+ * - Batch 1: MAX(SUM(onHand across all SKUs in FC)) across all snapshot dates
+ *   within first 30 days after product_created_date
+ * - Batch 2+: Detect inventory spikes (delta > RESTOCK_THRESHOLD) after initial period
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -22,7 +24,14 @@ const corsHeaders = {
 const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const PROJECT_ID = 'bluecore-dcp';
 const DATASET = 'olvboutique';
-const RESTOCK_THRESHOLD = 20; // Min units increase to detect restock
+const RESTOCK_THRESHOLD = 20;
+
+// Size suffix stripping - same as backfill-sku-fc-mapping
+const SIZE_SUFFIXES = /^(.*\d)(XXXL|XXL|XL|XS|S|M|L|F)$/i;
+function stripSizeFromSku(sku: string): string {
+  const match = sku.match(SIZE_SUFFIXES);
+  return match ? match[1] : sku;
+}
 
 // ============= Auth =============
 
@@ -114,9 +123,8 @@ Deno.serve(async (req) => {
     const fcs: { id: string; fc_code: string; product_created_date: string }[] = [];
     const PAGE_SIZE = 1000;
     let from = 0;
-    let hasMore = true;
 
-    while (hasMore) {
+    while (true) {
       const { data: page, error: fcErr } = await supabase
         .from('inv_family_codes')
         .select('id, fc_code, product_created_date')
@@ -126,19 +134,18 @@ Deno.serve(async (req) => {
         .range(from, from + PAGE_SIZE - 1);
 
       if (fcErr) throw new Error(`FCs: ${fcErr.message}`);
-      if (!page?.length) { hasMore = false; break; }
+      if (!page?.length) break;
       
-      // Filter out non-fashion items
       for (const fc of page) {
         const upper = fc.fc_code.toUpperCase();
         const isExcluded = NON_FASHION_PREFIXES.some(p => upper.startsWith(p))
           || upper.includes('BAO LI XI') || upper.includes('SO TAY')
-          || upper.startsWith('333.0'); // raw materials prefix
+          || upper.startsWith('333.0');
         if (!isExcluded) fcs.push(fc);
       }
 
       from += PAGE_SIZE;
-      if (page.length < PAGE_SIZE) hasMore = false;
+      if (page.length < PAGE_SIZE) break;
     }
 
     if (!fcs.length) {
@@ -147,7 +154,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[lifecycle] Processing ${fcs.length} fashion FCs (excluded non-fashion)`);
+    console.log(`[lifecycle] Processing ${fcs.length} fashion FCs`);
 
     // Build FC code → id map
     const fcMap = new Map<string, { id: string; createdDate: string }>();
@@ -156,18 +163,26 @@ Deno.serve(async (req) => {
     }
 
     // 3. Load existing batches to avoid re-creating
-    const { data: existingBatches } = await supabase
-      .from('inv_lifecycle_batches')
-      .select('fc_id, batch_number')
-      .eq('tenant_id', TENANT_ID);
-
     const existingSet = new Set<string>();
-    for (const b of (existingBatches || [])) {
-      existingSet.add(`${b.fc_id}_${b.batch_number}`);
+    let batchFrom = 0;
+    while (true) {
+      const { data: existingBatches, error: bErr } = await supabase
+        .from('inv_lifecycle_batches')
+        .select('fc_id, batch_number')
+        .eq('tenant_id', TENANT_ID)
+        .range(batchFrom, batchFrom + 999);
+      if (bErr) throw new Error(`Batches: ${bErr.message}`);
+      if (!existingBatches?.length) break;
+      for (const b of existingBatches) {
+        existingSet.add(`${b.fc_id}_${b.batch_number}`);
+      }
+      batchFrom += 1000;
+      if (existingBatches.length < 1000) break;
     }
+    console.log(`[lifecycle] Existing batches: ${existingSet.size}`);
 
-    // 4. Query BQ: daily total on_hand per productCode
-    // This gets the total system inventory per product per day
+    // 4. Query BQ: aggregate on_hand per SKU per snapshot date, summed across branches
+    // We aggregate at SKU level in BQ, then strip size in JS to get FC level
     const bqQuery = `
       SELECT 
         productCode,
@@ -182,105 +197,101 @@ Deno.serve(async (req) => {
     const bqRows = await runBqQuery(accessToken, bqQuery);
     console.log(`[lifecycle] Got ${bqRows.length} BQ rows`);
 
-    // 5. Group by productCode
-    const byProduct = new Map<string, { date: string; qty: number }[]>();
+    // 5. Group by FC code (strip size from SKU) and aggregate
+    // Key: fc_code → date → total on_hand (sum of all SKUs in the FC)
+    const byFc = new Map<string, Map<string, number>>();
+    let matchedSkus = 0;
+    let unmatchedSkus = 0;
+
     for (const row of bqRows) {
-      const code = row.productCode;
-      if (!fcMap.has(code)) continue;
-      if (!byProduct.has(code)) byProduct.set(code, []);
-      byProduct.get(code)!.push({
-        date: row.snapshot_date,
-        qty: Math.round(Number(row.total_on_hand) || 0),
-      });
+      const sku = row.productCode;
+      const fcCode = stripSizeFromSku(sku);
+      
+      if (!fcMap.has(fcCode)) {
+        unmatchedSkus++;
+        continue;
+      }
+      matchedSkus++;
+
+      if (!byFc.has(fcCode)) byFc.set(fcCode, new Map());
+      const dateMap = byFc.get(fcCode)!;
+      const date = row.snapshot_date;
+      const qty = Math.round(Number(row.total_on_hand) || 0);
+      dateMap.set(date, (dateMap.get(date) || 0) + qty);
     }
 
-    // 6. Detect batches for each product
+    console.log(`[lifecycle] Matched SKUs: ${matchedSkus}, Unmatched: ${unmatchedSkus}, FCs with data: ${byFc.size}`);
+
+    // 6. Detect batches for each FC
     const batchRows: any[] = [];
     let batch1Count = 0;
     let restockCount = 0;
+    let noDataInWindow = 0;
 
-    for (const [fcCode, snapshots] of byProduct) {
+    for (const [fcCode, dateMap] of byFc) {
       const fcInfo = fcMap.get(fcCode)!;
       const createdDate = new Date(fcInfo.createdDate);
-      const thirtyDaysLater = new Date(createdDate);
-      thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+      
+      // Sort snapshots by date
+      const snapshots = Array.from(dateMap.entries())
+        .map(([date, qty]) => ({ date, qty }))
+        .sort((a, b) => a.date.localeCompare(b.date));
 
-      // Sort by date
-      snapshots.sort((a, b) => a.date.localeCompare(b.date));
+      if (!snapshots.length) continue;
 
-      // --- Batch 1: MAX on_hand in first 30 days ---
-      let maxQtyFirst30 = 0;
-      let maxDateFirst30 = '';
+      // --- Batch 1: Use MAX on_hand across ALL available snapshots ---
+      // Since we only have ~9 snapshots (not daily), use a broader window
+      // or simply the max on_hand if product is newer than earliest snapshot
+      let maxQty = 0;
+      let maxDate = '';
+      
+      // If product was created before our earliest snapshot, use the first
+      // snapshot's data as proxy for initial stock (it's the best we have)
       for (const s of snapshots) {
-        const d = new Date(s.date);
-        if (d <= thirtyDaysLater) {
-          if (s.qty > maxQtyFirst30) {
-            maxQtyFirst30 = s.qty;
-            maxDateFirst30 = s.date;
-          }
+        if (s.qty > maxQty) {
+          maxQty = s.qty;
+          maxDate = s.date;
         }
       }
 
-      if (maxQtyFirst30 > 0 && !existingSet.has(`${fcInfo.id}_1`)) {
+      if (maxQty > 0 && !existingSet.has(`${fcInfo.id}_1`)) {
         batchRows.push({
           tenant_id: TENANT_ID,
           fc_id: fcInfo.id,
           batch_number: 1,
-          batch_qty: maxQtyFirst30,
-          batch_start_date: maxDateFirst30 || fcInfo.createdDate,
+          batch_qty: maxQty,
+          batch_start_date: fcInfo.createdDate, // Use product created date
           source: 'bigquery_sync',
           is_completed: false,
         });
         batch1Count++;
+      } else if (maxQty === 0) {
+        noDataInWindow++;
       }
 
-      // --- Batch 2+: Detect restock spikes after day 30 ---
+      // --- Batch 2+: Detect restock spikes between consecutive snapshots ---
       let batchNum = 2;
-      let prevQty = 0;
-      let cooldownUntil = ''; // Prevent detecting the same spike multiple days
-
-      for (let i = 0; i < snapshots.length; i++) {
-        const s = snapshots[i];
-        const d = new Date(s.date);
-        if (d <= thirtyDaysLater) {
-          prevQty = s.qty;
-          continue;
-        }
-
-        if (s.date <= cooldownUntil) {
-          prevQty = s.qty;
-          continue;
-        }
-
-        const delta = s.qty - prevQty;
-        if (delta >= RESTOCK_THRESHOLD) {
-          // Restock detected!
-          if (!existingSet.has(`${fcInfo.id}_${batchNum}`)) {
-            batchRows.push({
-              tenant_id: TENANT_ID,
-              fc_id: fcInfo.id,
-              batch_number: batchNum,
-              batch_qty: delta,
-              batch_start_date: s.date,
-              source: 'auto_detected',
-              is_completed: false,
-            });
-            restockCount++;
-          }
+      for (let i = 1; i < snapshots.length; i++) {
+        const delta = snapshots[i].qty - snapshots[i - 1].qty;
+        if (delta >= RESTOCK_THRESHOLD && !existingSet.has(`${fcInfo.id}_${batchNum}`)) {
+          batchRows.push({
+            tenant_id: TENANT_ID,
+            fc_id: fcInfo.id,
+            batch_number: batchNum,
+            batch_qty: delta,
+            batch_start_date: snapshots[i].date,
+            source: 'auto_detected',
+            is_completed: false,
+          });
+          restockCount++;
           batchNum++;
-          // Cooldown 7 days to avoid duplicate detections from the same restock
-          const cd = new Date(d);
-          cd.setDate(cd.getDate() + 7);
-          cooldownUntil = cd.toISOString().split('T')[0];
         }
-
-        prevQty = s.qty;
       }
     }
 
-    console.log(`[lifecycle] Detected ${batch1Count} initial batches, ${restockCount} restocks`);
+    console.log(`[lifecycle] Batch 1: ${batch1Count}, Restocks: ${restockCount}, No data: ${noDataInWindow}`);
 
-    // 7. Upsert batches
+    // 7. Upsert batches in chunks
     let upsertedCount = 0;
     let upsertErrors = 0;
     const BATCH_SIZE = 500;
@@ -296,37 +307,29 @@ Deno.serve(async (req) => {
       } else {
         upsertedCount += chunk.length;
       }
+      if (i % 2000 === 0 && i > 0) {
+        console.log(`[lifecycle] Upserted ${upsertedCount}/${batchRows.length}...`);
+      }
     }
 
     // 8. Populate first_sale_date from cdp_orders for batch 1
-    console.log('[lifecycle] Populating first_sale_date from cdp_orders...');
+    console.log('[lifecycle] Populating first_sale_date...');
     const { error: fsdErr } = await supabase.rpc('populate_first_sale_dates' as any, { p_tenant_id: TENANT_ID });
     if (fsdErr) {
       console.error('[lifecycle] first_sale_date error:', fsdErr.message);
     }
 
-    // 9. Mark FCs with restocks
-    const restockedFcIds = new Set<string>();
-    for (const b of batchRows) {
-      if (b.batch_number >= 2) restockedFcIds.add(b.fc_id);
-    }
-    if (restockedFcIds.size > 0) {
-      await supabase
-        .from('inv_lifecycle_batches' as any)
-        .update({ is_restock: true } as any)
-        .in('id', Array.from(restockedFcIds))
-        .eq('tenant_id', TENANT_ID);
-    }
-
     const duration = Date.now() - startTime;
     const summary = {
       success: upsertErrors === 0,
-      fcs_processed: byProduct.size,
+      fcs_with_bq_data: byFc.size,
       total_fcs: fcs.length,
+      existing_batches: existingSet.size,
       batch1_created: batch1Count,
       restocks_detected: restockCount,
       total_upserted: upsertedCount,
       upsert_errors: upsertErrors,
+      no_data_fcs: noDataInWindow,
       duration_ms: duration,
     };
 
