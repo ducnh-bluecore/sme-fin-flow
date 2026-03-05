@@ -52,6 +52,8 @@ interface ProductDetail {
   milestones: MilestoneItem[];
   first_sale_date: string | null;
   current_sell_through: number;
+  total_sold: number;
+  initial_qty: number;
   velocity_current: number;
   velocity_required: number;
   cash_at_risk: number;
@@ -128,14 +130,18 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
             </div>
 
             {/* Inventory summary */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-xs text-muted-foreground">Số lượng ban đầu</p>
+                <p className="text-lg font-bold tabular-nums">{detail.initial_qty ?? '—'}</p>
+              </CardContent></Card>
+              <Card><CardContent className="py-3 text-center">
+                <p className="text-xs text-muted-foreground">Đã bán</p>
+                <p className="text-lg font-bold tabular-nums">{detail.total_sold ?? 0}</p>
+              </CardContent></Card>
               <Card><CardContent className="py-3 text-center">
                 <p className="text-xs text-muted-foreground">Tồn kho</p>
                 <p className="text-lg font-bold tabular-nums">{detail.current_on_hand}</p>
-              </CardContent></Card>
-              <Card><CardContent className="py-3 text-center">
-                <p className="text-xs text-muted-foreground">Đã bán (batch)</p>
-                <p className="text-lg font-bold tabular-nums">{activeBatch ? activeBatch.batch_qty - detail.current_on_hand : 0}</p>
               </CardContent></Card>
             </div>
 
