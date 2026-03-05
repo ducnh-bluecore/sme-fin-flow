@@ -115,6 +115,7 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
                 ageDays={ageDays}
                 lifecycleDays={lifecycleDays}
                 milestones={detail.milestones}
+                sellThrough={detail.current_sell_through ?? 0}
               />
             </div>
 
@@ -216,20 +217,17 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
   );
 }
 
-function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: number; lifecycleDays: number; milestones: MilestoneItem[] }) {
+function LifecycleTimeline({ ageDays, lifecycleDays, milestones, sellThrough }: { ageDays: number; lifecycleDays: number; milestones: MilestoneItem[]; sellThrough: number }) {
   const progressPct = Math.min((ageDays / lifecycleDays) * 100, 100);
   
-  // Define stages with colors
+  // Correct stage ranges
   const stages = [
-    { startDay: 0, endDay: 60, label: 'Launch', color: 'hsl(var(--success))', targetPct: '50%' },
-    { startDay: 60, endDay: 120, label: 'Growth', color: 'hsl(var(--info))', targetPct: '70%' },
-    { startDay: 120, endDay: 150, label: 'Markdown', color: 'hsl(var(--warning))', targetPct: '85%' },
-    { startDay: 150, endDay: 180, label: 'Clearance', color: 'hsl(var(--destructive))', targetPct: '100%' },
+    { startDay: 0, endDay: 60, label: 'Launch', color: 'hsl(var(--success))', targetPct: 50 },
+    { startDay: 61, endDay: 120, label: 'Growth', color: 'hsl(var(--info))', targetPct: 70 },
+    { startDay: 121, endDay: 150, label: 'Markdown', color: 'hsl(var(--warning))', targetPct: 85 },
+    { startDay: 151, endDay: 180, label: 'Clearance', color: 'hsl(var(--destructive))', targetPct: 100 },
   ];
 
-  // Override from milestones if available
-  const milestoneDays = (milestones || []).map(m => m.day);
-  
   const getCurrentStage = () => {
     for (let i = stages.length - 1; i >= 0; i--) {
       if (ageDays >= stages[i].startDay) return i;
@@ -237,6 +235,9 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: nu
     return 0;
   };
   const currentStageIdx = getCurrentStage();
+  const currentStage = stages[currentStageIdx];
+  const gapPct = sellThrough - currentStage.targetPct;
+  const isOnTrack = gapPct >= -5;
 
   return (
     <div className="space-y-3 px-1 py-3">
@@ -244,11 +245,11 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: nu
       <div className="relative">
         <div className="flex gap-[2px] h-3 rounded-full overflow-hidden">
           {stages.map((stage, i) => {
-            const stageWidth = ((stage.endDay - stage.startDay) / lifecycleDays) * 100;
-            const isFilled = ageDays >= stage.endDay;
-            const isActive = ageDays >= stage.startDay && ageDays < stage.endDay;
+            const stageWidth = ((stage.endDay - stage.startDay + 1) / lifecycleDays) * 100;
+            const isFilled = ageDays > stage.endDay;
+            const isActive = ageDays >= stage.startDay && ageDays <= stage.endDay;
             const fillPct = isActive
-              ? ((ageDays - stage.startDay) / (stage.endDay - stage.startDay)) * 100
+              ? ((ageDays - stage.startDay) / (stage.endDay - stage.startDay + 1)) * 100
               : 0;
 
             return (
@@ -283,9 +284,9 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: nu
           <div
             className="w-4 h-4 rounded-full border-[3px] shadow-lg"
             style={{
-              borderColor: stages[currentStageIdx].color,
+              borderColor: currentStage.color,
               backgroundColor: 'hsl(var(--background))',
-              boxShadow: `0 0 8px ${stages[currentStageIdx].color}`,
+              boxShadow: `0 0 8px ${currentStage.color}`,
             }}
           />
         </div>
@@ -294,7 +295,7 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: nu
       {/* Stage Labels */}
       <div className="flex gap-[2px]">
         {stages.map((stage, i) => {
-          const stageWidth = ((stage.endDay - stage.startDay) / lifecycleDays) * 100;
+          const stageWidth = ((stage.endDay - stage.startDay + 1) / lifecycleDays) * 100;
           const isActive = i === currentStageIdx;
           return (
             <div
@@ -311,24 +312,37 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: nu
                 {stage.label}
               </p>
               <p className="text-[9px] text-muted-foreground/50">
-                {stage.startDay}–{stage.endDay}d · {stage.targetPct}
+                {stage.startDay}–{stage.endDay}d · {stage.targetPct}%
               </p>
             </div>
           );
         })}
       </div>
 
-      {/* Current Position Text */}
-      <div className="flex items-center justify-center gap-2">
-        <div
-          className="h-2 w-2 rounded-full animate-pulse"
-          style={{ backgroundColor: stages[currentStageIdx].color }}
-        />
-        <p className="text-xs text-muted-foreground">
-          Ngày <span className="font-bold text-foreground">{ageDays}</span> / {lifecycleDays}
-          <span className="mx-1">·</span>
-          <span className="font-medium" style={{ color: stages[currentStageIdx].color }}>
-            {stages[currentStageIdx].label}
+      {/* Current Position + Performance */}
+      <div className="flex items-center justify-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <div
+            className="h-2 w-2 rounded-full animate-pulse"
+            style={{ backgroundColor: currentStage.color }}
+          />
+          <p className="text-xs text-muted-foreground">
+            Ngày <span className="font-bold text-foreground">{ageDays}</span> / {lifecycleDays}
+            <span className="mx-1">·</span>
+            <span className="font-medium" style={{ color: currentStage.color }}>
+              {currentStage.label}
+            </span>
+          </p>
+        </div>
+        <div className="h-3 w-px bg-border" />
+        <p className="text-xs">
+          <span className="text-muted-foreground">Thực tế </span>
+          <span className="font-bold text-foreground">{sellThrough.toFixed(1)}%</span>
+          <span className="text-muted-foreground"> / Target </span>
+          <span className="font-semibold" style={{ color: currentStage.color }}>{currentStage.targetPct}%</span>
+          <span className="mx-1">→</span>
+          <span className={cn('font-bold', isOnTrack ? 'text-emerald-500' : 'text-destructive')}>
+            {gapPct >= 0 ? '+' : ''}{gapPct.toFixed(1)}%
           </span>
         </p>
       </div>
