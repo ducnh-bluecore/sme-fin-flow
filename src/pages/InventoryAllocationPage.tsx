@@ -164,6 +164,10 @@ export default function InventoryAllocationPage() {
 
   const handleSyncAndRun = useCallback(async () => {
     if (!tenantId) return;
+
+    const collectionIdsSnapshot = selectedCollectionIds.length > 0 ? [...selectedCollectionIds] : undefined;
+    const storeIdsSnapshot = selectedStoreIds.length > 0 ? [...selectedStoreIds] : undefined;
+
     setIsSyncAndRun(true);
     try {
       // Step 1: Sync inventory from KiotViet
@@ -188,11 +192,11 @@ export default function InventoryAllocationPage() {
       toast.info('Bước 2/2: Đang chạy Engine phân bổ...');
       const { data: { user } } = await supabase.auth.getUser();
       const allocBody: any = { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: 'both' };
-      if (selectedCollectionIds.length > 0) {
-        allocBody.collection_ids = selectedCollectionIds;
+      if (collectionIdsSnapshot) {
+        allocBody.collection_ids = collectionIdsSnapshot;
       }
-      if (selectedStoreIds.length > 0) {
-        allocBody.store_ids = selectedStoreIds;
+      if (storeIdsSnapshot) {
+        allocBody.store_ids = storeIdsSnapshot;
       }
       const response = await supabase.functions.invoke('inventory-allocation-engine', {
         body: allocBody,
@@ -209,7 +213,7 @@ export default function InventoryAllocationPage() {
     } finally {
       setIsSyncAndRun(false);
     }
-  }, [tenantId, queryClient]);
+  }, [tenantId, queryClient, selectedCollectionIds, selectedStoreIds]);
 
   const isRunning = runRebalance.isPending || runAllocate.isPending || runRecall.isPending || isSyncAndRun;
 
