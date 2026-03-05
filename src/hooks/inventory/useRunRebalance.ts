@@ -35,12 +35,15 @@ export function useRunAllocate() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ runType = 'both', collectionIds }: { runType?: 'V1' | 'V2' | 'both'; collectionIds?: string[] } = {}) => {
+    mutationFn: async ({ runType = 'both', collectionIds, storeIds }: { runType?: 'V1' | 'V2' | 'both'; collectionIds?: string[]; storeIds?: string[] } = {}) => {
       const { data: { user } } = await supabase.auth.getUser();
       
       const body: any = { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: runType };
       if (collectionIds && collectionIds.length > 0) {
         body.collection_ids = collectionIds;
+      }
+      if (storeIds && storeIds.length > 0) {
+        body.store_ids = storeIds;
       }
       const response = await supabase.functions.invoke('inventory-allocation-engine', {
         body,

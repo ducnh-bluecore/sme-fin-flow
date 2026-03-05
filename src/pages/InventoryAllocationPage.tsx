@@ -35,6 +35,7 @@ import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggesti
 export default function InventoryAllocationPage() {
   const [activeTab, setActiveTab] = useState('transfer');
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
+  const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
   const { data: latestRebalanceRun } = useLatestRebalanceRun();
   const { data: rebalanceSuggestions = [] } = useRebalanceSuggestions(latestRebalanceRun?.id);
   const { data: latestAllocRun } = useLatestAllocationRun();
@@ -190,6 +191,9 @@ export default function InventoryAllocationPage() {
       if (selectedCollectionIds.length > 0) {
         allocBody.collection_ids = selectedCollectionIds;
       }
+      if (selectedStoreIds.length > 0) {
+        allocBody.store_ids = selectedStoreIds;
+      }
       const response = await supabase.functions.invoke('inventory-allocation-engine', {
         body: allocBody,
       });
@@ -267,6 +271,42 @@ export default function InventoryAllocationPage() {
                 {collections.length === 0 && <p className="text-xs text-muted-foreground p-2">Không có BST nào</p>}
               </PopoverContent>
             </Popover>
+            {/* Store filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Store className="h-4 w-4" />
+                  {selectedStoreIds.length === 0 ? 'Tất cả CH' : `${selectedStoreIds.length} CH`}
+                  {selectedStoreIds.length > 0 && (
+                    <span
+                      role="button"
+                      className="ml-1 rounded-full hover:bg-muted p-0.5"
+                      onClick={(e) => { e.stopPropagation(); setSelectedStoreIds([]); }}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-2 max-h-80 overflow-y-auto" align="end">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Chọn cửa hàng để phân bổ</p>
+                {stores.filter((s: any) => s.location_type !== 'central_warehouse' && s.is_active).map((s: any) => (
+                  <label key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
+                    <Checkbox
+                      checked={selectedStoreIds.includes(s.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedStoreIds(prev =>
+                          checked ? [...prev, s.id] : prev.filter(id => id !== s.id)
+                        );
+                      }}
+                    />
+                    <span className="truncate flex-1">{s.store_name}</span>
+                    {s.tier && <span className="text-xs text-muted-foreground font-medium">{s.tier}</span>}
+                  </label>
+                ))}
+                {stores.filter((s: any) => s.location_type !== 'central_warehouse').length === 0 && <p className="text-xs text-muted-foreground p-2">Không có cửa hàng nào</p>}
+              </PopoverContent>
+            </Popover>
             {hasMissingSize && (
               <Button
                 variant="outline"
@@ -289,15 +329,15 @@ export default function InventoryAllocationPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V1', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V1', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined, storeIds: selectedStoreIds.length > 0 ? selectedStoreIds : undefined })} className="gap-2">
                   <Layers className="h-4 w-4" />
                   V1: Phủ nền theo BST
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V2', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'V2', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined, storeIds: selectedStoreIds.length > 0 ? selectedStoreIds : undefined })} className="gap-2">
                   <Target className="h-4 w-4" />
                   V2: Chia theo nhu cầu CH
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'both', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined })} className="gap-2">
+                <DropdownMenuItem onClick={() => runAllocate.mutate({ runType: 'both', collectionIds: selectedCollectionIds.length > 0 ? selectedCollectionIds : undefined, storeIds: selectedStoreIds.length > 0 ? selectedStoreIds : undefined })} className="gap-2">
                   <Package className="h-4 w-4" />
                   V1 + V2 (đầy đủ)
                 </DropdownMenuItem>
