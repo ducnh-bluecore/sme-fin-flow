@@ -1,0 +1,1 @@
+ALTER TABLE public.inv_allocation_recommendations ADD COLUMN IF NOT EXISTS allocation_version text;

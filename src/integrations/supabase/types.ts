@@ -18555,6 +18555,7 @@ export type Database = {
       }
       inv_allocation_recommendations: {
         Row: {
+          allocation_version: string | null
           approved_at: string | null
           approved_by: string | null
           constraint_checks: Json | null
@@ -18581,6 +18582,7 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          allocation_version?: string | null
           approved_at?: string | null
           approved_by?: string | null
           constraint_checks?: Json | null
@@ -18607,6 +18609,7 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          allocation_version?: string | null
           approved_at?: string | null
           approved_by?: string | null
           constraint_checks?: Json | null
