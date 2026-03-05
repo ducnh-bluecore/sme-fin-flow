@@ -1255,16 +1255,10 @@ async function syncOrders(
         }
         
         // Transform and upsert
-        // For KiotViet: filter out marketplace orders (already synced from native datasets)
-        const filteredRows = source.channel === 'kiotviet'
-          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
-          : rows;
-        
-        if (source.channel === 'kiotviet' && filteredRows.length < rows.length) {
-          console.log(`[kiotviet dedup] Filtered ${rows.length - filteredRows.length}/${rows.length} marketplace orders in batch at offset ${offset}`);
-        }
-        
-        const orders = filteredRows.map(row => {
+        // For KiotViet: include ALL orders (native + marketplace)
+        // Marketplace orders are tagged with is_marketplace=true for dedup at reporting layer
+        // This ensures order_items can always find their parent order
+        const orders = rows.map(row => {
           const grossRevenue = parseFloat(row[source.mapping.gross_revenue] || '0');
           // Discount from source (KiotViet + Haravan have explicit discount columns)
           const discountAmount = source.mapping.discount_amount
@@ -1273,6 +1267,10 @@ async function syncOrders(
           const netRevenue = source.mapping.net_revenue
             ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
             : grossRevenue;
+
+          // Detect marketplace flag for KiotViet orders
+          const isMarketplace = source.channel === 'kiotviet' && 
+            !isKiotVietNativeOrder(row[source.mapping.sale_channel_id]);
 
           return {
             tenant_id: tenantId,
@@ -1290,16 +1288,15 @@ async function syncOrders(
             currency: 'VND',
             payment_method: row[source.mapping.payment_method],
             // Store source-specific metadata for traceability
-            ...(source.channel === 'kiotviet' ? {
-              raw_data: {
+            raw_data: {
+              ...(source.channel === 'kiotviet' ? {
                 SaleChannelId: row[source.mapping.sale_channel_id],
                 OrderCode: row[source.mapping.order_code],
-              }
-            } : source.mapping.order_code ? {
-              raw_data: {
+                is_marketplace: isMarketplace,
+              } : source.mapping.order_code ? {
                 OrderCode: row[source.mapping.order_code],
-              }
-            } : {}),
+              } : {}),
+            },
           };
         });
         
@@ -1818,12 +1815,8 @@ async function syncPayments(
           break;
         }
 
-        // For KiotViet: filter out marketplace orders
-        const filteredRows = source.channel === 'kiotviet'
-          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
-          : rows;
-
-        const payments = filteredRows.map(row => ({
+        // Include all KiotViet orders (marketplace included) for complete data coverage
+        const payments = rows.map(row => ({
           tenant_id: tenantId,
           payment_key: `${source.channel}:${String(row[source.mapping.payment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
@@ -1971,12 +1964,8 @@ async function syncFulfillments(
           break;
         }
 
-        // For KiotViet: filter out marketplace orders
-        const filteredRows = source.channel === 'kiotviet'
-          ? rows.filter(row => isKiotVietNativeOrder(row[source.mapping.sale_channel_id]))
-          : rows;
-
-        const fulfillments = filteredRows.map(row => ({
+        // Include all KiotViet orders (marketplace included) for complete data coverage
+        const fulfillments = rows.map(row => ({
           tenant_id: tenantId,
           fulfillment_key: `${source.channel}:${String(row[source.mapping.fulfillment_key] || '')}`,
           order_key: `${source.channel}:${String(row[source.mapping.order_key] || '')}`,
