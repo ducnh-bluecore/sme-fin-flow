@@ -320,31 +320,34 @@ function LifecycleTimeline({ ageDays, lifecycleDays, milestones, sellThrough }: 
       </div>
 
       {/* Current Position + Performance */}
-      <div className="flex items-center justify-center gap-3 flex-wrap">
+      <div className="rounded-lg border border-border bg-muted/30 px-4 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <div
-            className="h-2 w-2 rounded-full animate-pulse"
+            className="h-2.5 w-2.5 rounded-full animate-pulse"
             style={{ backgroundColor: currentStage.color }}
           />
-          <p className="text-xs text-muted-foreground">
-            Ngày <span className="font-bold text-foreground">{ageDays}</span> / {lifecycleDays}
-            <span className="mx-1">·</span>
-            <span className="font-medium" style={{ color: currentStage.color }}>
+          <p className="text-sm text-muted-foreground">
+            Ngày <span className="font-bold text-foreground">{ageDays}</span>/{lifecycleDays}
+            <span className="mx-1.5">·</span>
+            <span className="font-semibold" style={{ color: currentStage.color }}>
               {currentStage.label}
             </span>
           </p>
         </div>
-        <div className="h-3 w-px bg-border" />
-        <p className="text-xs">
-          <span className="text-muted-foreground">Thực tế </span>
-          <span className="font-bold text-foreground">{sellThrough.toFixed(1)}%</span>
-          <span className="text-muted-foreground"> / Target </span>
-          <span className="font-semibold" style={{ color: currentStage.color }}>{currentStage.targetPct}%</span>
-          <span className="mx-1">→</span>
-          <span className={cn('font-bold', isOnTrack ? 'text-emerald-500' : 'text-destructive')}>
+        <div className="flex items-center gap-2">
+          <p className="text-sm">
+            <span className="font-bold text-foreground">{sellThrough.toFixed(1)}%</span>
+            <span className="text-muted-foreground"> / {currentStage.targetPct}%</span>
+          </p>
+          <span className={cn(
+            'text-sm font-bold px-2 py-0.5 rounded',
+            isOnTrack
+              ? 'bg-emerald-500/15 text-emerald-500'
+              : 'bg-destructive/15 text-destructive'
+          )}>
             {gapPct >= 0 ? '+' : ''}{gapPct.toFixed(1)}%
           </span>
-        </p>
+        </div>
       </div>
     </div>
   );
