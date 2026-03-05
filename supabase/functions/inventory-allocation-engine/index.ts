@@ -65,7 +65,7 @@ async function handleAllocate(
   if (runError) throw runError;
 
   try {
-    console.log(`[ALLOC] Calling fn_allocation_engine for run ${run.id}, type=${runType}...`);
+    console.log(`[ALLOC] Calling fn_allocation_engine for run ${run.id}, type=${runType}, collectionIds=${JSON.stringify(collectionIds)}, storeIds=${JSON.stringify(storeIds)}`);
 
     const normalizedCollectionIds =
       Array.isArray(collectionIds) && collectionIds.length > 0 ? collectionIds : null;
