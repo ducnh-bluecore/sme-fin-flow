@@ -1,0 +1,1 @@
+ALTER FUNCTION fn_allocation_engine(uuid, uuid, text, uuid[], uuid[]) SET statement_timeout = '120s';
