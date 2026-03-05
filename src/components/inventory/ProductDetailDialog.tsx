@@ -68,7 +68,7 @@ const milestoneStatusConfig: Record<string, { label: string; icon: string; class
 };
 
 export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId }: ProductDetailDialogProps) {
-  const { data: detail, isLoading } = useQuery({
+  const { data: detail, isLoading, error } = useQuery({
     queryKey: ['lifecycle-product-detail', tenantId, fcId],
     queryFn: async () => {
       if (!tenantId || !fcId) return null;
@@ -89,10 +89,17 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Chi tiết vòng đời sản phẩm</DialogTitle>
+          <DialogDescription>Thông tin vòng đời, milestones và batch history.</DialogDescription>
+        </DialogHeader>
+
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
+        ) : error ? (
+          <div className="text-center py-12 text-destructive">Không thể tải chi tiết sản phẩm</div>
         ) : !detail?.product ? (
           <div className="text-center py-12 text-muted-foreground">Không tìm thấy sản phẩm</div>
         ) : (
