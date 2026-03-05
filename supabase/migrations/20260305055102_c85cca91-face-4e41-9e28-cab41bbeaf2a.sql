@@ -1,0 +1,2 @@
+ALTER TABLE public.inv_allocation_recommendations DROP CONSTRAINT inv_allocation_recommendations_priority_check;
+ALTER TABLE public.inv_allocation_recommendations ADD CONSTRAINT inv_allocation_recommendations_priority_check CHECK (priority IN ('P1','P2','P3','critical','high','medium','low'));
