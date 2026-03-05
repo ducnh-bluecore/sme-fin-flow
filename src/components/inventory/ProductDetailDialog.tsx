@@ -156,9 +156,12 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
                   {(detail.milestones || []).map((m, i) => {
                     const sc = milestoneStatusConfig[m.status] || milestoneStatusConfig.no_data;
                     const gap = m.actual_pct != null ? Math.round(m.actual_pct - m.target_pct) : null;
+                    // Map milestone days to correct stage ranges
+                    const stageRanges: Record<number, string> = { 60: '0–60d', 120: '61–120d', 150: '121–150d', 180: '151–180d' };
+                    const rangeLabel = stageRanges[m.day] || `0–${m.day}d`;
                     return (
                       <TableRow key={i}>
-                        <TableCell className="font-medium text-sm">0–{m.day}d</TableCell>
+                        <TableCell className="font-medium text-sm">{rangeLabel}</TableCell>
                         <TableCell className="text-center tabular-nums text-sm">{m.target_pct}%</TableCell>
                         <TableCell className="text-center tabular-nums text-sm">
                           {m.actual_pct != null ? `${m.actual_pct}%` : '—'}
