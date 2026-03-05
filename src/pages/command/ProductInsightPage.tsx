@@ -32,6 +32,7 @@ interface LifecycleRow {
   batch_number: number;
   batch_qty: number;
   batch_start_date: string;
+  first_sale_date: string | null;
   age_days: number;
   current_on_hand: number;
   batch_sold: number;
@@ -294,7 +295,7 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
               <TableRow>
                 <TableHead className="min-w-[180px]">Sản phẩm</TableHead>
                 {showBatchCol && <TableHead className="text-center">Batch</TableHead>}
-                <TableHead className="text-center">Tuổi</TableHead>
+                <TableHead className="text-center">Tuổi / Ngày bán</TableHead>
                 <TableHead className="min-w-[160px]">Sell-through</TableHead>
                 <TableHead className="text-center">Target</TableHead>
                 <TableHead className="text-center">Status</TableHead>
@@ -331,7 +332,12 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
                         <Badge variant="outline" className="text-xs">#{row.batch_number}</Badge>
                       </TableCell>
                     )}
-                    <TableCell className="text-center tabular-nums text-sm">{row.age_days}d</TableCell>
+                    <TableCell className="text-center">
+                      <div className="tabular-nums text-sm">{row.age_days}d</div>
+                      {row.first_sale_date && (
+                        <p className="text-[10px] text-muted-foreground">{row.first_sale_date}</p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs tabular-nums">

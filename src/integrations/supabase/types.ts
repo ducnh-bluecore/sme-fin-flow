@@ -42180,64 +42180,39 @@ export type Database = {
         Args: { p_fc_id: string; p_tenant_id: string }
         Returns: Json
       }
-      fn_lifecycle_progress:
-        | {
-            Args: { p_tenant_id: string }
-            Returns: {
-              age_days: number
-              batch_number: number
-              batch_qty: number
-              batch_sold: number
-              batch_start_date: string
-              cash_at_risk: number
-              category: string
-              current_on_hand: number
-              fc_code: string
-              fc_id: string
-              fc_name: string
-              gap_pct: number
-              is_restocked: boolean
-              sell_through_pct: number
-              source: string
-              status: string
-              target_pct: number
-              total_batches: number
-              velocity_current: number
-              velocity_required: number
-            }[]
-          }
-        | {
-            Args: {
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_status?: string
-              p_tenant_id: string
-            }
-            Returns: {
-              age_days: number
-              batch_number: number
-              batch_qty: number
-              batch_sold: number
-              batch_start_date: string
-              cash_at_risk: number
-              category: string
-              current_on_hand: number
-              fc_code: string
-              fc_id: string
-              fc_name: string
-              gap_pct: number
-              is_restocked: boolean
-              sell_through_pct: number
-              source: string
-              status: string
-              target_pct: number
-              total_batches: number
-              total_count: number
-              velocity_current: number
-              velocity_required: number
-            }[]
-          }
+      fn_lifecycle_progress: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          age_days: number
+          batch_number: number
+          batch_qty: number
+          batch_sold: number
+          batch_start_date: string
+          cash_at_risk: number
+          category: string
+          current_on_hand: number
+          fc_code: string
+          fc_id: string
+          fc_name: string
+          first_sale_date: string
+          gap_pct: number
+          is_restocked: boolean
+          sell_through_pct: number
+          source: string
+          status: string
+          target_pct: number
+          total_batches: number
+          total_count: number
+          velocity_current: number
+          velocity_required: number
+        }[]
+      }
       fn_markdown_ladder_summary: {
         Args: { p_fc_id?: string; p_tenant_id: string }
         Returns: {
@@ -43173,6 +43148,10 @@ export type Database = {
       populate_finance_monthly_summary: {
         Args: { p_tenant_id: string; p_year_month?: string }
         Returns: number
+      }
+      populate_first_sale_dates: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
       }
       post_journal_entry: { Args: { p_entry_id: string }; Returns: boolean }
       provision_tenant_by_tier: {

@@ -50,6 +50,7 @@ interface ProductDetail {
   current_on_hand: number;
   lifecycle_days: number;
   milestones: MilestoneItem[];
+  first_sale_date: string | null;
   current_sell_through: number;
   velocity_current: number;
   velocity_required: number;
@@ -103,6 +104,7 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
                 <Badge variant="outline" className="text-xs">{detail.product.fc_code}</Badge>
                 {detail.product.category && <Badge variant="secondary" className="text-xs">{detail.product.category}</Badge>}
                 {activeBatch && <Badge variant="outline" className="text-xs">Batch #{activeBatch.batch_number} — {ageDays} ngày</Badge>}
+                {detail.first_sale_date && <Badge variant="secondary" className="text-xs">Ngày bán đầu: {detail.first_sale_date}</Badge>}
               </DialogDescription>
             </DialogHeader>
 
