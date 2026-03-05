@@ -298,15 +298,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 8. Mark FCs with restocks
+    // 8. Populate first_sale_date from cdp_orders for batch 1
+    console.log('[lifecycle] Populating first_sale_date from cdp_orders...');
+    const { error: fsdErr } = await supabase.rpc('populate_first_sale_dates' as any, { p_tenant_id: TENANT_ID });
+    if (fsdErr) {
+      console.error('[lifecycle] first_sale_date error:', fsdErr.message);
+    }
+
+    // 9. Mark FCs with restocks
     const restockedFcIds = new Set<string>();
     for (const b of batchRows) {
       if (b.batch_number >= 2) restockedFcIds.add(b.fc_id);
     }
     if (restockedFcIds.size > 0) {
       await supabase
-        .from('inv_family_codes')
-        .update({ is_restock: true })
+        .from('inv_lifecycle_batches' as any)
+        .update({ is_restock: true } as any)
         .in('id', Array.from(restockedFcIds))
         .eq('tenant_id', TENANT_ID);
     }
