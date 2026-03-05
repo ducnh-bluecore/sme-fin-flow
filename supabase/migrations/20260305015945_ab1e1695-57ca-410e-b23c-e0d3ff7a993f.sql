@@ -1,0 +1,1 @@
+ALTER TABLE public.inv_lifecycle_batches ADD COLUMN IF NOT EXISTS first_sale_date DATE

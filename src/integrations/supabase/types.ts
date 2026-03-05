@@ -19007,6 +19007,7 @@ export type Database = {
           batch_start_date: string
           created_at: string
           fc_id: string
+          first_sale_date: string | null
           id: string
           is_completed: boolean | null
           lifecycle_template_id: string | null
@@ -19020,6 +19021,7 @@ export type Database = {
           batch_start_date: string
           created_at?: string
           fc_id: string
+          first_sale_date?: string | null
           id?: string
           is_completed?: boolean | null
           lifecycle_template_id?: string | null
@@ -19033,6 +19035,7 @@ export type Database = {
           batch_start_date?: string
           created_at?: string
           fc_id?: string
+          first_sale_date?: string | null
           id?: string
           is_completed?: boolean | null
           lifecycle_template_id?: string | null
@@ -42176,10 +42179,9 @@ export type Database = {
           total_on_hand: number
         }[]
       }
-      fn_lifecycle_product_detail: {
-        Args: { p_fc_id: string; p_tenant_id: string }
-        Returns: Json
-      }
+      fn_lifecycle_product_detail:
+        | { Args: { p_fc_id: string; p_tenant_id: string }; Returns: Json }
+        | { Args: { p_fc_id: string; p_tenant_id: string }; Returns: Json }
       fn_lifecycle_progress: {
         Args: {
           p_limit?: number
@@ -42191,25 +42193,21 @@ export type Database = {
         Returns: {
           age_days: number
           batch_number: number
-          batch_qty: number
-          batch_sold: number
           batch_start_date: string
           cash_at_risk: number
           category: string
-          current_on_hand: number
-          fc_code: string
+          current_qty: number
+          days_behind: number
           fc_id: string
           fc_name: string
           first_sale_date: string
           gap_pct: number
-          is_restocked: boolean
+          initial_qty: number
           sell_through_pct: number
-          source: string
+          sold_qty: number
           status: string
           target_pct: number
-          total_batches: number
           total_count: number
-          velocity_current: number
           velocity_required: number
         }[]
       }
