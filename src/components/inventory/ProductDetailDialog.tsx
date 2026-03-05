@@ -218,41 +218,120 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
 
 function LifecycleTimeline({ ageDays, lifecycleDays, milestones }: { ageDays: number; lifecycleDays: number; milestones: MilestoneItem[] }) {
   const progressPct = Math.min((ageDays / lifecycleDays) * 100, 100);
-  const allDays = [0, ...(milestones || []).map(m => m.day)];
+  
+  // Define stages with colors
+  const stages = [
+    { startDay: 0, endDay: 60, label: 'Launch', color: 'hsl(var(--success))', targetPct: '50%' },
+    { startDay: 60, endDay: 120, label: 'Growth', color: 'hsl(var(--info))', targetPct: '70%' },
+    { startDay: 120, endDay: 150, label: 'Markdown', color: 'hsl(var(--warning))', targetPct: '85%' },
+    { startDay: 150, endDay: 180, label: 'Clearance', color: 'hsl(var(--destructive))', targetPct: '100%' },
+  ];
+
+  // Override from milestones if available
+  const milestoneDays = (milestones || []).map(m => m.day);
+  
+  const getCurrentStage = () => {
+    for (let i = stages.length - 1; i >= 0; i--) {
+      if (ageDays >= stages[i].startDay) return i;
+    }
+    return 0;
+  };
+  const currentStageIdx = getCurrentStage();
 
   return (
-    <div className="relative px-2 py-4">
-      {/* Track */}
-      <div className="relative h-2 bg-muted rounded-full">
-        <div className="absolute h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+    <div className="space-y-3 px-1 py-3">
+      {/* Segmented Track */}
+      <div className="relative">
+        <div className="flex gap-[2px] h-3 rounded-full overflow-hidden">
+          {stages.map((stage, i) => {
+            const stageWidth = ((stage.endDay - stage.startDay) / lifecycleDays) * 100;
+            const isFilled = ageDays >= stage.endDay;
+            const isActive = ageDays >= stage.startDay && ageDays < stage.endDay;
+            const fillPct = isActive
+              ? ((ageDays - stage.startDay) / (stage.endDay - stage.startDay)) * 100
+              : 0;
+
+            return (
+              <div
+                key={i}
+                className="relative h-full rounded-sm overflow-hidden"
+                style={{
+                  width: `${stageWidth}%`,
+                  backgroundColor: `color-mix(in srgb, ${stage.color} 15%, transparent)`,
+                }}
+              >
+                {(isFilled || isActive) && (
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-sm transition-all duration-500"
+                    style={{
+                      width: isFilled ? '100%' : `${fillPct}%`,
+                      backgroundColor: stage.color,
+                      opacity: 0.85,
+                    }}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* NOW indicator */}
+        <div
+          className="absolute -translate-x-1/2 flex flex-col items-center z-10"
+          style={{ left: `${progressPct}%`, top: '-6px' }}
+        >
+          <div
+            className="w-4 h-4 rounded-full border-[3px] shadow-lg"
+            style={{
+              borderColor: stages[currentStageIdx].color,
+              backgroundColor: 'hsl(var(--background))',
+              boxShadow: `0 0 8px ${stages[currentStageIdx].color}`,
+            }}
+          />
+        </div>
       </div>
-      {/* Milestone dots */}
-      <div className="relative mt-1">
-        {allDays.map((day, i) => {
-          const left = (day / lifecycleDays) * 100;
-          const milestone = milestones?.find(m => m.day === day);
-          const isPast = ageDays >= day;
+
+      {/* Stage Labels */}
+      <div className="flex gap-[2px]">
+        {stages.map((stage, i) => {
+          const stageWidth = ((stage.endDay - stage.startDay) / lifecycleDays) * 100;
+          const isActive = i === currentStageIdx;
           return (
-            <div key={i} className="absolute -translate-x-1/2" style={{ left: `${Math.min(left, 100)}%` }}>
-              <div className={cn(
-                'w-3 h-3 rounded-full border-2 -mt-[10px]',
-                isPast ? 'bg-primary border-primary' : 'bg-background border-muted-foreground/40'
-              )} />
-              <p className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{day}d</p>
-              {milestone && milestone.target_pct && (
-                <p className="text-[9px] text-muted-foreground/70">{milestone.target_pct}%</p>
+            <div
+              key={i}
+              className="text-center"
+              style={{ width: `${stageWidth}%` }}
+            >
+              <p className={cn(
+                'text-[10px] font-medium transition-colors',
+                isActive ? 'text-foreground' : 'text-muted-foreground/60'
               )}
+              style={isActive ? { color: stage.color } : undefined}
+              >
+                {stage.label}
+              </p>
+              <p className="text-[9px] text-muted-foreground/50">
+                {stage.startDay}–{stage.endDay}d · {stage.targetPct}
+              </p>
             </div>
           );
         })}
-        {/* Current position indicator */}
-        <div className="absolute -translate-x-1/2" style={{ left: `${progressPct}%` }}>
-          <div className="w-0 h-0 border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-primary -mt-[14px]" />
-        </div>
       </div>
-      <p className="text-xs text-muted-foreground text-center mt-6">
-        Đang ở ngày <span className="font-semibold text-foreground">{ageDays}</span> / {lifecycleDays}
-      </p>
+
+      {/* Current Position Text */}
+      <div className="flex items-center justify-center gap-2">
+        <div
+          className="h-2 w-2 rounded-full animate-pulse"
+          style={{ backgroundColor: stages[currentStageIdx].color }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Ngày <span className="font-bold text-foreground">{ageDays}</span> / {lifecycleDays}
+          <span className="mx-1">·</span>
+          <span className="font-medium" style={{ color: stages[currentStageIdx].color }}>
+            {stages[currentStageIdx].label}
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
