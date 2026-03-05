@@ -1,8 +1,6 @@
 /**
  * ProductInsightPage - Product Lifecycle & Sell-Through Intelligence
- * 
- * Tracks product lifecycle batches (initial + restock), sell-through progress,
- * and surfaces products that are behind schedule or need action.
+ * Grouped by Collection + Paginated
  */
 
 import { useState, useMemo, useCallback } from 'react';
@@ -10,7 +8,7 @@ import { Helmet } from 'react-helmet-async';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Package, TrendingUp, RefreshCw, AlertTriangle, Clock, Loader2, Play, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, TrendingUp, RefreshCw, AlertTriangle, Clock, Loader2, Play, Search, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -18,6 +16,7 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { toast } from 'sonner';
@@ -28,6 +27,9 @@ interface LifecycleRow {
   fc_id: string;
   fc_name: string | null;
   category: string | null;
+  collection_id: string | null;
+  collection_name: string | null;
+  collection_season: string | null;
   batch_number: number;
   initial_qty: number;
   current_qty: number;
@@ -43,6 +45,16 @@ interface LifecycleRow {
   velocity_required: number;
   cash_at_risk: number;
   total_count: number;
+}
+
+interface CollectionGroup {
+  collection_id: string | null;
+  collection_name: string;
+  collection_season: string | null;
+  rows: LifecycleRow[];
+  avgSellThrough: number;
+  behindCount: number;
+  totalCashAtRisk: number;
 }
 
 function StatCard({ icon: Icon, label, value, sub, iconClass }: {
@@ -91,7 +103,6 @@ export default function ProductInsightPage() {
   const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Debounce search
   const handleSearchChange = useCallback((val: string) => {
     setSearchTerm(val);
     setPage(0);
@@ -110,7 +121,7 @@ export default function ProductInsightPage() {
       if (!tenantId) return [];
       const { data, error } = await supabase.rpc('fn_lifecycle_progress', {
         p_tenant_id: tenantId,
-        p_status: statusFilter === 'all' ? null : statusFilter === 'restock' ? null : statusFilter,
+        p_status: statusFilter === 'all' ? null : statusFilter,
         p_search: debouncedSearch || null,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
@@ -121,9 +132,37 @@ export default function ProductInsightPage() {
     enabled: !!tenantId,
   });
 
-  // For restock tab, we still use the same data but filter client-side since it's already paginated
-   const totalCount = lifecycleData?.[0]?.total_count ?? 0;
+  const totalCount = lifecycleData?.[0]?.total_count ?? 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  // Group rows by collection
+  const collectionGroups = useMemo<CollectionGroup[]>(() => {
+    if (!lifecycleData?.length) return [];
+    const map = new Map<string, CollectionGroup>();
+    
+    for (const row of lifecycleData) {
+      const key = row.collection_id || '__none__';
+      if (!map.has(key)) {
+        map.set(key, {
+          collection_id: row.collection_id,
+          collection_name: row.collection_name || 'Chưa phân loại',
+          collection_season: row.collection_season,
+          rows: [],
+          avgSellThrough: 0,
+          behindCount: 0,
+          totalCashAtRisk: 0,
+        });
+      }
+      map.get(key)!.rows.push(row);
+    }
+
+    return Array.from(map.values()).map(g => ({
+      ...g,
+      avgSellThrough: Math.round(g.rows.reduce((s, r) => s + r.sell_through_pct, 0) / g.rows.length),
+      behindCount: g.rows.filter(r => r.status === 'behind' || r.status === 'critical').length,
+      totalCashAtRisk: g.rows.reduce((s, r) => s + Number(r.cash_at_risk), 0),
+    }));
+  }, [lifecycleData]);
 
   const summary = useMemo(() => {
     if (!lifecycleData?.length) return { total: totalCount, avgSellThrough: 0, restocked: 0, behind: 0 };
@@ -218,11 +257,20 @@ export default function ProductInsightPage() {
           </TabsList>
 
           <TabsContent value="lifecycle">
-            <LifecycleTable rows={lifecycleData || []} isLoading={isLoading} onRowClick={handleRowClick} />
+            <CollectionGroupedView
+              groups={collectionGroups}
+              isLoading={isLoading}
+              onRowClick={handleRowClick}
+            />
           </TabsContent>
 
           <TabsContent value="restock">
-            <LifecycleTable rows={(lifecycleData || []).filter(r => r.batch_number > 1)} isLoading={isLoading} showBatchCol onRowClick={handleRowClick} />
+            <CollectionGroupedView
+              groups={collectionGroups.map(g => ({ ...g, rows: g.rows.filter(r => r.batch_number > 1) })).filter(g => g.rows.length > 0)}
+              isLoading={isLoading}
+              onRowClick={handleRowClick}
+              showBatchCol
+            />
           </TabsContent>
         </Tabs>
 
@@ -254,7 +302,14 @@ export default function ProductInsightPage() {
   );
 }
 
-function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: LifecycleRow[]; isLoading: boolean; showBatchCol?: boolean; onRowClick: (fcId: string) => void }) {
+/* ─── Collection Grouped View ─── */
+
+function CollectionGroupedView({ groups, isLoading, onRowClick, showBatchCol }: {
+  groups: CollectionGroup[];
+  isLoading: boolean;
+  onRowClick: (fcId: string) => void;
+  showBatchCol?: boolean;
+}) {
   if (isLoading) {
     return (
       <Card>
@@ -265,7 +320,7 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
     );
   }
 
-  if (!rows.length) {
+  if (!groups.length) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground space-y-3">
@@ -280,85 +335,137 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardDescription>{rows.length} sản phẩm</CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="min-w-[180px]">Sản phẩm</TableHead>
-                {showBatchCol && <TableHead className="text-center">Batch</TableHead>}
-                <TableHead className="text-center">Tuổi / Ngày bán</TableHead>
-                <TableHead className="min-w-[160px]">Sell-through</TableHead>
-                <TableHead className="text-center">Target</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-right">Velocity</TableHead>
-                <TableHead className="text-right">Cần/ngày</TableHead>
-                <TableHead className="text-right">Cash (M)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => {
-                const sc = statusConfig[row.status] || statusConfig.no_data;
-                return (
-                  <TableRow
-                    key={`${row.fc_id}-${row.batch_number}`}
-                    className="cursor-pointer"
-                    onClick={() => onRowClick(row.fc_id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{row.fc_name || row.fc_id}</p>
-                          <p className="text-xs text-muted-foreground">{row.fc_id}</p>
-                        </div>
-                        {row.batch_number > 1 && (
-                          <Badge variant="outline" className="text-[10px] shrink-0 gap-0.5">
-                            <RefreshCw className="h-2.5 w-2.5" />
-                            #{row.batch_number}
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    {showBatchCol && (
-                      <TableCell className="text-center">
-                        <Badge variant="outline" className="text-xs">#{row.batch_number}</Badge>
-                      </TableCell>
-                    )}
-                    <TableCell className="text-center">
-                      <div className="tabular-nums text-sm">{row.age_days}d</div>
-                      {row.first_sale_date && (
-                        <p className="text-[10px] text-muted-foreground">{row.first_sale_date}</p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs tabular-nums">
-                          <span>{row.sell_through_pct}%</span>
-                          <span className="text-muted-foreground">{row.sold_qty}/{row.initial_qty}</span>
-                        </div>
-                        <Progress value={Math.min(row.sell_through_pct, 100)} className="h-1.5" />
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums text-sm">{row.target_pct ?? '-'}%</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={sc.variant} className={cn('text-[10px]', sc.className)}>
-                        {sc.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">{row.age_days > 0 ? (row.sell_through_pct / row.age_days).toFixed(1) : '0'}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">{row.velocity_required}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm font-medium">{(Number(row.cash_at_risk) / 1000000).toFixed(1)}</TableCell>
+    <div className="space-y-3">
+      {groups.map((group) => (
+        <CollectionSection
+          key={group.collection_id || '__none__'}
+          group={group}
+          onRowClick={onRowClick}
+          showBatchCol={showBatchCol}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Collapsible Collection Section ─── */
+
+function CollectionSection({ group, onRowClick, showBatchCol }: {
+  group: CollectionGroup;
+  onRowClick: (fcId: string) => void;
+  showBatchCol?: boolean;
+}) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="py-3 px-4 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                <Layers className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{group.collection_name}</span>
+                {group.collection_season && (
+                  <Badge variant="outline" className="text-[10px]">{group.collection_season}</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>{group.rows.length} SP</span>
+                <span>ST: <strong className="text-foreground">{group.avgSellThrough}%</strong></span>
+                {group.behindCount > 0 && (
+                  <Badge variant="destructive" className="text-[10px] h-5">
+                    {group.behindCount} cần xử lý
+                  </Badge>
+                )}
+                <span className="font-mono tabular-nums">{(group.totalCashAtRisk / 1_000_000).toFixed(1)}M risk</span>
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="p-0 border-t">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[180px]">Sản phẩm</TableHead>
+                    {showBatchCol && <TableHead className="text-center">Batch</TableHead>}
+                    <TableHead className="text-center">Tuổi</TableHead>
+                    <TableHead className="min-w-[140px]">Sell-through</TableHead>
+                    <TableHead className="text-center">Target</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">V/ngày</TableHead>
+                    <TableHead className="text-right">Cần/ngày</TableHead>
+                    <TableHead className="text-right">Cash (M)</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+                </TableHeader>
+                <TableBody>
+                  {group.rows.map((row) => {
+                    const sc = statusConfig[row.status] || statusConfig.no_data;
+                    return (
+                      <TableRow
+                        key={`${row.fc_id}-${row.batch_number}`}
+                        className="cursor-pointer"
+                        onClick={() => onRowClick(row.fc_id)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{row.fc_name || row.fc_id}</p>
+                              <p className="text-[11px] text-muted-foreground">{row.category}</p>
+                            </div>
+                            {row.batch_number > 1 && (
+                              <Badge variant="outline" className="text-[10px] shrink-0 gap-0.5">
+                                <RefreshCw className="h-2.5 w-2.5" />
+                                #{row.batch_number}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        {showBatchCol && (
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="text-xs">#{row.batch_number}</Badge>
+                          </TableCell>
+                        )}
+                        <TableCell className="text-center">
+                          <div className="tabular-nums text-sm">{row.age_days}d</div>
+                          {row.first_sale_date && (
+                            <p className="text-[10px] text-muted-foreground">{row.first_sale_date}</p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs tabular-nums">
+                              <span>{row.sell_through_pct}%</span>
+                              <span className="text-muted-foreground">{row.sold_qty}/{row.initial_qty}</span>
+                            </div>
+                            <Progress value={Math.min(row.sell_through_pct, 100)} className="h-1.5" />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center tabular-nums text-sm">{row.target_pct ?? '-'}%</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={sc.variant} className={cn('text-[10px]', sc.className)}>
+                            {sc.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">
+                          {row.age_days > 0 ? (row.sell_through_pct / row.age_days).toFixed(1) : '0'}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">{row.velocity_required}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sm font-medium">
+                          {(Number(row.cash_at_risk) / 1_000_000).toFixed(1)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

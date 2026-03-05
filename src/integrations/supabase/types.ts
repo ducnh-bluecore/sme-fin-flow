@@ -42196,6 +42196,9 @@ export type Database = {
           batch_start_date: string
           cash_at_risk: number
           category: string
+          collection_id: string
+          collection_name: string
+          collection_season: string
           current_qty: number
           days_behind: number
           fc_id: string
