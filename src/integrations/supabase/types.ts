@@ -42179,10 +42179,10 @@ export type Database = {
           total_on_hand: number
         }[]
       }
-      fn_lifecycle_product_detail:
-        | { Args: { p_fc_id: string; p_tenant_id: string }; Returns: Json }
-        | { Args: { p_fc_id: string; p_tenant_id: string }; Returns: Json }
-        | { Args: { p_fc_id: string; p_tenant_id: string }; Returns: Json }
+      fn_lifecycle_product_detail: {
+        Args: { p_fc_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_lifecycle_progress: {
         Args: {
           p_limit?: number
