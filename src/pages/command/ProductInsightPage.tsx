@@ -26,26 +26,22 @@ import ProductDetailDialog from '@/components/inventory/ProductDetailDialog';
 
 interface LifecycleRow {
   fc_id: string;
-  fc_code: string;
-  fc_name: string;
+  fc_name: string | null;
   category: string | null;
   batch_number: number;
-  batch_qty: number;
-  batch_start_date: string;
-  first_sale_date: string | null;
-  age_days: number;
-  current_on_hand: number;
-  batch_sold: number;
+  initial_qty: number;
+  current_qty: number;
+  sold_qty: number;
   sell_through_pct: number;
-  target_pct: number;
-  gap_pct: number;
+  age_days: number;
+  first_sale_date: string | null;
+  batch_start_date: string;
   status: string;
-  velocity_current: number;
+  target_pct: number | null;
+  gap_pct: number | null;
+  days_behind: number;
   velocity_required: number;
-  is_restocked: boolean;
-  total_batches: number;
   cash_at_risk: number;
-  source: string;
   total_count: number;
 }
 
@@ -126,12 +122,12 @@ export default function ProductInsightPage() {
   });
 
   // For restock tab, we still use the same data but filter client-side since it's already paginated
-  const totalCount = lifecycleData?.[0]?.total_count ?? 0;
+   const totalCount = lifecycleData?.[0]?.total_count ?? 0;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const summary = useMemo(() => {
     if (!lifecycleData?.length) return { total: totalCount, avgSellThrough: 0, restocked: 0, behind: 0 };
-    const restocked = lifecycleData.filter(r => r.is_restocked).length;
+    const restocked = lifecycleData.filter(r => r.batch_number > 1).length;
     const behind = lifecycleData.filter(r => r.status === 'behind' || r.status === 'critical').length;
     const avgSellThrough = lifecycleData.reduce((s, r) => s + r.sell_through_pct, 0) / lifecycleData.length;
     return { total: totalCount, avgSellThrough: Math.round(avgSellThrough), restocked, behind };
@@ -226,7 +222,7 @@ export default function ProductInsightPage() {
           </TabsContent>
 
           <TabsContent value="restock">
-            <LifecycleTable rows={(lifecycleData || []).filter(r => r.is_restocked)} isLoading={isLoading} showBatchCol onRowClick={handleRowClick} />
+            <LifecycleTable rows={(lifecycleData || []).filter(r => r.batch_number > 1)} isLoading={isLoading} showBatchCol onRowClick={handleRowClick} />
           </TabsContent>
         </Tabs>
 
@@ -316,13 +312,13 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{row.fc_name || row.fc_code}</p>
-                          <p className="text-xs text-muted-foreground">{row.fc_code}</p>
+                          <p className="font-medium text-sm truncate">{row.fc_name || row.fc_id}</p>
+                          <p className="text-xs text-muted-foreground">{row.fc_id}</p>
                         </div>
-                        {row.is_restocked && (
+                        {row.batch_number > 1 && (
                           <Badge variant="outline" className="text-[10px] shrink-0 gap-0.5">
                             <RefreshCw className="h-2.5 w-2.5" />
-                            #{row.total_batches}
+                            #{row.batch_number}
                           </Badge>
                         )}
                       </div>
@@ -342,20 +338,20 @@ function LifecycleTable({ rows, isLoading, showBatchCol, onRowClick }: { rows: L
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs tabular-nums">
                           <span>{row.sell_through_pct}%</span>
-                          <span className="text-muted-foreground">{row.batch_sold}/{row.batch_qty}</span>
+                          <span className="text-muted-foreground">{row.sold_qty}/{row.initial_qty}</span>
                         </div>
                         <Progress value={Math.min(row.sell_through_pct, 100)} className="h-1.5" />
                       </div>
                     </TableCell>
-                    <TableCell className="text-center tabular-nums text-sm">{row.target_pct}%</TableCell>
+                    <TableCell className="text-center tabular-nums text-sm">{row.target_pct ?? '-'}%</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={sc.variant} className={cn('text-[10px]', sc.className)}>
                         {sc.label}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm">{row.velocity_current}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">{row.age_days > 0 ? (row.sell_through_pct / row.age_days).toFixed(1) : '0'}</TableCell>
                     <TableCell className="text-right tabular-nums text-sm">{row.velocity_required}</TableCell>
-                    <TableCell className="text-right tabular-nums text-sm font-medium">{row.cash_at_risk}</TableCell>
+                    <TableCell className="text-right tabular-nums text-sm font-medium">{(Number(row.cash_at_risk) / 1000000).toFixed(1)}</TableCell>
                   </TableRow>
                 );
               })}
