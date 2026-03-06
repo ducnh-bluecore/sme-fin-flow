@@ -180,8 +180,8 @@ async function batchSizeSplit(
   runId: string,
   tableName: "alloc" | "rebalance"
 ) {
-  const BATCH = 2000;
-  const MAX_ROUNDS = 10;
+  const BATCH = 500;
+  const MAX_ROUNDS = 20;
   let totalUpdated = 0;
   let totalSkipped = 0;
 
