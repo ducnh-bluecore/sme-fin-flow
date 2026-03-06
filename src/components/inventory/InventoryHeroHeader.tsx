@@ -27,8 +27,9 @@ export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Pro
   const uniqueFCs = new Set(p1Suggestions.map(s => s.fc_id)).size;
   const hasUrgency = p1Suggestions.length > 0;
 
-  const nearFullStores = storeCapacityData.filter(s => s.capacity > 0 && s.total_on_hand / s.capacity > 0.85);
-  const hasCapacityWarning = nearFullStores.length > 0;
+  // Capacity warning disabled — data not reliable yet
+  const nearFullStores: typeof storeCapacityData = [];
+  const hasCapacityWarning = false;
 
   return (
     <div className={cn(
