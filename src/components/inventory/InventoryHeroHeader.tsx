@@ -55,7 +55,8 @@ export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Pro
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
               </span>
               <p className="text-sm text-red-400 font-medium">
-                {uniqueStores} store thiếu hàng ở {uniqueFCs} family codes, ước tính mất {formatCurrency(totalRevenueAtRisk)}đ nếu không xử lý trong 48h
+                {uniqueStores} store thiếu hàng ở {uniqueFCs} family codes
+                {totalRevenueAtRisk > 0 && `, ước tính mất ${formatCurrency(totalRevenueAtRisk)}đ`} — cần xử lý trong 48h
               </p>
             </div>
           ) : (
