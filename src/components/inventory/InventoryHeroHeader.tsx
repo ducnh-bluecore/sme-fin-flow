@@ -21,11 +21,12 @@ function formatCurrency(value: number): string {
 }
 
 export function InventoryHeroHeader({ suggestions, storeCapacityData = [] }: Props) {
-  const p1Suggestions = suggestions.filter(s => s.priority === 'P1' && s.status === 'pending');
-  const totalRevenueAtRisk = p1Suggestions.reduce((sum, s) => sum + (s.potential_revenue_gain || 0), 0);
-  const uniqueStores = new Set(p1Suggestions.map(s => s.to_location)).size;
-  const uniqueFCs = new Set(p1Suggestions.map(s => s.fc_id)).size;
-  const hasUrgency = p1Suggestions.length > 0;
+  // Urgency warnings disabled — data not accurate yet
+  const p1Suggestions: RebalanceSuggestion[] = [];
+  const totalRevenueAtRisk = 0;
+  const uniqueStores = 0;
+  const uniqueFCs = 0;
+  const hasUrgency = false;
 
   // Capacity warning disabled — data not reliable yet
   const nearFullStores: typeof storeCapacityData = [];
