@@ -19,17 +19,31 @@ Deno.serve(async (req) => {
     const tenantId = ctx.tenantId;
     const table = body.table || 'both';
 
-    // Auto-detect latest run_id if not provided
+    // Auto-detect latest run_ids per table if not provided
+    let allocRunId = runId;
+    let rebalRunId = runId;
+
     if (!runId) {
-      const { data: latestRun } = await ctx.supabase
-        .from('inv_rebalance_runs')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      runId = latestRun?.id || null;
-      if (runId) console.log(`[Backfill] Auto-detected run_id: ${runId}`);
+      const [allocRes, rebalRes] = await Promise.all([
+        ctx.supabase
+          .from('inv_allocation_runs')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        ctx.supabase
+          .from('inv_rebalance_runs')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      allocRunId = allocRes.data?.id || null;
+      rebalRunId = rebalRes.data?.id || null;
+      if (allocRunId) console.log(`[Backfill] Auto-detected alloc run_id: ${allocRunId}`);
+      if (rebalRunId) console.log(`[Backfill] Auto-detected rebalance run_id: ${rebalRunId}`);
     }
 
     const startTime = Date.now();
@@ -37,16 +51,26 @@ Deno.serve(async (req) => {
     let rebalResult = { updated: 0, skipped: 0 };
 
     if (table === 'alloc' || table === 'both') {
-      allocResult = await batchBackfill(ctx.supabase, tenantId, runId, 'alloc', startTime);
+      if (allocRunId) {
+        allocResult = await batchBackfill(ctx.supabase, tenantId, allocRunId, 'alloc', startTime);
+      } else {
+        console.log('[Backfill] No alloc run found, skipping');
+      }
     }
 
     if ((table === 'rebalance' || table === 'both') && (Date.now() - startTime) / 1000 < MAX_SECONDS) {
-      rebalResult = await batchBackfill(ctx.supabase, tenantId, runId, 'rebalance', startTime);
+      if (rebalRunId) {
+        rebalResult = await batchBackfill(ctx.supabase, tenantId, rebalRunId, 'rebalance', startTime);
+      } else {
+        console.log('[Backfill] No rebalance run found, skipping');
+      }
     }
 
     return jsonResponse({
       alloc: allocResult,
       rebalance: rebalResult,
+      updated_count: allocResult.updated + rebalResult.updated,
+      skipped_count: allocResult.skipped + rebalResult.skipped,
       elapsed_seconds: Math.round((Date.now() - startTime) / 1000),
     });
   } catch (err) {
