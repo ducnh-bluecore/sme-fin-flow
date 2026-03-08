@@ -18,6 +18,13 @@ interface Props {
   latestRunId: string | null;
 }
 
+// Helper: fallback to fc_code when fc_name is invalid (e.g. "1")
+function displayFcName(fc: FamilyCode): string {
+  const name = fc.fc_name?.trim();
+  if (!name || name.length <= 2 || /^\d+$/.test(name)) return fc.fc_code;
+  return name;
+}
+
 export function AddProductSheet({ open, onOpenChange, collections, familyCodes, latestRunId }: Props) {
   const [search, setSearch] = useState('');
   const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
