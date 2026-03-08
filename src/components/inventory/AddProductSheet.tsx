@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Search, Package, ArrowLeft, Plus, Loader2, Store, TrendingUp } from 'lucide-react';
+import { Search, Package, ArrowLeft, Plus, Loader2, Store, TrendingUp, Warehouse, AlertTriangle } from 'lucide-react';
 import { useStoreVelocity, type StoreVelocityRow } from '@/hooks/inventory/useStoreVelocity';
 import { useAddManualAllocation } from '@/hooks/inventory/useAddManualAllocation';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import type { InvCollection } from '@/hooks/inventory/useCollections';
 import type { FamilyCode } from '@/hooks/inventory/useFamilyCodes';
 
