@@ -39,6 +39,9 @@ interface Props {
   fcCodeMap?: Record<string, string>;
   fcCollectionMap?: Record<string, string>;
   stores?: StoreInfo[];
+  collections?: InvCollection[];
+  familyCodes?: FamilyCode[];
+  latestRunId?: string | null;
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
 }
