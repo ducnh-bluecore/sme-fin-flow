@@ -70,6 +70,9 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
   }, [velocityData, cwStoreIds]);
 
   const qtyExceedsCw = qty > cwOnHand && cwOnHand > 0;
+
+  // Group FCs by collection
+  const collectionGroups = useMemo(() => {
     const searchLower = search.toLowerCase();
     const groups: { collection: InvCollection; fcs: FamilyCode[] }[] = [];
 
