@@ -212,7 +212,10 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                 <h3 className="font-semibold text-foreground">{selectedFc ? displayFcName(selectedFc) : ''}</h3>
                 <p className="text-xs text-muted-foreground">{selectedFc?.fc_code}{selectedFc?.category ? ` · ${selectedFc.category}` : ''}</p>
                 <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">Tổng tồn hệ thống: <span className="font-semibold text-foreground">{cwOnHand}</span></span>
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Warehouse className="h-3.5 w-3.5" />
+                    Tồn kho tổng (nguồn): <span className="font-bold text-foreground">{cwOnHand}</span>
+                  </span>
                 </div>
               </div>
 
