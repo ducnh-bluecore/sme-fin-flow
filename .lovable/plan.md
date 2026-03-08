@@ -1,64 +1,97 @@
 
 
-## Plan: Tối ưu Product Insight — 3 nâng cấp
+## Plan: Fix 5 bugs trong Allocation & Rebalance Engine
 
-### 1. Tự động chạy Batch Sync hàng ngày (Cron Job)
+### Bug #1: Duplicate Recommendations (CRITICAL)
 
-Thêm `sync-lifecycle-batches` vào cron schedule, chạy sau khi `daily-bigquery-sync` hoàn tất (ví dụ 4:00 AM).
+**Vấn đề:** V1 INSERT không có dedup → cùng `(fc_id, store_id)` có thể xuất hiện nhiều lần do LEFT JOIN với multiple demand rows.
 
-- Thêm config `[functions.sync-lifecycle-batches] verify_jwt = false` vào `config.toml`
-- Tạo migration dùng `cron.schedule` gọi Edge Function mỗi ngày
-- Giữ nút "Sync Batches" trên UI để chạy thủ công khi cần
+**Fix:** Thêm `UNIQUE` constraint trên `(run_id, fc_id, store_id)` vào bảng `inv_allocation_recommendations`. Đồng thời thêm `GROUP BY` vào V1 CTE `v1_raw` để gộp trước khi INSERT (tương tự `push_grouped` trong rebalance).
 
-### 2. Tối ưu việc load sản phẩm
+**Migration:**
+- `ALTER TABLE inv_allocation_recommendations ADD CONSTRAINT uq_alloc_run_fc_store UNIQUE (run_id, fc_id, store_id);`
+- Update `fn_allocation_engine`: wrap V1 insert với GROUP BY hoặc `ON CONFLICT DO NOTHING`
 
-Hiện tại RPC `fn_lifecycle_progress` trả về tất cả sản phẩm cùng lúc → chậm. Sẽ thêm **server-side pagination + search**:
+---
 
-- Thêm parameters vào RPC: `p_status TEXT DEFAULT NULL`, `p_search TEXT DEFAULT NULL`, `p_limit INT DEFAULT 50`, `p_offset INT DEFAULT 0`
-- Frontend: phân trang 50 SP/trang, có ô tìm kiếm theo tên/mã SP, filter theo status
-- Thêm `total_count` để hiển thị "trang X / Y"
+### Bug #2: CW Reserve quá bảo thủ — 509 FCs bị miss (HIGH)
 
-### 3. Product Detail Dialog — Hiển thị giai đoạn lifecycle
+**Vấn đề:** Khi CW có 1032 FCs → reserve = 20 units/FC. FC có 23 units chỉ còn 3 available → gần như không chia được.
 
-Khi click vào 1 sản phẩm trong bảng, mở **Dialog** hiển thị chi tiết:
+**Fix:** Thay đổi logic reserve từ **fixed per FC** sang **percentage-based**:
+- Reserve = `MAX(3, FLOOR(cw_available * 0.15))` — giữ 15% hoặc tối thiểu 3 units
+- Với FC 23 units: reserve = MAX(3, 3) = 3, available = 20 → chia được 4-5 stores
+- Với FC 200 units: reserve = MAX(3, 30) = 30, available = 170 → vẫn an toàn
+- CORE/HERO vẫn giữ rule riêng (`v_core_hero_min_per_sku`)
 
-**Header**: Tên SP, mã, category, batch hiện tại
+**Migration:** Update `fn_allocation_engine` — thay dòng tính `cwr` trong V1 và V2 CTEs.
 
-**Lifecycle Timeline** (visual):
+---
+
+### Bug #3: Scarcity filter chặn Tier C quá mạnh (MEDIUM)
+
+**Vấn đề:** `min_system_stock = 50` → 92% FCs có system_total ≤ 50 → Tier C không nhận hàng V1.
+
+**Fix:** Giảm threshold xuống `min_system_stock = 20` trong `sem_allocation_policies` (SCARCITY weights). Hoặc cho phép Tier C nhận hàng nếu FC thuộc BST mới (< 60 ngày).
+
+**Data update:** `UPDATE sem_allocation_policies SET weights = jsonb_set(weights, '{min_system_stock}', '20') WHERE policy_type = 'SCARCITY'`
+
+Thêm exception trong SQL: BST mới bypass scarcity filter (tương tự rebalance đã có `v_bst_new_age_days`).
+
+---
+
+### Bug #4: Rebalance Push không trừ cumulative stock (HIGH)
+
+**Vấn đề:** Trong `ranked_push`, mỗi store dùng `cw.cw_available` gốc → nếu 5 stores cần hàng, tổng push có thể vượt CW stock.
+
+**Fix:** Thêm window function `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)` để tính cumulative, sau đó filter `WHERE cum_push <= cw_available`.
+
+**Migration:** Update `fn_rebalance_engine` — thêm CTE `push_cumulative` giữa `ranked_push` và `push_grouped`:
+
 ```text
- ●━━━━━━━●━━━━━━━●━━━━━━━●━━━━━━━●
- 0d      30d     60d     90d    180d
-         ↑ Bạn đang ở đây (45d)
+push_cumulative AS (
+  SELECT *,
+    SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC) AS cum_push
+  FROM ranked_push
+  WHERE push_qty > 0
+),
+push_grouped AS (
+  SELECT ... FROM push_cumulative
+  WHERE cum_push <= cw_available
+  GROUP BY ...
+)
 ```
 
-**Bảng milestone progress**:
-| Giai đoạn | Target | Thực tế | Gap | Trạng thái |
-|-----------|--------|---------|-----|-----------|
-| 0–30d | — | 22% | — | ✅ |
-| 0–60d | 50% | 38% | -12% | ⚠️ Behind |
-| 0–90d | 70% | — | — | 🔜 Chưa tới |
-| 0–180d | 100% | — | — | 🔜 |
+---
 
-**Metrics panel**: Velocity hiện tại, velocity cần thiết, cash at risk, tồn kho, đã bán
+### Bug #5: V2 miss BST mới (velocity = 0) (MEDIUM)
 
-**Batch history**: Nếu có restock → hiển thị danh sách tất cả batches (số lượng, ngày, nguồn)
+**Vấn đề:** V2 yêu cầu `vel > 0 OR co > 0`. BST mới chưa có sales → bị loại.
 
-#### Technical approach
+**Fix:** Thêm điều kiện: nếu FC thuộc BST mới (product_created_date < 60 ngày), bypass velocity filter. Dùng V1 logic (phủ nền) cho BST mới thay vì V2.
 
-- Tạo RPC mới `fn_lifecycle_product_detail(p_tenant_id, p_fc_id)` trả về:
-  - Thông tin SP cơ bản
-  - Tất cả batches (không chỉ active)
-  - Sell-through % tại từng milestone (dựa trên `inv_lifecycle_templates.milestones`)
-  - Current stage (đang ở giai đoạn nào: 0-30d, 30-60d, 60-90d, etc.)
-- Tạo component `ProductDetailDialog` trong trang ProductInsight
-- Click vào TableRow → mở dialog với fc_id
+Trong V2 CTE `v2_raw`, thêm:
+```sql
+WHERE (d.vel > 0 OR d.co > 0
+       OR EXISTS (SELECT 1 FROM _fc f2 
+                  WHERE f2.id = f.id 
+                  AND f2.product_created_date IS NOT NULL
+                  AND (CURRENT_DATE - f2.product_created_date) < v_bst_new_age_days))
+```
+
+Đồng thời set `need = min_stock` cho BST mới khi velocity = 0 (fallback về V1 logic).
+
+---
 
 ### Tóm tắt thay đổi
 
-| # | Việc | Files |
-|---|------|-------|
-| 1 | Cron job cho sync-lifecycle-batches | Migration (cron.schedule), config.toml |
-| 2 | Pagination + search cho RPC | Migration (alter fn_lifecycle_progress), ProductInsightPage.tsx |
-| 3 | RPC fn_lifecycle_product_detail | Migration mới |
-| 4 | ProductDetailDialog component | ProductInsightPage.tsx (hoặc file riêng) |
+| # | Bug | Severity | Fix type |
+|---|-----|----------|----------|
+| 1 | Duplicates | CRITICAL | Migration: UNIQUE constraint + GROUP BY |
+| 2 | CW Reserve 20/FC | HIGH | Migration: percentage-based reserve |
+| 3 | Scarcity Tier C | MEDIUM | Data update + SQL exception |
+| 4 | Push no cumulative | HIGH | Migration: window function filter |
+| 5 | V2 miss BST mới | MEDIUM | Migration: BST bypass in V2 |
+
+Tất cả thay đổi nằm trong **1 migration** update 2 functions (`fn_allocation_engine`, `fn_rebalance_engine`) + 1 constraint + 1 data update.
 
