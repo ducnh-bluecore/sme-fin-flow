@@ -204,8 +204,9 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
   P3: 'bg-muted text-muted-foreground border-border',
 };
 
-export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], onApprove, onReject }: Props) {
+export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], collections = [], familyCodes = [], latestRunId, onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
+  const [addProductOpen, setAddProductOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   // Per-size qty edits: suggestionId → { sizeKey → qty }
