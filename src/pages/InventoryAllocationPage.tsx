@@ -411,6 +411,9 @@ export default function InventoryAllocationPage() {
               fcCodeMap={fcCodeMap}
               fcCollectionMap={fcCollectionMap}
               stores={stores.map((s: any) => ({ id: s.id, store_name: s.store_name, total_on_hand: s.total_on_hand || 0, capacity: s.capacity || 0, total_sold: s.total_sold || 0 }))}
+              collections={collections}
+              familyCodes={familyCodes}
+              latestRunId={latestAllocRun?.id || null}
               onApprove={handleApprove}
               onReject={handleReject}
             />

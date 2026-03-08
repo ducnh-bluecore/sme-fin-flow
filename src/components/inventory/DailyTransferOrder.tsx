@@ -3,10 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CheckCircle2, XCircle, FileSpreadsheet, ChevronRight, ChevronDown, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, FileSpreadsheet, ChevronRight, ChevronDown, Package, ArrowRightLeft, AlertTriangle, Plus } from 'lucide-react';
 import { StoreMap, getTierStyle } from '@/lib/inventory-store-map';
 import { exportRebalanceToExcel } from '@/lib/inventory-export';
+import { AddProductSheet } from '@/components/inventory/AddProductSheet';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
+import type { InvCollection } from '@/hooks/inventory/useCollections';
+import type { FamilyCode } from '@/hooks/inventory/useFamilyCodes';
 
 interface StoreGroup {
   storeId: string;
@@ -36,6 +39,9 @@ interface Props {
   fcCodeMap?: Record<string, string>;
   fcCollectionMap?: Record<string, string>;
   stores?: StoreInfo[];
+  collections?: InvCollection[];
+  familyCodes?: FamilyCode[];
+  latestRunId?: string | null;
   onApprove: (ids: string[], editedQty?: Record<string, number>) => void;
   onReject: (ids: string[]) => void;
 }
@@ -198,8 +204,9 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
   P3: 'bg-muted text-muted-foreground border-border',
 };
 
-export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], onApprove, onReject }: Props) {
+export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], collections = [], familyCodes = [], latestRunId, onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
+  const [addProductOpen, setAddProductOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   // Per-size qty edits: suggestionId → { sizeKey → qty }
@@ -372,6 +379,17 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
             <Button size="sm" variant="outline" onClick={handleExportExcel} className="gap-1.5">
               <FileSpreadsheet className="h-4 w-4" />
               Xuất Excel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAddProductOpen(true)}
+              disabled={!latestRunId}
+              title={!latestRunId ? 'Chạy Engine ít nhất 1 lần trước' : 'Thêm sản phẩm thủ công'}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              Thêm SP
             </Button>
           </div>
         </div>
@@ -829,6 +847,14 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
           Không có cửa hàng nào ở mức {priorityFilter}
         </div>
       )}
+
+      <AddProductSheet
+        open={addProductOpen}
+        onOpenChange={setAddProductOpen}
+        collections={collections}
+        familyCodes={familyCodes}
+        latestRunId={latestRunId || null}
+      />
     </div>
   );
 }
