@@ -312,14 +312,20 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
               {/* Add form — no store selection needed */}
               <div className="rounded-lg border bg-card p-4 space-y-3">
                 <h4 className="text-sm font-medium">Số lượng phân bổ</h4>
-                <div>
+                <div className="space-y-1">
                   <Input
                     type="number"
                     min={1}
                     value={qty}
                     onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-32"
+                    className={`w-32 ${qtyExceedsCw ? 'border-destructive' : ''}`}
                   />
+                  {qtyExceedsCw && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Vượt tồn kho tổng ({cwOnHand} có sẵn)
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={handleAdd}
