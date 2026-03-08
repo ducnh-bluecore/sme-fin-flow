@@ -3,10 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CheckCircle2, XCircle, FileSpreadsheet, ChevronRight, ChevronDown, Package, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, FileSpreadsheet, ChevronRight, ChevronDown, Package, ArrowRightLeft, AlertTriangle, Plus } from 'lucide-react';
 import { StoreMap, getTierStyle } from '@/lib/inventory-store-map';
 import { exportRebalanceToExcel } from '@/lib/inventory-export';
+import { AddProductSheet } from '@/components/inventory/AddProductSheet';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
+import type { InvCollection } from '@/hooks/inventory/useCollections';
+import type { FamilyCode } from '@/hooks/inventory/useFamilyCodes';
 
 interface StoreGroup {
   storeId: string;
