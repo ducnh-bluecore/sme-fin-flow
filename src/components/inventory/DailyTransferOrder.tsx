@@ -206,7 +206,8 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
 
 export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], collections = [], familyCodes = [], latestRunId, onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
-  const [addProductOpen, setAddProductOpen] = useState(false);
+  const [addProductStoreId, setAddProductStoreId] = useState<string | null>(null);
+  const [addProductStoreName, setAddProductStoreName] = useState<string>('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   // Per-size qty edits: suggestionId → { sizeKey → qty }
@@ -380,19 +381,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
               <FileSpreadsheet className="h-4 w-4" />
               Xuất Excel
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAddProductOpen(true)}
-              disabled={!latestRunId}
-              title={!latestRunId ? 'Chạy Engine ít nhất 1 lần trước' : 'Thêm sản phẩm thủ công'}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              Thêm SP
-            </Button>
+            </div>
           </div>
-        </div>
 
         {/* Priority filter buttons */}
         <div className="flex items-center gap-2">
@@ -820,6 +810,19 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        setAddProductStoreId(group.storeId);
+                        setAddProductStoreName(group.storeName);
+                      }}
+                      disabled={!latestRunId}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Thêm SP
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="h-7 text-xs gap-1 text-red-400 hover:text-red-300"
                       onClick={() => onReject(group.suggestions.map(s => s.id))}
                     >
@@ -849,11 +852,13 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
       )}
 
       <AddProductSheet
-        open={addProductOpen}
-        onOpenChange={setAddProductOpen}
+        open={!!addProductStoreId}
+        onOpenChange={(open) => { if (!open) { setAddProductStoreId(null); setAddProductStoreName(''); } }}
         collections={collections}
         familyCodes={familyCodes}
         latestRunId={latestRunId || null}
+        targetStoreId={addProductStoreId || ''}
+        targetStoreName={addProductStoreName}
       />
     </div>
   );
