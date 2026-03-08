@@ -16,6 +16,8 @@ interface Props {
   collections: InvCollection[];
   familyCodes: FamilyCode[];
   latestRunId: string | null;
+  targetStoreId: string;
+  targetStoreName: string;
 }
 
 // Helper: fallback to fc_code when fc_name is invalid (e.g. "1")
@@ -25,16 +27,21 @@ function displayFcName(fc: FamilyCode): string {
   return name;
 }
 
-export function AddProductSheet({ open, onOpenChange, collections, familyCodes, latestRunId }: Props) {
+export function AddProductSheet({ open, onOpenChange, collections, familyCodes, latestRunId, targetStoreId, targetStoreName }: Props) {
   const [search, setSearch] = useState('');
   const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
-  const [selectedStore, setSelectedStore] = useState<StoreVelocityRow | null>(null);
   const [qty, setQty] = useState(1);
 
   const { data: velocityData, isLoading: velocityLoading } = useStoreVelocity(selectedFcId || undefined);
   const addManual = useAddManualAllocation();
 
   const selectedFc = useMemo(() => familyCodes.find(fc => fc.id === selectedFcId), [familyCodes, selectedFcId]);
+
+  // Find target store velocity row
+  const targetStoreVelocity = useMemo(() => {
+    if (!velocityData) return null;
+    return velocityData.find(r => r.store_id === targetStoreId) || null;
+  }, [velocityData, targetStoreId]);
 
   // Group FCs by collection
   const collectionGroups = useMemo(() => {
@@ -70,27 +77,24 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
 
   const handleSelectFc = (fcId: string) => {
     setSelectedFcId(fcId);
-    setSelectedStore(null);
     setQty(1);
   };
 
   const handleBack = () => {
     setSelectedFcId(null);
-    setSelectedStore(null);
   };
 
   const handleAdd = () => {
-    if (!latestRunId || !selectedFcId || !selectedStore || !selectedFc) return;
+    if (!latestRunId || !selectedFcId || !selectedFc) return;
     addManual.mutate({
       runId: latestRunId,
       fcId: selectedFcId,
       fcName: displayFcName(selectedFc),
-      storeId: selectedStore.store_id,
-      storeName: selectedStore.store_name,
+      storeId: targetStoreId,
+      storeName: targetStoreName,
       qty,
     }, {
       onSuccess: () => {
-        setSelectedStore(null);
         setQty(1);
       },
     });
@@ -107,10 +111,10 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Thêm sản phẩm vào phân bổ
+            Thêm SP vào {targetStoreName}
           </SheetTitle>
           <SheetDescription>
-            Chọn sản phẩm từ BST, xem tồn kho & velocity từng CH, rồi thêm vào lệnh điều chuyển
+            Chọn sản phẩm từ BST, xem tồn kho & velocity, rồi thêm vào lệnh điều chuyển
           </SheetDescription>
         </SheetHeader>
 
@@ -188,11 +192,35 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                 </div>
               </div>
 
-              {/* Store velocity table */}
+              {/* Target store info card */}
+              <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-4 space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Store className="h-4 w-4 text-primary" />
+                  Thêm vào: {targetStoreName}
+                </div>
+                {targetStoreVelocity && (
+                  <div className="grid grid-cols-3 gap-3 text-xs mt-2">
+                    <div>
+                      <span className="text-muted-foreground">Tồn hiện tại</span>
+                      <p className="font-bold text-foreground">{targetStoreVelocity.on_hand}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Bán/ngày</span>
+                      <p className="font-bold text-foreground">{targetStoreVelocity.avg_daily_sales.toFixed(1)}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Đã bán</span>
+                      <p className="font-bold text-foreground">{targetStoreVelocity.total_sold}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Store velocity table (for comparison) */}
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-foreground flex items-center gap-1.5">
                   <Store className="h-4 w-4" />
-                  Tồn kho & tốc độ bán theo cửa hàng
+                  So sánh các cửa hàng khác
                 </h4>
 
                 {velocityLoading ? (
@@ -211,22 +239,24 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                           <th className="text-right px-3 py-2 font-medium text-muted-foreground">Tồn</th>
                           <th className="text-right px-3 py-2 font-medium text-muted-foreground">Bán/ngày</th>
                           <th className="text-right px-3 py-2 font-medium text-muted-foreground">Đã bán</th>
-                          <th className="px-3 py-2"></th>
                         </tr>
                       </thead>
                       <tbody>
                         {velocityData
                           .sort((a, b) => a.on_hand - b.on_hand)
                           .map(row => {
-                            const isSelected = selectedStore?.store_id === row.store_id;
+                            const isTarget = row.store_id === targetStoreId;
                             const needsStock = row.on_hand === 0 && row.avg_daily_sales > 0;
                             return (
                               <tr
                                 key={row.store_id}
-                                className={`border-b last:border-b-0 transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-accent/30'} ${needsStock ? 'bg-red-500/5' : ''}`}
+                                className={`border-b last:border-b-0 transition-colors ${isTarget ? 'bg-primary/10 font-semibold' : ''} ${needsStock ? 'bg-red-500/5' : ''}`}
                               >
                                 <td className="px-3 py-2">
-                                  <span className="font-medium">{row.store_name}</span>
+                                  <span className={isTarget ? 'text-primary' : ''}>{row.store_name}</span>
+                                  {isTarget && (
+                                    <Badge className="ml-2 text-[10px] py-0 bg-primary/20 text-primary border-primary/40">Đích</Badge>
+                                  )}
                                   {needsStock && (
                                     <Badge variant="destructive" className="ml-2 text-[10px] py-0">Hết hàng</Badge>
                                   )}
@@ -239,16 +269,6 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                                   </span>
                                 </td>
                                 <td className="text-right px-3 py-2 font-mono">{row.total_sold}</td>
-                                <td className="px-3 py-2 text-right">
-                                  <Button
-                                    size="sm"
-                                    variant={isSelected ? 'default' : 'outline'}
-                                    className="h-7 text-xs"
-                                    onClick={() => setSelectedStore(isSelected ? null : row)}
-                                  >
-                                    {isSelected ? 'Đã chọn' : 'Chọn'}
-                                  </Button>
-                                </td>
                               </tr>
                             );
                           })}
@@ -258,44 +278,31 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                 )}
               </div>
 
-              {/* Add form */}
-              {selectedStore && (
-                <div className="rounded-lg border bg-card p-4 space-y-3">
-                  <h4 className="text-sm font-medium">Thêm vào phân bổ</h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-xs text-muted-foreground">Cửa hàng</span>
-                      <p className="font-medium">{selectedStore.store_name}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground">Tồn hiện tại</span>
-                      <p className="font-medium">{selectedStore.on_hand}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Số lượng phân bổ</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={qty}
-                      onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-32"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleAdd}
-                    disabled={addManual.isPending || !latestRunId}
-                    className="w-full gap-2"
-                  >
-                    {addManual.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    Thêm vào phân bổ
-                  </Button>
+              {/* Add form — no store selection needed */}
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <h4 className="text-sm font-medium">Số lượng phân bổ</h4>
+                <div>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={qty}
+                    onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-32"
+                  />
                 </div>
-              )}
+                <Button
+                  onClick={handleAdd}
+                  disabled={addManual.isPending || !latestRunId}
+                  className="w-full gap-2"
+                >
+                  {addManual.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Thêm vào {targetStoreName}
+                </Button>
+              </div>
             </>
           )}
         </div>

@@ -206,7 +206,8 @@ const PRIORITY_BADGE_STYLES: Record<string, string> = {
 
 export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap = {}, fcCollectionMap = {}, stores = [], collections = [], familyCodes = [], latestRunId, onApprove, onReject }: Props) {
   const [priorityFilter, setPriorityFilter] = useState<string>('P1');
-  const [addProductOpen, setAddProductOpen] = useState(false);
+  const [addProductStoreId, setAddProductStoreId] = useState<string | null>(null);
+  const [addProductStoreName, setAddProductStoreName] = useState<string>('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [editedQty, setEditedQty] = useState<Record<string, number>>({});
   // Per-size qty edits: suggestionId → { sizeKey → qty }
