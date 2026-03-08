@@ -847,6 +847,14 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
           Không có cửa hàng nào ở mức {priorityFilter}
         </div>
       )}
+
+      <AddProductSheet
+        open={addProductOpen}
+        onOpenChange={setAddProductOpen}
+        collections={collections}
+        familyCodes={familyCodes}
+        latestRunId={latestRunId || null}
+      />
     </div>
   );
 }
