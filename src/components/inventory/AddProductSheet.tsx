@@ -181,7 +181,7 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
               </Button>
 
               <div className="rounded-lg border bg-card p-4 space-y-2">
-                <h3 className="font-semibold text-foreground">{selectedFc?.fc_name}</h3>
+                <h3 className="font-semibold text-foreground">{selectedFc ? displayFcName(selectedFc) : ''}</h3>
                 <p className="text-xs text-muted-foreground">{selectedFc?.fc_code}{selectedFc?.category ? ` · ${selectedFc.category}` : ''}</p>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-muted-foreground">Tổng tồn hệ thống: <span className="font-semibold text-foreground">{cwOnHand}</span></span>
