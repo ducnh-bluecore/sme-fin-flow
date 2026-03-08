@@ -273,14 +273,18 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                           .sort((a, b) => a.on_hand - b.on_hand)
                           .map(row => {
                             const isTarget = row.store_id === targetStoreId;
+                            const isCw = cwStoreIds?.has(row.store_id) || false;
                             const needsStock = row.on_hand === 0 && row.avg_daily_sales > 0;
                             return (
                               <tr
                                 key={row.store_id}
-                                className={`border-b last:border-b-0 transition-colors ${isTarget ? 'bg-primary/10 font-semibold' : ''} ${needsStock ? 'bg-red-500/5' : ''}`}
+                                className={`border-b last:border-b-0 transition-colors ${isTarget ? 'bg-primary/10 font-semibold' : ''} ${isCw ? 'bg-accent/30' : ''} ${needsStock ? 'bg-destructive/5' : ''}`}
                               >
                                 <td className="px-3 py-2">
                                   <span className={isTarget ? 'text-primary' : ''}>{row.store_name}</span>
+                                  {isCw && (
+                                    <Badge className="ml-2 text-[10px] py-0 bg-chart-2/20 text-chart-2 border-chart-2/40">Nguồn</Badge>
+                                  )}
                                   {isTarget && (
                                     <Badge className="ml-2 text-[10px] py-0 bg-primary/20 text-primary border-primary/40">Đích</Badge>
                                   )}
