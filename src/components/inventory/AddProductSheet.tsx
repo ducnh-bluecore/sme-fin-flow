@@ -1,12 +1,14 @@
 import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Search, Package, ArrowLeft, Plus, Loader2, Store, TrendingUp } from 'lucide-react';
+import { Search, Package, ArrowLeft, Plus, Loader2, Store, TrendingUp, Warehouse, AlertTriangle } from 'lucide-react';
 import { useStoreVelocity, type StoreVelocityRow } from '@/hooks/inventory/useStoreVelocity';
 import { useAddManualAllocation } from '@/hooks/inventory/useAddManualAllocation';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import type { InvCollection } from '@/hooks/inventory/useCollections';
 import type { FamilyCode } from '@/hooks/inventory/useFamilyCodes';
 
@@ -32,8 +34,24 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
   const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
 
+  const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
   const { data: velocityData, isLoading: velocityLoading } = useStoreVelocity(selectedFcId || undefined);
   const addManual = useAddManualAllocation();
+
+  // Fetch CW store IDs (central_warehouse / sub_warehouse)
+  const { data: cwStoreIds } = useQuery({
+    queryKey: ['inv-cw-store-ids', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery('inv_stores', 'id, location_type')
+        .in('location_type', ['central_warehouse', 'sub_warehouse'])
+        .eq('is_active', true)
+        .limit(50);
+      if (error) throw error;
+      return new Set((data || []).map((r: any) => r.id as string));
+    },
+    enabled: isReady && !!tenantId,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const selectedFc = useMemo(() => familyCodes.find(fc => fc.id === selectedFcId), [familyCodes, selectedFcId]);
 
@@ -42,6 +60,16 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
     if (!velocityData) return null;
     return velocityData.find(r => r.store_id === targetStoreId) || null;
   }, [velocityData, targetStoreId]);
+
+  // CW on-hand for selected FC
+  const cwOnHand = useMemo(() => {
+    if (!velocityData || !cwStoreIds) return 0;
+    return velocityData
+      .filter(r => cwStoreIds.has(r.store_id))
+      .reduce((sum, r) => sum + r.on_hand, 0);
+  }, [velocityData, cwStoreIds]);
+
+  const qtyExceedsCw = qty > cwOnHand && cwOnHand > 0;
 
   // Group FCs by collection
   const collectionGroups = useMemo(() => {
@@ -100,10 +128,6 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
     });
   };
 
-  const cwOnHand = useMemo(() => {
-    if (!velocityData) return 0;
-    return velocityData.reduce((sum, r) => sum + r.on_hand, 0);
-  }, [velocityData]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -188,7 +212,10 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                 <h3 className="font-semibold text-foreground">{selectedFc ? displayFcName(selectedFc) : ''}</h3>
                 <p className="text-xs text-muted-foreground">{selectedFc?.fc_code}{selectedFc?.category ? ` · ${selectedFc.category}` : ''}</p>
                 <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">Tổng tồn hệ thống: <span className="font-semibold text-foreground">{cwOnHand}</span></span>
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Warehouse className="h-3.5 w-3.5" />
+                    Tồn kho tổng (nguồn): <span className="font-bold text-foreground">{cwOnHand}</span>
+                  </span>
                 </div>
               </div>
 
@@ -246,14 +273,18 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                           .sort((a, b) => a.on_hand - b.on_hand)
                           .map(row => {
                             const isTarget = row.store_id === targetStoreId;
+                            const isCw = cwStoreIds?.has(row.store_id) || false;
                             const needsStock = row.on_hand === 0 && row.avg_daily_sales > 0;
                             return (
                               <tr
                                 key={row.store_id}
-                                className={`border-b last:border-b-0 transition-colors ${isTarget ? 'bg-primary/10 font-semibold' : ''} ${needsStock ? 'bg-red-500/5' : ''}`}
+                                className={`border-b last:border-b-0 transition-colors ${isTarget ? 'bg-primary/10 font-semibold' : ''} ${isCw ? 'bg-accent/30' : ''} ${needsStock ? 'bg-destructive/5' : ''}`}
                               >
                                 <td className="px-3 py-2">
                                   <span className={isTarget ? 'text-primary' : ''}>{row.store_name}</span>
+                                  {isCw && (
+                                    <Badge className="ml-2 text-[10px] py-0 bg-chart-2/20 text-chart-2 border-chart-2/40">Nguồn</Badge>
+                                  )}
                                   {isTarget && (
                                     <Badge className="ml-2 text-[10px] py-0 bg-primary/20 text-primary border-primary/40">Đích</Badge>
                                   )}
@@ -281,14 +312,20 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
               {/* Add form — no store selection needed */}
               <div className="rounded-lg border bg-card p-4 space-y-3">
                 <h4 className="text-sm font-medium">Số lượng phân bổ</h4>
-                <div>
+                <div className="space-y-1">
                   <Input
                     type="number"
                     min={1}
                     value={qty}
                     onChange={e => setQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-32"
+                    className={`w-32 ${qtyExceedsCw ? 'border-destructive' : ''}`}
                   />
+                  {qtyExceedsCw && (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      Vượt tồn kho tổng ({cwOnHand} có sẵn)
+                    </p>
+                  )}
                 </div>
                 <Button
                   onClick={handleAdd}
