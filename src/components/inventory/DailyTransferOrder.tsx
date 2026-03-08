@@ -810,6 +810,19 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
                     <Button
                       size="sm"
                       variant="outline"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => {
+                        setAddProductStoreId(group.storeId);
+                        setAddProductStoreName(group.storeName);
+                      }}
+                      disabled={!latestRunId}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Thêm SP
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="h-7 text-xs gap-1 text-red-400 hover:text-red-300"
                       onClick={() => onReject(group.suggestions.map(s => s.id))}
                     >
