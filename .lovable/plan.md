@@ -1,38 +1,28 @@
 
 
+## Phân tích: "Lấy từ kho nào?"
 
-## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+### Thực trạng
 
-### Bug #1: Duplicate Recommendations (CRITICAL) ✅
-- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
-- Cleaned existing duplicates
-- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+Bảng `inv_allocation_recommendations` **không có cột source** (không có `from_location`, `source_store_id`). Đây là **thiết kế có chủ đích**: Allocation = luôn lấy từ **Kho Trung Tâm (CW)** → phân bổ xuống cửa hàng. Khác với Rebalance (có `from_location` / `to_location` vì chuyển ngang giữa stores).
 
-### Bug #2: CW Reserve quá bảo thủ ✅
-- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
-- CORE/HERO still use dedicated reserve rules
+Trong screenshot, dòng cuối "CN Trung Tâm" với tồn 462 chính là CW — nguồn hàng duy nhất cho allocation.
 
-### Bug #3: Scarcity filter chặn Tier C ✅
-- Updated `min_system_stock` from 50 → 20 in scarcity policy
-- BST mới (< 60 days) bypasses scarcity filter entirely
+### Vấn đề UX
 
-### Bug #4: Rebalance Push cumulative stock ✅
-- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
-- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+UI hiện tại **không nói rõ** nguồn hàng là CW. Planner nhìn bảng so sánh thấy nhiều store nhưng không biết hàng sẽ lấy từ đâu.
 
-### Bug #5: V2 miss BST mới ✅
-- BST mới bypasses `vel > 0` requirement in V2
-- Fallback to V1 min_stock logic when velocity = 0
-- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+### Giải pháp
 
-## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+Thêm **thông tin nguồn hàng (CW)** vào AddProductSheet:
 
-### Nguyên lý
-`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
-Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+1. **Highlight CW trong bảng so sánh**: Dòng "CN Trung Tâm" thêm badge **"Nguồn"** (tương tự badge "Đích" đã có), màu khác biệt (ví dụ xanh lá)
+2. **Hiển thị tồn CW khả dụng** trong card thông tin FC: thêm dòng "Tồn CW: 462" để planner biết có bao nhiêu hàng có thể phân bổ
+3. **Validation**: Cảnh báo nếu qty nhập > tồn CW khả dụng
 
-### Thay đổi đã triển khai
-1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
-2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
-3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
-4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
+### Kỹ thuật
+
+- Trong `velocityData`, CW thường là store có `store_name` chứa "Trung Tâm" hoặc có `location_type = 'central_warehouse'` trong `inv_stores`
+- Cần query thêm `inv_stores.location_type` để xác định chính xác CW, hoặc dùng tồn CW từ `useSourceOnHand` map
+- Sửa file: `src/components/inventory/AddProductSheet.tsx` — thêm badge "Nguồn" cho CW row, hiển thị tồn CW trong FC info card, validate qty
+
