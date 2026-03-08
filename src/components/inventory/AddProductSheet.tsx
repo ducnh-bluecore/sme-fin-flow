@@ -256,7 +256,11 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                     <span className="text-sm">Đang tải dữ liệu...</span>
                   </div>
                 ) : !velocityData || velocityData.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Không có dữ liệu velocity</p>
+                  <div className="text-center py-6 space-y-1">
+                    <Package className="h-8 w-8 mx-auto text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">SP này chưa có dữ liệu tồn kho hoặc bán hàng tại bất kỳ cửa hàng nào</p>
+                    <p className="text-xs text-muted-foreground/70">Có thể là SP mới hoặc đã hết hàng toàn hệ thống</p>
+                  </div>
                 ) : (
                   <div className="border rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
