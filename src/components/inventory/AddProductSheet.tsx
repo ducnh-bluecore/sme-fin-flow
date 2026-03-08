@@ -128,10 +128,6 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
     });
   };
 
-  const cwOnHand = useMemo(() => {
-    if (!velocityData) return 0;
-    return velocityData.reduce((sum, r) => sum + r.on_hand, 0);
-  }, [velocityData]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
