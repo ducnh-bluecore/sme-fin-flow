@@ -156,7 +156,7 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
                           >
                             <div className="flex items-center justify-between">
                               <div className="min-w-0">
-                                <p className="font-medium text-sm text-foreground truncate">{fc.fc_name}</p>
+                                <p className="font-medium text-sm text-foreground truncate">{displayFcName(fc)}</p>
                                 <p className="text-xs text-muted-foreground">{fc.fc_code}{fc.category ? ` · ${fc.category}` : ''}</p>
                               </div>
                               <div className="flex items-center gap-1.5 text-muted-foreground">
