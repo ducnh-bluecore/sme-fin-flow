@@ -852,11 +852,13 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
       )}
 
       <AddProductSheet
-        open={addProductOpen}
-        onOpenChange={setAddProductOpen}
+        open={!!addProductStoreId}
+        onOpenChange={(open) => { if (!open) { setAddProductStoreId(null); setAddProductStoreName(''); } }}
         collections={collections}
         familyCodes={familyCodes}
         latestRunId={latestRunId || null}
+        targetStoreId={addProductStoreId || ''}
+        targetStoreName={addProductStoreName}
       />
     </div>
   );
