@@ -84,7 +84,7 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
     addManual.mutate({
       runId: latestRunId,
       fcId: selectedFcId,
-      fcName: selectedFc.fc_name,
+      fcName: displayFcName(selectedFc),
       storeId: selectedStore.store_id,
       storeName: selectedStore.store_name,
       qty,
