@@ -381,19 +381,8 @@ export function DailyTransferOrder({ suggestions, storeMap, fcNameMap, fcCodeMap
               <FileSpreadsheet className="h-4 w-4" />
               Xuất Excel
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setAddProductOpen(true)}
-              disabled={!latestRunId}
-              title={!latestRunId ? 'Chạy Engine ít nhất 1 lần trước' : 'Thêm sản phẩm thủ công'}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              Thêm SP
-            </Button>
+            </div>
           </div>
-        </div>
 
         {/* Priority filter buttons */}
         <div className="flex items-center gap-2">
