@@ -1,5 +1,6 @@
 
 
+
 ## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
 
 ### Bug #1: Duplicate Recommendations (CRITICAL) ✅
@@ -23,3 +24,15 @@
 - BST mới bypasses `vel > 0` requirement in V2
 - Fallback to V1 min_stock logic when velocity = 0
 - Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+
+## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+
+### Nguyên lý
+`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
+Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+
+### Thay đổi đã triển khai
+1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
+2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
+3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
+4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
