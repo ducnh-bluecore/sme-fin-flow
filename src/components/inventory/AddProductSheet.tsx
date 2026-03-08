@@ -34,8 +34,24 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
   const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
 
+  const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
   const { data: velocityData, isLoading: velocityLoading } = useStoreVelocity(selectedFcId || undefined);
   const addManual = useAddManualAllocation();
+
+  // Fetch CW store IDs (central_warehouse / sub_warehouse)
+  const { data: cwStoreIds } = useQuery({
+    queryKey: ['inv-cw-store-ids', tenantId],
+    queryFn: async () => {
+      const { data, error } = await buildSelectQuery('inv_stores', 'id, location_type')
+        .in('location_type', ['central_warehouse', 'sub_warehouse'])
+        .eq('is_active', true)
+        .limit(50);
+      if (error) throw error;
+      return new Set((data || []).map((r: any) => r.id as string));
+    },
+    enabled: isReady && !!tenantId,
+    staleTime: 10 * 60 * 1000,
+  });
 
   const selectedFc = useMemo(() => familyCodes.find(fc => fc.id === selectedFcId), [familyCodes, selectedFcId]);
 
@@ -45,8 +61,15 @@ export function AddProductSheet({ open, onOpenChange, collections, familyCodes, 
     return velocityData.find(r => r.store_id === targetStoreId) || null;
   }, [velocityData, targetStoreId]);
 
-  // Group FCs by collection
-  const collectionGroups = useMemo(() => {
+  // CW on-hand for selected FC
+  const cwOnHand = useMemo(() => {
+    if (!velocityData || !cwStoreIds) return 0;
+    return velocityData
+      .filter(r => cwStoreIds.has(r.store_id))
+      .reduce((sum, r) => sum + r.on_hand, 0);
+  }, [velocityData, cwStoreIds]);
+
+  const qtyExceedsCw = qty > cwOnHand && cwOnHand > 0;
     const searchLower = search.toLowerCase();
     const groups: { collection: InvCollection; fcs: FamilyCode[] }[] = [];
 
