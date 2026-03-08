@@ -1,91 +1,38 @@
 
 
-## Plan: Option B — Time-Based Virtual Deduction (No New Table)
+
+## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+
+### Bug #1: Duplicate Recommendations (CRITICAL) ✅
+- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
+- Cleaned existing duplicates
+- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+
+### Bug #2: CW Reserve quá bảo thủ ✅
+- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
+- CORE/HERO still use dedicated reserve rules
+
+### Bug #3: Scarcity filter chặn Tier C ✅
+- Updated `min_system_stock` from 50 → 20 in scarcity policy
+- BST mới (< 60 days) bypasses scarcity filter entirely
+
+### Bug #4: Rebalance Push cumulative stock ✅
+- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
+- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+
+### Bug #5: V2 miss BST mới ✅
+- BST mới bypasses `vel > 0` requirement in V2
+- Fallback to V1 min_stock logic when velocity = 0
+- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+
+## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
 
 ### Nguyên lý
-Sau khi user approve, tồn CNTT hiển thị và engine tính = `raw_on_hand - SUM(approved_qty WHERE approved_at > last_snapshot_date)`. Khi sync chạy lại từ BigQuery → `snapshot_date` mới > `approved_at` cũ → deduction tự biến mất. Không double deduction.
+`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
+Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
 
-### Thay đổi
-
-#### 1. SQL Migration: Update `fn_allocation_engine`
-Trong CTE `tmp_cw` (line 75-80), thêm LEFT JOIN trừ approved qty chưa được sync:
-
-```sql
--- Tính tổng approved sau lần sync cuối, per fc_id (from CW stores only)
-CREATE TEMP TABLE tmp_pending_deductions ON COMMIT DROP AS
-SELECT ar.fc_id, SUM(ar.recommended_qty) AS deducted
-FROM inv_allocation_recommendations ar
-JOIN inv_stores s ON s.id = ar.store_id AND s.tenant_id = p_tenant_id
-WHERE ar.tenant_id = p_tenant_id
-  AND ar.status = 'approved'
-  AND ar.approved_at > (
-    SELECT MAX(ls.max_date)::timestamp
-    FROM tmp_latest_snap ls
-    JOIN inv_stores cws ON cws.id = ls.store_id 
-      AND cws.location_type = 'central_warehouse'
-  )
-GROUP BY ar.fc_id;
-
--- Also include rebalance push approved
-INSERT INTO tmp_pending_deductions
-SELECT rs.fc_id, SUM(rs.qty)
-FROM inv_rebalance_suggestions rs
-WHERE rs.tenant_id = p_tenant_id
-  AND rs.status = 'approved'
-  AND rs.from_location_type = 'central_warehouse'
-  AND rs.approved_at > (
-    SELECT MAX(ls.max_date)::timestamp
-    FROM tmp_latest_snap ls
-    JOIN inv_stores cws ON cws.id = ls.store_id 
-      AND cws.location_type = 'central_warehouse'
-  )
-GROUP BY rs.fc_id
-ON CONFLICT DO NOTHING;
--- (use INSERT with aggregation to merge both sources)
-```
-
-Then modify `tmp_cw`:
-```sql
-CREATE TEMP TABLE tmp_cw ON COMMIT DROP AS
-SELECT sp.fc_id, 
-  GREATEST(0, SUM(...) - COALESCE(ded.deducted, 0))::integer AS available
-FROM inv_state_positions sp
-JOIN tmp_latest_snap ls ON ...
-JOIN inv_stores s ON ... location_type='central_warehouse'
-LEFT JOIN tmp_pending_deductions ded ON ded.fc_id = sp.fc_id
-WHERE sp.tenant_id = p_tenant_id 
-GROUP BY sp.fc_id, ded.deducted
-HAVING GREATEST(0, SUM(...) - COALESCE(ded.deducted, 0)) > 0;
-```
-
-Same pattern applied to `fn_rebalance_engine` — modify `cw_stock` CTE.
-
-#### 2. Frontend: `useSourceOnHand.ts`
-Add a new query after fetching positions to subtract approved-but-not-synced quantities:
-
-- Fetch `inv_allocation_recommendations` where `status = 'approved'` and `approved_at > max snapshot_date` for CW stores
-- Fetch `inv_rebalance_suggestions` where `status = 'approved'`, `from_location_type = 'central_warehouse'`, same time filter
-- Subtract from the position map for CW store keys before returning
-
-#### 3. Frontend: `useApproveRebalance.ts`
-Add cache invalidation after approve:
-```typescript
-queryClient.invalidateQueries({ queryKey: ['inv-source-dest-on-hand'] });
-```
-
-### Luồng tự healing
-
-```text
-T0: Sync chạy → snapshot_date = 2026-03-08 → CW stock = 50
-T1: Approve 10 units → approved_at = 2026-03-08 15:00
-T2: Engine/UI: available = 50 - 10 = 40 ✅ (approved_at > snapshot_date)
-T3: Sync chạy lại → snapshot_date = 2026-03-09 → CW stock = 40 (đã xuất thật)
-T4: Engine/UI: approved_at < snapshot_date → deduction = 0 → available = 40 ✅ No double deduction
-```
-
-### Files
-- 1 SQL migration (update both `fn_allocation_engine` + `fn_rebalance_engine`)
-- `src/hooks/inventory/useSourceOnHand.ts` — subtract pending deductions for CW
-- `src/hooks/inventory/useApproveRebalance.ts` — invalidate on-hand cache
-- `.lovable/plan.md` — update status
-
+### Thay đổi đã triển khai
+1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
+2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
+3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
+4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve

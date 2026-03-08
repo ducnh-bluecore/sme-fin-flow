@@ -5,6 +5,7 @@ import type { RebalanceSuggestion } from './useRebalanceSuggestions';
 /**
  * Fetch source & dest on-hand inventory for a list of suggestions.
  * Groups by (store_id, fc_id) using ONLY the latest snapshot_date per store.
+ * Option B: Subtracts virtual deductions (approved after last CW sync) for CW stores.
  */
 export function useSourceOnHand(suggestions: RebalanceSuggestion[]) {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
@@ -77,6 +78,71 @@ export function useSourceOnHand(suggestions: RebalanceSuggestion[]) {
             }
             hasMore = rows.length === PAGE_SIZE;
             offset += PAGE_SIZE;
+          }
+        }
+      }
+
+      // ── Option B: Subtract virtual deductions for CW stores ──
+      // Find CW stores from suggestions (from_location_type = 'central_warehouse')
+      const cwStoreIds = new Set<string>();
+      for (const s of suggestions) {
+        if (s.from_location_type === 'central_warehouse' && s.from_location) {
+          cwStoreIds.add(s.from_location);
+        }
+      }
+
+      if (cwStoreIds.size > 0) {
+        // Get CW last sync date (max snapshot_date among CW stores)
+        let cwLastSync: string | null = null;
+        for (const cwId of cwStoreIds) {
+          const snap = latestSnapshotMap.get(cwId);
+          if (snap && (!cwLastSync || snap > cwLastSync)) {
+            cwLastSync = snap;
+          }
+        }
+
+        if (cwLastSync) {
+          // Fetch approved allocation recommendations after last sync
+          const deductionMap = new Map<string, number>();
+          
+          // Allocation recommendations
+          const { data: allocData } = await buildSelectQuery(
+            'inv_allocation_recommendations',
+            'fc_id, recommended_qty, approved_at'
+          )
+            .eq('status', 'approved')
+            .gt('approved_at', cwLastSync)
+            .in('fc_id', fcArr)
+            .limit(5000);
+
+          for (const row of (allocData || []) as any[]) {
+            const fcId = row.fc_id;
+            deductionMap.set(fcId, (deductionMap.get(fcId) || 0) + (row.recommended_qty || 0));
+          }
+
+          // Rebalance push suggestions (CW → store)
+          const { data: rebalData } = await buildSelectQuery(
+            'inv_rebalance_suggestions',
+            'fc_id, qty, approved_at'
+          )
+            .eq('status', 'approved')
+            .eq('from_location_type', 'central_warehouse')
+            .gt('approved_at', cwLastSync)
+            .in('fc_id', fcArr)
+            .limit(5000);
+
+          for (const row of (rebalData || []) as any[]) {
+            const fcId = row.fc_id;
+            deductionMap.set(fcId, (deductionMap.get(fcId) || 0) + (row.qty || 0));
+          }
+
+          // Subtract deductions from CW store keys
+          for (const cwStoreId of cwStoreIds) {
+            for (const [fcId, deducted] of deductionMap) {
+              const key = `${cwStoreId}|${fcId}`;
+              const current = map.get(key) || 0;
+              map.set(key, Math.max(0, current - deducted));
+            }
           }
         }
       }
@@ -179,7 +245,7 @@ export function enrichWithSourceOnHand(
       ...s,
       constraint_checks: {
         ...existingCC,
-        // Always override with fresh live data
+        // Always override with fresh live data (now includes virtual deductions for CW)
         ...(sourceOnHand != null ? { source_on_hand: sourceOnHand } : {}),
         ...(destOnHand != null ? { dest_on_hand: destOnHand, current_stock: destOnHand } : {}),
         ...(sold7d != null ? { sold_7d: sold7d } : {}),

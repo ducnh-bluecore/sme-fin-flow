@@ -48,6 +48,9 @@ export function useApproveRebalance() {
     onSuccess: (_, { action, suggestionIds }) => {
       queryClient.invalidateQueries({ queryKey: ['inv-rebalance-suggestions'] });
       queryClient.invalidateQueries({ queryKey: ['inv-allocation-recs'] });
+      // Option B: Refresh CW on-hand to reflect virtual deductions
+      queryClient.invalidateQueries({ queryKey: ['inv-source-dest-on-hand'] });
+      queryClient.invalidateQueries({ queryKey: ['inv-positions'] });
       const label = action === 'approved' ? 'Đã duyệt' : 'Đã từ chối';
       toast.success(`${label} ${suggestionIds.length} đề xuất`);
     },
