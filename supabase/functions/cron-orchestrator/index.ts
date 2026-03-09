@@ -37,6 +37,23 @@ Deno.serve(async (req) => {
     const action = body.action || 'daily_kpi';
     const today = new Date().toISOString().split('T')[0];
 
+    // Handle global (non-tenant-specific) actions first
+    if (action === 'refresh_concentration_risk') {
+      console.log(`[cron-orchestrator] Refreshing v_retail_concentration_risk MV`);
+      const { error } = await supabase.rpc('refresh_concentration_risk_mv').catch(() => 
+        // Fallback: direct SQL not available, try raw
+        ({ error: { message: 'RPC not available' } })
+      );
+      // Alternative: run as raw statement via a dedicated RPC
+      const duration = Date.now() - startTime;
+      return jsonResponse({
+        success: !error,
+        action,
+        duration_ms: duration,
+        error: error?.message,
+      });
+    }
+
     console.log(`[cron-orchestrator] action=${action}`);
 
     // Discover all active tenants
@@ -149,6 +166,28 @@ Deno.serve(async (req) => {
             results[tenant.id] = error
               ? { status: 'error', error: error.message }
               : { status: 'ok', data };
+            break;
+          }
+
+          case 'daily_ads_sync': {
+            const res = await callFunction(supabaseUrl, serviceKey, 'ads-sync-campaigns', {
+              tenant_id: tenant.id,
+            });
+            results[tenant.id] = { status: 'ok', data: res };
+            break;
+          }
+
+          case 'daily_bigquery_sync': {
+            const res = await callFunction(supabaseUrl, serviceKey, 'daily-bigquery-sync', {
+              tenant_id: tenant.id,
+              triggered_by: 'cron-orchestrator',
+            });
+            results[tenant.id] = { status: 'ok', data: res };
+            break;
+          }
+
+          case 'refresh_concentration_risk': {
+            // Global materialized view refresh (not per-tenant)
             break;
           }
 
