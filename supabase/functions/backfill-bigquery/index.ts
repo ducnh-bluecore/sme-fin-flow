@@ -1993,9 +1993,10 @@ async function syncFulfillments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedFulfillmentSources = await resolveSources(supabase, tenantId, 'fulfillments', FULFILLMENT_SOURCES);
   const sources = options.source_table
-    ? FULFILLMENT_SOURCES.filter(s => s.table === options.source_table)
-    : FULFILLMENT_SOURCES;
+    ? resolvedFulfillmentSources.filter(s => s.table === options.source_table)
+    : resolvedFulfillmentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
