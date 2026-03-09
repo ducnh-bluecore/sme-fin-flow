@@ -1,38 +1,47 @@
 
 
+## Phân tích: Admin Tenant Onboarding Gaps
 
-## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+### Thực trạng hiện tại
 
-### Bug #1: Duplicate Recommendations (CRITICAL) ✅
-- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
-- Cleaned existing duplicates
-- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+Trang **Admin Tenant Detail** (`/admin/tenants/:tenantId`) có 7 tabs:
+- Tổng quan, Thành viên, Schema, Sử dụng, Gói & Modules, Lịch sử, Sức khỏe
 
-### Bug #2: CW Reserve quá bảo thủ ✅
-- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
-- CORE/HERO still use dedicated reserve rules
+**Thiếu hoàn toàn 3 khả năng quan trọng** khi onboard tenant mới:
 
-### Bug #3: Scarcity filter chặn Tier C ✅
-- Updated `min_system_stock` from 50 → 20 in scarcity policy
-- BST mới (< 60 days) bypasses scarcity filter entirely
+| Cần làm | Hiện trạng |
+|---------|-----------|
+| Cấu hình BigQuery Service Account riêng cho tenant | Chỉ có ở warehouse page (dùng localStorage, không per-tenant) |
+| Quản lý Data Backfill cho tenant | Chỉ có ở `/admin/backfill` — hardcode E2E tenant |
+| Quản lý Connector Integrations | Chỉ có ở tenant-side, admin không can thiệp được |
 
-### Bug #4: Rebalance Push cumulative stock ✅
-- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
-- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+### Kế hoạch: Thêm 3 tabs mới vào Admin Tenant Detail
 
-### Bug #5: V2 miss BST mới ✅
-- BST mới bypasses `vel > 0` requirement in V2
-- Fallback to V1 min_stock logic when velocity = 0
-- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+#### Tab 1: "BigQuery" — Cấu hình service account
+- Hiển thị `bigquery_configs` hiện tại của tenant (project_id, datasets, status)
+- Form nhập/cập nhật: `project_id`, `service_account_json` (textarea), `default_dataset`
+- Lưu vào bảng `bigquery_configs` với `tenant_id`
+- Nút "Test Connection" gọi edge function verify kết nối
 
-## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+#### Tab 2: "Data Sync" — Backfill & Sync cho tenant
+- Hiển thị `daily_sync_runs` + `bigquery_backfill_jobs` filtered theo `tenant_id` này
+- Nút "Trigger Daily Sync" / "Start Backfill" cho tenant cụ thể
+- Trạng thái các model (orders, products, customers...) — đã sync chưa, bao nhiêu records
 
-### Nguyên lý
-`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
-Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+#### Tab 3: "Connectors" — Quản lý kết nối
+- Hiển thị `connector_integrations` của tenant
+- Thêm/sửa/xóa connector (shopee, lazada, tiktok, bigquery, kiotviet...)
+- Hiển thị status, last_synced
 
-### Thay đổi đã triển khai
-1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
-2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
-3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
-4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
+### Files cần tạo/sửa
+
+1. **Sửa** `src/pages/admin/AdminTenantDetailPage.tsx` — thêm 3 TabsTrigger + TabsContent mới
+2. **Tạo** `src/components/admin/TenantBigQueryTab.tsx` — form cấu hình BQ per-tenant
+3. **Tạo** `src/components/admin/TenantDataSyncTab.tsx` — backfill/sync management per-tenant  
+4. **Tạo** `src/components/admin/TenantConnectorsTab.tsx` — connector integrations per-tenant
+
+### Lưu ý quan trọng
+- Service account JSON phải lưu vào DB (bảng `bigquery_configs` đã có sẵn), **không dùng localStorage**
+- Backfill hooks hiện hardcode `E2E_TENANT_ID` — cần tạo version nhận `tenantId` param
+- Tất cả dùng `supabase` client trực tiếp (admin page, cross-tenant)
+
