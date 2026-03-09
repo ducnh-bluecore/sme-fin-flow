@@ -130,8 +130,8 @@ export function TenantConnectorsTab({ tenantId }: TenantConnectorsTabProps) {
                       <Badge variant={statusConfig.variant}>{statusConfig.label}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {item.last_synced_at
-                        ? format(new Date(item.last_synced_at), 'dd/MM HH:mm', { locale: vi })
+                      {item.last_sync_at
+                        ? format(new Date(item.last_sync_at), 'dd/MM HH:mm', { locale: vi })
                         : 'Chưa sync'}
                     </TableCell>
                     <TableCell>
