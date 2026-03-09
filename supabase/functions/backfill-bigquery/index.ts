@@ -3154,19 +3154,24 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Initialize tenant session to set correct search_path (schema routing)
+    // Uses service-level RPC that doesn't require auth.uid()
     // If tenant has dedicated schema → search_path = tenant_xxx, public
     // If tenant uses public schema → search_path = public (no change)
     try {
-      const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session', {
+      const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session_service', {
         p_tenant_id: params.tenant_id,
       });
       if (sessionError) {
-        console.warn(`[backfill] Failed to init tenant session: ${sessionError.message}. Falling back to public schema.`);
+        console.error(`[backfill] CRITICAL: Failed to init tenant session: ${sessionError.message}. Data may go to wrong schema!`);
+        // Do NOT silently fallback - throw to prevent data going to public schema
+        throw new Error(`Tenant session init failed: ${sessionError.message}`);
       } else {
-        console.log(`[backfill] Tenant session initialized: schema=${sessionData?.schema || 'public'}`);
+        console.log(`[backfill] Tenant session initialized: schema=${sessionData?.schema || 'public'}, tier=${sessionData?.tier}, provisioned=${sessionData?.is_provisioned}`);
       }
     } catch (err) {
-      console.warn(`[backfill] init_tenant_session error: ${err.message}. Continuing with public schema.`);
+      if (err.message?.includes('Tenant session init failed')) throw err;
+      console.error(`[backfill] CRITICAL: init_tenant_session_service error: ${err.message}`);
+      throw new Error(`Tenant session init failed: ${err.message}`);
     }
 
     // Get default integration ID for tenant

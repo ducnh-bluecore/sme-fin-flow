@@ -43074,6 +43074,10 @@ export type Database = {
         Returns: boolean
       }
       init_tenant_session: { Args: { p_tenant_id: string }; Returns: Json }
+      init_tenant_session_service: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       is_authenticated: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
