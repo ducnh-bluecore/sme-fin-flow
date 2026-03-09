@@ -4402,8 +4402,11 @@ export type Database = {
           cache_ttl_minutes: number | null
           channels: Json
           created_at: string
+          credentials_json: Json | null
           custom_mappings: Json | null
+          dataset_id: string | null
           dataset_prefix: string
+          gcp_project_id: string | null
           id: string
           is_active: boolean | null
           project_id: string
@@ -4414,8 +4417,11 @@ export type Database = {
           cache_ttl_minutes?: number | null
           channels?: Json
           created_at?: string
+          credentials_json?: Json | null
           custom_mappings?: Json | null
+          dataset_id?: string | null
           dataset_prefix?: string
+          gcp_project_id?: string | null
           id?: string
           is_active?: boolean | null
           project_id?: string
@@ -4426,8 +4432,11 @@ export type Database = {
           cache_ttl_minutes?: number | null
           channels?: Json
           created_at?: string
+          credentials_json?: Json | null
           custom_mappings?: Json | null
+          dataset_id?: string | null
           dataset_prefix?: string
+          gcp_project_id?: string | null
           id?: string
           is_active?: boolean | null
           project_id?: string
