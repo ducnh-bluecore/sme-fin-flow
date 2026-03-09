@@ -1,56 +1,48 @@
 
 
-## Phân tích: Data tenant mới nằm ở đâu? Có lẫn data không?
 
-### Kiến trúc hiện tại: Shared Schema (public) + RLS
+## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
 
-**Tất cả tenant dùng CHUNG các bảng trong `public` schema.** Mỗi row có cột `tenant_id` để phân biệt.
+### Bug #1: Duplicate Recommendations (CRITICAL) ✅
+- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
+- Cleaned existing duplicates
+- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
 
-```text
-public.cdp_orders
-├── row: tenant_id = OLV_ID,  order_key = "SP001" ...
-├── row: tenant_id = OLV_ID,  order_key = "SP002" ...
-├── row: tenant_id = NEW_TENANT_ID, order_key = "SP001" ...  ← tenant mới
-└── row: tenant_id = NEW_TENANT_ID, order_key = "SP002" ...  ← tenant mới
-```
+### Bug #2: CW Reserve quá bảo thủ ✅
+- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
+- CORE/HERO still use dedicated reserve rules
 
-### Cơ chế chống lẫn data
+### Bug #3: Scarcity filter chặn Tier C ✅
+- Updated `min_system_stock` from 50 → 20 in scarcity policy
+- BST mới (< 60 days) bypasses scarcity filter entirely
 
-| Layer | Cách hoạt động | Trạng thái |
-|-------|----------------|-----------|
-| **RLS (Row Level Security)** | Mỗi bảng có policy `WHERE tenant_id = current_setting('app.current_tenant')` hoặc `get_active_tenant_id()` | ✅ Đã có trên ~100+ bảng |
-| **Unique Constraints** | `(tenant_id, channel, order_key)`, `(tenant_id, canonical_key)`, `(tenant_id, sku)` | ✅ Đã có — 2 tenant có cùng SKU "SP001" sẽ KHÔNG conflict |
-| **Session init** | `init_tenant_session()` set `app.current_tenant` → tất cả query sau đó chỉ thấy data tenant mình | ✅ Đã có |
-| **Backfill** | `backfill-bigquery` nhận `tenant_id` param, INSERT với `tenant_id` đúng | ✅ Đã có |
+### Bug #4: Rebalance Push cumulative stock ✅
+- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
+- Filter `WHERE cum_push <= cw_available` prevents over-allocation
 
-### Rủi ro thực tế: 2 điểm CHƯA an toàn
+### Bug #5: V2 miss BST mới ✅
+- BST mới bypasses `vel > 0` requirement in V2
+- Fallback to V1 min_stock logic when velocity = 0
+- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
 
-#### 1. `daily-bigquery-sync` HARDCODE tenant ID
-```typescript
-// supabase/functions/daily-bigquery-sync/index.ts line 16
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-```
-→ Nếu tạo tenant mới, daily sync **sẽ KHÔNG chạy** cho tenant đó. Phải cập nhật edge function để loop qua tất cả active tenants có `bigquery_configs`.
+## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
 
-#### 2. `pg_cron` jobs cũng hardcode tenant
-12 cron jobs đều gọi edge functions với tenant ID cố định. Tenant mới sẽ không được sync tự động.
+### Nguyên lý
+`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
+Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
 
-### Kết luận: Data KHÔNG bị lẫn, nhưng tenant mới sẽ KHÔNG có daily sync
+### Thay đổi đã triển khai
+1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
+2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
+3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
+4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
 
-| Câu hỏi | Trả lời |
-|---------|---------|
-| Data nằm ở đâu? | Cùng bảng `public.*`, phân biệt bằng `tenant_id` |
-| Có trùng bảng? | Có — cùng bảng, nhưng unique constraint theo `(tenant_id, ...)` nên không conflict |
-| Lẫn data giữa 2 nguồn? | **Không** — RLS + session var đảm bảo mỗi user chỉ thấy data tenant mình |
-| Tenant mới có auto sync? | **Không** — phải sửa `daily-bigquery-sync` + `pg_cron` |
+## Multi-tenant Daily Sync ✅ DONE
 
-### Cần làm để tenant mới hoạt động đầy đủ
-
-1. **Sửa `daily-bigquery-sync`** — thay hardcode bằng query `SELECT id FROM tenants WHERE is_active = true AND id IN (SELECT tenant_id FROM bigquery_configs WHERE is_active = true)`, rồi loop sync cho từng tenant
-2. **Sửa `pg_cron` jobs** — tương tự, các RPC như `compute_kpi_facts_daily`, `detect_threshold_breaches` phải chạy cho tất cả active tenants
-3. **Thêm vào Onboarding Checklist** — bước "Daily Sync Activated" để admin biết tenant mới đã được đưa vào pipeline tự động
-
-### Files cần sửa
-- `supabase/functions/daily-bigquery-sync/index.ts` — bỏ hardcode, query active tenants + loop
-- Các pg_cron SQL — update để multi-tenant (hoặc tạo 1 orchestrator edge function)
-
+### Thay đổi
+- **`daily-bigquery-sync`**: Bỏ hardcode `TENANT_ID`, thay bằng query `bigquery_configs WHERE is_active = true` để auto-discover active tenants
+- **Logic**: 
+  - Cron trigger (không có `tenant_id` trong body) → sync TẤT CẢ active tenants
+  - Manual/Admin trigger (có `tenant_id`) → sync 1 tenant cụ thể
+  - Multi-tenant chạy sequential, mỗi tenant có run log riêng trong `daily_sync_runs`
+- **pg_cron**: Không cần sửa — existing cron jobs gọi edge function KHÔNG truyền tenant_id → tự động chạy cho tất cả active tenants
