@@ -831,12 +831,18 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
       );
 
       if (defaultSource) {
-        // Clone and override dataset + table
-        resolved.push({
+        // Clone and override dataset + table + mapping
+        const cloned = {
           ...defaultSource,
           dataset: ov.dataset,
           table: ov.table_name,
-        });
+        };
+        // Apply mapping_overrides if present
+        if (ov.mapping_overrides && typeof ov.mapping_overrides === 'object' && (cloned as any).mapping) {
+          (cloned as any).mapping = { ...(cloned as any).mapping, ...ov.mapping_overrides };
+          console.log(`[resolveSources] Applied mapping overrides for ${channelKey}:`, JSON.stringify(ov.mapping_overrides));
+        }
+        resolved.push(cloned);
       } else {
         console.warn(`[resolveSources] No default mapping for channel '${channelKey}' in model '${modelType}'. Skipping.`);
       }
