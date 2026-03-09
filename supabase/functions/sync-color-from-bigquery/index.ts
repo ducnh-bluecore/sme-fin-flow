@@ -4,6 +4,8 @@
  * Fetches MAU (color) attribute from BigQuery raw_kiotviet_ProductAttributes,
  * joins with raw_kiotviet_Product to get SKU, then updates inv_sku_fc_mapping.color
  * via batch_update_sku_color RPC for performance.
+ * 
+ * Now supports dynamic BQ config from bigquery_configs table.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -67,6 +69,41 @@ async function queryBigQuery(accessToken: string, projectId: string, sql: string
   });
 }
 
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  serviceAccount: any;
+}
+
+async function loadBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  const { data: config } = await supabase
+    .from('bigquery_configs')
+    .select('gcp_project_id, dataset_id, credentials_json')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (config?.credentials_json) {
+    const creds = typeof config.credentials_json === 'string'
+      ? JSON.parse(config.credentials_json)
+      : config.credentials_json;
+    return {
+      projectId: config.gcp_project_id || creds.project_id || 'bluecore-dcp',
+      dataset: config.dataset_id || 'olvboutique',
+      serviceAccount: creds,
+    };
+  }
+
+  const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) throw new Error(`No BQ config for tenant ${tenantId} and GOOGLE_SERVICE_ACCOUNT_JSON not set`);
+  const sa = JSON.parse(saJson);
+  return {
+    projectId: sa.project_id || 'bluecore-dcp',
+    dataset: 'olvboutique',
+    serviceAccount: sa,
+  };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -76,22 +113,26 @@ serve(async (req) => {
     const { tenant_id, dry_run = false } = await req.json();
     if (!tenant_id) throw new Error('tenant_id is required');
 
-    const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    const serviceAccount = JSON.parse(serviceAccountJson);
-    const projectId = serviceAccount.project_id || 'bluecore-dcp';
-    const accessToken = await getAccessToken(serviceAccount);
+    // Init tenant session for schema routing
+    await supabase.rpc('init_tenant_session', { p_tenant_id: tenant_id }).catch((e: any) => {
+      console.warn('[sync-color] init_tenant_session warning:', e.message);
+    });
+
+    // Load BQ config dynamically
+    const bqConfig = await loadBqConfig(supabase, tenant_id);
+    const accessToken = await getAccessToken(bqConfig.serviceAccount);
 
     // Fetch color data from BigQuery
     console.log('Fetching MAU color data from BigQuery...');
     const colorSql = `
       SELECT DISTINCT p.code AS sku, a.attributeValue AS color
-      FROM \`${projectId}.olvboutique.raw_kiotviet_ProductAttributes\` a
-      JOIN \`${projectId}.olvboutique.raw_kiotviet_Product\` p ON a.productId = p.id
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_ProductAttributes\` a
+      JOIN \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_Product\` p ON a.productId = p.id
       WHERE a.attributeName = 'MAU' AND a.attributeValue IS NOT NULL AND p.code IS NOT NULL
     `;
-    const colorData = await queryBigQuery(accessToken, projectId, colorSql);
+    const colorData = await queryBigQuery(accessToken, bqConfig.projectId, colorSql);
     console.log(`Fetched ${colorData.length} SKU-color mappings`);
 
     // Deduplicate: one color per SKU
@@ -112,9 +153,6 @@ serve(async (req) => {
         sample: uniqueMappings.slice(0, 20),
       }, null, 2), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    // Supabase setup
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     // Batch update via RPC (500 per batch)
     const BATCH_SIZE = 500;
@@ -137,6 +175,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      tenant_id,
       summary: {
         bigquery_mappings: colorData.length,
         unique_sku_mappings: uniqueMappings.length,

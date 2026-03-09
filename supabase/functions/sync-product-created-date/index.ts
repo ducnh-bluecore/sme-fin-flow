@@ -3,6 +3,8 @@
  * 
  * Fetches createdDate from BigQuery raw_kiotviet_Product and updates
  * inv_family_codes.product_created_date for all FCs.
+ * 
+ * Now supports dynamic tenant_id and fetches BQ config from bigquery_configs.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -12,10 +14,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -37,8 +35,8 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-async function queryBigQuery(accessToken: string, query: string) {
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+async function queryBigQuery(accessToken: string, projectId: string, query: string) {
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -54,11 +52,46 @@ async function queryBigQuery(accessToken: string, query: string) {
   });
 }
 
-// Strip size suffix to get FC code (same logic as backfill-sku-fc-mapping)
+// Strip size suffix to get FC code
 const SIZE_SUFFIXES = /^(.*\d)(XXXL|XXL|XL|XS|S|M|L|F)$/i;
 function stripSizeFromSku(sku: string): string {
   const match = sku.match(SIZE_SUFFIXES);
   return match ? match[1] : sku;
+}
+
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  serviceAccount: any;
+}
+
+async function loadBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  const { data: config } = await supabase
+    .from('bigquery_configs')
+    .select('gcp_project_id, dataset_id, credentials_json')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (config?.credentials_json) {
+    const creds = typeof config.credentials_json === 'string'
+      ? JSON.parse(config.credentials_json)
+      : config.credentials_json;
+    return {
+      projectId: config.gcp_project_id || creds.project_id || 'bluecore-dcp',
+      dataset: config.dataset_id || 'olvboutique',
+      serviceAccount: creds,
+    };
+  }
+
+  const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) throw new Error(`No BQ config for tenant ${tenantId} and GOOGLE_SERVICE_ACCOUNT_JSON not set`);
+  const sa = JSON.parse(saJson);
+  return {
+    projectId: sa.project_id || 'bluecore-dcp',
+    dataset: 'olvboutique',
+    serviceAccount: sa,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -72,14 +105,23 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
-    const accessToken = await getAccessToken(JSON.parse(saJson));
+    const body = await req.json().catch(() => ({}));
+    const tenantId = body.tenant_id;
+    if (!tenantId) throw new Error('tenant_id is required');
+
+    // Init tenant session for schema routing
+    await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId }).catch((e: any) => {
+      console.warn('[sync-created-date] init_tenant_session warning:', e.message);
+    });
+
+    // Load BQ config dynamically
+    const bqConfig = await loadBqConfig(supabase, tenantId);
+    const accessToken = await getAccessToken(bqConfig.serviceAccount);
 
     // Get earliest createdDate per product code from BigQuery
-    const bqRows = await queryBigQuery(accessToken, `
+    const bqRows = await queryBigQuery(accessToken, bqConfig.projectId, `
       SELECT code AS sku, MIN(createdDate) AS created_date
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_Product\`
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_Product\`
       WHERE code IS NOT NULL AND code != '' AND createdDate IS NOT NULL
       GROUP BY code
     `);
@@ -96,16 +138,16 @@ Deno.serve(async (req) => {
     }
     console.log(`[sync-created-date] Unique FCs: ${fcDateMap.size}`);
 
-    // Load all inv_family_codes for this tenant
+    // Load inv_family_codes missing product_created_date
     const PAGE = 1000;
-    const MAX_PER_RUN = 3000; // Process max 3000 per invocation to avoid timeout
+    const MAX_PER_RUN = 3000;
     const allFcs: { id: string; fc_code: string }[] = [];
     let offset = 0;
     while (allFcs.length < MAX_PER_RUN) {
       const { data, error } = await supabase
         .from('inv_family_codes')
         .select('id, fc_code')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', tenantId)
         .is('product_created_date', null)
         .range(offset, offset + PAGE - 1)
         .order('fc_code');
@@ -116,11 +158,8 @@ Deno.serve(async (req) => {
       offset += PAGE;
     }
     console.log(`[sync-created-date] FCs missing date: ${allFcs.length}`);
-    // Debug: check sample matches
-    const sample = allFcs.slice(0, 5).map(fc => ({ fc_code: fc.fc_code, has_match: fcDateMap.has(fc.fc_code), date: fcDateMap.get(fc.fc_code) }));
-    console.log(`[sync-created-date] Sample matches:`, JSON.stringify(sample));
 
-    // Batch update using individual updates
+    // Batch update
     let updated = 0;
     const toUpdate = allFcs.filter(fc => fcDateMap.has(fc.fc_code));
     console.log(`[sync-created-date] FCs with BQ match: ${toUpdate.length}`);
@@ -139,6 +178,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
+      tenant_id: tenantId,
       bq_rows: bqRows.length,
       fcs_updated: updated,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
