@@ -1464,10 +1464,11 @@ async function syncOrderItems(
   let skipped = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedItemSources = await resolveSources(supabase, tenantId, 'order_items', ORDER_ITEM_SOURCES);
   const sources = options.source_table
-    ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_ITEM_SOURCES;
+    ? resolvedItemSources.filter(s => s.table === options.source_table)
+    : resolvedItemSources;
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
