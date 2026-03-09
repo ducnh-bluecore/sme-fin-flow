@@ -757,6 +757,42 @@ interface TenantSourceOverride {
 }
 
 /**
+ * Resolves a tenant-specific service account key from bigquery_tenant_sources.
+ * If the tenant has a custom `service_account_secret` configured, read that env var.
+ * Returns the JSON string or null (fallback to default GOOGLE_SERVICE_ACCOUNT_JSON).
+ */
+async function resolveTenantServiceAccountKey(tenantId: string): Promise<string | null> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const tempClient = createClient(supabaseUrl, supabaseKey);
+    
+    const { data, error } = await tempClient
+      .from('bigquery_tenant_sources')
+      .select('service_account_secret')
+      .eq('tenant_id', tenantId)
+      .not('service_account_secret', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.service_account_secret) return null;
+
+    const secretName = data.service_account_secret;
+    const secretValue = Deno.env.get(secretName);
+    if (!secretValue) {
+      console.warn(`[resolveTenantServiceAccountKey] Secret '${secretName}' configured but not found in env`);
+      return null;
+    }
+    console.log(`[resolveTenantServiceAccountKey] Using tenant-specific key from secret '${secretName}'`);
+    return secretValue;
+  } catch (err: any) {
+    console.warn(`[resolveTenantServiceAccountKey] Error: ${err.message}. Using default key.`);
+    return null;
+  }
+}
+
+
+/**
  * Resolves BigQuery sources for a tenant.
  * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
  * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
@@ -770,7 +806,7 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
   try {
     const { data: overrides, error } = await supabase
       .from('bigquery_tenant_sources')
-      .select('channel, dataset, table_name, mapping_overrides, is_enabled')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret')
       .eq('tenant_id', tenantId)
       .eq('model_type', modelType)
       .eq('is_enabled', true);
@@ -3097,13 +3133,17 @@ serve(async (req) => {
       throw new Error('model_type is required');
     }
 
-    // Get service account
-    const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    // Get service account - check for tenant-specific key first
+    const tenantServiceAccountKey = await resolveTenantServiceAccountKey(params.tenant_id);
+    const serviceAccountJson = tenantServiceAccountKey || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
       throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
     }
     const serviceAccount = JSON.parse(serviceAccountJson);
     const projectId = serviceAccount.project_id || 'bluecore-dcp';
+    if (tenantServiceAccountKey) {
+      console.log(`[backfill] Using tenant-specific service account for ${params.tenant_id} (project: ${projectId})`);
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
