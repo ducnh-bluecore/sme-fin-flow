@@ -147,6 +147,18 @@ export default function AdminTenantDetailPage() {
               <Package className="w-4 h-4" />
               Gói & Modules
             </TabsTrigger>
+            <TabsTrigger value="bigquery" className="gap-2">
+              <Database className="w-4 h-4" />
+              BigQuery
+            </TabsTrigger>
+            <TabsTrigger value="datasync" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Data Sync
+            </TabsTrigger>
+            <TabsTrigger value="connectors" className="gap-2">
+              <Plug className="w-4 h-4" />
+              Connectors
+            </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <History className="w-4 h-4" />
               Lịch sử
