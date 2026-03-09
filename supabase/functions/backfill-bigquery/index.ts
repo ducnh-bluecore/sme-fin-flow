@@ -757,6 +757,41 @@ interface TenantSourceOverride {
 }
 
 /**
+ * Resolves a tenant-specific service account key from bigquery_tenant_sources.
+ * If the tenant has a custom `service_account_secret` configured, read that env var.
+ * Returns the JSON string or null (fallback to default GOOGLE_SERVICE_ACCOUNT_JSON).
+ */
+async function resolveTenantServiceAccountKey(tenantId: string): Promise<string | null> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const tempClient = createClient(supabaseUrl, supabaseKey);
+    
+    const { data, error } = await tempClient
+      .from('bigquery_tenant_sources')
+      .select('service_account_secret')
+      .eq('tenant_id', tenantId)
+      .not('service_account_secret', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.service_account_secret) return null;
+
+    const secretName = data.service_account_secret;
+    const secretValue = Deno.env.get(secretName);
+    if (!secretValue) {
+      console.warn(`[resolveTenantServiceAccountKey] Secret '${secretName}' configured but not found in env`);
+      return null;
+    }
+    console.log(`[resolveTenantServiceAccountKey] Using tenant-specific key from secret '${secretName}'`);
+    return secretValue;
+  } catch (err: any) {
+    console.warn(`[resolveTenantServiceAccountKey] Error: ${err.message}. Using default key.`);
+    return null;
+  }
+}
+
+
  * Resolves BigQuery sources for a tenant.
  * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
  * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
