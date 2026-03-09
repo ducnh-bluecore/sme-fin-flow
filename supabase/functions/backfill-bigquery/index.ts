@@ -3020,6 +3020,22 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Initialize tenant session to set correct search_path (schema routing)
+    // If tenant has dedicated schema → search_path = tenant_xxx, public
+    // If tenant uses public schema → search_path = public (no change)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session', {
+        p_tenant_id: params.tenant_id,
+      });
+      if (sessionError) {
+        console.warn(`[backfill] Failed to init tenant session: ${sessionError.message}. Falling back to public schema.`);
+      } else {
+        console.log(`[backfill] Tenant session initialized: schema=${sessionData?.schema || 'public'}`);
+      }
+    } catch (err) {
+      console.warn(`[backfill] init_tenant_session error: ${err.message}. Continuing with public schema.`);
+    }
+
     // Get default integration ID for tenant
     const { data: integration } = await supabase
       .from('connector_integrations')
