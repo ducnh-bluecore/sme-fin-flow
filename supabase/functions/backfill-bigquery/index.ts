@@ -745,6 +745,83 @@ const CAMPAIGN_SOURCES = [
   },
 ];
 
+// ============= Tenant Source Resolution =============
+
+interface TenantSourceOverride {
+  model_type: string;
+  channel: string;
+  dataset: string;
+  table_name: string;
+  mapping_overrides: Record<string, string> | null;
+  is_enabled: boolean;
+}
+
+/**
+ * Resolves BigQuery sources for a tenant.
+ * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
+ * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
+ */
+async function resolveSources<T extends { channel?: string; name?: string; dataset: string; table: string }>(
+  supabase: any,
+  tenantId: string,
+  modelType: string,
+  defaultSources: readonly T[],
+): Promise<T[]> {
+  try {
+    const { data: overrides, error } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', modelType)
+      .eq('is_enabled', true);
+
+    if (error) {
+      console.warn(`[resolveSources] Error querying tenant sources: ${error.message}. Using defaults.`);
+      return [...defaultSources] as T[];
+    }
+
+    if (!overrides || overrides.length === 0) {
+      // No tenant-specific config → use hardcoded defaults
+      return [...defaultSources] as T[];
+    }
+
+    // Tenant has custom sources → only use matching channels from defaults, with overridden dataset/table
+    const resolved: T[] = [];
+    for (const ov of overrides as TenantSourceOverride[]) {
+      // Find matching default source by channel name
+      const channelKey = ov.channel;
+      const defaultSource = (defaultSources as any[]).find(
+        s => (s.channel || s.name) === channelKey
+      );
+
+      if (defaultSource) {
+        // Clone and override dataset + table
+        resolved.push({
+          ...defaultSource,
+          dataset: ov.dataset,
+          table: ov.table_name,
+        });
+      } else {
+        console.warn(`[resolveSources] No default mapping for channel '${channelKey}' in model '${modelType}'. Skipping.`);
+      }
+    }
+
+    console.log(`[resolveSources] Tenant ${tenantId} model=${modelType}: using ${resolved.length} custom sources (${resolved.map(s => (s as any).channel || (s as any).name).join(', ')})`);
+    return resolved;
+  } catch (err: any) {
+    console.warn(`[resolveSources] Exception: ${err.message}. Using defaults.`);
+    return [...defaultSources] as T[];
+  }
+}
+
+/**
+ * Check if tenant uses KiotViet (has kiotviet channel in resolved sources).
+ * Used to conditionally apply marketplace dedup logic.
+ */
+function hasKiotVietChannel(sources: Array<{ channel?: string; name?: string }>): boolean {
+  return sources.some(s => (s.channel || s.name) === 'kiotviet');
+}
+
 // ============= Auth Functions =============
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -946,14 +1023,18 @@ async function syncCustomers(
   const sourceErrors: string[] = [];
   const sourceResults: SourceProgress[] = [];
   let paused = false;
+
+  // Resolve tenant-specific sources (or fallback to hardcoded defaults)
+  const resolvedSources = await resolveSources(supabase, tenantId, 'customers', CUSTOMER_SOURCES);
+
   // Initialize source progress
-  await initSourceProgress(supabase, jobId, CUSTOMER_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedSources.map(s => ({
     name: s.name,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of CUSTOMER_SOURCES) {
+  for (const source of resolvedSources) {
     // Read saved progress to resume from where we left off
     const savedProgress = await getSourceProgress(supabase, jobId, source.name);
     if (savedProgress?.status === 'completed') {
@@ -1184,10 +1265,12 @@ async function syncOrders(
   let inserted = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedOrderSources = await resolveSources(supabase, tenantId, 'orders', ORDER_SOURCES);
   const sources = options.source_table
-    ? ORDER_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_SOURCES;
+    ? resolvedOrderSources.filter(s => s.table === options.source_table)
+    : resolvedOrderSources;
+  const useKiotVietDedup = hasKiotVietChannel(sources);
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
@@ -1268,8 +1351,8 @@ async function syncOrders(
             ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
             : grossRevenue;
 
-          // Detect marketplace flag for KiotViet orders
-          const isMarketplace = source.channel === 'kiotviet' && 
+          // Detect marketplace flag for KiotViet orders (only when tenant uses kiotviet)
+          const isMarketplace = useKiotVietDedup && source.channel === 'kiotviet' && 
             !isKiotVietNativeOrder(row[source.mapping.sale_channel_id]);
 
           return {
@@ -1381,10 +1464,11 @@ async function syncOrderItems(
   let skipped = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedItemSources = await resolveSources(supabase, tenantId, 'order_items', ORDER_ITEM_SOURCES);
   const sources = options.source_table
-    ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_ITEM_SOURCES;
+    ? resolvedItemSources.filter(s => s.table === options.source_table)
+    : resolvedItemSources;
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
@@ -1613,9 +1697,10 @@ async function syncRefunds(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedRefundSources = await resolveSources(supabase, tenantId, 'refunds', REFUND_SOURCES);
   const sources = options.source_table
-    ? REFUND_SOURCES.filter(s => s.table === options.source_table)
-    : REFUND_SOURCES;
+    ? resolvedRefundSources.filter(s => s.table === options.source_table)
+    : resolvedRefundSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -1757,9 +1842,10 @@ async function syncPayments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedPaymentSources = await resolveSources(supabase, tenantId, 'payments', PAYMENT_SOURCES);
   const sources = options.source_table
-    ? PAYMENT_SOURCES.filter(s => s.table === options.source_table)
-    : PAYMENT_SOURCES;
+    ? resolvedPaymentSources.filter(s => s.table === options.source_table)
+    : resolvedPaymentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -1907,9 +1993,10 @@ async function syncFulfillments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedFulfillmentSources = await resolveSources(supabase, tenantId, 'fulfillments', FULFILLMENT_SOURCES);
   const sources = options.source_table
-    ? FULFILLMENT_SOURCES.filter(s => s.table === options.source_table)
-    : FULFILLMENT_SOURCES;
+    ? resolvedFulfillmentSources.filter(s => s.table === options.source_table)
+    : resolvedFulfillmentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -2053,14 +2140,17 @@ async function syncProducts(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  // Resolve tenant-specific sources
+  const resolvedProductSources = await resolveSources(supabase, tenantId, 'products', PRODUCT_SOURCES);
+
   // Initialize source progress for all channels
-  await initSourceProgress(supabase, jobId, PRODUCT_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedProductSources.map(s => ({
     name: s.channel,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of PRODUCT_SOURCES) {
+  for (const source of resolvedProductSources) {
     // Read saved progress to resume
     const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
     if (savedProgress?.status === 'completed') {
