@@ -792,6 +792,7 @@ async function resolveTenantServiceAccountKey(tenantId: string): Promise<string 
 }
 
 
+/**
  * Resolves BigQuery sources for a tenant.
  * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
  * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
