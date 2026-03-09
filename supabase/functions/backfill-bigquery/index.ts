@@ -1265,10 +1265,12 @@ async function syncOrders(
   let inserted = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedOrderSources = await resolveSources(supabase, tenantId, 'orders', ORDER_SOURCES);
   const sources = options.source_table
-    ? ORDER_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_SOURCES;
+    ? resolvedOrderSources.filter(s => s.table === options.source_table)
+    : resolvedOrderSources;
+  const useKiotVietDedup = hasKiotVietChannel(sources);
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
