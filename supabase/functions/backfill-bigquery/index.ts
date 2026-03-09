@@ -1842,9 +1842,10 @@ async function syncPayments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedPaymentSources = await resolveSources(supabase, tenantId, 'payments', PAYMENT_SOURCES);
   const sources = options.source_table
-    ? PAYMENT_SOURCES.filter(s => s.table === options.source_table)
-    : PAYMENT_SOURCES;
+    ? resolvedPaymentSources.filter(s => s.table === options.source_table)
+    : resolvedPaymentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
