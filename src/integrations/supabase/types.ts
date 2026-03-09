@@ -4717,6 +4717,7 @@ export type Database = {
           is_enabled: boolean | null
           mapping_overrides: Json | null
           model_type: string
+          service_account_secret: string | null
           table_name: string
           tenant_id: string
         }
@@ -4728,6 +4729,7 @@ export type Database = {
           is_enabled?: boolean | null
           mapping_overrides?: Json | null
           model_type: string
+          service_account_secret?: string | null
           table_name: string
           tenant_id: string
         }
@@ -4739,6 +4741,7 @@ export type Database = {
           is_enabled?: boolean | null
           mapping_overrides?: Json | null
           model_type?: string
+          service_account_secret?: string | null
           table_name?: string
           tenant_id?: string
         }
