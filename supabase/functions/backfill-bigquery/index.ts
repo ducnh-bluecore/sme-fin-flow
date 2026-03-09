@@ -745,6 +745,83 @@ const CAMPAIGN_SOURCES = [
   },
 ];
 
+// ============= Tenant Source Resolution =============
+
+interface TenantSourceOverride {
+  model_type: string;
+  channel: string;
+  dataset: string;
+  table_name: string;
+  mapping_overrides: Record<string, string> | null;
+  is_enabled: boolean;
+}
+
+/**
+ * Resolves BigQuery sources for a tenant.
+ * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
+ * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
+ */
+async function resolveSources<T extends { channel?: string; name?: string; dataset: string; table: string }>(
+  supabase: any,
+  tenantId: string,
+  modelType: string,
+  defaultSources: readonly T[],
+): Promise<T[]> {
+  try {
+    const { data: overrides, error } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', modelType)
+      .eq('is_enabled', true);
+
+    if (error) {
+      console.warn(`[resolveSources] Error querying tenant sources: ${error.message}. Using defaults.`);
+      return [...defaultSources] as T[];
+    }
+
+    if (!overrides || overrides.length === 0) {
+      // No tenant-specific config → use hardcoded defaults
+      return [...defaultSources] as T[];
+    }
+
+    // Tenant has custom sources → only use matching channels from defaults, with overridden dataset/table
+    const resolved: T[] = [];
+    for (const ov of overrides as TenantSourceOverride[]) {
+      // Find matching default source by channel name
+      const channelKey = ov.channel;
+      const defaultSource = (defaultSources as any[]).find(
+        s => (s.channel || s.name) === channelKey
+      );
+
+      if (defaultSource) {
+        // Clone and override dataset + table
+        resolved.push({
+          ...defaultSource,
+          dataset: ov.dataset,
+          table: ov.table_name,
+        });
+      } else {
+        console.warn(`[resolveSources] No default mapping for channel '${channelKey}' in model '${modelType}'. Skipping.`);
+      }
+    }
+
+    console.log(`[resolveSources] Tenant ${tenantId} model=${modelType}: using ${resolved.length} custom sources (${resolved.map(s => (s as any).channel || (s as any).name).join(', ')})`);
+    return resolved;
+  } catch (err: any) {
+    console.warn(`[resolveSources] Exception: ${err.message}. Using defaults.`);
+    return [...defaultSources] as T[];
+  }
+}
+
+/**
+ * Check if tenant uses KiotViet (has kiotviet channel in resolved sources).
+ * Used to conditionally apply marketplace dedup logic.
+ */
+function hasKiotVietChannel(sources: Array<{ channel?: string; name?: string }>): boolean {
+  return sources.some(s => (s.channel || s.name) === 'kiotviet');
+}
+
 // ============= Auth Functions =============
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
