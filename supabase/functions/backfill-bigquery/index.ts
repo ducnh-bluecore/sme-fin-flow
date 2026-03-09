@@ -3097,13 +3097,17 @@ serve(async (req) => {
       throw new Error('model_type is required');
     }
 
-    // Get service account
-    const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    // Get service account - check for tenant-specific key first
+    const tenantServiceAccountKey = await resolveTenantServiceAccountKey(params.tenant_id);
+    const serviceAccountJson = tenantServiceAccountKey || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
       throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
     }
     const serviceAccount = JSON.parse(serviceAccountJson);
     const projectId = serviceAccount.project_id || 'bluecore-dcp';
+    if (tenantServiceAccountKey) {
+      console.log(`[backfill] Using tenant-specific service account for ${params.tenant_id} (project: ${projectId})`);
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
