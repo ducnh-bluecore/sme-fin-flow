@@ -1351,8 +1351,8 @@ async function syncOrders(
             ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
             : grossRevenue;
 
-          // Detect marketplace flag for KiotViet orders
-          const isMarketplace = source.channel === 'kiotviet' && 
+          // Detect marketplace flag for KiotViet orders (only when tenant uses kiotviet)
+          const isMarketplace = useKiotVietDedup && source.channel === 'kiotviet' && 
             !isKiotVietNativeOrder(row[source.mapping.sale_channel_id]);
 
           return {
