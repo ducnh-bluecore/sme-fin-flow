@@ -2140,14 +2140,17 @@ async function syncProducts(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  // Resolve tenant-specific sources
+  const resolvedProductSources = await resolveSources(supabase, tenantId, 'products', PRODUCT_SOURCES);
+
   // Initialize source progress for all channels
-  await initSourceProgress(supabase, jobId, PRODUCT_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedProductSources.map(s => ({
     name: s.channel,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of PRODUCT_SOURCES) {
+  for (const source of resolvedProductSources) {
     // Read saved progress to resume
     const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
     if (savedProgress?.status === 'completed') {
