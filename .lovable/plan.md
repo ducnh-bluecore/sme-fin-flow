@@ -1,55 +1,61 @@
 
 
+# Kế hoạch: Hỗ trợ Multi-tenant BigQuery Sources
 
-## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+## Vấn đề hiện tại
+Edge Function `backfill-bigquery` hardcode toàn bộ dataset (ví dụ `olvboutique`, `olvboutique_shopee`...) — chỉ phục vụ tenant OLV Boutique. Tenant Icon Denim dùng Haravan trên dataset `DW-160STORE-BQ`, nhưng hệ thống vẫn query vào dataset cũ.
 
-### Bug #1: Duplicate Recommendations (CRITICAL) ✅
-- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
-- Cleaned existing duplicates
-- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+## Giải pháp: Bảng cấu hình nguồn dữ liệu theo tenant
 
-### Bug #2: CW Reserve quá bảo thủ ✅
-- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
-- CORE/HERO still use dedicated reserve rules
+### Bước 1: Tạo bảng `bigquery_tenant_sources`
+Lưu cấu hình nguồn BQ cho từng tenant — tenant nào có cấu hình riêng thì dùng, không có thì fallback về hardcode (OLV Boutique).
 
-### Bug #3: Scarcity filter chặn Tier C ✅
-- Updated `min_system_stock` from 50 → 20 in scarcity policy
-- BST mới (< 60 days) bypasses scarcity filter entirely
+```sql
+CREATE TABLE public.bigquery_tenant_sources (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  model_type text NOT NULL,   -- 'customers', 'orders', 'order_items', 'products', 'fulfillments'
+  channel text NOT NULL,       -- 'haravan', 'kiotviet', 'shopee'...
+  dataset text NOT NULL,       -- 'DW-160STORE-BQ'
+  table_name text NOT NULL,    -- 'raw_hrv_Orders'
+  mapping_overrides jsonb,     -- ghi đè mapping nếu cần (null = dùng mapping mặc định)
+  is_enabled boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(tenant_id, model_type, channel)
+);
+```
 
-### Bug #4: Rebalance Push cumulative stock ✅
-- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
-- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+### Bước 2: Seed dữ liệu cho Icon Denim
+Chỉ bật các channel Haravan (Icon Denim không dùng KiotViet, Shopee, Lazada...):
 
-### Bug #5: V2 miss BST mới ✅
-- BST mới bypasses `vel > 0` requirement in V2
-- Fallback to V1 min_stock logic when velocity = 0
-- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+| model_type | channel | dataset | table_name |
+|---|---|---|---|
+| customers | haravan | DW-160STORE-BQ | raw_hrv_Customers |
+| orders | haravan | DW-160STORE-BQ | raw_hrv_Orders |
+| order_items | haravan | DW-160STORE-BQ | raw_hrv_OrdersLineItems |
+| products | haravan | DW-160STORE-BQ | raw_hrv_Products |
+| fulfillments | haravan | DW-160STORE-BQ | raw_hrv_Orders |
 
-## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+*(Mapping giữ nguyên mapping Haravan có sẵn trong code — không cần override)*
 
-### Nguyên lý
-`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
-Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+### Bước 3: Sửa Edge Function `backfill-bigquery/index.ts`
+Thêm hàm `resolveSources()` ở đầu mỗi lần chạy:
 
-### Thay đổi đã triển khai
-1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
-2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
-3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
-4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
+1. Query `bigquery_tenant_sources` theo `tenant_id` + `model_type`
+2. **Nếu có kết quả**: chỉ dùng các sources được cấu hình (lọc theo channel, thay dataset + table_name)
+3. **Nếu không có**: dùng hardcode hiện tại (backward compatible cho OLV Boutique)
 
-## Multi-tenant Daily Sync ✅ DONE
+Áp dụng cho tất cả các hàm sync: `syncCustomers`, `syncOrders`, `syncOrderItems`, `syncProducts`, `syncFulfillments`, `syncPayments`, `syncRefunds`.
 
-### Thay đổi
-- **`daily-bigquery-sync`**: Bỏ hardcode `TENANT_ID`, thay bằng query `bigquery_configs WHERE is_active = true` để auto-discover active tenants
-- **Logic**: 
-  - Cron trigger (không có `tenant_id` trong body) → sync TẤT CẢ active tenants
-  - Manual/Admin trigger (có `tenant_id`) → sync 1 tenant cụ thể
-  - Multi-tenant chạy sequential, mỗi tenant có run log riêng trong `daily_sync_runs`
-- **pg_cron**: Không cần sửa — existing cron jobs gọi edge function KHÔNG truyền tenant_id → tự động chạy cho tất cả active tenants
+### Bước 4: Bỏ KIOTVIET_MARKETPLACE_CHANNEL_IDS filter cho tenant không dùng KiotViet
+Logic dedup marketplace chỉ áp dụng khi tenant có channel `kiotviet`.
 
-## Schema Routing cho Multi-tenant ✅ DONE
+## Phạm vi thay đổi
+- **1 migration**: tạo bảng + seed Icon Denim
+- **1 file sửa**: `supabase/functions/backfill-bigquery/index.ts` — thêm ~40-50 dòng hàm `resolveSources()`, sửa các hàm sync để dùng sources động
+- **Không ảnh hưởng** OLV Boutique — fallback về hardcode khi không có cấu hình tenant
 
-### Thay đổi
-- **`backfill-bigquery`**: Thêm `init_tenant_session` RPC call sau khi tạo supabase client, trước khi ghi data. Tenant có schema riêng → data route vào `tenant_xxx.*`. Tenant chưa có → fallback `public` (backward compatible).
-- **`daily-bigquery-sync`**: Thêm `init_tenant_session` ở đầu `syncTenant()` để mỗi tenant trong loop được set đúng `search_path`.
-- **Graceful fallback**: Nếu `init_tenant_session` fail → warn log + tiếp tục với public schema, không crash pipeline.
+## Lưu ý
+- Cần xác nhận tên bảng Products của Haravan trên BigQuery (`raw_hrv_Products` hay tên khác?)
+- Mapping columns giữ nguyên — Haravan mapping đã có sẵn trong code
+
