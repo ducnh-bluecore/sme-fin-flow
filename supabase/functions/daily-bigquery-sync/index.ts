@@ -49,6 +49,20 @@ async function syncTenant(
 }> {
   const startTime = Date.now();
 
+  // Initialize tenant session to set correct search_path (schema routing)
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session', {
+      p_tenant_id: tenantId,
+    });
+    if (sessionError) {
+      console.warn(`[daily-sync] Failed to init tenant session for ${tenantId.substring(0, 8)}: ${sessionError.message}`);
+    } else {
+      console.log(`[daily-sync] Tenant session initialized: schema=${sessionData?.schema || 'public'}`);
+    }
+  } catch (err) {
+    console.warn(`[daily-sync] init_tenant_session error for ${tenantId.substring(0, 8)}: ${err.message}`);
+  }
+
   // Lookback window
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - lookbackDays);
