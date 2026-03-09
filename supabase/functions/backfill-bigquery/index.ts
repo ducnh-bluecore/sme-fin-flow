@@ -1697,9 +1697,10 @@ async function syncRefunds(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedRefundSources = await resolveSources(supabase, tenantId, 'refunds', REFUND_SOURCES);
   const sources = options.source_table
-    ? REFUND_SOURCES.filter(s => s.table === options.source_table)
-    : REFUND_SOURCES;
+    ? resolvedRefundSources.filter(s => s.table === options.source_table)
+    : resolvedRefundSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
