@@ -399,6 +399,21 @@ export default function AdminTenantDetailPage() {
             />
           </TabsContent>
 
+          {/* BigQuery Tab */}
+          <TabsContent value="bigquery">
+            <TenantBigQueryTab tenantId={tenant.id} />
+          </TabsContent>
+
+          {/* Data Sync Tab */}
+          <TabsContent value="datasync">
+            <TenantDataSyncTab tenantId={tenant.id} />
+          </TabsContent>
+
+          {/* Connectors Tab */}
+          <TabsContent value="connectors">
+            <TenantConnectorsTab tenantId={tenant.id} />
+          </TabsContent>
+
           {/* Audit Log Tab */}
           <TabsContent value="audit">
             <TenantAuditLog tenantId={tenant.id} />
