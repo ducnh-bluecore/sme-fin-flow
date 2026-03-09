@@ -882,6 +882,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const tokenData = await tokenResponse.json();
   if (!tokenData.access_token) {
+    console.error('[getAccessToken] Token response error:', JSON.stringify(tokenData));
+    console.error('[getAccessToken] Service account email:', serviceAccount.client_email);
+    console.error('[getAccessToken] Private key starts with:', serviceAccount.private_key?.substring(0, 40));
     throw new Error('Failed to get access token');
   }
   return tokenData.access_token;
