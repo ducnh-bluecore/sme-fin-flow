@@ -152,6 +152,28 @@ Deno.serve(async (req) => {
             break;
           }
 
+          case 'daily_ads_sync': {
+            const res = await callFunction(supabaseUrl, serviceKey, 'ads-sync-campaigns', {
+              tenant_id: tenant.id,
+            });
+            results[tenant.id] = { status: 'ok', data: res };
+            break;
+          }
+
+          case 'daily_bigquery_sync': {
+            const res = await callFunction(supabaseUrl, serviceKey, 'daily-bigquery-sync', {
+              tenant_id: tenant.id,
+              triggered_by: 'cron-orchestrator',
+            });
+            results[tenant.id] = { status: 'ok', data: res };
+            break;
+          }
+
+          case 'refresh_concentration_risk': {
+            // Global materialized view refresh (not per-tenant)
+            break;
+          }
+
           default:
             results[tenant.id] = { status: 'skipped', error: `Unknown action: ${action}` };
         }
