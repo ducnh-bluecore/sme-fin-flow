@@ -1023,14 +1023,18 @@ async function syncCustomers(
   const sourceErrors: string[] = [];
   const sourceResults: SourceProgress[] = [];
   let paused = false;
+
+  // Resolve tenant-specific sources (or fallback to hardcoded defaults)
+  const resolvedSources = await resolveSources(supabase, tenantId, 'customers', CUSTOMER_SOURCES);
+
   // Initialize source progress
-  await initSourceProgress(supabase, jobId, CUSTOMER_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedSources.map(s => ({
     name: s.name,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of CUSTOMER_SOURCES) {
+  for (const source of resolvedSources) {
     // Read saved progress to resume from where we left off
     const savedProgress = await getSourceProgress(supabase, jobId, source.name);
     if (savedProgress?.status === 'completed') {
