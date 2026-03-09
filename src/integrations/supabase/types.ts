@@ -4708,6 +4708,71 @@ export type Database = {
           },
         ]
       }
+      bigquery_tenant_sources: {
+        Row: {
+          channel: string
+          created_at: string | null
+          dataset: string
+          id: string
+          is_enabled: boolean | null
+          mapping_overrides: Json | null
+          model_type: string
+          table_name: string
+          tenant_id: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string | null
+          dataset: string
+          id?: string
+          is_enabled?: boolean | null
+          mapping_overrides?: Json | null
+          model_type: string
+          table_name: string
+          tenant_id: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          dataset?: string
+          id?: string
+          is_enabled?: boolean | null
+          mapping_overrides?: Json | null
+          model_type?: string
+          table_name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       bill_items: {
         Row: {
           amount: number
