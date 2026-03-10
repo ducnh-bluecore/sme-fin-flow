@@ -2796,10 +2796,7 @@ async function syncCampaigns(
         }));
 
         // Upsert campaigns (unique on tenant_id, channel, campaign_name, start_date)
-        const { error, count } = await supabase
-          .from('promotion_campaigns')
-          .upsert(campaigns, { onConflict: 'tenant_id,channel,campaign_name,start_date' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'promotion_campaigns', campaigns, ['tenant_id', 'channel', 'campaign_name', 'start_date']);
 
         if (error) {
           console.error('Campaign upsert error:', error);
