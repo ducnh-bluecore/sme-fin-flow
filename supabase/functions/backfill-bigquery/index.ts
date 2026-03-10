@@ -1317,9 +1317,7 @@ async function syncCustomers(
       source_created_at: c.created_at || null,
     }));
     
-    const { error } = await supabase
-      .from('cdp_customers')
-      .upsert(batch, { onConflict: 'tenant_id,canonical_key' });
+    const { error } = await tenantUpsert(supabase, tenantId, 'cdp_customers', batch, ['tenant_id', 'canonical_key']);
     
     if (error) {
       console.error('Upsert error:', error);
