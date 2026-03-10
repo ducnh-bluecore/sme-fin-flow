@@ -2222,8 +2222,12 @@ async function syncProducts(
 
     console.log(`Processing products from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
-    // Count total records
-    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${source.table}\``;
+    // Count total records - for haravan, count variants table instead
+    let countTable = source.table;
+    if (source.channel === 'haravan') {
+      countTable = source.table.replace('Product', 'Product_Variants');
+    }
+    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${countTable}\``;
     if (options.date_from && source.mapping.date_col) {
       countQuery += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
     }
