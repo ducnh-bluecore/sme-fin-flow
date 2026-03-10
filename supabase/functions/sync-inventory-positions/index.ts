@@ -100,19 +100,33 @@ async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfi
     .maybeSingle();
   if (config?.project_id) projectId = config.project_id;
 
-  const { data: source } = await supabase
+  // Check for inventory-specific source first, then fall back to products
+  const { data: invSource } = await supabase
     .from('bigquery_tenant_sources')
-    .select('dataset, service_account_secret')
+    .select('dataset, table_name, service_account_secret')
     .eq('tenant_id', tenantId)
-    .eq('model_type', 'products')
+    .eq('model_type', 'inventory')
     .eq('is_enabled', true)
     .maybeSingle();
 
-  if (source?.dataset) {
-    dataset = source.dataset;
-    table = 'raw_kiotviet_ProductInventories';
+  if (invSource?.dataset) {
+    dataset = invSource.dataset;
+    table = invSource.table_name || DEFAULT_TABLE;
+    if (invSource.service_account_secret) saSecretName = invSource.service_account_secret;
+  } else {
+    const { data: source } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('dataset, table_name, service_account_secret')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', 'products')
+      .eq('is_enabled', true)
+      .maybeSingle();
+    if (source?.dataset) {
+      dataset = source.dataset;
+      table = DEFAULT_TABLE;
+    }
+    if (source?.service_account_secret) saSecretName = source.service_account_secret;
   }
-  if (source?.service_account_secret) saSecretName = source.service_account_secret;
 
   console.log(`[sync-inv] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
 

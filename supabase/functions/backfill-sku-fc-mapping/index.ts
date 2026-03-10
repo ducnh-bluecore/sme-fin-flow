@@ -87,49 +87,51 @@ interface BqConfig {
 }
 
 async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
-  // Try to find inventory-specific source in bigquery_tenant_sources
-  // Fall back to bigquery_configs, then hardcoded defaults
-  
   let projectId = DEFAULT_PROJECT_ID;
   let dataset = DEFAULT_DATASET;
   let table = DEFAULT_TABLE;
   let saSecretName = 'GOOGLE_SERVICE_ACCOUNT_JSON';
 
-  // Check bigquery_configs for tenant
   const { data: config } = await supabase
     .from('bigquery_configs')
-    .select('project_id, dataset_prefix')
+    .select('project_id')
     .eq('tenant_id', tenantId)
     .maybeSingle();
-  
   if (config?.project_id) projectId = config.project_id;
 
-  // Check if tenant has a products source (uses same BQ project/dataset as inventory)
-  const { data: source } = await supabase
+  // Check for inventory-specific source first, then fall back to products
+  const { data: invSource } = await supabase
     .from('bigquery_tenant_sources')
-    .select('dataset, service_account_secret')
+    .select('dataset, table_name, service_account_secret')
     .eq('tenant_id', tenantId)
-    .eq('model_type', 'products')
+    .eq('model_type', 'inventory')
     .eq('is_enabled', true)
     .maybeSingle();
 
-  if (source?.dataset) {
-    dataset = source.dataset;
-    // Derive inventory table name based on channel
-    // For KiotViet: raw_kiotviet_ProductInventories
-    // For Haravan (160store): raw_hrv_ProductInventories or similar
-    table = `raw_kiotviet_ProductInventories`;
-  }
-  if (source?.service_account_secret) {
-    saSecretName = source.service_account_secret;
+  if (invSource?.dataset) {
+    dataset = invSource.dataset;
+    table = invSource.table_name || DEFAULT_TABLE;
+    if (invSource.service_account_secret) saSecretName = invSource.service_account_secret;
+  } else {
+    // Fallback: use products source
+    const { data: source } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('dataset, table_name, service_account_secret')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', 'products')
+      .eq('is_enabled', true)
+      .maybeSingle();
+    if (source?.dataset) {
+      dataset = source.dataset;
+      table = DEFAULT_TABLE; // KiotViet default
+    }
+    if (source?.service_account_secret) saSecretName = source.service_account_secret;
   }
 
   console.log(`[backfill-sku] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
 
-  // Resolve service account key
   const saJson = Deno.env.get(saSecretName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
   if (!saJson) throw new Error(`No service account key found (tried ${saSecretName})`);
-  
   const accessToken = await getAccessToken(JSON.parse(saJson));
   return { projectId, dataset, table, accessToken };
 }
