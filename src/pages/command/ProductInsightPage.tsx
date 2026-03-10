@@ -206,10 +206,6 @@ export default function ProductInsightPage() {
             subtitle="Vòng đời sản phẩm, sell-through tracking & restock intelligence"
             icon={<Package className="w-5 h-5" />}
           />
-          <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            Sync Batches
-          </Button>
         </div>
 
         {/* Summary Stats */}
