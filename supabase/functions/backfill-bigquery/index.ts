@@ -2222,8 +2222,12 @@ async function syncProducts(
 
     console.log(`Processing products from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
-    // Count total records
-    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${source.table}\``;
+    // Count total records - for haravan, count variants table instead
+    let countTable = source.table;
+    if (source.channel === 'haravan') {
+      countTable = source.table.replace('Product', 'Product_Variants');
+    }
+    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${countTable}\``;
     if (options.date_from && source.mapping.date_col) {
       countQuery += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
     }
@@ -2292,6 +2296,19 @@ async function syncProducts(
           query += ` WHERE s.\`dw_timestamp\` >= '${options.date_from}'`;
         }
         query += ` ORDER BY s.\`product_id\` LIMIT ${batchSize} OFFSET ${offset}`;
+      } else if (source.channel === 'haravan') {
+        // Haravan: JOIN Product with Product_Variants for SKU/price
+        // raw_hrv_Product has: Id, Title, Product_Type, vendor, Tags, Created_At, Updated_At
+        // raw_hrv_Product_Variants has: Product_Id, SKU, Price, Cost_Price, Inventory_Quantity, Option1, Created_At
+        const variantsTable = source.table.replace('Product', 'Product_Variants');
+        query = `SELECT v.\`SKU\`, v.\`Product_Id\`, v.\`Price\`, v.\`Cost_Price\`, v.\`Inventory_Quantity\`, v.\`Option1\`, v.\`Created_At\`,
+            p.\`Title\`, p.\`Product_Type\`, p.\`vendor\`, p.\`Tags\`
+          FROM \`${projectId}.${source.dataset}.${variantsTable}\` v
+          LEFT JOIN \`${projectId}.${source.dataset}.${source.table}\` p ON CAST(v.\`Product_Id\` AS STRING) = CAST(p.\`Id\` AS STRING)`;
+        if (options.date_from) {
+          query += ` WHERE v.\`dw_timestamp\` >= '${options.date_from}'`;
+        }
+        query += ` ORDER BY v.\`Product_Id\`, v.\`SKU\` LIMIT ${batchSize} OFFSET ${offset}`;
       } else {
         // Standard: build from mapping
         const selectCols = Object.entries(source.mapping)
@@ -2344,6 +2361,21 @@ async function syncProducts(
             selling_price: parseFloat(row.original_price || '0'),
             current_stock: 0,
             source_created_at: null,
+          }));
+        } else if (source.channel === 'haravan') {
+          // Haravan: Product_Variants JOIN Product
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: 'haravan',
+            sku: String(row.SKU || `unknown_${row.Product_Id}`),
+            name: row.Title || null,
+            category: row.Product_Type || null,
+            brand: row.vendor || null,
+            unit: row.Option1 || null,
+            cost_price: parseFloat(row.Cost_Price || '0'),
+            selling_price: parseFloat(row.Price || '0'),
+            current_stock: parseFloat(row.Inventory_Quantity || '0'),
+            source_created_at: row.Created_At || null,
           }));
         } else {
           products = rows.map(row => ({
