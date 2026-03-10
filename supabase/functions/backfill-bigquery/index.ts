@@ -2645,10 +2645,7 @@ async function syncAdSpend(
           broad_conversions: parseInt(row[source.mapping.broad_conversions] || '0', 10),
         }));
 
-        const { error, count } = await supabase
-          .from('ad_spend_daily')
-          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'ad_spend_daily', adSpendRows, ['tenant_id', 'channel', 'spend_date', 'campaign_id', 'ad_id']);
 
         if (error) {
           console.error('Ad spend upsert error:', error);
