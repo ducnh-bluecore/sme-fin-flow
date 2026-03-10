@@ -1,17 +1,21 @@
 /**
  * ProductDetailDialog - Lifecycle detail for a single product
- * Shows timeline, milestone progress, metrics, and batch history
+ * Shows timeline, milestone progress, metrics, channel sales, and AI insight
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, TrendingUp, Package, DollarSign, Clock, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, TrendingUp, Package, DollarSign, Clock, Zap, ShoppingBag, Sparkles, Store, Percent, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useProductChannelSales } from '@/hooks/inventory/useProductChannelSales';
+import { toast } from 'sonner';
 
 interface ProductDetailDialogProps {
   open: boolean;
