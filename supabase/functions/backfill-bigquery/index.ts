@@ -2388,7 +2388,7 @@ async function syncProducts(
             name: row.Title || null,
             category: row.Product_Type || null,
             brand: row.vendor || null,
-            unit: row.Option1 || null,
+            unit: row.Option1 ? String(row.Option1).substring(0, 30) : null,
             cost_price: parseFloat(row.Cost_Price || '0'),
             selling_price: parseFloat(row.Price || '0'),
             current_stock: parseFloat(row.Inventory_Quantity || '0'),
