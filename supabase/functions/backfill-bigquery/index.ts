@@ -2242,7 +2242,7 @@ async function syncProducts(
     // Count total records - for haravan, count variants table instead
     let countTable = source.table;
     if (source.channel === 'haravan') {
-      countTable = source.table.replace('Product', 'Product_Variants');
+      countTable = source.table.replace(/Products?$/, 'Product_Variants');
     }
     let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${countTable}\``;
     if (options.date_from && source.mapping.date_col) {
