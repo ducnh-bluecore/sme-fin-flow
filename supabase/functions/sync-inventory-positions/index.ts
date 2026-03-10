@@ -250,6 +250,9 @@ Deno.serve(async (req) => {
     let totalBqRows = 0, totalUpserted = 0, upsertErrors = 0;
     let noFc = 0, noStore = 0, skipped = 0;
     const UPSERT_BATCH = 2000;
+    
+    // Track all upserted store_id|sku keys to detect stale records
+    const upsertedKeys = new Set<string>();
 
     const mapAndUpsert = async (bqRows: Record<string, any>[]) => {
       const upsertRows: any[] = [];
@@ -260,6 +263,7 @@ Deno.serve(async (req) => {
         if (!sku) { skipped++; continue; }
         const fcId = skuToFc.get(sku);
         if (!fcId) { noFc++; continue; }
+        upsertedKeys.add(`${storeId}|${sku}`);
         upsertRows.push({
           tenant_id: tenantId, store_id: storeId, fc_id: fcId, sku,
           snapshot_date: today, on_hand: Math.round(Number(row.on_hand) || 0),
@@ -303,50 +307,48 @@ Deno.serve(async (req) => {
       pageToken = pageData.pageToken;
     }
 
-    // Zero-out stale records: set on_hand=0 for today's snapshot records
-    // that exist in DB but were NOT in the BQ result set
+    // ========== ZERO-OUT STALE RECORDS ==========
+    // Find records in DB for these stores with on_hand > 0 that were NOT in BQ results
     const storeIds = Array.from(storeMap.values());
     let zeroedCount = 0;
-    
-    // Collect all SKUs we just upserted for each store
-    const upsertedKeys = new Set<string>(); // "store_id|sku"
-    // We need to track what we upserted - rebuild from BQ data
-    // Since we already processed, let's zero out by updating records for today
-    // where on_hand > 0 but updated_at is older than this sync run
-    const syncStartIso = new Date(startTime).toISOString();
-    
+
     for (const storeId of storeIds) {
-      // Find records for this store+today that we did NOT touch (still have old on_hand)
-      const { data: staleRows, error: staleErr } = await supabase
-        .from('inv_state_positions')
-        .select('id, sku, on_hand')
-        .eq('tenant_id', tenantId)
-        .eq('store_id', storeId)
-        .eq('snapshot_date', today)
-        .gt('on_hand', 0);
-      
-      if (staleErr || !staleRows?.length) continue;
-      
-      // Check which of these SKUs were NOT in the upsert (they'd have been updated just now)
-      // We'll use a simpler approach: query BQ results are already upserted with current timestamp
-      // So stale records are those with on_hand > 0 but no matching BQ row
-      // Since upsert updates existing rows, we need to track upserted SKUs
-      // For now, zero-out ALL old snapshot dates (not today) that still show on_hand > 0
+      // Get all records with on_hand > 0 for this store (any snapshot date)
+      let offset = 0;
+      const staleIds: string[] = [];
+      while (true) {
+        const { data: rows, error } = await supabase
+          .from('inv_state_positions')
+          .select('id, sku, snapshot_date')
+          .eq('tenant_id', tenantId)
+          .eq('store_id', storeId)
+          .gt('on_hand', 0)
+          .range(offset, offset + 999)
+          .limit(1000);
+        if (error || !rows?.length) break;
+        for (const r of rows) {
+          // If this store+sku was NOT in today's BQ sync → it's stale
+          if (!upsertedKeys.has(`${storeId}|${r.sku}`)) {
+            staleIds.push(r.id);
+          }
+        }
+        if (rows.length < 1000) break;
+        offset += 1000;
+      }
+
+      // Zero out stale records in batches
+      for (let i = 0; i < staleIds.length; i += 500) {
+        const batch = staleIds.slice(i, i + 500);
+        const { error } = await supabase
+          .from('inv_state_positions')
+          .update({ on_hand: 0, reserved: 0, available: 0 })
+          .in('id', batch);
+        if (!error) zeroedCount += batch.length;
+      }
     }
-    
-    // More reliable approach: zero out PREVIOUS day snapshots still showing inventory
-    // This handles the case where today's sync correctly shows 0 but yesterday's snapshot persists
-    const { error: zeroErr, count: zeroed } = await supabase
-      .from('inv_state_positions')
-      .update({ on_hand: 0, reserved: 0, available: 0 })
-      .eq('tenant_id', tenantId)
-      .lt('snapshot_date', today)
-      .gt('on_hand', 0)
-      .in('store_id', storeIds);
-    
-    if (!zeroErr && zeroed) {
-      zeroedCount = zeroed;
-      console.log(`[sync-inv] Zeroed ${zeroedCount} stale records from previous snapshots`);
+
+    if (zeroedCount > 0) {
+      console.log(`[sync-inv] Zeroed ${zeroedCount} stale records not found in BQ`);
     }
 
     const duration = Date.now() - startTime;
