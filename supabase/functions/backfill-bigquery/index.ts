@@ -2410,7 +2410,14 @@ async function syncProducts(
           }));
         }
 
-        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', products, ['tenant_id', 'channel', 'sku']);
+        // Deduplicate by SKU within batch (Haravan may have multiple variants with same SKU)
+        const dedupMap = new Map<string, any>();
+        for (const p of products) {
+          dedupMap.set(`${p.channel}:${p.sku}`, p);
+        }
+        const dedupProducts = Array.from(dedupMap.values());
+
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', dedupProducts, ['tenant_id', 'channel', 'sku']);
 
         if (error) {
           console.error(`Product upsert error (${source.channel}):`, error);
