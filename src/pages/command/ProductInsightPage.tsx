@@ -189,8 +189,7 @@ export default function ProductInsightPage() {
   };
 
   const handleRowClick = (fcId: string) => {
-    setSelectedFcId(fcId);
-    setDetailOpen(true);
+    navigate(`/command/product-insight/${fcId}`);
   };
 
   return (
