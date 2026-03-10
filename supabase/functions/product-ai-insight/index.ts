@@ -12,8 +12,8 @@ serve(async (req) => {
 
   try {
     const { product, lifecycle, channelSales } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
 
     const systemPrompt = `Bạn là Chief Retail Strategist của Bluecore. Phân tích sản phẩm theo nguyên tắc:
 - Truth > Flexibility: Chỉ ra vấn đề thật, không làm đẹp số
@@ -37,40 +37,36 @@ ${channelSales.map((c: any) => `- ${c.channel}: ${c.qty_sold} SP, ${(c.revenue/1
 
 Tổng KM: ${(channelSales.reduce((s: number, c: any) => s + c.discount_amount, 0) / 1000000).toFixed(1)}M`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 600,
+        system: systemPrompt,
         messages: [
-          { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        max_tokens: 500,
       }),
     });
 
     if (!response.ok) {
+      const t = await response.text();
+      console.error("Anthropic API error:", response.status, t);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`Anthropic API error: ${response.status}`);
     }
 
     const result = await response.json();
-    const insight = result.choices?.[0]?.message?.content || "Không thể tạo insight.";
+    const insight = result.content?.[0]?.text || "Không thể tạo insight.";
 
     return new Response(JSON.stringify({ insight }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
