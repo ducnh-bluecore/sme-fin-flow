@@ -174,8 +174,7 @@ export default function InventoryAllocationPage() {
       // Only run allocation engine from front-end
       toast.info('Đang chạy Engine phân bổ...');
 
-      // Step 2: Run allocation engine (V1 + V2)
-      toast.info('Bước 2/2: Đang chạy Engine phân bổ...');
+      // Run allocation engine (V1 + V2)
       const { data: { user } } = await supabase.auth.getUser();
       const allocBody: any = { tenant_id: tenantId, user_id: user?.id, action: 'allocate', run_type: 'both' };
       if (collectionIdsSnapshot) {
