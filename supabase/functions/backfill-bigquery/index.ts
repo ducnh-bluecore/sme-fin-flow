@@ -2317,7 +2317,7 @@ async function syncProducts(
         // Haravan: JOIN Product with Product_Variants for SKU/price
         // raw_hrv_Product has: Id, Title, Product_Type, vendor, Tags, Created_At, Updated_At
         // raw_hrv_Product_Variants has: Product_Id, SKU, Price, Cost_Price, Inventory_Quantity, Option1, Created_At
-        const variantsTable = source.table.replace('Product', 'Product_Variants');
+        const variantsTable = source.table.replace(/Products?$/, 'Product_Variants');
         query = `SELECT v.\`SKU\`, v.\`Product_Id\`, v.\`Price\`, v.\`Cost_Price\`, v.\`Inventory_Quantity\`, v.\`Option1\`, v.\`Created_At\`,
             p.\`Title\`, p.\`Product_Type\`, p.\`vendor\`, p.\`Tags\`
           FROM \`${projectId}.${source.dataset}.${variantsTable}\` v
