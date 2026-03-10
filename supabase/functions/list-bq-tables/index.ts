@@ -10,34 +10,29 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  const { tenant_id, dataset } = await req.json();
+  const { tenant_id, query: customQuery } = await req.json();
   
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Get tenant BQ config
-  const { data: config } = await supabase
-    .from('bigquery_configs')
-    .select('gcp_project_id, dataset_id, credentials_json')
-    .eq('tenant_id', tenant_id)
-    .single();
-
-  // Get service account key
   const { data: source } = await supabase
     .from('bigquery_tenant_sources')
-    .select('service_account_secret')
+    .select('service_account_secret, dataset')
     .eq('tenant_id', tenant_id)
     .limit(1)
     .single();
 
-  const secretName = source?.service_account_secret;
-  const saKey = JSON.parse(Deno.env.get(secretName) || config?.credentials_json || '{}');
-  const projectId = config?.gcp_project_id || 'bluecore-dcp';
-  const datasetId = dataset || config?.dataset_id || '160store';
+  const { data: config } = await supabase
+    .from('bigquery_configs')
+    .select('gcp_project_id')
+    .eq('tenant_id', tenant_id)
+    .single();
 
-  // Get access token
+  const saKey = JSON.parse(Deno.env.get(source?.service_account_secret) || '{}');
+  const projectId = config?.gcp_project_id || 'bluecore-dcp';
+
   const now = Math.floor(Date.now() / 1000);
   const privateKey = await importPKCS8(saKey.private_key, 'RS256');
   const jwt = await new SignJWT({
@@ -54,8 +49,9 @@ serve(async (req) => {
   });
   const { access_token } = await tokenRes.json();
 
-  // List tables
-  const query = `SELECT table_name FROM \`${projectId}.${datasetId}.INFORMATION_SCHEMA.TABLES\` ORDER BY table_name`;
+  // Run custom query or list datasets
+  const query = customQuery || `SELECT schema_name FROM INFORMATION_SCHEMA.SCHEMATA WHERE catalog_name = '${projectId}'`;
+  
   const res = await fetch(`https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -63,12 +59,20 @@ serve(async (req) => {
   });
   const data = await res.json();
   
-  const tables = (data.rows || []).map((r: any) => r.f[0].v);
-  const productTables = tables.filter((t: string) => 
-    t.toLowerCase().includes('product') || t.toLowerCase().includes('prod')
-  );
+  if (data.error) {
+    return new Response(JSON.stringify({ error: data.error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
-  return new Response(JSON.stringify({ tables: productTables, all_tables_count: tables.length, all_hrv_tables: tables.filter((t: string) => t.toLowerCase().includes('hrv')) }), {
+  const schema = data.schema?.fields || [];
+  const rows = (data.rows || []).map((r: any) => {
+    const obj: Record<string, any> = {};
+    r.f.forEach((f: any, i: number) => { obj[schema[i]?.name] = f.v; });
+    return obj;
+  });
+
+  return new Response(JSON.stringify({ rows, total: data.totalRows }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
