@@ -133,11 +133,13 @@ Deno.serve(async (req) => {
     // Build query based on source type
     let bqQuery: string;
     if (bqConfig.sourceType === 'haravan') {
+      // Haravan: product table has Created_at
       bqQuery = `
-        SELECT Sku AS sku, MIN(Created_at) AS created_date
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.productTable}\`
-        WHERE Sku IS NOT NULL AND Sku != '' AND Created_at IS NOT NULL
-        GROUP BY Sku
+        SELECT v.SKU AS sku, MIN(p.Created_at) AS created_date
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.productTable}\` p
+        JOIN \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Product_Variants\` v ON v.product_id = p.Id
+        WHERE v.SKU IS NOT NULL AND v.SKU != '' AND p.Created_at IS NOT NULL
+        GROUP BY v.SKU
       `;
     } else {
       // KiotViet
