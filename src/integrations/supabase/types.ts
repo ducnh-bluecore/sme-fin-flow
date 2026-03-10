@@ -10247,7 +10247,7 @@ export type Database = {
           avg_order_value: number
           cac: number
           cash_7d_forecast: number
-          cash_runway_months: number
+          cash_runway_months: number | null
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
@@ -10298,7 +10298,7 @@ export type Database = {
           avg_order_value?: number
           cac?: number
           cash_7d_forecast?: number
-          cash_runway_months?: number
+          cash_runway_months?: number | null
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
@@ -10349,7 +10349,7 @@ export type Database = {
           avg_order_value?: number
           cac?: number
           cash_7d_forecast?: number
-          cash_runway_months?: number
+          cash_runway_months?: number | null
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
@@ -42808,7 +42808,7 @@ export type Database = {
           avg_order_value: number
           cac: number
           cash_7d_forecast: number
-          cash_runway_months: number
+          cash_runway_months: number | null
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
