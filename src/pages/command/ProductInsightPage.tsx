@@ -207,7 +207,10 @@ export default function ProductInsightPage() {
             icon={<Package className="w-5 h-5" />}
           />
         </div>
-
+          <Button onClick={handleSync} disabled={syncing} variant="outline" size="sm" className="gap-2">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            Sync Batches
+          </Button>
         {/* Summary Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard icon={Package} label="Tổng SP" value={isLoading ? '...' : String(summary.total)} sub="Có batch data" iconClass="text-primary" />
