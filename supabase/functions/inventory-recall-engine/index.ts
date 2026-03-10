@@ -9,6 +9,8 @@ const NON_FASHION_PREFIXES = [
   'DTR', '333', 'dichvu', 'GC', 'LB', 'RFID', 'CLI', 'SER', 'TXN', 'OBG', 'BVSE', 'VC0', 'VCOLV',
 ];
 
+const NON_FASHION_COLLECTION_CODES = ['07-Others', '10-Accessories'];
+
 const NON_FASHION_KEYWORDS = [
   'nhãn dệt', 'nhãn det', 'nhan det', 'tags rfid', 'tag rfid',
   'dịch vụ', 'dich vu', 'điều trị', 'dieu tri',
