@@ -108,26 +108,25 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // Build query based on source type
+    // Build query based on source type - use the resolved table from config
     let sql: string;
     if (bqConfig.sourceType === 'haravan') {
-      // Haravan: branches from inventory locations
       sql = `
         SELECT DISTINCT
           CAST(loc_id AS STRING) as branch_id,
           ANY_VALUE(loc_name) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_InventoryLocations\`
-        WHERE loc_name IS NOT NULL AND loc_id IS NOT NULL
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+        WHERE loc_id IS NOT NULL
         GROUP BY loc_id
         ORDER BY branchName
       `;
     } else {
-      // KiotViet (default)
+      // KiotViet - use the resolved inventory table (e.g. bdm_kov_xuat_nhap_ton)
       sql = `
         SELECT
           CAST(branchId AS STRING) as branch_id,
           ANY_VALUE(branchName) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_ProductInventories\`
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
         WHERE branchName IS NOT NULL AND branchId IS NOT NULL
         GROUP BY branchId
         ORDER BY branchName

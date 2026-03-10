@@ -193,10 +193,12 @@ Deno.serve(async (req) => {
         WHERE Sku IS NOT NULL AND Sku != ''
       `;
     } else {
-      // KiotViet (default)
+      // KiotViet - use resolved inventory table (e.g. bdm_kov_xuat_nhap_ton has productCode)
       bqQuery = `
-        SELECT DISTINCT productCode AS sku, productName AS name
+        SELECT DISTINCT productCode AS sku, ANY_VALUE(productName) AS name
         FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+        WHERE productCode IS NOT NULL AND productCode != ''
+        GROUP BY productCode
         WHERE productCode IS NOT NULL AND productCode != ''
       `;
     }
