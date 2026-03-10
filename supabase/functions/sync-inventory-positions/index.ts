@@ -250,9 +250,6 @@ Deno.serve(async (req) => {
     let totalBqRows = 0, totalUpserted = 0, upsertErrors = 0;
     let noFc = 0, noStore = 0, skipped = 0;
     const UPSERT_BATCH = 2000;
-    
-    // Track all upserted store_id|sku keys to detect stale records
-    const upsertedKeys = new Set<string>();
 
     const mapAndUpsert = async (bqRows: Record<string, any>[]) => {
       const upsertRows: any[] = [];
@@ -263,7 +260,6 @@ Deno.serve(async (req) => {
         if (!sku) { skipped++; continue; }
         const fcId = skuToFc.get(sku);
         if (!fcId) { noFc++; continue; }
-        upsertedKeys.add(`${storeId}|${sku}`);
         upsertRows.push({
           tenant_id: tenantId, store_id: storeId, fc_id: fcId, sku,
           snapshot_date: today, on_hand: Math.round(Number(row.on_hand) || 0),
@@ -308,49 +304,20 @@ Deno.serve(async (req) => {
     }
 
     // ========== ZERO-OUT STALE RECORDS ==========
-    // Find records in DB for these stores with on_hand > 0 that were NOT in BQ results
+    // Lightweight: zero out previous-day snapshots for these stores (single query)
     const storeIds = Array.from(storeMap.values());
     let zeroedCount = 0;
-
-    for (const storeId of storeIds) {
-      // Get all records with on_hand > 0 for this store (any snapshot date)
-      let offset = 0;
-      const staleIds: string[] = [];
-      while (true) {
-        const { data: rows, error } = await supabase
-          .from('inv_state_positions')
-          .select('id, sku, snapshot_date')
-          .eq('tenant_id', tenantId)
-          .eq('store_id', storeId)
-          .gt('on_hand', 0)
-          .range(offset, offset + 999)
-          .limit(1000);
-        if (error || !rows?.length) break;
-        for (const r of rows) {
-          // If this store+sku was NOT in today's BQ sync → it's stale
-          if (!upsertedKeys.has(`${storeId}|${r.sku}`)) {
-            staleIds.push(r.id);
-          }
-        }
-        if (rows.length < 1000) break;
-        offset += 1000;
-      }
-
-      // Zero out stale records in batches
-      for (let i = 0; i < staleIds.length; i += 500) {
-        const batch = staleIds.slice(i, i + 500);
-        const { error: zErr } = await supabase
-          .from('inv_state_positions')
-          .update({ on_hand: 0, reserved: 0 })
-          .in('id', batch);
-        if (zErr) console.error(`[sync-inv] Zero-out batch error:`, zErr.message);
-        else zeroedCount += batch.length;
-      }
-    }
-
-    if (zeroedCount > 0) {
-      console.log(`[sync-inv] Zeroed ${zeroedCount} stale records not found in BQ`);
-    }
+    const { count: zeroed, error: zeroErr } = await supabase
+      .from('inv_state_positions')
+      .update({ on_hand: 0, reserved: 0 }, { count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .lt('snapshot_date', today)
+      .gt('on_hand', 0)
+      .in('store_id', storeIds);
+    
+    if (zeroErr) console.error(`[sync-inv] Zero-out error:`, zeroErr.message);
+    else zeroedCount = zeroed || 0;
+    if (zeroedCount > 0) console.log(`[sync-inv] Zeroed ${zeroedCount} stale records from old snapshots`);
 
     const duration = Date.now() - startTime;
     const summary = {
