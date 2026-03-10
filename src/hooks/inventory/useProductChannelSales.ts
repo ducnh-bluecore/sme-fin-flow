@@ -1,6 +1,6 @@
 /**
- * useProductChannelSales - Fetch channel sales & discount breakdown for a product family code
- * Uses database function fn_product_channel_sales for performance (avoids statement timeout on large tables)
+ * useProductChannelSales - Fetch channel sales, discount & profit breakdown for a product family code
+ * Uses database function fn_product_channel_sales for performance
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,10 @@ export interface ChannelSalesRow {
   revenue: number;
   discount_amount: number;
   avg_discount_pct: number;
+  cogs: number;
+  fees: number;
+  profit: number;
+  margin_pct: number;
 }
 
 export interface ProductChannelSalesData {
@@ -21,6 +25,10 @@ export interface ProductChannelSalesData {
   total_qty: number;
   total_orders: number;
   avg_discount_pct: number;
+  total_cogs: number;
+  total_fees: number;
+  total_profit: number;
+  avg_margin_pct: number;
 }
 
 export function useProductChannelSales(tenantId: string | null, fcCode: string | null, enabled: boolean) {
@@ -45,12 +53,20 @@ export function useProductChannelSales(tenantId: string | null, fcCode: string |
           revenue: Number(c.revenue) || 0,
           discount_amount: Number(c.discount_amount) || 0,
           avg_discount_pct: Number(c.avg_discount_pct) || 0,
+          cogs: Number(c.cogs) || 0,
+          fees: Number(c.fees) || 0,
+          profit: Number(c.profit) || 0,
+          margin_pct: Number(c.margin_pct) || 0,
         })),
         total_revenue: Number(result.total_revenue) || 0,
         total_discount: Number(result.total_discount) || 0,
         total_qty: Number(result.total_qty) || 0,
         total_orders: Number(result.total_orders) || 0,
         avg_discount_pct: Number(result.avg_discount_pct) || 0,
+        total_cogs: Number(result.total_cogs) || 0,
+        total_fees: Number(result.total_fees) || 0,
+        total_profit: Number(result.total_profit) || 0,
+        avg_margin_pct: Number(result.avg_margin_pct) || 0,
       };
     },
     enabled: enabled && !!tenantId && !!fcCode,
