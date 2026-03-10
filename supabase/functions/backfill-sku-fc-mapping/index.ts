@@ -1,9 +1,10 @@
 /**
  * backfill-sku-fc-mapping
  * 
- * Fetches all productCodes from BigQuery raw_kiotviet_ProductInventories,
+ * Fetches all productCodes from BigQuery inventory/product table,
  * finds missing SKUs not in inv_sku_fc_mapping, strips size suffix to derive
  * fc_code, finds or creates inv_family_codes, then inserts mappings.
+ * Supports dynamic tenant_id + resolves BQ config from DB.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -14,9 +15,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
+const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 // ============= Auth =============
 
@@ -40,9 +39,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-async function queryBigQuery(accessToken: string, query: string) {
+async function queryBigQuery(accessToken: string, projectId: string, query: string) {
   console.log('[backfill-sku] BQ:', query.substring(0, 200));
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -64,16 +63,96 @@ const SIZE_SUFFIXES = /^(.*\d)(XXXL|XXL|XL|XS|S|M|L|F)$/i;
 const NON_FASHION_PREFIXES = ['BAG', 'BOX', 'TAG', 'TUI', 'HOP', 'GIFT'];
 
 function stripSizeFromSku(sku: string): string {
-  // Try stripping known size suffixes from end
   const match = sku.match(SIZE_SUFFIXES);
   if (match) return match[1];
-  // If no match, return sku as-is (it IS the fc_code, e.g. accessories)
   return sku;
 }
 
 function isNonFashion(sku: string): boolean {
   const upper = sku.toUpperCase();
   return NON_FASHION_PREFIXES.some(p => upper.startsWith(p));
+}
+
+// ============= Config Resolution =============
+
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  table: string;
+  accessToken: string;
+  sourceType: string;
+  variantTable?: string;
+}
+
+async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  let projectId = 'bluecore-dcp';
+  let dataset = 'olvboutique';
+  let table = 'raw_kiotviet_ProductInventories';
+  let sourceType = 'kiotviet';
+  let variantTable: string | undefined;
+  let serviceAccountJson: string | null = null;
+
+  // 1) bigquery_configs (credentials_json preferred)
+  const { data: bqCfg } = await supabase
+    .from('bigquery_configs')
+    .select('gcp_project_id, dataset_id, credentials_json')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (bqCfg?.gcp_project_id) projectId = bqCfg.gcp_project_id;
+  if (bqCfg?.dataset_id) dataset = bqCfg.dataset_id;
+  if (bqCfg?.credentials_json) {
+    serviceAccountJson = typeof bqCfg.credentials_json === 'string'
+      ? bqCfg.credentials_json : JSON.stringify(bqCfg.credentials_json);
+  }
+
+  // 2) Check inventory source for table info
+  const { data: invSource } = await supabase
+    .from('bigquery_tenant_sources')
+    .select('dataset, table_name, service_account_secret, channel, mapping_overrides')
+    .eq('tenant_id', tenantId)
+    .in('model_type', ['inventory_positions', 'inventory'])
+    .eq('is_enabled', true)
+    .limit(1)
+    .maybeSingle();
+
+  if (invSource?.dataset) {
+    dataset = invSource.dataset;
+    table = invSource.table_name || table;
+    if (invSource.channel) sourceType = invSource.channel;
+    if (invSource.mapping_overrides?.source_type) sourceType = invSource.mapping_overrides.source_type;
+    if (invSource.mapping_overrides?.variant_table) variantTable = invSource.mapping_overrides.variant_table;
+    if (!serviceAccountJson && invSource.service_account_secret) {
+      const envVal = Deno.env.get(invSource.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
+    }
+  } else {
+    // Fallback: products source
+    const { data: source } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('dataset, channel, service_account_secret')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', 'products')
+      .eq('is_enabled', true)
+      .maybeSingle();
+    if (source?.dataset) dataset = source.dataset;
+    if (source?.channel) sourceType = source.channel;
+    if (!serviceAccountJson && source?.service_account_secret) {
+      const envVal = Deno.env.get(source.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
+    }
+  }
+
+  // 3) Final fallback
+  if (!serviceAccountJson) {
+    serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || null;
+  }
+  if (!serviceAccountJson) throw new Error('No service account credentials found');
+
+  console.log(`[backfill-sku] Config: project=${projectId}, dataset=${dataset}, table=${table}, type=${sourceType}`);
+  const accessToken = await getAccessToken(JSON.parse(serviceAccountJson));
+  return { projectId, dataset, table, accessToken, sourceType, variantTable };
 }
 
 // ============= Main =============
@@ -90,16 +169,40 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
-    const accessToken = await getAccessToken(JSON.parse(saJson));
+    const body = await req.json().catch(() => ({}));
+    const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
 
-    // 1. Get distinct productCodes from BQ (with product names for FC name)
-    const bqRows = await queryBigQuery(accessToken, `
-      SELECT DISTINCT productCode AS sku, productName AS name
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_ProductInventories\`
-      WHERE productCode IS NOT NULL AND productCode != ''
-    `);
+    console.log(`[backfill-sku] tenant=${tenantId}`);
+
+    const bqConfig = await resolveBqConfig(supabase, tenantId);
+
+    // 1. Get distinct SKUs from BQ - different SQL per source type
+    let bqQuery: string;
+    if (bqConfig.sourceType === 'haravan' && bqConfig.variantTable) {
+      bqQuery = `
+        SELECT DISTINCT v.SKU AS sku, p.Title AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.variantTable}\` v
+        LEFT JOIN \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Product\` p 
+          ON v.product_id = p.Id
+        WHERE v.SKU IS NOT NULL AND v.SKU != ''
+      `;
+    } else if (bqConfig.sourceType === 'haravan') {
+      bqQuery = `
+        SELECT DISTINCT Sku AS sku, Title AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Product\`
+        WHERE Sku IS NOT NULL AND Sku != ''
+      `;
+    } else {
+      // KiotViet - use resolved inventory table (e.g. bdm_kov_xuat_nhap_ton has productCode)
+      bqQuery = `
+        SELECT productCode AS sku, ANY_VALUE(productName) AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+        WHERE productCode IS NOT NULL AND productCode != ''
+        GROUP BY productCode
+      `;
+    }
+
+    const bqRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, bqQuery);
     console.log(`[backfill-sku] BQ distinct SKUs: ${bqRows.length}`);
 
     // 2. Load existing SKU mappings
@@ -110,7 +213,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from('inv_sku_fc_mapping')
         .select('sku')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', tenantId)
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       if (!data?.length) break;
@@ -121,13 +224,13 @@ Deno.serve(async (req) => {
     console.log(`[backfill-sku] Existing SKU mappings: ${existingSkus.size}`);
 
     // 3. Load existing FCs
-    const existingFcs = new Map<string, string>(); // fc_code → id
+    const existingFcs = new Map<string, string>();
     offset = 0;
     while (true) {
       const { data, error } = await supabase
         .from('inv_family_codes')
         .select('id, fc_code')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', tenantId)
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       if (!data?.length) break;
@@ -135,61 +238,47 @@ Deno.serve(async (req) => {
       if (data.length < PAGE) break;
       offset += PAGE;
     }
-    console.log(`[backfill-sku] Existing FCs: ${existingFcs.size}`);
 
     // 4. Find missing SKUs & derive FCs
     const missingSKUs: { sku: string; name: string }[] = [];
-    const newFcCodes = new Map<string, string>(); // fc_code → product_name (for creating)
+    const newFcCodes = new Map<string, string>();
 
     for (const row of bqRows) {
       const sku = row.sku;
       if (existingSkus.has(sku)) continue;
       if (isNonFashion(sku)) continue;
-
       missingSKUs.push({ sku, name: row.name || '' });
       const fcCode = stripSizeFromSku(sku);
       if (!existingFcs.has(fcCode) && !newFcCodes.has(fcCode)) {
-        // Use product name but strip size info for FC name
         const name = row.name || fcCode;
-        // Strip trailing " - S", " - M", etc from name
         const cleanName = name.replace(/\s*[-/]\s*(XXXL|XXL|XL|XS|S|M|L|F)\s*$/i, '').trim();
         newFcCodes.set(fcCode, cleanName || fcCode);
       }
     }
 
-    console.log(`[backfill-sku] Missing SKUs: ${missingSKUs.length}, New FCs to create: ${newFcCodes.size}`);
+    console.log(`[backfill-sku] Missing SKUs: ${missingSKUs.length}, New FCs: ${newFcCodes.size}`);
 
-    // 5. Create new FCs in batches
+    // 5. Create new FCs
     const BATCH = 500;
     let fcsCreated = 0;
     const fcEntries = Array.from(newFcCodes.entries());
 
     for (let i = 0; i < fcEntries.length; i += BATCH) {
       const batch = fcEntries.slice(i, i + BATCH).map(([code, name]) => ({
-        tenant_id: TENANT_ID,
-        fc_code: code,
-        fc_name: name,
-        is_active: true,
+        tenant_id: tenantId, fc_code: code, fc_name: name, is_active: true,
       }));
-
       const { data, error } = await supabase
         .from('inv_family_codes')
         .upsert(batch, { onConflict: 'tenant_id,fc_code' })
         .select('id, fc_code');
-
-      if (error) {
-        console.error(`[backfill-sku] FC upsert error:`, error.message);
-      } else {
+      if (!error) {
         (data || []).forEach((r: any) => existingFcs.set(r.fc_code, r.id));
         fcsCreated += (data || []).length;
       }
     }
 
-    console.log(`[backfill-sku] Created ${fcsCreated} new FCs`);
-
     // 6. Create SKU→FC mappings
-    let mappingsCreated = 0;
-    let mappingErrors = 0;
+    let mappingsCreated = 0, mappingErrors = 0;
 
     for (let i = 0; i < missingSKUs.length; i += BATCH) {
       const batch = missingSKUs.slice(i, i + BATCH)
@@ -197,43 +286,23 @@ Deno.serve(async (req) => {
           const fcCode = stripSizeFromSku(sku);
           const fcId = existingFcs.get(fcCode);
           if (!fcId) return null;
-
-          return {
-            tenant_id: TENANT_ID,
-            sku,
-            fc_id: fcId,
-            is_active: true,
-          };
+          return { tenant_id: tenantId, sku, fc_id: fcId, is_active: true };
         })
         .filter(Boolean);
-
       if (!batch.length) continue;
-
       const { error } = await supabase
         .from('inv_sku_fc_mapping')
         .upsert(batch as any[], { onConflict: 'tenant_id,sku' });
-
-      if (error) {
-        console.error(`[backfill-sku] Mapping error at ${i}:`, error.message);
-        mappingErrors++;
-      } else {
-        mappingsCreated += batch.length;
-      }
+      if (error) { mappingErrors++; } else { mappingsCreated += batch.length; }
     }
 
-    const duration = Date.now() - startTime;
     const summary = {
-      success: mappingErrors === 0,
-      bq_distinct_skus: bqRows.length,
-      existing_mappings: existingSkus.size,
-      missing_skus: missingSKUs.length,
-      new_fcs_created: fcsCreated,
-      mappings_created: mappingsCreated,
-      mapping_errors: mappingErrors,
-      duration_ms: duration,
+      success: mappingErrors === 0, tenant_id: tenantId,
+      bq_distinct_skus: bqRows.length, existing_mappings: existingSkus.size,
+      missing_skus: missingSKUs.length, new_fcs_created: fcsCreated,
+      mappings_created: mappingsCreated, mapping_errors: mappingErrors,
+      duration_ms: Date.now() - startTime,
     };
-
-    console.log(`[backfill-sku] Done in ${duration}ms. New FCs: ${fcsCreated}, New mappings: ${mappingsCreated}`);
 
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

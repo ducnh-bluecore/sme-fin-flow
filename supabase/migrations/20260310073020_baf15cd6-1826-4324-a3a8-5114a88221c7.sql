@@ -1,0 +1,1 @@
+UPDATE tenants SET name = 'OLV Fashion' WHERE id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';

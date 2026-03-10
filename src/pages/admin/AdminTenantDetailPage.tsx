@@ -20,7 +20,9 @@ import {
   BarChart3,
   History,
   HeartPulse,
-  Package
+  Package,
+  RefreshCw,
+  Plug
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useTenantSchemaStatus } from '@/hooks/useTenantSchemaStatus';
@@ -31,6 +33,9 @@ import { TenantStatsCard } from '@/components/admin/TenantStatsCard';
 import { TenantHealthTab } from '@/components/admin/TenantHealthTab';
 import { TenantAuditLog } from '@/components/admin/TenantAuditLog';
 import { TenantSubscriptionTab } from '@/components/admin/TenantSubscriptionTab';
+import { TenantBigQueryTab } from '@/components/admin/TenantBigQueryTab';
+import { TenantDataSyncTab } from '@/components/admin/TenantDataSyncTab';
+import { TenantConnectorsTab } from '@/components/admin/TenantConnectorsTab';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -143,6 +148,18 @@ export default function AdminTenantDetailPage() {
             <TabsTrigger value="subscription" className="gap-2">
               <Package className="w-4 h-4" />
               Gói & Modules
+            </TabsTrigger>
+            <TabsTrigger value="bigquery" className="gap-2">
+              <Database className="w-4 h-4" />
+              BigQuery
+            </TabsTrigger>
+            <TabsTrigger value="datasync" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Data Sync
+            </TabsTrigger>
+            <TabsTrigger value="connectors" className="gap-2">
+              <Plug className="w-4 h-4" />
+              Connectors
             </TabsTrigger>
             <TabsTrigger value="audit" className="gap-2">
               <History className="w-4 h-4" />
@@ -382,6 +399,21 @@ export default function AdminTenantDetailPage() {
               tenantId={tenant.id}
               tenantPlan={tenant.plan || 'free'}
             />
+          </TabsContent>
+
+          {/* BigQuery Tab */}
+          <TabsContent value="bigquery">
+            <TenantBigQueryTab tenantId={tenant.id} />
+          </TabsContent>
+
+          {/* Data Sync Tab */}
+          <TabsContent value="datasync">
+            <TenantDataSyncTab tenantId={tenant.id} />
+          </TabsContent>
+
+          {/* Connectors Tab */}
+          <TabsContent value="connectors">
+            <TenantConnectorsTab tenantId={tenant.id} />
           </TabsContent>
 
           {/* Audit Log Tab */}

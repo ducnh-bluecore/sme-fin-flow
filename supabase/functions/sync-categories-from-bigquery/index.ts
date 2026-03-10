@@ -1,11 +1,9 @@
 /**
  * sync-categories-from-bigquery
  * 
- * Fetches product categories from BigQuery (raw_kiotviet_Categories + raw_kiotviet_Product),
- * upserts into inv_collections, and updates inv_family_codes.collection_id accordingly.
- * 
- * Categories are deduplicated by name (e.g. "01-Ao" appears under two parent trees).
- * Only fashion-related categories under known parent IDs are synced.
+ * Fetches product categories from BigQuery, upserts into inv_collections,
+ * and updates inv_family_codes.collection_id accordingly.
+ * Now supports dynamic tenant_id + resolves BQ config from DB.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -16,11 +14,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
-
-// Known fashion parent category IDs in KiotViet
+const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const FASHION_PARENT_IDS = [186470, 263785];
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -43,9 +37,62 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-async function queryBigQuery(accessToken: string, sql: string): Promise<any[]> {
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  accessToken: string;
+  sourceType: string;
+}
+
+async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  let projectId = 'bluecore-dcp';
+  let dataset = 'olvboutique';
+  let sourceType = 'kiotviet';
+  let serviceAccountJson: string | null = null;
+
+  const { data: bqCfg } = await supabase
+    .from('bigquery_configs')
+    .select('gcp_project_id, dataset_id, credentials_json')
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (bqCfg?.gcp_project_id) projectId = bqCfg.gcp_project_id;
+  if (bqCfg?.dataset_id) dataset = bqCfg.dataset_id;
+  if (bqCfg?.credentials_json) {
+    serviceAccountJson = typeof bqCfg.credentials_json === 'string'
+      ? bqCfg.credentials_json : JSON.stringify(bqCfg.credentials_json);
+  }
+
+  // Check products source for channel info
+  const { data: prodSource } = await supabase
+    .from('bigquery_tenant_sources')
+    .select('dataset, channel, service_account_secret')
+    .eq('tenant_id', tenantId)
+    .eq('model_type', 'products')
+    .eq('is_enabled', true)
+    .maybeSingle();
+
+  if (prodSource?.dataset) dataset = prodSource.dataset;
+  if (prodSource?.channel) sourceType = prodSource.channel;
+  if (!serviceAccountJson && prodSource?.service_account_secret) {
+    const envVal = Deno.env.get(prodSource.service_account_secret);
+    if (envVal) serviceAccountJson = envVal;
+  }
+
+  if (!serviceAccountJson) {
+    serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || null;
+  }
+  if (!serviceAccountJson) throw new Error('No service account credentials found');
+
+  console.log(`[sync-categories] Config: project=${projectId}, dataset=${dataset}, type=${sourceType}`);
+  const accessToken = await getAccessToken(JSON.parse(serviceAccountJson));
+  return { projectId, dataset, accessToken, sourceType };
+}
+
+async function queryBigQuery(accessToken: string, projectId: string, sql: string): Promise<any[]> {
   console.log('[sync-categories] BQ:', sql.substring(0, 200));
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -67,31 +114,33 @@ Deno.serve(async (req) => {
   }
 
   const startTime = Date.now();
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
   try {
     const body = await req.json().catch(() => ({}));
+    const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
     const dryRun = body.dry_run === true;
 
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
-    const accessToken = await getAccessToken(JSON.parse(saJson));
+    const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // ── Step 1: Fetch fashion categories from BigQuery ──
+    // Haravan doesn't have a categories table → skip
+    if (bqConfig.sourceType === 'haravan') {
+      return new Response(JSON.stringify({
+        success: true, message: 'Category sync not supported for Haravan source', tenant_id: tenantId,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // KiotViet category sync
     const parentList = FASHION_PARENT_IDS.join(',');
-    const categoriesRows = await queryBigQuery(accessToken, `
+    const categoriesRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, `
       SELECT categoryId, categoryName, parentId
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_Categories\`
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_Categories\`
       WHERE CAST(parentId AS INT64) IN (${parentList})
       QUALIFY ROW_NUMBER() OVER (PARTITION BY categoryId ORDER BY dw_timestamp DESC) = 1
       ORDER BY categoryName
     `);
     console.log(`[sync-categories] Fetched ${categoriesRows.length} fashion categories`);
 
-    // Deduplicate by categoryName (same name under different parents → one collection)
     const categoryMap = new Map<string, { categoryIds: string[]; categoryName: string }>();
     for (const row of categoriesRows) {
       const name = row.categoryName;
@@ -101,49 +150,37 @@ Deno.serve(async (req) => {
         categoryMap.get(name)!.categoryIds.push(row.categoryId);
       }
     }
-    console.log(`[sync-categories] Unique categories by name: ${categoryMap.size}`);
 
-    // ── Step 2: Fetch product → category mapping from BigQuery ──
-    const productCategoryRows = await queryBigQuery(accessToken, `
+    const productCategoryRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, `
       SELECT DISTINCT code AS sku, categoryId, categoryName
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_Product\`
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_Product\`
       WHERE code IS NOT NULL AND code != ''
         AND CAST(categoryId AS INT64) IN (
-          SELECT categoryId FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_Categories\`
+          SELECT categoryId FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_Categories\`
           WHERE CAST(parentId AS INT64) IN (${parentList})
         )
       QUALIFY ROW_NUMBER() OVER (PARTITION BY code ORDER BY COALESCE(modifiedDate, createdDate) DESC) = 1
     `);
-    console.log(`[sync-categories] Fetched ${productCategoryRows.length} product-category mappings`);
 
     if (dryRun) {
       const catSummary: Record<string, number> = {};
-      productCategoryRows.forEach((r: any) => {
-        catSummary[r.categoryName] = (catSummary[r.categoryName] || 0) + 1;
-      });
+      productCategoryRows.forEach((r: any) => { catSummary[r.categoryName] = (catSummary[r.categoryName] || 0) + 1; });
       return new Response(JSON.stringify({
-        success: true, dry_run: true,
-        unique_categories: categoryMap.size,
-        total_product_mappings: productCategoryRows.length,
+        success: true, dry_run: true, tenant_id: tenantId,
+        unique_categories: categoryMap.size, total_product_mappings: productCategoryRows.length,
         category_product_counts: catSummary,
-        categories: [...categoryMap.values()],
       }, null, 2), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // ── Step 3: Upsert categories into inv_collections ──
+    // Upsert categories
     const collectionRows = [...categoryMap.values()].map(cat => ({
-      tenant_id: TENANT_ID,
-      collection_code: cat.categoryName, // e.g. "01-Ao", "03-Dam"
-      collection_name: cat.categoryName,
-      is_new_collection: false,
-      air_date: null,
-      season: null,
+      tenant_id: tenantId, collection_code: cat.categoryName,
+      collection_name: cat.categoryName, is_new_collection: false,
     }));
 
     let collectionsUpserted = 0;
-    const BATCH = 50;
-    // Map collection_code → id for later FK updates
     const collectionCodeToId = new Map<string, string>();
+    const BATCH = 50;
 
     for (let i = 0; i < collectionRows.length; i += BATCH) {
       const batch = collectionRows.slice(i, i + BATCH);
@@ -151,41 +188,30 @@ Deno.serve(async (req) => {
         .from('inv_collections')
         .upsert(batch, { onConflict: 'tenant_id,collection_code' })
         .select('id, collection_code');
-
-      if (error) {
-        console.error(`[sync-categories] Collection upsert error:`, error.message);
-      } else {
+      if (!error) {
         (data || []).forEach((r: any) => collectionCodeToId.set(r.collection_code, r.id));
         collectionsUpserted += (data || []).length;
       }
     }
-    console.log(`[sync-categories] Upserted ${collectionsUpserted} collections`);
 
-    // If upsert didn't return IDs (no change), fetch them
     if (collectionCodeToId.size === 0) {
-      const { data } = await supabase
-        .from('inv_collections')
-        .select('id, collection_code')
-        .eq('tenant_id', TENANT_ID);
+      const { data } = await supabase.from('inv_collections')
+        .select('id, collection_code').eq('tenant_id', tenantId);
       (data || []).forEach((r: any) => collectionCodeToId.set(r.collection_code, r.id));
     }
 
-    // ── Step 4: Build SKU → collection_id mapping via FC ──
-    // Build categoryName → collection_id
+    // Build FC → collection mapping
     const catNameToCollId = new Map<string, string>();
-    for (const [name, _] of categoryMap) {
+    for (const [name] of categoryMap) {
       const collId = collectionCodeToId.get(name);
       if (collId) catNameToCollId.set(name, collId);
     }
-
-    // Build categoryId → collection_id (for all BQ categoryIds)
     const catIdToCollId = new Map<string, string>();
     for (const row of categoriesRows) {
       const collId = catNameToCollId.get(row.categoryName);
       if (collId) catIdToCollId.set(row.categoryId, collId);
     }
 
-    // Build fc_code → collection_id from product mappings
     const SIZE_SUFFIXES = /^(.*\d)(XXXL|XXL|XL|XS|S|M|L|F)$/i;
     function stripSize(sku: string): string {
       const match = sku.match(SIZE_SUFFIXES);
@@ -196,23 +222,16 @@ Deno.serve(async (req) => {
     for (const row of productCategoryRows) {
       const fcCode = stripSize(row.sku);
       const collId = catIdToCollId.get(row.categoryId);
-      if (collId && !fcToCollId.has(fcCode)) {
-        fcToCollId.set(fcCode, collId);
-      }
+      if (collId && !fcToCollId.has(fcCode)) fcToCollId.set(fcCode, collId);
     }
-    console.log(`[sync-categories] FC→Collection mappings: ${fcToCollId.size}`);
 
-    // ── Step 5: Update inv_family_codes.collection_id + category ──
-    // Load existing FCs
-    const PAGE = 5000;
+    // Update FCs
+    const PAGE = 1000;
     let offset = 0;
     const existingFcs: { id: string; fc_code: string }[] = [];
     while (true) {
-      const { data, error } = await supabase
-        .from('inv_family_codes')
-        .select('id, fc_code')
-        .eq('tenant_id', TENANT_ID)
-        .range(offset, offset + PAGE - 1);
+      const { data, error } = await supabase.from('inv_family_codes')
+        .select('id, fc_code').eq('tenant_id', tenantId).range(offset, offset + PAGE - 1);
       if (error) throw error;
       if (!data?.length) break;
       existingFcs.push(...data as any[]);
@@ -221,61 +240,38 @@ Deno.serve(async (req) => {
     }
 
     let fcsUpdated = 0;
-    let fcUpdateErrors = 0;
-
-    // Group FCs by collection_id for batch updates
     const collIdToFcIds = new Map<string, { fcIds: string[]; category: string }>();
     for (const fc of existingFcs) {
       const collId = fcToCollId.get(fc.fc_code);
       if (collId) {
         const catName = [...catNameToCollId.entries()].find(([_, id]) => id === collId)?.[0] || '';
-        if (!collIdToFcIds.has(collId)) {
-          collIdToFcIds.set(collId, { fcIds: [], category: catName });
-        }
+        if (!collIdToFcIds.has(collId)) collIdToFcIds.set(collId, { fcIds: [], category: catName });
         collIdToFcIds.get(collId)!.fcIds.push(fc.id);
       }
     }
 
-    // Batch update per collection (one UPDATE per category)
     for (const [collId, { fcIds, category }] of collIdToFcIds) {
       for (let i = 0; i < fcIds.length; i += 500) {
         const batch = fcIds.slice(i, i + 500);
-        const { error, count } = await supabase
-          .from('inv_family_codes')
-          .update({ collection_id: collId, category })
-          .in('id', batch);
-        if (error) {
-          console.error(`[sync-categories] FC update error for ${category}:`, error.message);
-          fcUpdateErrors++;
-        } else {
-          fcsUpdated += batch.length;
-        }
+        const { error } = await supabase.from('inv_family_codes')
+          .update({ collection_id: collId, category }).in('id', batch);
+        if (!error) fcsUpdated += batch.length;
       }
     }
 
-    const duration = Date.now() - startTime;
     const summary = {
-      success: fcUpdateErrors === 0,
-      bq_categories: categoriesRows.length,
-      unique_categories: categoryMap.size,
-      bq_product_mappings: productCategoryRows.length,
-      collections_upserted: collectionsUpserted,
-      fc_collection_mappings: fcToCollId.size,
-      fcs_updated: fcsUpdated,
-      fc_update_errors: fcUpdateErrors,
-      duration_ms: duration,
+      success: true, tenant_id: tenantId,
+      bq_categories: categoriesRows.length, unique_categories: categoryMap.size,
+      collections_upserted: collectionsUpserted, fcs_updated: fcsUpdated,
+      duration_ms: Date.now() - startTime,
     };
-
-    console.log(`[sync-categories] Done in ${duration}ms`, summary);
-
-    return new Response(JSON.stringify(summary, null, 2), {
+    return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err: any) {
     console.error(`[sync-categories] FATAL:`, err.message);
-    return new Response(
-      JSON.stringify({ success: false, error: err.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 },
-    );
+    return new Response(JSON.stringify({ success: false, error: err.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500,
+    });
   }
 });

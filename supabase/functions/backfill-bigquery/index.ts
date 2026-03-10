@@ -76,6 +76,44 @@ function shouldPause(startTimeMs: number) {
   return Date.now() - startTimeMs >= MAX_EXECUTION_TIME_MS;
 }
 
+// ============= Tenant-Aware Upsert Helper =============
+// PostgREST (.from()) always targets public schema regardless of search_path.
+// This helper uses the tenant_upsert_jsonb RPC to route writes to the correct schema.
+async function tenantUpsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[],
+  conflictColumns: string[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: conflictColumns,
+  });
+  
+  return { count: error ? 0 : (data || 0), error };
+}
+
+// Tenant-aware order lookup for FK resolution
+async function tenantLookupOrderIds(
+  supabase: any,
+  tenantId: string,
+  orderKeys: string[]
+): Promise<{ data: Array<{ id: string; order_key: string }> | null; error: any }> {
+  if (orderKeys.length === 0) return { data: [], error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_lookup_order_ids', {
+    p_tenant_id: tenantId,
+    p_order_keys: orderKeys,
+  });
+  
+  return { data, error };
+}
+
 // ============= KiotViet Marketplace Dedup =============
 // SaleChannelId values that represent marketplace orders flowing through KiotViet POS.
 // These orders are already synced from their native marketplace datasets,
@@ -514,6 +552,23 @@ const PRODUCT_SOURCES = [
     }
   },
   {
+    channel: 'haravan',
+    dataset: 'olvboutique',
+    table: 'raw_hrv_Products',
+    mapping: {
+      product_id: 'Id',
+      sku: 'Sku',
+      name: 'Title',
+      category: 'Product_type',
+      brand: 'Vendor',
+      cost_price: null,
+      selling_price: 'Price',
+      current_stock: null,
+      date_col: 'Updated_at',
+      created_col: 'Created_at',
+    }
+  },
+  {
     channel: 'shopee',
     dataset: 'olvboutique_shopee',
     table: 'shopee_Products',
@@ -745,6 +800,145 @@ const CAMPAIGN_SOURCES = [
   },
 ];
 
+// ============= Tenant Source Resolution =============
+
+interface TenantSourceOverride {
+  model_type: string;
+  channel: string;
+  dataset: string;
+  table_name: string;
+  mapping_overrides: Record<string, string> | null;
+  is_enabled: boolean;
+}
+
+/**
+ * Resolves a tenant-specific service account key from bigquery_tenant_sources.
+ * If the tenant has a custom `service_account_secret` configured, read that env var.
+ * Returns the JSON string or null (fallback to default GOOGLE_SERVICE_ACCOUNT_JSON).
+ */
+async function resolveTenantServiceAccountKey(tenantId: string): Promise<string | null> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const tempClient = createClient(supabaseUrl, supabaseKey);
+    
+    // 1) Check bigquery_configs for credentials_json (preferred, stored in DB)
+    const { data: bqConfig } = await tempClient
+      .from('bigquery_configs')
+      .select('credentials_json')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (bqConfig?.credentials_json) {
+      const credsStr = typeof bqConfig.credentials_json === 'string'
+        ? bqConfig.credentials_json
+        : JSON.stringify(bqConfig.credentials_json);
+      const parsed = typeof bqConfig.credentials_json === 'string'
+        ? JSON.parse(bqConfig.credentials_json)
+        : bqConfig.credentials_json;
+      console.log(`[resolveTenantServiceAccountKey] Using credentials from bigquery_configs (SA: ${parsed.client_email})`);
+      return credsStr;
+    }
+
+    // 2) Fallback: check bigquery_tenant_sources for env secret name
+    const { data, error } = await tempClient
+      .from('bigquery_tenant_sources')
+      .select('service_account_secret')
+      .eq('tenant_id', tenantId)
+      .not('service_account_secret', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data?.service_account_secret) return null;
+
+    const secretName = data.service_account_secret;
+    const secretValue = Deno.env.get(secretName);
+    if (!secretValue) {
+      console.warn(`[resolveTenantServiceAccountKey] Secret '${secretName}' configured but not found in env`);
+      return null;
+    }
+    console.log(`[resolveTenantServiceAccountKey] Using tenant-specific key from secret '${secretName}'`);
+    return secretValue;
+  } catch (err: any) {
+    console.warn(`[resolveTenantServiceAccountKey] Error: ${err.message}. Using default key.`);
+    return null;
+  }
+}
+
+
+/**
+ * Resolves BigQuery sources for a tenant.
+ * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
+ * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
+ */
+async function resolveSources<T extends { channel?: string; name?: string; dataset: string; table: string }>(
+  supabase: any,
+  tenantId: string,
+  modelType: string,
+  defaultSources: readonly T[],
+): Promise<T[]> {
+  try {
+    const { data: overrides, error } = await supabase
+      .from('bigquery_tenant_sources')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret')
+      .eq('tenant_id', tenantId)
+      .eq('model_type', modelType)
+      .eq('is_enabled', true);
+
+    if (error) {
+      console.warn(`[resolveSources] Error querying tenant sources: ${error.message}. Using defaults.`);
+      return [...defaultSources] as T[];
+    }
+
+    if (!overrides || overrides.length === 0) {
+      // No tenant-specific config → use hardcoded defaults
+      return [...defaultSources] as T[];
+    }
+
+    // Tenant has custom sources → only use matching channels from defaults, with overridden dataset/table
+    const resolved: T[] = [];
+    for (const ov of overrides as TenantSourceOverride[]) {
+      // Find matching default source by channel name
+      const channelKey = ov.channel;
+      const defaultSource = (defaultSources as any[]).find(
+        s => (s.channel || s.name) === channelKey
+      );
+
+      if (defaultSource) {
+        // Clone and override dataset + table + mapping
+        const cloned = {
+          ...defaultSource,
+          dataset: ov.dataset,
+          table: ov.table_name,
+        };
+        // Apply mapping_overrides if present
+        if (ov.mapping_overrides && typeof ov.mapping_overrides === 'object' && (cloned as any).mapping) {
+          (cloned as any).mapping = { ...(cloned as any).mapping, ...ov.mapping_overrides };
+          console.log(`[resolveSources] Applied mapping overrides for ${channelKey}:`, JSON.stringify(ov.mapping_overrides));
+        }
+        resolved.push(cloned);
+      } else {
+        console.warn(`[resolveSources] No default mapping for channel '${channelKey}' in model '${modelType}'. Skipping.`);
+      }
+    }
+
+    console.log(`[resolveSources] Tenant ${tenantId} model=${modelType}: using ${resolved.length} custom sources (${resolved.map(s => (s as any).channel || (s as any).name).join(', ')})`);
+    return resolved;
+  } catch (err: any) {
+    console.warn(`[resolveSources] Exception: ${err.message}. Using defaults.`);
+    return [...defaultSources] as T[];
+  }
+}
+
+/**
+ * Check if tenant uses KiotViet (has kiotviet channel in resolved sources).
+ * Used to conditionally apply marketplace dedup logic.
+ */
+function hasKiotVietChannel(sources: Array<{ channel?: string; name?: string }>): boolean {
+  return sources.some(s => (s.channel || s.name) === 'kiotviet');
+}
+
 // ============= Auth Functions =============
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
@@ -769,6 +963,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
   const tokenData = await tokenResponse.json();
   if (!tokenData.access_token) {
+    console.error('[getAccessToken] Token response error:', JSON.stringify(tokenData));
+    console.error('[getAccessToken] Service account email:', serviceAccount.client_email);
+    console.error('[getAccessToken] Private key starts with:', serviceAccount.private_key?.substring(0, 40));
     throw new Error('Failed to get access token');
   }
   return tokenData.access_token;
@@ -946,14 +1143,18 @@ async function syncCustomers(
   const sourceErrors: string[] = [];
   const sourceResults: SourceProgress[] = [];
   let paused = false;
+
+  // Resolve tenant-specific sources (or fallback to hardcoded defaults)
+  const resolvedSources = await resolveSources(supabase, tenantId, 'customers', CUSTOMER_SOURCES);
+
   // Initialize source progress
-  await initSourceProgress(supabase, jobId, CUSTOMER_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedSources.map(s => ({
     name: s.name,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of CUSTOMER_SOURCES) {
+  for (const source of resolvedSources) {
     // Read saved progress to resume from where we left off
     const savedProgress = await getSourceProgress(supabase, jobId, source.name);
     if (savedProgress?.status === 'completed') {
@@ -1136,9 +1337,7 @@ async function syncCustomers(
       source_created_at: c.created_at || null,
     }));
     
-    const { error } = await supabase
-      .from('cdp_customers')
-      .upsert(batch, { onConflict: 'tenant_id,canonical_key' });
+    const { error } = await tenantUpsert(supabase, tenantId, 'cdp_customers', batch, ['tenant_id', 'canonical_key']);
     
     if (error) {
       console.error('Upsert error:', error);
@@ -1184,10 +1383,12 @@ async function syncOrders(
   let inserted = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedOrderSources = await resolveSources(supabase, tenantId, 'orders', ORDER_SOURCES);
   const sources = options.source_table
-    ? ORDER_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_SOURCES;
+    ? resolvedOrderSources.filter(s => s.table === options.source_table)
+    : resolvedOrderSources;
+  const useKiotVietDedup = hasKiotVietChannel(sources);
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
@@ -1268,8 +1469,8 @@ async function syncOrders(
             ? parseFloat(row[source.mapping.net_revenue] || '0') || (grossRevenue - discountAmount)
             : grossRevenue;
 
-          // Detect marketplace flag for KiotViet orders
-          const isMarketplace = source.channel === 'kiotviet' && 
+          // Detect marketplace flag for KiotViet orders (only when tenant uses kiotviet)
+          const isMarketplace = useKiotVietDedup && source.channel === 'kiotviet' && 
             !isKiotVietNativeOrder(row[source.mapping.sale_channel_id]);
 
           return {
@@ -1300,12 +1501,7 @@ async function syncOrders(
           };
         });
         
-        const { error, count } = await supabase
-          .from('cdp_orders')
-          .upsert(orders, { 
-            onConflict: 'tenant_id,channel,order_key',
-            count: 'exact'
-          });
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_orders', orders, ['tenant_id', 'channel', 'order_key']);
         
         if (error) {
           console.error('Order upsert error:', error);
@@ -1381,10 +1577,11 @@ async function syncOrderItems(
   let skipped = 0;
   const sourceResults: SourceProgress[] = [];
   let paused = false;
-  // Filter to specific source if provided, otherwise all
+  // Resolve tenant-specific sources, then filter to specific source if provided
+  const resolvedItemSources = await resolveSources(supabase, tenantId, 'order_items', ORDER_ITEM_SOURCES);
   const sources = options.source_table
-    ? ORDER_ITEM_SOURCES.filter(s => s.table === options.source_table)
-    : ORDER_ITEM_SOURCES;
+    ? resolvedItemSources.filter(s => s.table === options.source_table)
+    : resolvedItemSources;
   
   // Initialize source progress
   await initSourceProgress(supabase, jobId, sources.map(s => ({
@@ -1460,18 +1657,15 @@ async function syncOrderItems(
         const orderKeyToUuid: Record<string, string> = {};
         for (let i = 0; i < batchOrderKeys.length; i += 200) {
           const chunk = batchOrderKeys.slice(i, i + 200);
-          const { data: orderRows, error: lookupError } = await supabase
-            .from('cdp_orders')
-            .select('id, order_key')
-            .eq('tenant_id', tenantId)
-            .eq('channel', source.channel)
-            .in('order_key', chunk);
+          // Use tenant-aware lookup to query correct schema
+          const orderKeysWithChannel = chunk.map(k => `${source.channel}:${k}`);
+          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, orderKeysWithChannel);
           
           if (lookupError) {
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              orderKeyToUuid[o.order_key] = o.id;
+              orderKeyToUuid[o.order_key] = o.order_uuid;
             }
           }
         }
@@ -1481,7 +1675,8 @@ async function syncOrderItems(
         const orderItems = [];
         for (const row of rows) {
           const orderKey = String(row[source.mapping.order_key]);
-          const resolvedOrderId = orderKeyToUuid[orderKey];
+          const fullOrderKey = `${source.channel}:${orderKey}`;
+          const resolvedOrderId = orderKeyToUuid[fullOrderKey];
           
           if (!resolvedOrderId) {
             batchSkipped++;
@@ -1517,10 +1712,7 @@ async function syncOrderItems(
         
         // Step 4: Upsert only valid items
         if (orderItems.length > 0) {
-          const { error, count } = await supabase
-            .from('cdp_order_items')
-            .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_order_items', orderItems, ['tenant_id', 'order_id', 'sku']);
           
           if (error) {
             console.error('Order item upsert error:', error);
@@ -1613,9 +1805,10 @@ async function syncRefunds(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedRefundSources = await resolveSources(supabase, tenantId, 'refunds', REFUND_SOURCES);
   const sources = options.source_table
-    ? REFUND_SOURCES.filter(s => s.table === options.source_table)
-    : REFUND_SOURCES;
+    ? resolvedRefundSources.filter(s => s.table === options.source_table)
+    : resolvedRefundSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -1679,10 +1872,7 @@ async function syncRefunds(
         }));
 
         // Upsert to update changed data (unique on tenant_id + refund_key)
-        const { error, count } = await supabase
-          .from('cdp_refunds')
-          .upsert(refunds, { onConflict: 'tenant_id,refund_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_refunds', refunds, ['tenant_id', 'refund_key']);
 
         if (error) {
           console.error('Refund upsert error:', error);
@@ -1757,9 +1947,10 @@ async function syncPayments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedPaymentSources = await resolveSources(supabase, tenantId, 'payments', PAYMENT_SOURCES);
   const sources = options.source_table
-    ? PAYMENT_SOURCES.filter(s => s.table === options.source_table)
-    : PAYMENT_SOURCES;
+    ? resolvedPaymentSources.filter(s => s.table === options.source_table)
+    : resolvedPaymentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -1829,10 +2020,7 @@ async function syncPayments(
           paid_at: row[source.mapping.paid_at] || null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_payments')
-          .upsert(payments, { onConflict: 'tenant_id,payment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_payments', payments, ['tenant_id', 'payment_key']);
 
         if (error) {
           console.error('Payment upsert error:', error);
@@ -1907,9 +2095,10 @@ async function syncFulfillments(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  const resolvedFulfillmentSources = await resolveSources(supabase, tenantId, 'fulfillments', FULFILLMENT_SOURCES);
   const sources = options.source_table
-    ? FULFILLMENT_SOURCES.filter(s => s.table === options.source_table)
-    : FULFILLMENT_SOURCES;
+    ? resolvedFulfillmentSources.filter(s => s.table === options.source_table)
+    : resolvedFulfillmentSources;
 
   await initSourceProgress(supabase, jobId, sources.map(s => ({
     name: s.channel,
@@ -1976,10 +2165,7 @@ async function syncFulfillments(
           shipped_at: source.mapping.shipped_at ? row[source.mapping.shipped_at] || null : null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_fulfillments')
-          .upsert(fulfillments, { onConflict: 'tenant_id,fulfillment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_fulfillments', fulfillments, ['tenant_id', 'fulfillment_key']);
 
         if (error) {
           console.error('Fulfillment upsert error:', error);
@@ -2053,14 +2239,17 @@ async function syncProducts(
   const sourceResults: SourceProgress[] = [];
   let paused = false;
 
+  // Resolve tenant-specific sources
+  const resolvedProductSources = await resolveSources(supabase, tenantId, 'products', PRODUCT_SOURCES);
+
   // Initialize source progress for all channels
-  await initSourceProgress(supabase, jobId, PRODUCT_SOURCES.map(s => ({
+  await initSourceProgress(supabase, jobId, resolvedProductSources.map(s => ({
     name: s.channel,
     dataset: s.dataset,
     table: s.table,
   })));
 
-  for (const source of PRODUCT_SOURCES) {
+  for (const source of resolvedProductSources) {
     // Read saved progress to resume
     const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
     if (savedProgress?.status === 'completed') {
@@ -2070,8 +2259,12 @@ async function syncProducts(
 
     console.log(`Processing products from: ${source.channel} (resuming from offset ${savedProgress?.last_offset || 0})`);
 
-    // Count total records
-    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${source.table}\``;
+    // Count total records - for haravan, count variants table instead
+    let countTable = source.table;
+    if (source.channel === 'haravan') {
+      countTable = source.table.replace(/Products?$/, 'Product_Variants');
+    }
+    let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${countTable}\``;
     if (options.date_from && source.mapping.date_col) {
       countQuery += ` WHERE \`${source.mapping.date_col}\` >= '${options.date_from}'`;
     }
@@ -2140,6 +2333,19 @@ async function syncProducts(
           query += ` WHERE s.\`dw_timestamp\` >= '${options.date_from}'`;
         }
         query += ` ORDER BY s.\`product_id\` LIMIT ${batchSize} OFFSET ${offset}`;
+      } else if (source.channel === 'haravan') {
+        // Haravan: JOIN Product with Product_Variants for SKU/price
+        // raw_hrv_Product has: Id, Title, Product_Type, vendor, Tags, Created_At, Updated_At
+        // raw_hrv_Product_Variants has: Product_Id, SKU, Price, Cost_Price, Inventory_Quantity, Option1, Created_At
+        const variantsTable = source.table.replace(/Products?$/, 'Product_Variants');
+        query = `SELECT v.\`SKU\`, v.\`Product_Id\`, v.\`Price\`, v.\`Cost_Price\`, v.\`Inventory_Quantity\`, v.\`Option1\`, v.\`Created_At\`,
+            p.\`Title\`, p.\`Product_Type\`, p.\`vendor\`, p.\`Tags\`
+          FROM \`${projectId}.${source.dataset}.${variantsTable}\` v
+          LEFT JOIN \`${projectId}.${source.dataset}.${source.table}\` p ON CAST(v.\`Product_Id\` AS STRING) = CAST(p.\`Id\` AS STRING)`;
+        if (options.date_from) {
+          query += ` WHERE v.\`dw_timestamp\` >= '${options.date_from}'`;
+        }
+        query += ` ORDER BY v.\`Product_Id\`, v.\`SKU\` LIMIT ${batchSize} OFFSET ${offset}`;
       } else {
         // Standard: build from mapping
         const selectCols = Object.entries(source.mapping)
@@ -2193,6 +2399,21 @@ async function syncProducts(
             current_stock: 0,
             source_created_at: null,
           }));
+        } else if (source.channel === 'haravan') {
+          // Haravan: Product_Variants JOIN Product
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: 'haravan',
+            sku: String(row.SKU || `unknown_${row.Product_Id}`),
+            name: row.Title || null,
+            category: row.Product_Type || null,
+            brand: row.vendor || null,
+            unit: row.Option1 ? String(row.Option1).substring(0, 30) : null,
+            cost_price: parseFloat(row.Cost_Price || '0'),
+            selling_price: parseFloat(row.Price || '0'),
+            current_stock: parseFloat(row.Inventory_Quantity || '0'),
+            source_created_at: row.Created_At || null,
+          }));
         } else {
           products = rows.map(row => ({
             tenant_id: tenantId,
@@ -2209,12 +2430,14 @@ async function syncProducts(
           }));
         }
 
-        const { error, count } = await supabase
-          .from('products')
-          .upsert(products, {
-            onConflict: 'tenant_id,channel,sku',
-            count: 'exact'
-          });
+        // Deduplicate by SKU within batch (Haravan may have multiple variants with same SKU)
+        const dedupMap = new Map<string, any>();
+        for (const p of products) {
+          dedupMap.set(`${p.channel}:${p.sku}`, p);
+        }
+        const dedupProducts = Array.from(dedupMap.values());
+
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', dedupProducts, ['tenant_id', 'channel', 'sku']);
 
         if (error) {
           console.error(`Product upsert error (${source.channel}):`, error);
@@ -2450,10 +2673,7 @@ async function syncAdSpend(
           broad_conversions: parseInt(row[source.mapping.broad_conversions] || '0', 10),
         }));
 
-        const { error, count } = await supabase
-          .from('ad_spend_daily')
-          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'ad_spend_daily', adSpendRows, ['tenant_id', 'channel', 'spend_date', 'campaign_id', 'ad_id']);
 
         if (error) {
           console.error('Ad spend upsert error:', error);
@@ -2604,10 +2824,7 @@ async function syncCampaigns(
         }));
 
         // Upsert campaigns (unique on tenant_id, channel, campaign_name, start_date)
-        const { error, count } = await supabase
-          .from('promotion_campaigns')
-          .upsert(campaigns, { onConflict: 'tenant_id,channel,campaign_name,start_date' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'promotion_campaigns', campaigns, ['tenant_id', 'channel', 'campaign_name', 'start_date']);
 
         if (error) {
           console.error('Campaign upsert error:', error);
@@ -2749,15 +2966,15 @@ async function syncInventory(
           branch_name: source.mapping.branch_name ? row[source.mapping.branch_name] : null,
           product_code: source.mapping.product_code ? row[source.mapping.product_code] || '' : '',
           product_name: source.mapping.product_name ? row[source.mapping.product_name] : null,
-          begin_stock: source.mapping.begin_stock ? parseFloat(row[source.mapping.begin_stock] || '0') : 0,
-          purchase_qty: source.mapping.purchase_qty ? parseFloat(row[source.mapping.purchase_qty] || '0') : 0,
-          sold_qty: source.mapping.sold_qty ? parseFloat(row[source.mapping.sold_qty] || '0') : 0,
-          return_qty: source.mapping.return_qty ? parseFloat(row[source.mapping.return_qty] || '0') : 0,
-          transfer_in_qty: source.mapping.transfer_in_qty ? parseFloat(row[source.mapping.transfer_in_qty] || '0') : 0,
-          transfer_out_qty: source.mapping.transfer_out_qty ? parseFloat(row[source.mapping.transfer_out_qty] || '0') : 0,
-          end_stock: source.mapping.end_stock ? parseFloat(row[source.mapping.end_stock] || '0') : 0,
-          net_revenue: source.mapping.net_revenue ? parseFloat(row[source.mapping.net_revenue] || '0') : 0,
-          cost_amount: source.mapping.cost_amount ? parseFloat(row[source.mapping.cost_amount] || '0') : 0,
+          begin_stock: source.mapping.begin_stock ? (Number(row[source.mapping.begin_stock]) || 0) : 0,
+          purchase_qty: source.mapping.purchase_qty ? (Number(row[source.mapping.purchase_qty]) || 0) : 0,
+          sold_qty: source.mapping.sold_qty ? (Number(row[source.mapping.sold_qty]) || 0) : 0,
+          return_qty: source.mapping.return_qty ? (Number(row[source.mapping.return_qty]) || 0) : 0,
+          transfer_in_qty: source.mapping.transfer_in_qty ? (Number(row[source.mapping.transfer_in_qty]) || 0) : 0,
+          transfer_out_qty: source.mapping.transfer_out_qty ? (Number(row[source.mapping.transfer_out_qty]) || 0) : 0,
+          end_stock: source.mapping.end_stock ? (Number(row[source.mapping.end_stock]) || 0) : 0,
+          net_revenue: source.mapping.net_revenue ? (Number(row[source.mapping.net_revenue]) || 0) : 0,
+          cost_amount: source.mapping.cost_amount ? (Number(row[source.mapping.cost_amount]) || 0) : 0,
         }));
 
         // Deduplicate within batch: aggregate rows with same unique key
@@ -2780,10 +2997,7 @@ async function syncInventory(
         }
         const inventoryRows = Array.from(deduped.values());
 
-        const { error, count } = await supabase
-          .from('inventory_movements')
-          .upsert(inventoryRows, { onConflict: 'tenant_id,movement_date,branch_id,product_code' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_movements', inventoryRows, ['tenant_id', 'movement_date', 'branch_id', 'product_code']);
 
         if (error) {
           console.error('Inventory upsert error:', error);
@@ -2919,10 +3133,7 @@ async function syncInventory(
             };
           });
 
-          const { error, count } = await supabase
-            .from('inventory_snapshots')
-            .upsert(snapshotRows, { onConflict: 'tenant_id,channel,product_id,sku,warehouse_id,snapshot_date' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_snapshots', snapshotRows, ['tenant_id', 'channel', 'product_id', 'sku', 'warehouse_id', 'snapshot_date']);
 
           if (error) {
             console.error('Inventory snapshot upsert error:', error);
@@ -3007,18 +3218,43 @@ serve(async (req) => {
       throw new Error('model_type is required');
     }
 
-    // Get service account
-    const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    // Get service account - check for tenant-specific key first
+    const tenantServiceAccountKey = await resolveTenantServiceAccountKey(params.tenant_id);
+    const serviceAccountJson = tenantServiceAccountKey || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
     if (!serviceAccountJson) {
       throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
     }
     const serviceAccount = JSON.parse(serviceAccountJson);
     const projectId = serviceAccount.project_id || 'bluecore-dcp';
+    if (tenantServiceAccountKey) {
+      console.log(`[backfill] Using tenant-specific service account for ${params.tenant_id} (project: ${projectId})`);
+    }
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Initialize tenant session to set correct search_path (schema routing)
+    // Uses service-level RPC that doesn't require auth.uid()
+    // If tenant has dedicated schema → search_path = tenant_xxx, public
+    // If tenant uses public schema → search_path = public (no change)
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session_service', {
+        p_tenant_id: params.tenant_id,
+      });
+      if (sessionError) {
+        console.error(`[backfill] CRITICAL: Failed to init tenant session: ${sessionError.message}. Data may go to wrong schema!`);
+        // Do NOT silently fallback - throw to prevent data going to public schema
+        throw new Error(`Tenant session init failed: ${sessionError.message}`);
+      } else {
+        console.log(`[backfill] Tenant session initialized: schema=${sessionData?.schema || 'public'}, tier=${sessionData?.tier}, provisioned=${sessionData?.is_provisioned}`);
+      }
+    } catch (err) {
+      if (err.message?.includes('Tenant session init failed')) throw err;
+      console.error(`[backfill] CRITICAL: init_tenant_session_service error: ${err.message}`);
+      throw new Error(`Tenant session init failed: ${err.message}`);
+    }
 
     // Get default integration ID for tenant
     const { data: integration } = await supabase

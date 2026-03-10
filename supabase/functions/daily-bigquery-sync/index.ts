@@ -1,8 +1,8 @@
 /**
- * daily-bigquery-sync - Daily incremental sync orchestrator
+ * daily-bigquery-sync - Daily incremental sync orchestrator (Multi-tenant)
  * 
- * Calls backfill-bigquery for each model type with a 2-day lookback window.
- * Scheduled via pg_cron at 1:00 AM UTC (8:00 AM Vietnam).
+ * When called by pg_cron (no tenant_id): queries all active tenants with bigquery_configs and syncs each.
+ * When called manually with tenant_id: syncs only that tenant.
  * Logs run results to daily_sync_runs table for history tracking.
  */
 
@@ -12,8 +12,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 const SYNC_SEQUENCE = [
   'products',
@@ -28,38 +26,54 @@ const SYNC_SEQUENCE = [
   'campaigns',
 ] as const;
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+interface SyncResult {
+  success: boolean;
+  duration_ms: number;
+  error?: string;
+  processed?: number;
+}
 
+/** Run sync pipeline for a single tenant */
+async function syncTenant(
+  supabase: any,
+  tenantId: string,
+  lookbackDays: number,
+  triggeredBy: string,
+): Promise<{
+  tenant_id: string;
+  run_id?: string;
+  status: string;
+  total_duration_ms: number;
+  results: Record<string, SyncResult>;
+  total_records_processed: number;
+}> {
   const startTime = Date.now();
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // Parse optional body for manual triggers
-  let triggeredBy = 'cron';
-  let lookbackDays = 2;
+  // Initialize tenant session to set correct search_path (schema routing)
   try {
-    const body = await req.json();
-    if (body?.triggered_by) triggeredBy = body.triggered_by;
-    if (body?.lookback_days) lookbackDays = Math.max(1, Math.min(30, body.lookback_days));
-  } catch {
-    // No body = cron trigger, use defaults
+    const { data: sessionData, error: sessionError } = await supabase.rpc('init_tenant_session', {
+      p_tenant_id: tenantId,
+    });
+    if (sessionError) {
+      console.warn(`[daily-sync] Failed to init tenant session for ${tenantId.substring(0, 8)}: ${sessionError.message}`);
+    } else {
+      console.log(`[daily-sync] Tenant session initialized: schema=${sessionData?.schema || 'public'}`);
+    }
+  } catch (err) {
+    console.warn(`[daily-sync] init_tenant_session error for ${tenantId.substring(0, 8)}: ${err.message}`);
   }
 
   // Lookback window
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - lookbackDays);
-  const dateFromStr = dateFrom.toISOString().split('T')[0]; // YYYY-MM-DD
+  const dateFromStr = dateFrom.toISOString().split('T')[0];
 
   // Create run log entry
   const { data: runLog } = await supabase
     .from('daily_sync_runs')
     .insert({
-      tenant_id: TENANT_ID,
-      run_type: triggeredBy === 'manual' ? 'manual_full' : 'daily_incremental',
+      tenant_id: tenantId,
+      run_type: triggeredBy === 'manual' || triggeredBy === 'admin' ? 'manual_full' : 'daily_incremental',
       status: 'running',
       date_from: dateFromStr,
       total_models: SYNC_SEQUENCE.length,
@@ -70,142 +84,84 @@ Deno.serve(async (req) => {
     .single();
 
   const runId = runLog?.id;
-
-  const results: Record<string, { success: boolean; duration_ms: number; error?: string; processed?: number }> = {};
+  const results: Record<string, SyncResult> = {};
   let totalProcessed = 0;
 
-  console.log(`[daily-sync] Run ${runId} - Starting incremental sync with date_from=${dateFromStr} (lookback=${lookbackDays}d, trigger=${triggeredBy})`);
+  console.log(`[daily-sync] Tenant ${tenantId.substring(0, 8)}... Run ${runId} - date_from=${dateFromStr} (lookback=${lookbackDays}d, trigger=${triggeredBy})`);
 
   for (const modelType of SYNC_SEQUENCE) {
     const modelStart = Date.now();
     try {
-      console.log(`[daily-sync] Syncing ${modelType}...`);
+      console.log(`[daily-sync] [${tenantId.substring(0, 8)}] Syncing ${modelType}...`);
 
       const { data, error } = await supabase.functions.invoke('backfill-bigquery', {
         body: {
           action: 'start',
-          tenant_id: TENANT_ID,
+          tenant_id: tenantId,
           model_type: modelType,
-          options: {
-            date_from: dateFromStr,
-          },
+          options: { date_from: dateFromStr },
         },
       });
 
-      if (error) {
-        throw new Error(error.message || `Function invoke error for ${modelType}`);
-      }
+      if (error) throw new Error(error.message || `Function invoke error for ${modelType}`);
 
       const duration = Date.now() - modelStart;
       const processed = data?.result?.processed ?? 0;
       totalProcessed += processed;
-      results[modelType] = {
-        success: data?.success ?? true,
-        duration_ms: duration,
-        processed,
-        error: data?.error,
-      };
+      results[modelType] = { success: data?.success ?? true, duration_ms: duration, processed, error: data?.error };
 
-      console.log(`[daily-sync] ${modelType} done in ${duration}ms - processed: ${processed}`);
+      console.log(`[daily-sync] [${tenantId.substring(0, 8)}] ${modelType} done in ${duration}ms - processed: ${processed}`);
     } catch (err) {
-      const duration = Date.now() - modelStart;
-      results[modelType] = {
-        success: false,
-        duration_ms: duration,
-        error: err.message,
-      };
-      console.error(`[daily-sync] ${modelType} FAILED: ${err.message}`);
-      // Continue to next model - don't stop
+      results[modelType] = { success: false, duration_ms: Date.now() - modelStart, error: err.message };
+      console.error(`[daily-sync] [${tenantId.substring(0, 8)}] ${modelType} FAILED: ${err.message}`);
     }
 
-    // After order_items, run full COGS pipeline
+    // After order_items, run COGS pipeline
     if (modelType === 'order_items') {
       const cogsStart = Date.now();
       try {
-        console.log(`[daily-sync] Running backfill_cogs_pipeline()...`);
-        const { data: cogsData, error } = await supabase.rpc('backfill_cogs_pipeline', {
-          p_tenant_id: TENANT_ID,
-        });
+        console.log(`[daily-sync] [${tenantId.substring(0, 8)}] Running backfill_cogs_pipeline()...`);
+        const { data: cogsData, error } = await supabase.rpc('backfill_cogs_pipeline', { p_tenant_id: tenantId });
         const cogsDuration = Date.now() - cogsStart;
-        results['cogs_pipeline'] = {
-          success: !error,
-          duration_ms: cogsDuration,
-          processed: cogsData?.items_updated ?? 0,
-          error: error?.message,
-        };
+        results['cogs_pipeline'] = { success: !error, duration_ms: cogsDuration, processed: cogsData?.items_updated ?? 0, error: error?.message };
         if (cogsData) {
-          console.log(`[daily-sync] COGS pipeline done in ${cogsDuration}ms - items: ${cogsData.items_updated}, orders: ${cogsData.orders_updated}`);
+          console.log(`[daily-sync] [${tenantId.substring(0, 8)}] COGS pipeline done in ${cogsDuration}ms`);
         }
       } catch (err) {
-        results['cogs_pipeline'] = {
-          success: false,
-          duration_ms: Date.now() - cogsStart,
-          error: err.message,
-        };
-        console.error(`[daily-sync] COGS pipeline FAILED: ${err.message}`);
+        results['cogs_pipeline'] = { success: false, duration_ms: Date.now() - cogsStart, error: err.message };
+        console.error(`[daily-sync] [${tenantId.substring(0, 8)}] COGS pipeline FAILED: ${err.message}`);
       }
     }
   }
 
-  // === Post-sync pipeline: KPI recompute + Alert detection ===
-  
-  // Step 2: Recompute KPI facts (2-day lookback)
+  // Post-sync: KPI recompute
   const kpiStart = Date.now();
   try {
     const lookbackStart = new Date();
     lookbackStart.setDate(lookbackStart.getDate() - lookbackDays);
-    console.log(`[daily-sync] Running compute_kpi_facts_daily()...`);
     const { data: kpiData, error } = await supabase.rpc('compute_kpi_facts_daily', {
-      p_tenant_id: TENANT_ID,
+      p_tenant_id: tenantId,
       p_start_date: lookbackStart.toISOString().split('T')[0],
       p_end_date: new Date().toISOString().split('T')[0],
     });
-    const kpiDuration = Date.now() - kpiStart;
-    results['kpi_recompute'] = {
-      success: !error,
-      duration_ms: kpiDuration,
-      processed: kpiData?.rows_upserted ?? 0,
-      error: error?.message,
-    };
-    console.log(`[daily-sync] KPI recompute done in ${kpiDuration}ms`);
+    results['kpi_recompute'] = { success: !error, duration_ms: Date.now() - kpiStart, processed: kpiData?.rows_upserted ?? 0, error: error?.message };
   } catch (err) {
-    results['kpi_recompute'] = {
-      success: false,
-      duration_ms: Date.now() - kpiStart,
-      error: err.message,
-    };
-    console.error(`[daily-sync] KPI recompute FAILED: ${err.message}`);
+    results['kpi_recompute'] = { success: false, duration_ms: Date.now() - kpiStart, error: err.message };
   }
 
-  // Step 3: Detect threshold breaches → alerts
+  // Post-sync: Alert detection
   const alertStart = Date.now();
   try {
-    console.log(`[daily-sync] Running detect_threshold_breaches()...`);
-    const { data: alertData, error } = await supabase.rpc('detect_threshold_breaches', {
-      p_tenant_id: TENANT_ID,
-    });
-    const alertDuration = Date.now() - alertStart;
-    results['alert_detection'] = {
-      success: !error,
-      duration_ms: alertDuration,
-      processed: alertData?.alerts_created ?? 0,
-      error: error?.message,
-    };
-    console.log(`[daily-sync] Alert detection done in ${alertDuration}ms`);
+    const { data: alertData, error } = await supabase.rpc('detect_threshold_breaches', { p_tenant_id: tenantId });
+    results['alert_detection'] = { success: !error, duration_ms: Date.now() - alertStart, processed: alertData?.alerts_created ?? 0, error: error?.message };
   } catch (err) {
-    results['alert_detection'] = {
-      success: false,
-      duration_ms: Date.now() - alertStart,
-      error: err.message,
-    };
-    console.error(`[daily-sync] Alert detection FAILED: ${err.message}`);
+    results['alert_detection'] = { success: false, duration_ms: Date.now() - alertStart, error: err.message };
   }
 
   const totalDuration = Date.now() - startTime;
   const succeededCount = Object.values(results).filter(r => r.success).length;
   const failedCount = Object.values(results).filter(r => !r.success).length;
   const failedModels = Object.entries(results).filter(([, r]) => !r.success).map(([k]) => k);
-
   const status = failedCount === 0 ? 'completed' : succeededCount === 0 ? 'failed' : 'partial';
 
   // Update run log
@@ -225,22 +181,97 @@ Deno.serve(async (req) => {
       .eq('id', runId);
   }
 
-  const summary = {
-    success: failedCount === 0,
-    run_id: runId,
-    date_from: dateFromStr,
-    total_duration_ms: totalDuration,
-    total_models: SYNC_SEQUENCE.length,
-    succeeded_count: succeededCount,
-    failed_count: failedCount,
-    total_records_processed: totalProcessed,
-    results,
-  };
+  console.log(`[daily-sync] Tenant ${tenantId.substring(0, 8)}... completed in ${totalDuration}ms. Status: ${status}. Processed: ${totalProcessed}. Failed: ${failedCount}`);
 
-  console.log(`[daily-sync] Run ${runId} completed in ${totalDuration}ms. Status: ${status}. Processed: ${totalProcessed}. Failed: ${failedCount}/${SYNC_SEQUENCE.length}`);
+  return { tenant_id: tenantId, run_id: runId, status, total_duration_ms: totalDuration, results, total_records_processed: totalProcessed };
+}
 
-  return new Response(JSON.stringify(summary), {
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // Parse body
+  let triggeredBy = 'cron';
+  let lookbackDays = 2;
+  let specificTenantId: string | null = null;
+
+  try {
+    const body = await req.json();
+    if (body?.triggered_by) triggeredBy = body.triggered_by;
+    if (body?.lookback_days) lookbackDays = Math.max(1, Math.min(30, body.lookback_days));
+    if (body?.tenant_id) specificTenantId = body.tenant_id;
+  } catch {
+    // No body = cron trigger
+  }
+
+  // Determine which tenants to sync
+  let tenantIds: string[] = [];
+
+  if (specificTenantId) {
+    // Manual trigger for specific tenant
+    tenantIds = [specificTenantId];
+  } else {
+    // Cron trigger: query all active tenants with active bigquery_configs
+    const { data: activeTenants, error } = await supabase
+      .from('bigquery_configs')
+      .select('tenant_id')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error(`[daily-sync] Failed to query active tenants: ${error.message}`);
+      return new Response(JSON.stringify({ success: false, error: 'Failed to query active tenants' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      });
+    }
+
+    tenantIds = [...new Set((activeTenants || []).map((t: any) => t.tenant_id))];
+    console.log(`[daily-sync] Found ${tenantIds.length} active tenant(s) to sync`);
+  }
+
+  if (tenantIds.length === 0) {
+    return new Response(JSON.stringify({ success: true, message: 'No active tenants to sync', tenants: [] }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  // Single tenant → return detailed result
+  if (tenantIds.length === 1) {
+    const result = await syncTenant(supabase, tenantIds[0], lookbackDays, triggeredBy);
+    const hasFailures = Object.values(result.results).some(r => !r.success);
+    return new Response(JSON.stringify({ success: !hasFailures, ...result }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: hasFailures ? 207 : 200,
+    });
+  }
+
+  // Multi-tenant → run sequentially, return summary
+  const allResults: any[] = [];
+  for (const tid of tenantIds) {
+    try {
+      const result = await syncTenant(supabase, tid, lookbackDays, triggeredBy);
+      allResults.push(result);
+    } catch (err) {
+      allResults.push({ tenant_id: tid, status: 'failed', error: err.message });
+      console.error(`[daily-sync] Tenant ${tid.substring(0, 8)}... CRASHED: ${err.message}`);
+    }
+  }
+
+  const totalFailed = allResults.filter(r => r.status === 'failed').length;
+
+  return new Response(JSON.stringify({
+    success: totalFailed === 0,
+    total_tenants: tenantIds.length,
+    succeeded: tenantIds.length - totalFailed,
+    failed: totalFailed,
+    tenants: allResults,
+  }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status: failedCount > 0 ? 207 : 200,
+    status: totalFailed > 0 ? 207 : 200,
   });
 });

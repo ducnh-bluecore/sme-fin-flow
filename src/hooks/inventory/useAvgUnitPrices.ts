@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
+import { fetchAllPages } from './fetchAllPages';
 
 interface AvgUnitPrice {
   sku: string;
@@ -18,14 +19,12 @@ export function useAvgUnitPrices() {
   return useQuery({
     queryKey: ['inv-avg-unit-prices', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery(
-        'v_inv_avg_unit_price',
-        'sku, avg_unit_price'
-      ).limit(1000);
-      if (error) throw error;
+      const rows = await fetchAllPages<AvgUnitPrice>(() =>
+        buildSelectQuery('v_inv_avg_unit_price', 'sku, avg_unit_price')
+      );
 
       const priceMap = new Map<string, number>();
-      for (const row of (data || []) as unknown as AvgUnitPrice[]) {
+      for (const row of rows) {
         if (row.sku && row.avg_unit_price > 0) {
           priceMap.set(row.sku, row.avg_unit_price);
         }
@@ -33,6 +32,6 @@ export function useAvgUnitPrices() {
       return priceMap;
     },
     enabled: isReady,
-    staleTime: 5 * 60 * 1000, // Cache 5 minutes - prices don't change often
+    staleTime: 5 * 60 * 1000,
   });
 }
