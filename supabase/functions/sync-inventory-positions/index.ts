@@ -339,11 +339,12 @@ Deno.serve(async (req) => {
       // Zero out stale records in batches
       for (let i = 0; i < staleIds.length; i += 500) {
         const batch = staleIds.slice(i, i + 500);
-        const { error } = await supabase
+        const { error: zErr } = await supabase
           .from('inv_state_positions')
-          .update({ on_hand: 0, reserved: 0, available: 0 })
+          .update({ on_hand: 0, reserved: 0 })
           .in('id', batch);
-        if (!error) zeroedCount += batch.length;
+        if (zErr) console.error(`[sync-inv] Zero-out batch error:`, zErr.message);
+        else zeroedCount += batch.length;
       }
     }
 
