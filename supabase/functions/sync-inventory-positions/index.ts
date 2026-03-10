@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { /* no body */ }
   const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
   const chunk = Number(body.chunk ?? 0);
-  const CHUNK_SIZE = 5;
+  const CHUNK_SIZE = 2;
 
   try {
     console.log(`[sync-inv] tenant=${tenantId}, chunk=${chunk}`);
