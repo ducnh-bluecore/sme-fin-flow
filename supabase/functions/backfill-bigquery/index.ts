@@ -2409,12 +2409,7 @@ async function syncProducts(
           }));
         }
 
-        const { error, count } = await supabase
-          .from('products')
-          .upsert(products, {
-            onConflict: 'tenant_id,channel,sku',
-            count: 'exact'
-          });
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', products, ['tenant_id', 'channel', 'sku']);
 
         if (error) {
           console.error(`Product upsert error (${source.channel}):`, error);
