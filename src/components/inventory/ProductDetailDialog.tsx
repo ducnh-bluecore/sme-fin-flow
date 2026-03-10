@@ -72,6 +72,8 @@ const milestoneStatusConfig: Record<string, { label: string; icon: string; class
 };
 
 export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId }: ProductDetailDialogProps) {
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+
   const { data: detail, isLoading, error } = useQuery({
     queryKey: ['lifecycle-product-detail', tenantId, fcId],
     queryFn: async () => {
@@ -84,6 +86,46 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
       return data as unknown as ProductDetail;
     },
     enabled: !!tenantId && !!fcId && open,
+  });
+
+  const fcCode = detail?.product?.fc_code || null;
+  const { data: channelData, isLoading: channelLoading } = useProductChannelSales(tenantId, fcCode, open && !!detail);
+
+  const aiMutation = useMutation({
+    mutationFn: async () => {
+      if (!detail || !channelData) throw new Error('No data');
+      const activeBatch = detail.active_batch;
+      const ageDays = activeBatch?.age_days ?? 0;
+      const stages = ['Launch', 'Growth', 'Markdown', 'Clearance'];
+      const stageIdx = ageDays <= 60 ? 0 : ageDays <= 120 ? 1 : ageDays <= 150 ? 2 : 3;
+
+      const { data, error } = await supabase.functions.invoke('product-ai-insight', {
+        body: {
+          product: {
+            name: detail.product.fc_name,
+            fc_code: detail.product.fc_code,
+            category: detail.product.category,
+          },
+          lifecycle: {
+            age_days: ageDays,
+            total_days: detail.lifecycle_days,
+            stage: stages[stageIdx],
+            sell_through: detail.current_sell_through,
+            target_pct: [50, 70, 85, 100][stageIdx],
+            velocity: detail.velocity_current,
+            velocity_required: detail.velocity_required,
+            on_hand: detail.current_on_hand,
+            initial_qty: detail.initial_qty,
+            cash_at_risk: detail.cash_at_risk,
+          },
+          channelSales: channelData.channels,
+        },
+      });
+      if (error) throw error;
+      return (data as any).insight as string;
+    },
+    onSuccess: (insight) => setAiInsight(insight),
+    onError: (err) => toast.error('AI insight failed', { description: err.message }),
   });
 
   const activeBatch = detail?.active_batch;
