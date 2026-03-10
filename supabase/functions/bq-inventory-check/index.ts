@@ -40,6 +40,17 @@ Deno.serve(async (req) => {
     console.log(`[bq-check] SA email: ${sa.client_email}, project: ${sa.project_id}`);
     const token = await getAccessToken(sa);
 
+    if (action === 'list_datasets') {
+      const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/datasets?maxResults=200`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const datasets = (data.datasets || []).map((d: any) => d.datasetReference.datasetId);
+      return new Response(JSON.stringify({ datasets }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'list_tables') {
       const filter = body.filter || '%nvent%';
       const query = body.query || `SELECT table_name FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.TABLES\` WHERE table_name LIKE '${filter}' OR table_name LIKE '%roduct%' ORDER BY table_name`;
