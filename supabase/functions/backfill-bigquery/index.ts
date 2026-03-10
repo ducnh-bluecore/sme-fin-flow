@@ -1645,7 +1645,7 @@ async function syncOrderItems(
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              orderKeyToUuid[o.order_key] = o.id;
+              orderKeyToUuid[o.order_key] = o.order_uuid;
             }
           }
         }
@@ -2242,7 +2242,7 @@ async function syncProducts(
     // Count total records - for haravan, count variants table instead
     let countTable = source.table;
     if (source.channel === 'haravan') {
-      countTable = source.table.replace('Product', 'Product_Variants');
+      countTable = source.table.replace(/Products?$/, 'Product_Variants');
     }
     let countQuery = `SELECT COUNT(*) as cnt FROM \`${projectId}.${source.dataset}.${countTable}\``;
     if (options.date_from && source.mapping.date_col) {
@@ -2317,7 +2317,7 @@ async function syncProducts(
         // Haravan: JOIN Product with Product_Variants for SKU/price
         // raw_hrv_Product has: Id, Title, Product_Type, vendor, Tags, Created_At, Updated_At
         // raw_hrv_Product_Variants has: Product_Id, SKU, Price, Cost_Price, Inventory_Quantity, Option1, Created_At
-        const variantsTable = source.table.replace('Product', 'Product_Variants');
+        const variantsTable = source.table.replace(/Products?$/, 'Product_Variants');
         query = `SELECT v.\`SKU\`, v.\`Product_Id\`, v.\`Price\`, v.\`Cost_Price\`, v.\`Inventory_Quantity\`, v.\`Option1\`, v.\`Created_At\`,
             p.\`Title\`, p.\`Product_Type\`, p.\`vendor\`, p.\`Tags\`
           FROM \`${projectId}.${source.dataset}.${variantsTable}\` v
@@ -2388,7 +2388,7 @@ async function syncProducts(
             name: row.Title || null,
             category: row.Product_Type || null,
             brand: row.vendor || null,
-            unit: row.Option1 || null,
+            unit: row.Option1 ? String(row.Option1).substring(0, 30) : null,
             cost_price: parseFloat(row.Cost_Price || '0'),
             selling_price: parseFloat(row.Price || '0'),
             current_stock: parseFloat(row.Inventory_Quantity || '0'),
@@ -2410,7 +2410,14 @@ async function syncProducts(
           }));
         }
 
-        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', products, ['tenant_id', 'channel', 'sku']);
+        // Deduplicate by SKU within batch (Haravan may have multiple variants with same SKU)
+        const dedupMap = new Map<string, any>();
+        for (const p of products) {
+          dedupMap.set(`${p.channel}:${p.sku}`, p);
+        }
+        const dedupProducts = Array.from(dedupMap.values());
+
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', dedupProducts, ['tenant_id', 'channel', 'sku']);
 
         if (error) {
           console.error(`Product upsert error (${source.channel}):`, error);
