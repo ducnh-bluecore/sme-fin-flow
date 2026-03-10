@@ -43360,6 +43360,15 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
+      tenant_upsert_jsonb: {
+        Args: {
+          p_conflict_columns: string[]
+          p_rows: Json
+          p_table_name: string
+          p_tenant_id: string
+        }
+        Returns: number
+      }
       track_tenant_event: {
         Args: {
           p_duration_ms?: number
