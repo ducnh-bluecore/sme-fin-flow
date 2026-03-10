@@ -3105,10 +3105,7 @@ async function syncInventory(
             };
           });
 
-          const { error, count } = await supabase
-            .from('inventory_snapshots')
-            .upsert(snapshotRows, { onConflict: 'tenant_id,channel,product_id,sku,warehouse_id,snapshot_date' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_snapshots', snapshotRows, ['tenant_id', 'channel', 'product_id', 'sku', 'warehouse_id', 'snapshot_date']);
 
           if (error) {
             console.error('Inventory snapshot upsert error:', error);
