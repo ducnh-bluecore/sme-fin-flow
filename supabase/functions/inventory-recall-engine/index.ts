@@ -223,6 +223,7 @@ Deno.serve(async (req) => {
       const fcInfo = fcInfoMap[fcId];
       if (!fcInfo) continue;
       if (isNonFashion(fcInfo.code, fcInfo.name)) { skippedNonFashion++; continue; }
+      if (fcInfo.collectionId && excludedCollectionIds.has(fcInfo.collectionId)) { skippedNonFashion++; continue; }
 
       // ── Exclusion: BST mới (age < bstNewAgeDays) ──
       if (fcInfo.createdDate) {
