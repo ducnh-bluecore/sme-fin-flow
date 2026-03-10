@@ -35,7 +35,7 @@ export function useSourceOnHand(suggestions: RebalanceSuggestion[]) {
         const { data, error } = await buildSelectQuery('inv_state_positions', 'store_id, snapshot_date')
           .in('store_id', storeBatch)
           .order('snapshot_date', { ascending: false })
-          .limit(500);
+          .limit(1000);
         if (error) throw error;
         for (const row of (data || []) as any[]) {
           // Keep only first (latest) per store
