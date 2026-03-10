@@ -90,6 +90,26 @@ Deno.serve(async (req) => {
           }
 
           case 'daily_inventory': {
+            // Step 1: Sync inventory positions from BigQuery (chunked)
+            const { data: storesData } = await supabase
+              .from('inv_stores')
+              .select('id')
+              .eq('tenant_id', tenant.id)
+              .eq('is_active', true);
+            const totalStores = storesData?.length || 0;
+            const chunkSize = 2;
+            const totalChunks = Math.ceil(totalStores / chunkSize);
+            
+            console.log(`[orch] Syncing inventory positions for ${tenant.id.substring(0, 8)}... (${totalStores} stores, ${totalChunks} chunks)`);
+            for (let c = 0; c < totalChunks; c++) {
+              await callFunction(supabaseUrl, serviceKey, 'sync-inventory-positions', {
+                tenant_id: tenant.id,
+                chunk: c,
+              });
+            }
+            console.log(`[orch] Inventory sync done for ${tenant.id.substring(0, 8)}..., running KPI engine`);
+
+            // Step 2: Run inventory KPI engine
             const res = await callFunction(supabaseUrl, serviceKey, 'inventory-kpi-engine', {
               tenant_id: tenant.id,
               as_of_date: today,
