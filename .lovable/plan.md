@@ -1,66 +1,43 @@
 
 
+# Plan: Tạo tenant GUNO với cấu hình hoàn toàn riêng biệt
 
-## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+## Tổng quan
 
-### Bug #1: Duplicate Recommendations (CRITICAL) ✅
-- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
-- Cleaned existing duplicates
-- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+Tạo tenant mới "GUNO" với schema riêng (hard isolation), gán cho user `dng.triduc@gmail.com` (user mới, chưa tồn tại trong hệ thống). Không dùng chung bất kỳ config nào với OLV Fashion hay Icon Denim.
 
-### Bug #2: CW Reserve quá bảo thủ ✅
-- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
-- CORE/HERO still use dedicated reserve rules
+## Các bước thực hiện
 
-### Bug #3: Scarcity filter chặn Tier C ✅
-- Updated `min_system_stock` from 50 → 20 in scarcity policy
-- BST mới (< 60 days) bypasses scarcity filter entirely
+### 1. Gọi Edge Function `create-tenant-with-owner`
+- `tenantName`: "GUNO"
+- `slug`: "guno"  
+- `plan`: "pro"
+- `ownerEmail`: "dng.triduc@gmail.com"
 
-### Bug #4: Rebalance Push cumulative stock ✅
-- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
-- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+Function này sẽ tự động:
+- Tạo user mới (email confirmed) + gửi recovery link để user tự đặt mật khẩu
+- Tạo tenant record trong bảng `tenants`
+- Gán user làm owner trong `tenant_users`
+- Set `active_tenant_id` trên profile
+- Auto-provision schema `tenant_guno` (hard isolation)
+- Seed default alert configs
 
-### Bug #5: V2 miss BST mới ✅
-- BST mới bypasses `vel > 0` requirement in V2
-- Fallback to V1 min_stock logic when velocity = 0
-- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+### 2. Tạo BigQuery config riêng (trống)
+Insert record vào `bigquery_configs` cho tenant GUNO với `is_active = false` (chưa kết nối). GUNO dùng Shopee/Lazada/TikTok nên sẽ cần cấu hình BigQuery project riêng sau.
 
-## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+### 3. Tạo connector_integrations riêng
+Insert các connector placeholder cho Shopee, Lazada, TikTok Shop với status `pending` — sẵn sàng để kết nối khi có shop credentials.
 
-### Nguyên lý
-`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
-Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+### 4. Verify isolation
+- Kiểm tra schema `tenant_guno` đã được provision
+- Kiểm tra không có `bigquery_tenant_sources` nào trỏ tới dataset/credentials của tenant khác
+- Kiểm tra `tenant_users` chỉ có 1 record cho user mới
 
-### Thay đổi đã triển khai
-1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
-2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
-3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
-4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
+## Lưu ý bảo mật
+- GUNO sẽ cần service account key BigQuery riêng (ví dụ secret `GUNO_GOOGLE_SERVICE_ACCOUNT_JSON`) — cấu hình sau khi có
+- Schema `tenant_guno` đảm bảo dữ liệu không bao giờ trộn với public hay tenant khác
+- User `dng.triduc@gmail.com` chỉ có quyền truy cập tenant GUNO, không thấy OLV hay Icon Denim
 
-## Multi-tenant Daily Sync ✅ DONE
+## Thực thi
+Toàn bộ thao tác thực hiện qua Edge Function call + SQL insert. Không cần thay đổi code frontend.
 
-### Thay đổi
-- **`daily-bigquery-sync`**: Bỏ hardcode `TENANT_ID`, thay bằng query `bigquery_configs WHERE is_active = true` để auto-discover active tenants
-- **Logic**: 
-  - Cron trigger (không có `tenant_id` trong body) → sync TẤT CẢ active tenants
-  - Manual/Admin trigger (có `tenant_id`) → sync 1 tenant cụ thể
-  - Multi-tenant chạy sequential, mỗi tenant có run log riêng trong `daily_sync_runs`
-- **pg_cron**: Không cần sửa — existing cron jobs gọi edge function KHÔNG truyền tenant_id → tự động chạy cho tất cả active tenants
-
-## Schema Routing cho Multi-tenant ✅ DONE
-
-### Thay đổi
-- **`backfill-bigquery`**: Thêm `init_tenant_session` RPC call sau khi tạo supabase client, trước khi ghi data. Tenant có schema riêng → data route vào `tenant_xxx.*`. Tenant chưa có → fallback `public` (backward compatible).
-- **`daily-bigquery-sync`**: Thêm `init_tenant_session` ở đầu `syncTenant()` để mỗi tenant trong loop được set đúng `search_path`.
-- **Graceful fallback**: Nếu `init_tenant_session` fail → warn log + tiếp tục với public schema, không crash pipeline.
-
-## Multi-tenant BigQuery Sources ✅ DONE
-
-### Thay đổi
-- **Bảng `bigquery_tenant_sources`**: Cấu hình nguồn BQ theo tenant (model_type, channel, dataset, table_name). UNIQUE(tenant_id, model_type, channel).
-- **Seed Icon Denim**: 5 records (customers, orders, order_items, products, fulfillments) → dataset `DW-160STORE-BQ`, bảng `raw_hrv_*`
-- **`backfill-bigquery/index.ts`**: 
-  - Thêm `resolveSources()` — query `bigquery_tenant_sources` theo tenant_id + model_type, override dataset/table từ config. Fallback về hardcode nếu không có config.
-  - Thêm `hasKiotVietChannel()` — chỉ apply marketplace dedup khi tenant dùng kiotviet.
-  - Áp dụng cho tất cả sync functions: customers, orders, order_items, refunds, payments, fulfillments, products.
-- **Không ảnh hưởng OLV Boutique** — không có config trong bảng mới → fallback hardcode.
