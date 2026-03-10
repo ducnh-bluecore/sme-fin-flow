@@ -264,7 +264,93 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
               </Table>
             </div>
 
-            {/* Batch History */}
+            {/* Channel Sales Breakdown */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Store className="h-3.5 w-3.5" /> Bán theo kênh
+              </h4>
+              {channelLoading ? (
+                <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+              ) : channelData && channelData.channels.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><ShoppingBag className="h-3 w-3" /> Tổng đơn</p>
+                      <p className="text-sm font-bold tabular-nums">{channelData.total_orders}</p>
+                    </CardContent></Card>
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Tag className="h-3 w-3" /> Tổng KM</p>
+                      <p className="text-sm font-bold tabular-nums text-amber-500">{(channelData.total_discount / 1000000).toFixed(1)}M</p>
+                    </CardContent></Card>
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Percent className="h-3 w-3" /> Tỷ lệ KM</p>
+                      <p className="text-sm font-bold tabular-nums">{channelData.avg_discount_pct.toFixed(1)}%</p>
+                    </CardContent></Card>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Kênh</TableHead>
+                        <TableHead className="text-center">SL bán</TableHead>
+                        <TableHead className="text-right">Doanh thu</TableHead>
+                        <TableHead className="text-right">Khuyến mãi</TableHead>
+                        <TableHead className="text-center">% KM</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {channelData.channels.map(ch => (
+                        <TableRow key={ch.channel}>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px] capitalize">{ch.channel}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">{ch.qty_sold}</TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">{(ch.revenue / 1000000).toFixed(1)}M</TableCell>
+                          <TableCell className="text-right tabular-nums text-sm text-amber-500">{(ch.discount_amount / 1000000).toFixed(1)}M</TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">
+                            <span className={cn(ch.avg_discount_pct > 15 ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
+                              {ch.avg_discount_pct.toFixed(1)}%
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">Chưa có dữ liệu bán hàng</p>
+              )}
+            </div>
+
+            {/* AI Insight */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> AI Insight
+                </h4>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  disabled={aiMutation.isPending || !channelData}
+                  onClick={() => aiMutation.mutate()}
+                >
+                  {aiMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {aiMutation.isPending ? 'Đang phân tích...' : 'Phân tích'}
+                </Button>
+              </div>
+              {aiInsight ? (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-3 px-4">
+                    <div className="text-sm whitespace-pre-line leading-relaxed">{aiInsight}</div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Nhấn "Phân tích" để AI đánh giá sản phẩm
+                </p>
+              )}
+            </div>
+
             {detail.batches && detail.batches.length > 1 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-muted-foreground">Batch History ({detail.batches.length} batches)</h4>
