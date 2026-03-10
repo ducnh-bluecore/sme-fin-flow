@@ -42306,6 +42306,10 @@ export type Database = {
           total_units_cleared: number
         }[]
       }
+      fn_product_channel_sales: {
+        Args: { p_fc_code: string; p_tenant_id: string }
+        Returns: Json
+      }
       fn_rebalance_engine: {
         Args: { p_run_id: string; p_tenant_id: string }
         Returns: Json
