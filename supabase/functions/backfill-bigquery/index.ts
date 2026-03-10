@@ -1999,10 +1999,7 @@ async function syncPayments(
           paid_at: row[source.mapping.paid_at] || null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_payments')
-          .upsert(payments, { onConflict: 'tenant_id,payment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_payments', payments, ['tenant_id', 'payment_key']);
 
         if (error) {
           console.error('Payment upsert error:', error);
