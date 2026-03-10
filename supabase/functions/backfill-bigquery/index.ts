@@ -822,6 +822,26 @@ async function resolveTenantServiceAccountKey(tenantId: string): Promise<string 
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const tempClient = createClient(supabaseUrl, supabaseKey);
     
+    // 1) Check bigquery_configs for credentials_json (preferred, stored in DB)
+    const { data: bqConfig } = await tempClient
+      .from('bigquery_configs')
+      .select('credentials_json')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (bqConfig?.credentials_json) {
+      const credsStr = typeof bqConfig.credentials_json === 'string'
+        ? bqConfig.credentials_json
+        : JSON.stringify(bqConfig.credentials_json);
+      const parsed = typeof bqConfig.credentials_json === 'string'
+        ? JSON.parse(bqConfig.credentials_json)
+        : bqConfig.credentials_json;
+      console.log(`[resolveTenantServiceAccountKey] Using credentials from bigquery_configs (SA: ${parsed.client_email})`);
+      return credsStr;
+    }
+
+    // 2) Fallback: check bigquery_tenant_sources for env secret name
     const { data, error } = await tempClient
       .from('bigquery_tenant_sources')
       .select('service_account_secret')
@@ -2946,15 +2966,15 @@ async function syncInventory(
           branch_name: source.mapping.branch_name ? row[source.mapping.branch_name] : null,
           product_code: source.mapping.product_code ? row[source.mapping.product_code] || '' : '',
           product_name: source.mapping.product_name ? row[source.mapping.product_name] : null,
-          begin_stock: source.mapping.begin_stock ? parseFloat(row[source.mapping.begin_stock] || '0') : 0,
-          purchase_qty: source.mapping.purchase_qty ? parseFloat(row[source.mapping.purchase_qty] || '0') : 0,
-          sold_qty: source.mapping.sold_qty ? parseFloat(row[source.mapping.sold_qty] || '0') : 0,
-          return_qty: source.mapping.return_qty ? parseFloat(row[source.mapping.return_qty] || '0') : 0,
-          transfer_in_qty: source.mapping.transfer_in_qty ? parseFloat(row[source.mapping.transfer_in_qty] || '0') : 0,
-          transfer_out_qty: source.mapping.transfer_out_qty ? parseFloat(row[source.mapping.transfer_out_qty] || '0') : 0,
-          end_stock: source.mapping.end_stock ? parseFloat(row[source.mapping.end_stock] || '0') : 0,
-          net_revenue: source.mapping.net_revenue ? parseFloat(row[source.mapping.net_revenue] || '0') : 0,
-          cost_amount: source.mapping.cost_amount ? parseFloat(row[source.mapping.cost_amount] || '0') : 0,
+          begin_stock: source.mapping.begin_stock ? (Number(row[source.mapping.begin_stock]) || 0) : 0,
+          purchase_qty: source.mapping.purchase_qty ? (Number(row[source.mapping.purchase_qty]) || 0) : 0,
+          sold_qty: source.mapping.sold_qty ? (Number(row[source.mapping.sold_qty]) || 0) : 0,
+          return_qty: source.mapping.return_qty ? (Number(row[source.mapping.return_qty]) || 0) : 0,
+          transfer_in_qty: source.mapping.transfer_in_qty ? (Number(row[source.mapping.transfer_in_qty]) || 0) : 0,
+          transfer_out_qty: source.mapping.transfer_out_qty ? (Number(row[source.mapping.transfer_out_qty]) || 0) : 0,
+          end_stock: source.mapping.end_stock ? (Number(row[source.mapping.end_stock]) || 0) : 0,
+          net_revenue: source.mapping.net_revenue ? (Number(row[source.mapping.net_revenue]) || 0) : 0,
+          cost_amount: source.mapping.cost_amount ? (Number(row[source.mapping.cost_amount]) || 0) : 0,
         }));
 
         // Deduplicate within batch: aggregate rows with same unique key
