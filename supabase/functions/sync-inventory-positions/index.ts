@@ -235,14 +235,14 @@ Deno.serve(async (req) => {
         QUALIFY ROW_NUMBER() OVER (PARTITION BY inv.loc_id, v.SKU ORDER BY inv.dw_timestamp DESC) = 1
       `;
     } else {
-      // KiotViet (default) - bdm_kov_xuat_nhap_ton may not have isActive/reserveda
+      // KiotViet - bdm_kov_xuat_nhap_ton uses createdDate instead of dw_timestamp
       bqQuery = `
         SELECT CAST(branchId AS STRING) AS branch_id, productCode AS product_code,
           IFNULL(SAFE_CAST(xuat_ban AS INT64), 0) AS on_hand, 0 AS reserved
         FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
         WHERE productCode IS NOT NULL AND productCode != ''
           AND CAST(branchId AS STRING) IN (${branchFilter})
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY dw_timestamp DESC) = 1
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY createdDate DESC) = 1
       `;
     }
 
