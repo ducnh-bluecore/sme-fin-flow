@@ -822,6 +822,26 @@ async function resolveTenantServiceAccountKey(tenantId: string): Promise<string 
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const tempClient = createClient(supabaseUrl, supabaseKey);
     
+    // 1) Check bigquery_configs for credentials_json (preferred, stored in DB)
+    const { data: bqConfig } = await tempClient
+      .from('bigquery_configs')
+      .select('credentials_json')
+      .eq('tenant_id', tenantId)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (bqConfig?.credentials_json) {
+      const credsStr = typeof bqConfig.credentials_json === 'string'
+        ? bqConfig.credentials_json
+        : JSON.stringify(bqConfig.credentials_json);
+      const parsed = typeof bqConfig.credentials_json === 'string'
+        ? JSON.parse(bqConfig.credentials_json)
+        : bqConfig.credentials_json;
+      console.log(`[resolveTenantServiceAccountKey] Using credentials from bigquery_configs (SA: ${parsed.client_email})`);
+      return credsStr;
+    }
+
+    // 2) Fallback: check bigquery_tenant_sources for env secret name
     const { data, error } = await tempClient
       .from('bigquery_tenant_sources')
       .select('service_account_secret')
