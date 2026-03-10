@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
     const token = await getAccessToken(JSON.parse(saJson));
 
     if (action === 'list_tables') {
-      const query = `SELECT table_name FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.TABLES\` WHERE table_name LIKE '%nvent%' OR table_name LIKE '%roduct%' ORDER BY table_name`;
+      const filter = body.filter || '%nvent%';
+      const query = body.query || `SELECT table_name FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.TABLES\` WHERE table_name LIKE '${filter}' OR table_name LIKE '%roduct%' ORDER BY table_name`;
       const bqRes = await fetch(
         `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`,
         {
@@ -51,8 +52,13 @@ Deno.serve(async (req) => {
       );
       const bqData = await bqRes.json();
       if (bqData.error) throw new Error(bqData.error.message);
-      const tables = (bqData.rows || []).map((r: any) => r.f[0].v);
-      return new Response(JSON.stringify({ dataset, tables }), {
+      const schema = bqData.schema?.fields || [];
+      const rows = (bqData.rows || []).map((r: any) => {
+        const obj: Record<string, any> = {};
+        r.f.forEach((f: any, i: number) => { obj[schema[i].name] = f.v; });
+        return obj;
+      });
+      return new Response(JSON.stringify({ dataset, rows }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
