@@ -1,0 +1,1 @@
+UPDATE bigquery_configs SET gcp_project_id = 'bluecore-dcp', project_id = 'bluecore-dcp' WHERE tenant_id = '9577c1f0-bfb2-443e-9b62-262fe2a1d589'
