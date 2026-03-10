@@ -1645,7 +1645,7 @@ async function syncOrderItems(
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              orderKeyToUuid[o.order_key] = o.id;
+              orderKeyToUuid[o.order_key] = o.order_uuid;
             }
           }
         }
