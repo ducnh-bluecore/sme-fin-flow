@@ -2358,6 +2358,21 @@ async function syncProducts(
             current_stock: 0,
             source_created_at: null,
           }));
+        } else if (source.channel === 'haravan') {
+          // Haravan: Product_Variants JOIN Product
+          products = rows.map(row => ({
+            tenant_id: tenantId,
+            channel: 'haravan',
+            sku: String(row.SKU || `unknown_${row.Product_Id}`),
+            name: row.Title || null,
+            category: row.Product_Type || null,
+            brand: row.vendor || null,
+            unit: row.Option1 || null,
+            cost_price: parseFloat(row.Cost_Price || '0'),
+            selling_price: parseFloat(row.Price || '0'),
+            current_stock: parseFloat(row.Inventory_Quantity || '0'),
+            source_created_at: row.Created_At || null,
+          }));
         } else {
           products = rows.map(row => ({
             tenant_id: tenantId,
