@@ -1,11 +1,10 @@
 /**
  * backfill-sku-fc-mapping
  * 
- * Fetches all productCodes from BigQuery inventory table,
+ * Fetches all productCodes from BigQuery inventory/product table,
  * finds missing SKUs not in inv_sku_fc_mapping, strips size suffix to derive
  * fc_code, finds or creates inv_family_codes, then inserts mappings.
- * 
- * Now supports dynamic tenant_id + resolves BQ config from DB.
+ * Supports dynamic tenant_id + resolves BQ config from DB.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -17,9 +16,6 @@ const corsHeaders = {
 };
 
 const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const DEFAULT_PROJECT_ID = 'bluecore-dcp';
-const DEFAULT_DATASET = 'olvboutique';
-const DEFAULT_TABLE = 'raw_kiotviet_ProductInventories';
 
 // ============= Auth =============
 
@@ -84,56 +80,79 @@ interface BqConfig {
   dataset: string;
   table: string;
   accessToken: string;
+  sourceType: string;
+  variantTable?: string;
 }
 
 async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
-  let projectId = DEFAULT_PROJECT_ID;
-  let dataset = DEFAULT_DATASET;
-  let table = DEFAULT_TABLE;
-  let saSecretName = 'GOOGLE_SERVICE_ACCOUNT_JSON';
+  let projectId = 'bluecore-dcp';
+  let dataset = 'olvboutique';
+  let table = 'raw_kiotviet_ProductInventories';
+  let sourceType = 'kiotviet';
+  let variantTable: string | undefined;
+  let serviceAccountJson: string | null = null;
 
-  const { data: config } = await supabase
+  // 1) bigquery_configs (credentials_json preferred)
+  const { data: bqCfg } = await supabase
     .from('bigquery_configs')
-    .select('project_id')
+    .select('gcp_project_id, dataset_id, credentials_json')
     .eq('tenant_id', tenantId)
+    .eq('is_active', true)
     .maybeSingle();
-  if (config?.project_id) projectId = config.project_id;
 
-  // Check for inventory-specific source first, then fall back to products
+  if (bqCfg?.gcp_project_id) projectId = bqCfg.gcp_project_id;
+  if (bqCfg?.dataset_id) dataset = bqCfg.dataset_id;
+  if (bqCfg?.credentials_json) {
+    serviceAccountJson = typeof bqCfg.credentials_json === 'string'
+      ? bqCfg.credentials_json : JSON.stringify(bqCfg.credentials_json);
+  }
+
+  // 2) Check inventory source for table info
   const { data: invSource } = await supabase
     .from('bigquery_tenant_sources')
-    .select('dataset, table_name, service_account_secret')
+    .select('dataset, table_name, service_account_secret, channel, mapping_overrides')
     .eq('tenant_id', tenantId)
-    .eq('model_type', 'inventory')
+    .in('model_type', ['inventory_positions', 'inventory'])
     .eq('is_enabled', true)
+    .limit(1)
     .maybeSingle();
 
   if (invSource?.dataset) {
     dataset = invSource.dataset;
-    table = invSource.table_name || DEFAULT_TABLE;
-    if (invSource.service_account_secret) saSecretName = invSource.service_account_secret;
+    table = invSource.table_name || table;
+    if (invSource.channel) sourceType = invSource.channel;
+    if (invSource.mapping_overrides?.source_type) sourceType = invSource.mapping_overrides.source_type;
+    if (invSource.mapping_overrides?.variant_table) variantTable = invSource.mapping_overrides.variant_table;
+    if (!serviceAccountJson && invSource.service_account_secret) {
+      const envVal = Deno.env.get(invSource.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
+    }
   } else {
-    // Fallback: use products source
+    // Fallback: products source
     const { data: source } = await supabase
       .from('bigquery_tenant_sources')
-      .select('dataset, table_name, service_account_secret')
+      .select('dataset, channel, service_account_secret')
       .eq('tenant_id', tenantId)
       .eq('model_type', 'products')
       .eq('is_enabled', true)
       .maybeSingle();
-    if (source?.dataset) {
-      dataset = source.dataset;
-      table = DEFAULT_TABLE; // KiotViet default
+    if (source?.dataset) dataset = source.dataset;
+    if (source?.channel) sourceType = source.channel;
+    if (!serviceAccountJson && source?.service_account_secret) {
+      const envVal = Deno.env.get(source.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
     }
-    if (source?.service_account_secret) saSecretName = source.service_account_secret;
   }
 
-  console.log(`[backfill-sku] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
+  // 3) Final fallback
+  if (!serviceAccountJson) {
+    serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || null;
+  }
+  if (!serviceAccountJson) throw new Error('No service account credentials found');
 
-  const saJson = Deno.env.get(saSecretName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-  if (!saJson) throw new Error(`No service account key found (tried ${saSecretName})`);
-  const accessToken = await getAccessToken(JSON.parse(saJson));
-  return { projectId, dataset, table, accessToken };
+  console.log(`[backfill-sku] Config: project=${projectId}, dataset=${dataset}, table=${table}, type=${sourceType}`);
+  const accessToken = await getAccessToken(JSON.parse(serviceAccountJson));
+  return { projectId, dataset, table, accessToken, sourceType, variantTable };
 }
 
 // ============= Main =============
@@ -152,17 +171,37 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
-    
+
     console.log(`[backfill-sku] tenant=${tenantId}`);
-    
+
     const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // 1. Get distinct productCodes from BQ
-    const bqRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, `
-      SELECT DISTINCT productCode AS sku, productName AS name
-      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-      WHERE productCode IS NOT NULL AND productCode != ''
-    `);
+    // 1. Get distinct SKUs from BQ - different SQL per source type
+    let bqQuery: string;
+    if (bqConfig.sourceType === 'haravan' && bqConfig.variantTable) {
+      bqQuery = `
+        SELECT DISTINCT v.SKU AS sku, p.Title AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.variantTable}\` v
+        LEFT JOIN \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Product\` p 
+          ON v.product_id = p.Id
+        WHERE v.SKU IS NOT NULL AND v.SKU != ''
+      `;
+    } else if (bqConfig.sourceType === 'haravan') {
+      bqQuery = `
+        SELECT DISTINCT Sku AS sku, Title AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Product\`
+        WHERE Sku IS NOT NULL AND Sku != ''
+      `;
+    } else {
+      // KiotViet (default)
+      bqQuery = `
+        SELECT DISTINCT productCode AS sku, productName AS name
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+        WHERE productCode IS NOT NULL AND productCode != ''
+      `;
+    }
+
+    const bqRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, bqQuery);
     console.log(`[backfill-sku] BQ distinct SKUs: ${bqRows.length}`);
 
     // 2. Load existing SKU mappings
@@ -198,7 +237,6 @@ Deno.serve(async (req) => {
       if (data.length < PAGE) break;
       offset += PAGE;
     }
-    console.log(`[backfill-sku] Existing FCs: ${existingFcs.size}`);
 
     // 4. Find missing SKUs & derive FCs
     const missingSKUs: { sku: string; name: string }[] = [];
@@ -208,7 +246,6 @@ Deno.serve(async (req) => {
       const sku = row.sku;
       if (existingSkus.has(sku)) continue;
       if (isNonFashion(sku)) continue;
-
       missingSKUs.push({ sku, name: row.name || '' });
       const fcCode = stripSizeFromSku(sku);
       if (!existingFcs.has(fcCode) && !newFcCodes.has(fcCode)) {
@@ -218,39 +255,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[backfill-sku] Missing SKUs: ${missingSKUs.length}, New FCs to create: ${newFcCodes.size}`);
+    console.log(`[backfill-sku] Missing SKUs: ${missingSKUs.length}, New FCs: ${newFcCodes.size}`);
 
-    // 5. Create new FCs in batches
+    // 5. Create new FCs
     const BATCH = 500;
     let fcsCreated = 0;
     const fcEntries = Array.from(newFcCodes.entries());
 
     for (let i = 0; i < fcEntries.length; i += BATCH) {
       const batch = fcEntries.slice(i, i + BATCH).map(([code, name]) => ({
-        tenant_id: tenantId,
-        fc_code: code,
-        fc_name: name,
-        is_active: true,
+        tenant_id: tenantId, fc_code: code, fc_name: name, is_active: true,
       }));
-
       const { data, error } = await supabase
         .from('inv_family_codes')
         .upsert(batch, { onConflict: 'tenant_id,fc_code' })
         .select('id, fc_code');
-
-      if (error) {
-        console.error(`[backfill-sku] FC upsert error:`, error.message);
-      } else {
+      if (!error) {
         (data || []).forEach((r: any) => existingFcs.set(r.fc_code, r.id));
         fcsCreated += (data || []).length;
       }
     }
 
-    console.log(`[backfill-sku] Created ${fcsCreated} new FCs`);
-
     // 6. Create SKU→FC mappings
-    let mappingsCreated = 0;
-    let mappingErrors = 0;
+    let mappingsCreated = 0, mappingErrors = 0;
 
     for (let i = 0; i < missingSKUs.length; i += BATCH) {
       const batch = missingSKUs.slice(i, i + BATCH)
@@ -261,35 +288,20 @@ Deno.serve(async (req) => {
           return { tenant_id: tenantId, sku, fc_id: fcId, is_active: true };
         })
         .filter(Boolean);
-
       if (!batch.length) continue;
-
       const { error } = await supabase
         .from('inv_sku_fc_mapping')
         .upsert(batch as any[], { onConflict: 'tenant_id,sku' });
-
-      if (error) {
-        console.error(`[backfill-sku] Mapping error at ${i}:`, error.message);
-        mappingErrors++;
-      } else {
-        mappingsCreated += batch.length;
-      }
+      if (error) { mappingErrors++; } else { mappingsCreated += batch.length; }
     }
 
-    const duration = Date.now() - startTime;
     const summary = {
-      success: mappingErrors === 0,
-      tenant_id: tenantId,
-      bq_distinct_skus: bqRows.length,
-      existing_mappings: existingSkus.size,
-      missing_skus: missingSKUs.length,
-      new_fcs_created: fcsCreated,
-      mappings_created: mappingsCreated,
-      mapping_errors: mappingErrors,
-      duration_ms: duration,
+      success: mappingErrors === 0, tenant_id: tenantId,
+      bq_distinct_skus: bqRows.length, existing_mappings: existingSkus.size,
+      missing_skus: missingSKUs.length, new_fcs_created: fcsCreated,
+      mappings_created: mappingsCreated, mapping_errors: mappingErrors,
+      duration_ms: Date.now() - startTime,
     };
-
-    console.log(`[backfill-sku] Done in ${duration}ms. New FCs: ${fcsCreated}, New mappings: ${mappingsCreated}`);
 
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
