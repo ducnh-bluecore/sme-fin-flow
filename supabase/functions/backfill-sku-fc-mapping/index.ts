@@ -1,9 +1,11 @@
 /**
  * backfill-sku-fc-mapping
  * 
- * Fetches all productCodes from BigQuery raw_kiotviet_ProductInventories,
+ * Fetches all productCodes from BigQuery inventory table,
  * finds missing SKUs not in inv_sku_fc_mapping, strips size suffix to derive
  * fc_code, finds or creates inv_family_codes, then inserts mappings.
+ * 
+ * Now supports dynamic tenant_id + resolves BQ config from DB.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -14,9 +16,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
+const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const DEFAULT_PROJECT_ID = 'bluecore-dcp';
+const DEFAULT_DATASET = 'olvboutique';
+const DEFAULT_TABLE = 'raw_kiotviet_ProductInventories';
 
 // ============= Auth =============
 
@@ -40,9 +43,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-async function queryBigQuery(accessToken: string, query: string) {
+async function queryBigQuery(accessToken: string, projectId: string, query: string) {
   console.log('[backfill-sku] BQ:', query.substring(0, 200));
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -64,16 +67,71 @@ const SIZE_SUFFIXES = /^(.*\d)(XXXL|XXL|XL|XS|S|M|L|F)$/i;
 const NON_FASHION_PREFIXES = ['BAG', 'BOX', 'TAG', 'TUI', 'HOP', 'GIFT'];
 
 function stripSizeFromSku(sku: string): string {
-  // Try stripping known size suffixes from end
   const match = sku.match(SIZE_SUFFIXES);
   if (match) return match[1];
-  // If no match, return sku as-is (it IS the fc_code, e.g. accessories)
   return sku;
 }
 
 function isNonFashion(sku: string): boolean {
   const upper = sku.toUpperCase();
   return NON_FASHION_PREFIXES.some(p => upper.startsWith(p));
+}
+
+// ============= Config Resolution =============
+
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  table: string;
+  accessToken: string;
+}
+
+async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  // Try to find inventory-specific source in bigquery_tenant_sources
+  // Fall back to bigquery_configs, then hardcoded defaults
+  
+  let projectId = DEFAULT_PROJECT_ID;
+  let dataset = DEFAULT_DATASET;
+  let table = DEFAULT_TABLE;
+  let saSecretName = 'GOOGLE_SERVICE_ACCOUNT_JSON';
+
+  // Check bigquery_configs for tenant
+  const { data: config } = await supabase
+    .from('bigquery_configs')
+    .select('project_id, dataset_prefix')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  
+  if (config?.project_id) projectId = config.project_id;
+
+  // Check if tenant has a products source (uses same BQ project/dataset as inventory)
+  const { data: source } = await supabase
+    .from('bigquery_tenant_sources')
+    .select('dataset, service_account_secret')
+    .eq('tenant_id', tenantId)
+    .eq('model_type', 'products')
+    .eq('is_enabled', true)
+    .maybeSingle();
+
+  if (source?.dataset) {
+    dataset = source.dataset;
+    // Derive inventory table name based on channel
+    // For KiotViet: raw_kiotviet_ProductInventories
+    // For Haravan (160store): raw_hrv_ProductInventories or similar
+    table = `raw_kiotviet_ProductInventories`;
+  }
+  if (source?.service_account_secret) {
+    saSecretName = source.service_account_secret;
+  }
+
+  console.log(`[backfill-sku] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
+
+  // Resolve service account key
+  const saJson = Deno.env.get(saSecretName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) throw new Error(`No service account key found (tried ${saSecretName})`);
+  
+  const accessToken = await getAccessToken(JSON.parse(saJson));
+  return { projectId, dataset, table, accessToken };
 }
 
 // ============= Main =============
@@ -90,24 +148,17 @@ Deno.serve(async (req) => {
   );
 
   try {
-    // Try default key first, fallback to ICONDENIM key
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || Deno.env.get('ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('No Google service account key configured');
-    let accessToken: string;
-    try {
-      accessToken = await getAccessToken(JSON.parse(saJson));
-    } catch (e) {
-      // Fallback to ICONDENIM key if default fails
-      const fallback = Deno.env.get('ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON');
-      if (!fallback) throw e;
-      console.log('[backfill-sku] Default key failed, trying ICONDENIM key');
-      accessToken = await getAccessToken(JSON.parse(fallback));
-    }
+    const body = await req.json().catch(() => ({}));
+    const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
+    
+    console.log(`[backfill-sku] tenant=${tenantId}`);
+    
+    const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // 1. Get distinct productCodes from BQ (with product names for FC name)
-    const bqRows = await queryBigQuery(accessToken, `
+    // 1. Get distinct productCodes from BQ
+    const bqRows = await queryBigQuery(bqConfig.accessToken, bqConfig.projectId, `
       SELECT DISTINCT productCode AS sku, productName AS name
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_ProductInventories\`
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
       WHERE productCode IS NOT NULL AND productCode != ''
     `);
     console.log(`[backfill-sku] BQ distinct SKUs: ${bqRows.length}`);
@@ -120,7 +171,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from('inv_sku_fc_mapping')
         .select('sku')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', tenantId)
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       if (!data?.length) break;
@@ -131,13 +182,13 @@ Deno.serve(async (req) => {
     console.log(`[backfill-sku] Existing SKU mappings: ${existingSkus.size}`);
 
     // 3. Load existing FCs
-    const existingFcs = new Map<string, string>(); // fc_code → id
+    const existingFcs = new Map<string, string>();
     offset = 0;
     while (true) {
       const { data, error } = await supabase
         .from('inv_family_codes')
         .select('id, fc_code')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', tenantId)
         .range(offset, offset + PAGE - 1);
       if (error) throw error;
       if (!data?.length) break;
@@ -149,7 +200,7 @@ Deno.serve(async (req) => {
 
     // 4. Find missing SKUs & derive FCs
     const missingSKUs: { sku: string; name: string }[] = [];
-    const newFcCodes = new Map<string, string>(); // fc_code → product_name (for creating)
+    const newFcCodes = new Map<string, string>();
 
     for (const row of bqRows) {
       const sku = row.sku;
@@ -159,9 +210,7 @@ Deno.serve(async (req) => {
       missingSKUs.push({ sku, name: row.name || '' });
       const fcCode = stripSizeFromSku(sku);
       if (!existingFcs.has(fcCode) && !newFcCodes.has(fcCode)) {
-        // Use product name but strip size info for FC name
         const name = row.name || fcCode;
-        // Strip trailing " - S", " - M", etc from name
         const cleanName = name.replace(/\s*[-/]\s*(XXXL|XXL|XL|XS|S|M|L|F)\s*$/i, '').trim();
         newFcCodes.set(fcCode, cleanName || fcCode);
       }
@@ -176,7 +225,7 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < fcEntries.length; i += BATCH) {
       const batch = fcEntries.slice(i, i + BATCH).map(([code, name]) => ({
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         fc_code: code,
         fc_name: name,
         is_active: true,
@@ -207,13 +256,7 @@ Deno.serve(async (req) => {
           const fcCode = stripSizeFromSku(sku);
           const fcId = existingFcs.get(fcCode);
           if (!fcId) return null;
-
-          return {
-            tenant_id: TENANT_ID,
-            sku,
-            fc_id: fcId,
-            is_active: true,
-          };
+          return { tenant_id: tenantId, sku, fc_id: fcId, is_active: true };
         })
         .filter(Boolean);
 
@@ -234,6 +277,7 @@ Deno.serve(async (req) => {
     const duration = Date.now() - startTime;
     const summary = {
       success: mappingErrors === 0,
+      tenant_id: tenantId,
       bq_distinct_skus: bqRows.length,
       existing_mappings: existingSkus.size,
       missing_skus: missingSKUs.length,
