@@ -568,6 +568,7 @@ const AppRoutes = () => {
         <Route path="/command/assortment" element={<AssortmentPage />} />
         <Route path="/command/clearance" element={<ClearancePage />} />
         <Route path="/command/product-insight" element={<ProductInsightPage />} />
+        <Route path="/command/product-insight/:fcId" element={<ProductDetailPage />} />
         <Route path="/command/network-gap" element={<NetworkGapPage />} />
         <Route path="/command/production" element={<ProductionCandidatesPage />} />
         <Route path="/command/decisions" element={<DecisionQueuePage />} />
