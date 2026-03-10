@@ -1851,10 +1851,7 @@ async function syncRefunds(
         }));
 
         // Upsert to update changed data (unique on tenant_id + refund_key)
-        const { error, count } = await supabase
-          .from('cdp_refunds')
-          .upsert(refunds, { onConflict: 'tenant_id,refund_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_refunds', refunds, ['tenant_id', 'refund_key']);
 
         if (error) {
           console.error('Refund upsert error:', error);
