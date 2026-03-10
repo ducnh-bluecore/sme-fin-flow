@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
     let totalUpdated = 0;
     for (let i = 0; i < uniqueMappings.length; i += BATCH_SIZE) {
       const batch = uniqueMappings.slice(i, i + BATCH_SIZE);
-      const { data, error } = await supabase.rpc('batch_update_sku_color', { updates: batch });
+      const { data, error } = await supabase.rpc('batch_update_sku_color', { updates: batch, p_tenant_id: tenant_id });
       if (error) {
         console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} error:`, error.message);
       } else {

@@ -41526,7 +41526,9 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
-      batch_update_sku_color: { Args: { updates: Json }; Returns: Json }
+      batch_update_sku_color:
+        | { Args: { updates: Json }; Returns: Json }
+        | { Args: { p_tenant_id?: string; updates: Json }; Returns: Json }
       calculate_ap_aging_detail: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: {
