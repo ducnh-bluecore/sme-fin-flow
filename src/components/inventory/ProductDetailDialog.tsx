@@ -133,7 +133,7 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
   const lifecycleDays = detail?.lifecycle_days ?? 180;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setAiInsight(null); onOpenChange(v); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Chi tiết vòng đời sản phẩm</DialogTitle>
