@@ -62,19 +62,22 @@ async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfi
       ? bqCfg.credentials_json : JSON.stringify(bqCfg.credentials_json);
   }
 
-  // Check orders source for channel info
-  const { data: ordSource } = await supabase
+  // For demand state, we need orders with BranchId matching store_code
+  // Check inventory source first (stores are synced from inventory source)
+  const { data: invSource } = await supabase
     .from('bigquery_tenant_sources')
     .select('dataset, channel, service_account_secret')
     .eq('tenant_id', tenantId)
-    .eq('model_type', 'orders')
+    .eq('model_type', 'inventory')
     .eq('is_enabled', true)
     .maybeSingle();
 
-  if (ordSource?.dataset) dataset = ordSource.dataset;
-  if (ordSource?.channel) sourceType = ordSource.channel;
-  if (!serviceAccountJson && ordSource?.service_account_secret) {
-    const envVal = Deno.env.get(ordSource.service_account_secret);
+  // Use inventory channel to determine which order tables to query
+  // (because store_codes come from the same system as inventory)
+  if (invSource?.dataset) dataset = invSource.dataset;
+  if (invSource?.channel) sourceType = invSource.channel;
+  if (!serviceAccountJson && invSource?.service_account_secret) {
+    const envVal = Deno.env.get(invSource.service_account_secret);
     if (envVal) serviceAccountJson = envVal;
   }
 
