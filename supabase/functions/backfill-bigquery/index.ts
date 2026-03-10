@@ -76,6 +76,44 @@ function shouldPause(startTimeMs: number) {
   return Date.now() - startTimeMs >= MAX_EXECUTION_TIME_MS;
 }
 
+// ============= Tenant-Aware Upsert Helper =============
+// PostgREST (.from()) always targets public schema regardless of search_path.
+// This helper uses the tenant_upsert_jsonb RPC to route writes to the correct schema.
+async function tenantUpsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[],
+  conflictColumns: string[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: conflictColumns,
+  });
+  
+  return { count: error ? 0 : (data || 0), error };
+}
+
+// Tenant-aware order lookup for FK resolution
+async function tenantLookupOrderIds(
+  supabase: any,
+  tenantId: string,
+  orderKeys: string[]
+): Promise<{ data: Array<{ id: string; order_key: string }> | null; error: any }> {
+  if (orderKeys.length === 0) return { data: [], error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_lookup_order_ids', {
+    p_tenant_id: tenantId,
+    p_order_keys: orderKeys,
+  });
+  
+  return { data, error };
+}
+
 // ============= KiotViet Marketplace Dedup =============
 // SaleChannelId values that represent marketplace orders flowing through KiotViet POS.
 // These orders are already synced from their native marketplace datasets,
