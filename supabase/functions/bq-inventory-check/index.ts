@@ -5,9 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
-
 async function getAccessToken(sa: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const pk = await importPKCS8(sa.private_key, 'RS256');
@@ -33,76 +30,61 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const productCode = body.product_code || '222011808FS';
+    const dataset = body.dataset || '160store';
+    const projectId = body.project_id || 'bluecore-dcp';
+    const saKeyName = body.sa_key || 'ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON';
+    const action = body.action || 'list_tables';
 
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('No SA');
+    const saJson = Deno.env.get(saKeyName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    if (!saJson) throw new Error(`No SA key: ${saKeyName}`);
     const token = await getAccessToken(JSON.parse(saJson));
 
-    // Query raw inventory
-    const query = `
-      SELECT 
-        CAST(pi.branchId AS STRING) AS branch_id,
-        pi.productCode,
-        IFNULL(pi.onHand, 0) AS on_hand,
-        IFNULL(pi.reserveda, 0) AS reserved,
-        pi.dw_timestamp
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_ProductInventories\` pi
-      WHERE pi.productCode = '${productCode}'
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY pi.branchId ORDER BY pi.dw_timestamp DESC) = 1
-      ORDER BY pi.onHand DESC
-    `;
+    if (action === 'list_tables') {
+      const query = `SELECT table_name FROM \`${projectId}.${dataset}.INFORMATION_SCHEMA.TABLES\` WHERE table_name LIKE '%nvent%' OR table_name LIKE '%roduct%' ORDER BY table_name`;
+      const bqRes = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, useLegacySql: false, maxResults: 100, timeoutMs: 30000 }),
+        }
+      );
+      const bqData = await bqRes.json();
+      if (bqData.error) throw new Error(bqData.error.message);
+      const tables = (bqData.rows || []).map((r: any) => r.f[0].v);
+      return new Response(JSON.stringify({ dataset, tables }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
+    // Default: query specific product
+    const productCode = body.product_code || '222011808FS';
+    const table = body.table || 'raw_kiotviet_ProductInventories';
+    const query = `
+      SELECT CAST(branchId AS STRING) AS branch_id, productCode, IFNULL(onHand,0) AS on_hand
+      FROM \`${projectId}.${dataset}.${table}\`
+      WHERE productCode = '${productCode}'
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId ORDER BY dw_timestamp DESC) = 1
+    `;
     const bqRes = await fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`,
+      `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`,
       {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, useLegacySql: false, maxResults: 500, timeoutMs: 60000 }),
+        body: JSON.stringify({ query, useLegacySql: false, maxResults: 500, timeoutMs: 30000 }),
       }
     );
     const bqData = await bqRes.json();
     if (bqData.error) throw new Error(bqData.error.message);
-
     const schema = bqData.schema?.fields || [];
     const rows = (bqData.rows || []).map((r: any) => {
       const obj: Record<string, any> = {};
       r.f.forEach((f: any, i: number) => { obj[schema[i].name] = f.v; });
       return obj;
     });
-
-    // Also check product info
-    const prodQuery = `
-      SELECT productCode, name, createdDate, modifiedDate, isActive
-      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_Product\`
-      WHERE productCode = '${productCode}'
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY productCode ORDER BY dw_timestamp DESC) = 1
-    `;
-    const prodRes = await fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: prodQuery, useLegacySql: false, maxResults: 10, timeoutMs: 30000 }),
-      }
-    );
-    const prodData = await prodRes.json();
-    const prodSchema = prodData.schema?.fields || [];
-    const prodRows = (prodData.rows || []).map((r: any) => {
-      const obj: Record<string, any> = {};
-      r.f.forEach((f: any, i: number) => { obj[prodSchema[i].name] = f.v; });
-      return obj;
+    return new Response(JSON.stringify({ product_code: productCode, rows }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-    const totalOnHand = rows.reduce((s: number, r: any) => s + Number(r.on_hand || 0), 0);
-
-    return new Response(JSON.stringify({
-      product_code: productCode,
-      product_info: prodRows[0] || null,
-      total_on_hand: totalOnHand,
-      branches: rows,
-      branch_count: rows.length,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
