@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import ProductDetailDialog from '@/components/inventory/ProductDetailDialog';
+// ProductDetailDialog removed - now uses full page route
 
 interface LifecycleRow {
   fc_id: string;
