@@ -220,6 +220,7 @@ import CapitalMapPage from "./pages/command/CapitalMapPage";
 import DeadStockPage from "./pages/command/DeadStockPage";
 const StoreIntelPage = lazy(() => import("./pages/command/StoreIntelPage"));
 import ProductInsightPage from "./pages/command/ProductInsightPage";
+import ProductDetailPage from "./pages/command/ProductDetailPage";
 
 const queryClient = new QueryClient();
 
