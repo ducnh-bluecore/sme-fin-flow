@@ -153,9 +153,10 @@ Deno.serve(async (req) => {
     }
 
     // Init tenant session for schema routing
-    await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId }).catch((e: any) => {
-      console.warn('[lifecycle] init_tenant_session warning:', e.message);
-    });
+    const { error: sessionErr } = await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId });
+    if (sessionErr) {
+      console.warn('[lifecycle] init_tenant_session warning:', sessionErr.message);
+    }
 
     // Load BQ config dynamically
     const bqConfig = await loadBqConfig(supabase, tenantId);
