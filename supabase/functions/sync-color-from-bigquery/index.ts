@@ -116,9 +116,8 @@ serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
     // Init tenant session for schema routing
-    await supabase.rpc('init_tenant_session', { p_tenant_id: tenant_id }).catch((e: any) => {
-      console.warn('[sync-color] init_tenant_session warning:', e.message);
-    });
+    const { error: initErr } = await supabase.rpc('init_tenant_session', { p_tenant_id: tenant_id });
+    if (initErr) console.warn('[sync-color] init_tenant_session warning:', initErr.message);
 
     // Load BQ config dynamically
     const bqConfig = await loadBqConfig(supabase, tenant_id);

@@ -110,9 +110,8 @@ Deno.serve(async (req) => {
     if (!tenantId) throw new Error('tenant_id is required');
 
     // Init tenant session for schema routing
-    await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId }).catch((e: any) => {
-      console.warn('[sync-created-date] init_tenant_session warning:', e.message);
-    });
+    const { error: initErr } = await supabase.rpc('init_tenant_session', { p_tenant_id: tenantId });
+    if (initErr) console.warn('[sync-created-date] init_tenant_session warning:', initErr.message);
 
     // Load BQ config dynamically
     const bqConfig = await loadBqConfig(supabase, tenantId);
