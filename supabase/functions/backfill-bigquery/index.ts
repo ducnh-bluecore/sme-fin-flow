@@ -76,6 +76,44 @@ function shouldPause(startTimeMs: number) {
   return Date.now() - startTimeMs >= MAX_EXECUTION_TIME_MS;
 }
 
+// ============= Tenant-Aware Upsert Helper =============
+// PostgREST (.from()) always targets public schema regardless of search_path.
+// This helper uses the tenant_upsert_jsonb RPC to route writes to the correct schema.
+async function tenantUpsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[],
+  conflictColumns: string[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: conflictColumns,
+  });
+  
+  return { count: error ? 0 : (data || 0), error };
+}
+
+// Tenant-aware order lookup for FK resolution
+async function tenantLookupOrderIds(
+  supabase: any,
+  tenantId: string,
+  orderKeys: string[]
+): Promise<{ data: Array<{ id: string; order_key: string }> | null; error: any }> {
+  if (orderKeys.length === 0) return { data: [], error: null };
+  
+  const { data, error } = await supabase.rpc('tenant_lookup_order_ids', {
+    p_tenant_id: tenantId,
+    p_order_keys: orderKeys,
+  });
+  
+  return { data, error };
+}
+
 // ============= KiotViet Marketplace Dedup =============
 // SaleChannelId values that represent marketplace orders flowing through KiotViet POS.
 // These orders are already synced from their native marketplace datasets,
@@ -1279,9 +1317,7 @@ async function syncCustomers(
       source_created_at: c.created_at || null,
     }));
     
-    const { error } = await supabase
-      .from('cdp_customers')
-      .upsert(batch, { onConflict: 'tenant_id,canonical_key' });
+    const { error } = await tenantUpsert(supabase, tenantId, 'cdp_customers', batch, ['tenant_id', 'canonical_key']);
     
     if (error) {
       console.error('Upsert error:', error);
@@ -1445,12 +1481,7 @@ async function syncOrders(
           };
         });
         
-        const { error, count } = await supabase
-          .from('cdp_orders')
-          .upsert(orders, { 
-            onConflict: 'tenant_id,channel,order_key',
-            count: 'exact'
-          });
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_orders', orders, ['tenant_id', 'channel', 'order_key']);
         
         if (error) {
           console.error('Order upsert error:', error);
@@ -1606,12 +1637,9 @@ async function syncOrderItems(
         const orderKeyToUuid: Record<string, string> = {};
         for (let i = 0; i < batchOrderKeys.length; i += 200) {
           const chunk = batchOrderKeys.slice(i, i + 200);
-          const { data: orderRows, error: lookupError } = await supabase
-            .from('cdp_orders')
-            .select('id, order_key')
-            .eq('tenant_id', tenantId)
-            .eq('channel', source.channel)
-            .in('order_key', chunk);
+          // Use tenant-aware lookup to query correct schema
+          const orderKeysWithChannel = chunk.map(k => `${source.channel}:${k}`);
+          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, orderKeysWithChannel);
           
           if (lookupError) {
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
@@ -1627,7 +1655,8 @@ async function syncOrderItems(
         const orderItems = [];
         for (const row of rows) {
           const orderKey = String(row[source.mapping.order_key]);
-          const resolvedOrderId = orderKeyToUuid[orderKey];
+          const fullOrderKey = `${source.channel}:${orderKey}`;
+          const resolvedOrderId = orderKeyToUuid[fullOrderKey];
           
           if (!resolvedOrderId) {
             batchSkipped++;
@@ -1663,10 +1692,7 @@ async function syncOrderItems(
         
         // Step 4: Upsert only valid items
         if (orderItems.length > 0) {
-          const { error, count } = await supabase
-            .from('cdp_order_items')
-            .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_order_items', orderItems, ['tenant_id', 'order_id', 'sku']);
           
           if (error) {
             console.error('Order item upsert error:', error);
@@ -1826,10 +1852,7 @@ async function syncRefunds(
         }));
 
         // Upsert to update changed data (unique on tenant_id + refund_key)
-        const { error, count } = await supabase
-          .from('cdp_refunds')
-          .upsert(refunds, { onConflict: 'tenant_id,refund_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_refunds', refunds, ['tenant_id', 'refund_key']);
 
         if (error) {
           console.error('Refund upsert error:', error);
@@ -1977,10 +2000,7 @@ async function syncPayments(
           paid_at: row[source.mapping.paid_at] || null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_payments')
-          .upsert(payments, { onConflict: 'tenant_id,payment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_payments', payments, ['tenant_id', 'payment_key']);
 
         if (error) {
           console.error('Payment upsert error:', error);
@@ -2125,10 +2145,7 @@ async function syncFulfillments(
           shipped_at: source.mapping.shipped_at ? row[source.mapping.shipped_at] || null : null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_fulfillments')
-          .upsert(fulfillments, { onConflict: 'tenant_id,fulfillment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_fulfillments', fulfillments, ['tenant_id', 'fulfillment_key']);
 
         if (error) {
           console.error('Fulfillment upsert error:', error);
@@ -2393,12 +2410,7 @@ async function syncProducts(
           }));
         }
 
-        const { error, count } = await supabase
-          .from('products')
-          .upsert(products, {
-            onConflict: 'tenant_id,channel,sku',
-            count: 'exact'
-          });
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'products', products, ['tenant_id', 'channel', 'sku']);
 
         if (error) {
           console.error(`Product upsert error (${source.channel}):`, error);
@@ -2634,10 +2646,7 @@ async function syncAdSpend(
           broad_conversions: parseInt(row[source.mapping.broad_conversions] || '0', 10),
         }));
 
-        const { error, count } = await supabase
-          .from('ad_spend_daily')
-          .upsert(adSpendRows, { onConflict: 'tenant_id,channel,spend_date,campaign_id,ad_id' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'ad_spend_daily', adSpendRows, ['tenant_id', 'channel', 'spend_date', 'campaign_id', 'ad_id']);
 
         if (error) {
           console.error('Ad spend upsert error:', error);
@@ -2788,10 +2797,7 @@ async function syncCampaigns(
         }));
 
         // Upsert campaigns (unique on tenant_id, channel, campaign_name, start_date)
-        const { error, count } = await supabase
-          .from('promotion_campaigns')
-          .upsert(campaigns, { onConflict: 'tenant_id,channel,campaign_name,start_date' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'promotion_campaigns', campaigns, ['tenant_id', 'channel', 'campaign_name', 'start_date']);
 
         if (error) {
           console.error('Campaign upsert error:', error);
@@ -2964,10 +2970,7 @@ async function syncInventory(
         }
         const inventoryRows = Array.from(deduped.values());
 
-        const { error, count } = await supabase
-          .from('inventory_movements')
-          .upsert(inventoryRows, { onConflict: 'tenant_id,movement_date,branch_id,product_code' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_movements', inventoryRows, ['tenant_id', 'movement_date', 'branch_id', 'product_code']);
 
         if (error) {
           console.error('Inventory upsert error:', error);
@@ -3103,10 +3106,7 @@ async function syncInventory(
             };
           });
 
-          const { error, count } = await supabase
-            .from('inventory_snapshots')
-            .upsert(snapshotRows, { onConflict: 'tenant_id,channel,product_id,sku,warehouse_id,snapshot_date' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_snapshots', snapshotRows, ['tenant_id', 'channel', 'product_id', 'sku', 'warehouse_id', 'snapshot_date']);
 
           if (error) {
             console.error('Inventory snapshot upsert error:', error);
