@@ -43360,6 +43360,13 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
+      tenant_lookup_order_ids: {
+        Args: { p_order_keys: string[]; p_tenant_id: string }
+        Returns: {
+          id: string
+          order_key: string
+        }[]
+      }
       tenant_upsert_jsonb: {
         Args: {
           p_conflict_columns: string[]
