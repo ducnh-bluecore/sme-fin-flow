@@ -2969,10 +2969,7 @@ async function syncInventory(
         }
         const inventoryRows = Array.from(deduped.values());
 
-        const { error, count } = await supabase
-          .from('inventory_movements')
-          .upsert(inventoryRows, { onConflict: 'tenant_id,movement_date,branch_id,product_code' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'inventory_movements', inventoryRows, ['tenant_id', 'movement_date', 'branch_id', 'product_code']);
 
         if (error) {
           console.error('Inventory upsert error:', error);
