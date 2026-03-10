@@ -2144,10 +2144,7 @@ async function syncFulfillments(
           shipped_at: source.mapping.shipped_at ? row[source.mapping.shipped_at] || null : null,
         }));
 
-        const { error, count } = await supabase
-          .from('cdp_fulfillments')
-          .upsert(fulfillments, { onConflict: 'tenant_id,fulfillment_key' })
-          .select('id');
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_fulfillments', fulfillments, ['tenant_id', 'fulfillment_key']);
 
         if (error) {
           console.error('Fulfillment upsert error:', error);
