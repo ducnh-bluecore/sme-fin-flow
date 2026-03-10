@@ -84,7 +84,7 @@ async function directQuery(tenantId: string, fcCode: string): Promise<ProductCha
     .sort((a, b) => b.revenue - a.revenue);
 
   const total_revenue = channels.reduce((s, c) => s + c.revenue, 0);
-  const total_discount = channels.reduce((s, c) => s + c.discount, 0);
+  const total_discount = channels.reduce((s, c) => s + c.discount_amount, 0);
   const total_qty = channels.reduce((s, c) => s + c.qty_sold, 0);
   const total_orders = channels.reduce((s, c) => s + c.order_count, 0);
 
