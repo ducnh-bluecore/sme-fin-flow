@@ -94,9 +94,18 @@ Deno.serve(async (req) => {
 
   try {
     // 1. GCP auth
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
-    const accessToken = await getAccessToken(JSON.parse(saJson));
+    // Try default key first, fallback to ICONDENIM key
+    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || Deno.env.get('ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON');
+    if (!saJson) throw new Error('No Google service account key configured');
+    let accessToken: string;
+    try {
+      accessToken = await getAccessToken(JSON.parse(saJson));
+    } catch (e) {
+      const fallback = Deno.env.get('ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON');
+      if (!fallback) throw e;
+      console.log('[sync-inv] Default key failed, trying ICONDENIM key');
+      accessToken = await getAccessToken(JSON.parse(fallback));
+    }
 
     // 2. Load mappings
     const storesRes = await supabase.from('inv_stores').select('id, store_code')
