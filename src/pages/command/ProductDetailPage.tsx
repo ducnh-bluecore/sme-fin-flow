@@ -305,7 +305,8 @@ export default function ProductDetailPage() {
                   <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
                 ) : channelData && channelData.channels.length > 0 ? (
                   <>
-                    <div className="grid grid-cols-3 gap-2">
+                    {/* Summary metrics */}
+                    <div className="grid grid-cols-2 gap-2">
                       <div className="rounded-lg border border-border bg-muted/30 py-3 text-center">
                         <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><ShoppingBag className="h-3 w-3" /> Tổng đơn</p>
                         <p className="text-lg font-bold tabular-nums">{channelData.total_orders}</p>
@@ -315,8 +316,16 @@ export default function ProductDetailPage() {
                         <p className="text-lg font-bold tabular-nums text-amber-500">{(channelData.total_discount / 1_000_000).toFixed(1)}M</p>
                       </div>
                       <div className="rounded-lg border border-border bg-muted/30 py-3 text-center">
-                        <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Percent className="h-3 w-3" /> Tỷ lệ KM</p>
-                        <p className="text-lg font-bold tabular-nums">{channelData.avg_discount_pct.toFixed(1)}%</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><DollarSign className="h-3 w-3" /> Profit</p>
+                        <p className={cn("text-lg font-bold tabular-nums", channelData.total_profit >= 0 ? 'text-emerald-500' : 'text-destructive')}>
+                          {(channelData.total_profit / 1_000_000).toFixed(1)}M
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-border bg-muted/30 py-3 text-center">
+                        <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Percent className="h-3 w-3" /> Margin</p>
+                        <p className={cn("text-lg font-bold tabular-nums", channelData.avg_margin_pct >= 0 ? 'text-emerald-500' : 'text-destructive')}>
+                          {channelData.avg_margin_pct.toFixed(1)}%
+                        </p>
                       </div>
                     </div>
 
@@ -326,8 +335,9 @@ export default function ProductDetailPage() {
                           <TableHead>Kênh</TableHead>
                           <TableHead className="text-center">SL</TableHead>
                           <TableHead className="text-right">DT</TableHead>
-                          <TableHead className="text-right">KM</TableHead>
-                          <TableHead className="text-center">%</TableHead>
+                          <TableHead className="text-right">COGS</TableHead>
+                          <TableHead className="text-right">Profit</TableHead>
+                          <TableHead className="text-center">Margin</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -338,10 +348,15 @@ export default function ProductDetailPage() {
                             </TableCell>
                             <TableCell className="text-center tabular-nums text-sm">{ch.qty_sold}</TableCell>
                             <TableCell className="text-right tabular-nums text-sm">{(ch.revenue / 1_000_000).toFixed(1)}M</TableCell>
-                            <TableCell className="text-right tabular-nums text-sm text-amber-500">{(ch.discount_amount / 1_000_000).toFixed(1)}M</TableCell>
+                            <TableCell className="text-right tabular-nums text-sm text-muted-foreground">{(ch.cogs / 1_000_000).toFixed(1)}M</TableCell>
+                            <TableCell className="text-right tabular-nums text-sm">
+                              <span className={cn(ch.profit >= 0 ? 'text-emerald-500' : 'text-destructive font-semibold')}>
+                                {(ch.profit / 1_000_000).toFixed(1)}M
+                              </span>
+                            </TableCell>
                             <TableCell className="text-center tabular-nums text-sm">
-                              <span className={cn(ch.avg_discount_pct > 15 ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
-                                {ch.avg_discount_pct.toFixed(1)}%
+                              <span className={cn(ch.margin_pct >= 0 ? 'text-emerald-500' : 'text-destructive font-semibold')}>
+                                {ch.margin_pct.toFixed(1)}%
                               </span>
                             </TableCell>
                           </TableRow>
