@@ -9,8 +9,6 @@ const NON_FASHION_PREFIXES = [
   'DTR', '333', 'dichvu', 'GC', 'LB', 'RFID', 'CLI', 'SER', 'TXN', 'OBG', 'BVSE', 'VC0', 'VCOLV',
 ];
 
-const NON_FASHION_COLLECTION_CODES = ['07-Others', '10-Accessories'];
-
 const NON_FASHION_KEYWORDS = [
   'nhãn dệt', 'nhãn det', 'nhan det', 'tags rfid', 'tag rfid',
   'dịch vụ', 'dich vu', 'điều trị', 'dieu tri',
@@ -94,21 +92,14 @@ Deno.serve(async (req) => {
       storeTierMap[s.id] = s.tier || '';
     }
 
-    // 4. Get excluded collection IDs (non-fashion)
-    const excludedCollectionIds = new Set<string>();
-    const { data: exclColls } = await supabase.from('inv_collections')
-      .select('id').eq('tenant_id', tenant_id)
-      .in('collection_code', NON_FASHION_COLLECTION_CODES);
-    for (const c of (exclColls || [])) excludedCollectionIds.add(c.id);
-
-    // 5. Get FC data
+    // 4. Get FC data
     const PAGE_SIZE = 1000;
-    const fcInfoMap: Record<string, { name: string; code: string; category: string | null; createdDate: string | null; isRestock: boolean; collectionId: string | null }> = {};
+    const fcInfoMap: Record<string, { name: string; code: string; category: string | null; createdDate: string | null; isRestock: boolean }> = {};
     let fcOffset = 0;
     while (true) {
       const { data: fcs, error: fcErr } = await supabase
         .from('inv_family_codes')
-        .select('id, fc_name, fc_code, category, product_created_date, is_restock, restock_confirmed_at, collection_id')
+        .select('id, fc_name, fc_code, category, product_created_date, is_restock, restock_confirmed_at')
         .eq('tenant_id', tenant_id)
         .range(fcOffset, fcOffset + PAGE_SIZE - 1);
       if (fcErr) break;
@@ -120,7 +111,6 @@ Deno.serve(async (req) => {
           category: fc.category,
           createdDate: fc.product_created_date,
           isRestock: fc.is_restock === true && fc.restock_confirmed_at != null,
-          collectionId: fc.collection_id || null,
         };
       }
       if (fcs.length < PAGE_SIZE) break;
@@ -223,7 +213,6 @@ Deno.serve(async (req) => {
       const fcInfo = fcInfoMap[fcId];
       if (!fcInfo) continue;
       if (isNonFashion(fcInfo.code, fcInfo.name)) { skippedNonFashion++; continue; }
-      if (fcInfo.collectionId && excludedCollectionIds.has(fcInfo.collectionId)) { skippedNonFashion++; continue; }
 
       // ── Exclusion: BST mới (age < bstNewAgeDays) ──
       if (fcInfo.createdDate) {

@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchAllPages } from './fetchAllPages';
 
 export function useInventoryStores() {
   const { buildSelectQuery, isReady, tenantId } = useTenantQueryBuilder();
@@ -9,12 +8,12 @@ export function useInventoryStores() {
   return useQuery({
     queryKey: ['inv-stores', tenantId],
     queryFn: async () => {
-      // Fetch ALL stores with pagination
-      const stores = await fetchAllPages(() =>
-        buildSelectQuery('inv_stores', '*')
-          .eq('is_active', true)
-          .order('store_name')
-      );
+      // Fetch stores
+      const storesRes = await buildSelectQuery('inv_stores', '*')
+        .eq('is_active', true)
+        .order('store_name')
+        .limit(500);
+      if (storesRes.error) throw storesRes.error;
 
       // Aggregate on_hand + inventory value per store in DB
       const { data: valData, error: valError } = await supabase
@@ -31,7 +30,7 @@ export function useInventoryStores() {
         }
       }
 
-      return (stores as any[]).map((s: any) => {
+      return ((storesRes.data || []) as any[]).map((s: any) => {
         const val = valMap.get(s.id);
         return {
           ...s,

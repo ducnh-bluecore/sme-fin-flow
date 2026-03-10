@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-import { fetchAllPages } from './fetchAllPages';
 
 export interface InventoryDemand {
   id: string;
@@ -21,11 +20,11 @@ export function useInventoryDemand(fcId?: string) {
   return useQuery({
     queryKey: ['inv-demand', tenantId, fcId],
     queryFn: async () => {
-      return fetchAllPages<InventoryDemand>(() => {
-        let q = buildSelectQuery('inv_state_demand', '*');
-        if (fcId) q = q.eq('fc_id', fcId);
-        return q;
-      });
+      let query = buildSelectQuery('inv_state_demand', '*');
+      if (fcId) query = query.eq('fc_id', fcId);
+      const { data, error } = await query.limit(1000);
+      if (error) throw error;
+      return (data || []) as unknown as InventoryDemand[];
     },
     enabled: isReady && !!fcId,
   });

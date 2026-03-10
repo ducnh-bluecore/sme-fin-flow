@@ -4402,11 +4402,8 @@ export type Database = {
           cache_ttl_minutes: number | null
           channels: Json
           created_at: string
-          credentials_json: Json | null
           custom_mappings: Json | null
-          dataset_id: string | null
           dataset_prefix: string
-          gcp_project_id: string | null
           id: string
           is_active: boolean | null
           project_id: string
@@ -4417,11 +4414,8 @@ export type Database = {
           cache_ttl_minutes?: number | null
           channels?: Json
           created_at?: string
-          credentials_json?: Json | null
           custom_mappings?: Json | null
-          dataset_id?: string | null
           dataset_prefix?: string
-          gcp_project_id?: string | null
           id?: string
           is_active?: boolean | null
           project_id?: string
@@ -4432,11 +4426,8 @@ export type Database = {
           cache_ttl_minutes?: number | null
           channels?: Json
           created_at?: string
-          credentials_json?: Json | null
           custom_mappings?: Json | null
-          dataset_id?: string | null
           dataset_prefix?: string
-          gcp_project_id?: string | null
           id?: string
           is_active?: boolean | null
           project_id?: string
@@ -4701,74 +4692,6 @@ export type Database = {
           },
           {
             foreignKeyName: "bigquery_sync_watermarks_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_retail_concentration_risk"
-            referencedColumns: ["tenant_id"]
-          },
-        ]
-      }
-      bigquery_tenant_sources: {
-        Row: {
-          channel: string
-          created_at: string | null
-          dataset: string
-          id: string
-          is_enabled: boolean | null
-          mapping_overrides: Json | null
-          model_type: string
-          service_account_secret: string | null
-          table_name: string
-          tenant_id: string
-        }
-        Insert: {
-          channel: string
-          created_at?: string | null
-          dataset: string
-          id?: string
-          is_enabled?: boolean | null
-          mapping_overrides?: Json | null
-          model_type: string
-          service_account_secret?: string | null
-          table_name: string
-          tenant_id: string
-        }
-        Update: {
-          channel?: string
-          created_at?: string | null
-          dataset?: string
-          id?: string
-          is_enabled?: boolean | null
-          mapping_overrides?: Json | null
-          model_type?: string
-          service_account_secret?: string | null
-          table_name?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_decay_alerts"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "v_cdp_ltv_rules"
-            referencedColumns: ["tenant_id"]
-          },
-          {
-            foreignKeyName: "bigquery_tenant_sources_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "v_retail_concentration_risk"
@@ -10247,7 +10170,7 @@ export type Database = {
           avg_order_value: number
           cac: number
           cash_7d_forecast: number
-          cash_runway_months: number | null
+          cash_runway_months: number
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
@@ -10298,7 +10221,7 @@ export type Database = {
           avg_order_value?: number
           cac?: number
           cash_7d_forecast?: number
-          cash_runway_months?: number | null
+          cash_runway_months?: number
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
@@ -10349,7 +10272,7 @@ export type Database = {
           avg_order_value?: number
           cac?: number
           cash_7d_forecast?: number
-          cash_runway_months?: number | null
+          cash_runway_months?: number
           cash_today?: number
           ccc?: number
           computation_duration_ms?: number | null
@@ -41526,9 +41449,7 @@ export type Database = {
         Args: { p_tenant_id: string }
         Returns: number
       }
-      batch_update_sku_color:
-        | { Args: { updates: Json }; Returns: Json }
-        | { Args: { p_tenant_id?: string; updates: Json }; Returns: Json }
+      batch_update_sku_color: { Args: { updates: Json }; Returns: Json }
       calculate_ap_aging_detail: {
         Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: {
@@ -42810,7 +42731,7 @@ export type Database = {
           avg_order_value: number
           cac: number
           cash_7d_forecast: number
-          cash_runway_months: number | null
+          cash_runway_months: number
           cash_today: number
           ccc: number
           computation_duration_ms: number | null
@@ -43076,10 +42997,6 @@ export type Database = {
         Returns: boolean
       }
       init_tenant_session: { Args: { p_tenant_id: string }; Returns: Json }
-      init_tenant_session_service: {
-        Args: { p_tenant_id: string }
-        Returns: Json
-      }
       is_authenticated: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_tenant_admin: { Args: { _tenant_id: string }; Returns: boolean }
@@ -43360,22 +43277,6 @@ export type Database = {
       }
       sync_order_cogs_from_items: {
         Args: { p_tenant_id: string }
-        Returns: number
-      }
-      tenant_lookup_order_ids: {
-        Args: { p_order_keys: string[]; p_tenant_id: string }
-        Returns: {
-          order_key: string
-          order_uuid: string
-        }[]
-      }
-      tenant_upsert_jsonb: {
-        Args: {
-          p_conflict_columns: string[]
-          p_rows: Json
-          p_table_name: string
-          p_tenant_id: string
-        }
         Returns: number
       }
       track_tenant_event: {

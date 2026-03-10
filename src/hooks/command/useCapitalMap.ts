@@ -4,7 +4,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
-import { fetchAllPages } from '@/hooks/inventory/fetchAllPages';
 
 export interface CapitalMapItem {
   group: string;
@@ -23,43 +22,52 @@ export function useCapitalMap(groupBy: 'category' | 'season' | 'collection' = 'c
     queryFn: async (): Promise<CapitalMapItem[]> => {
       if (!tenantId) return [];
 
-      // Fetch all pages for each data source
-      const [cashLockRows, fcRows, stockRows, collRows] = await Promise.all([
-        fetchAllPages(() => {
-          let q = buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value, as_of_date')
-            .order('cash_locked_value', { ascending: false });
-          if (dateFilter?.startDate) q = q.gte('as_of_date', dateFilter.startDate);
-          if (dateFilter?.endDate) q = q.lte('as_of_date', dateFilter.endDate);
-          return q;
-        }),
-        fetchAllPages(() =>
-          buildSelectQuery('inv_family_codes', 'id, category, season, collection_id')
-            .eq('is_active', true)
-        ),
-        fetchAllPages(() =>
-          buildSelectQuery('inv_state_positions', 'fc_id, on_hand')
-        ),
-        groupBy === 'collection'
-          ? fetchAllPages(() => buildSelectQuery('inv_collections', 'id, collection_name'))
-          : Promise.resolve([]),
+      let cashLockQuery = buildSelectQuery('state_cash_lock_daily', 'product_id, cash_locked_value, inventory_value, as_of_date')
+        .order('cash_locked_value', { ascending: false })
+        .limit(1000);
+      
+      if (dateFilter?.startDate) {
+        cashLockQuery = cashLockQuery.gte('as_of_date', dateFilter.startDate);
+      }
+      if (dateFilter?.endDate) {
+        cashLockQuery = cashLockQuery.lte('as_of_date', dateFilter.endDate);
+      }
+      const fcQuery = buildSelectQuery('inv_family_codes', 'id, category, season, collection_id')
+        .eq('is_active', true)
+        .limit(2000);
+
+      const stockQuery = buildSelectQuery('inv_state_positions', 'fc_id, on_hand')
+        .limit(5000);
+
+      let collectionQuery: any = null;
+      if (groupBy === 'collection') {
+        collectionQuery = buildSelectQuery('inv_collections', 'id, collection_name')
+          .limit(500);
+      }
+
+      const [cashLockRes, fcRes, collRes, stockRes] = await Promise.all([
+        cashLockQuery,
+        fcQuery,
+        collectionQuery ? collectionQuery : Promise.resolve({ data: [] }),
+        stockQuery,
       ]);
 
       // Build collection name map if needed
       const collectionMap = new Map<string, string>();
-      if (groupBy === 'collection') {
-        (collRows as any[]).forEach((c: any) => {
+      if (groupBy === 'collection' && collRes?.data) {
+        (collRes.data as any[]).forEach((c: any) => {
           collectionMap.set(c.id, c.collection_name);
         });
       }
 
       const fcMap = new Map<string, { category: string | null; season: string | null; collection_id: string | null }>();
-      (fcRows as any[]).forEach((fc: any) => {
+      ((fcRes.data || []) as any[]).forEach((fc: any) => {
         fcMap.set(fc.id, { category: fc.category, season: fc.season, collection_id: fc.collection_id });
       });
 
       // Aggregate stock units by fc_id
       const stockByFc = new Map<string, number>();
-      (stockRows as any[]).forEach((r: any) => {
+      ((stockRes.data || []) as any[]).forEach((r: any) => {
         const fcId = r.fc_id;
         if (fcId) {
           stockByFc.set(fcId, (stockByFc.get(fcId) || 0) + (Number(r.on_hand) || 0));
@@ -78,7 +86,7 @@ export function useCapitalMap(groupBy: 'category' | 'season' | 'collection' = 'c
       // Aggregate by group
       const grouped = new Map<string, { cashLocked: number; inventoryValue: number; count: number; stockUnits: number }>();
 
-      (cashLockRows as any[]).forEach((r: any) => {
+      ((cashLockRes.data || []) as any[]).forEach((r: any) => {
         const key = resolveKey(r.product_id);
         
         if (!grouped.has(key)) {

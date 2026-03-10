@@ -1,8 +1,8 @@
 /**
  * sync-stores-from-bq
  * 
- * Pulls branch list from BigQuery and upserts into inv_stores.
- * Supports dynamic tenant_id + resolves BQ config from DB.
+ * Pulls branch list from BigQuery raw_kiotviet_Branches
+ * and upserts into inv_stores, adding new branches that don't exist yet.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -13,7 +13,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const PROJECT_ID = 'bluecore-dcp';
+const DATASET = 'olvboutique';
 
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
@@ -22,8 +24,11 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     iss: serviceAccount.client_email,
     scope: 'https://www.googleapis.com/auth/bigquery.readonly',
     aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600, iat: now,
-  }).setProtectedHeader({ alg: 'RS256', typ: 'JWT' }).sign(privateKey);
+    exp: now + 3600,
+    iat: now,
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .sign(privateKey);
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -35,65 +40,32 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return data.access_token;
 }
 
-interface BqConfig {
-  projectId: string;
-  dataset: string;
-  table: string;
-  accessToken: string;
-  sourceType: string;
-}
-
-async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
-  let projectId = 'bluecore-dcp';
-  let dataset = 'olvboutique';
-  let table = 'raw_kiotviet_ProductInventories';
-  let sourceType = 'kiotviet';
-  let serviceAccountJson: string | null = null;
-
-  // 1) bigquery_configs (credentials_json preferred)
-  const { data: bqCfg } = await supabase
-    .from('bigquery_configs')
-    .select('gcp_project_id, dataset_id, credentials_json')
-    .eq('tenant_id', tenantId)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (bqCfg?.gcp_project_id) projectId = bqCfg.gcp_project_id;
-  if (bqCfg?.dataset_id) dataset = bqCfg.dataset_id;
-  if (bqCfg?.credentials_json) {
-    serviceAccountJson = typeof bqCfg.credentials_json === 'string'
-      ? bqCfg.credentials_json : JSON.stringify(bqCfg.credentials_json);
-  }
-
-  // 2) bigquery_tenant_sources for inventory model
-  const { data: invSource } = await supabase
-    .from('bigquery_tenant_sources')
-    .select('dataset, table_name, service_account_secret, channel, mapping_overrides')
-    .eq('tenant_id', tenantId)
-    .in('model_type', ['inventory_positions', 'inventory'])
-    .eq('is_enabled', true)
-    .limit(1)
-    .maybeSingle();
-
-  if (invSource?.dataset) {
-    dataset = invSource.dataset;
-    table = invSource.table_name || table;
-    if (invSource.channel) sourceType = invSource.channel;
-    if (!serviceAccountJson && invSource.service_account_secret) {
-      const envVal = Deno.env.get(invSource.service_account_secret);
-      if (envVal) serviceAccountJson = envVal;
-    }
-  }
-
-  // 3) Fallback to default env secret
-  if (!serviceAccountJson) {
-    serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || null;
-  }
-  if (!serviceAccountJson) throw new Error('No service account credentials found');
-
-  console.log(`[sync-stores] Config: project=${projectId}, dataset=${dataset}, type=${sourceType}`);
-  const accessToken = await getAccessToken(JSON.parse(serviceAccountJson));
-  return { projectId, dataset, table, accessToken, sourceType };
+async function queryBigQuery(accessToken: string, sql: string): Promise<any[]> {
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: sql,
+      useLegacySql: false,
+      maxResults: 10000,
+    }),
+  });
+  const data = await res.json();
+  if (data.errors) throw new Error(JSON.stringify(data.errors));
+  
+  const fields = data.schema?.fields || [];
+  const rows = data.rows || [];
+  return rows.map((r: any) => {
+    const obj: any = {};
+    fields.forEach((f: any, i: number) => {
+      obj[f.name] = r.f[i].v;
+    });
+    return obj;
+  });
 }
 
 Deno.serve(async (req) => {
@@ -102,106 +74,126 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
+    const saJson = Deno.env.get('GCP_SERVICE_ACCOUNT') || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    if (!saJson) throw new Error('GCP_SERVICE_ACCOUNT not configured');
+    const sa = JSON.parse(saJson);
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const bqConfig = await resolveBqConfig(supabase, tenantId);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build query based on source type - use the resolved table from config
-    let sql: string;
-    if (bqConfig.sourceType === 'haravan') {
-      sql = `
-        SELECT DISTINCT
-          CAST(loc_id AS STRING) as branch_id,
-          ANY_VALUE(loc_name) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE loc_id IS NOT NULL
-        GROUP BY loc_id
-        ORDER BY branchName
-      `;
-    } else {
-      // KiotViet - use the resolved inventory table (e.g. bdm_kov_xuat_nhap_ton)
-      sql = `
-        SELECT
-          CAST(branchId AS STRING) as branch_id,
-          ANY_VALUE(branchName) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE branchName IS NOT NULL AND branchId IS NOT NULL
-        GROUP BY branchId
-        ORDER BY branchName
-      `;
-    }
+    // 1. Get access token
+    const accessToken = await getAccessToken(sa);
 
-    const bqRes = await fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 10000 }),
-      }
-    );
-    const bqData = await bqRes.json();
-    if (bqData.error) throw new Error(`BigQuery error: ${bqData.error.message}`);
-
-    const fields = bqData.schema?.fields || [];
-    const bqBranches = (bqData.rows || []).map((r: any) => {
-      const obj: any = {};
-      fields.forEach((f: any, i: number) => { obj[f.name] = r.f[i].v; });
-      return obj;
-    });
+    // 2. Query distinct branches from BigQuery inventory table
+    const sql = `
+      SELECT
+        CAST(branchId AS STRING) as branch_id,
+        ANY_VALUE(branchName) as branchName
+      FROM \`${PROJECT_ID}.${DATASET}.raw_kiotviet_ProductInventories\`
+      WHERE branchName IS NOT NULL AND branchId IS NOT NULL
+      GROUP BY branchId
+      ORDER BY branchName
+    `;
+    
+    const bqBranches = await queryBigQuery(accessToken, sql);
     console.log(`[sync-stores] Found ${bqBranches.length} branches in BigQuery`);
 
-    // Get existing stores
+    console.log(`[sync-stores] Found ${bqBranches.length} branches in BigQuery`);
+
+    // 3. Get existing stores
     const { data: existing } = await supabase
       .from('inv_stores')
       .select('id, store_code, store_name, is_active')
-      .eq('tenant_id', tenantId);
-
+      .eq('tenant_id', TENANT_ID);
+    
     const existingCodes = new Set((existing || []).map((s: any) => String(s.store_code)));
-    const bqCodes = new Set(bqBranches.map((b: any) => String(b.branch_id)));
+    const bqCodes = new Set(bqBranches.map(b => String(b.branch_id)));
 
-    const newBranches = bqBranches.filter((b: any) => !existingCodes.has(String(b.branch_id)));
-    const toDeactivate = (existing || []).filter((s: any) => s.is_active && !bqCodes.has(String(s.store_code)));
-    const toReactivate = (existing || []).filter((s: any) => !s.is_active && bqCodes.has(String(s.store_code)));
+    // 4. Find new branches to add
+    const newBranches = bqBranches.filter(b => !existingCodes.has(String(b.branch_id)));
+    console.log(`[sync-stores] ${newBranches.length} new branches to add`);
 
-    let inserted = 0, errors = 0;
+    // 5. Detect stores to deactivate (in DB but not in BQ, excluding warehouses)
+    const toDeactivate = (existing || []).filter((s: any) => 
+      s.is_active && !bqCodes.has(String(s.store_code))
+    );
+
+    // 6. Detect stores to reactivate (in DB, inactive, but present in BQ)
+    const toReactivate = (existing || []).filter((s: any) => 
+      !s.is_active && bqCodes.has(String(s.store_code))
+    );
+
+    // 7. Insert new branches
+    let inserted = 0;
+    let errors = 0;
     for (const b of newBranches) {
-      const { error } = await supabase.from('inv_stores').insert({
-        tenant_id: tenantId,
-        store_code: String(b.branch_id),
-        store_name: b.branchName,
-        location_type: 'store',
-        is_active: true,
-        is_transfer_eligible: true,
-      });
-      if (error) { errors++; } else { inserted++; }
+      const { error } = await supabase
+        .from('inv_stores')
+        .insert({
+          tenant_id: TENANT_ID,
+          store_code: String(b.branch_id),
+          store_name: b.branchName,
+          location_type: 'store',
+          is_active: true,
+          is_transfer_eligible: true,
+        });
+      if (error) {
+        console.error(`[sync-stores] Error inserting ${b.branchName}:`, error.message);
+        errors++;
+      } else {
+        inserted++;
+        console.log(`[sync-stores] Added: ${b.branchName} (${b.branch_id})`);
+      }
     }
 
+    // 8. Deactivate stores not in BQ
     let deactivated = 0;
     for (const s of toDeactivate) {
-      const { error } = await supabase.from('inv_stores')
-        .update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', s.id);
-      if (!error) deactivated++;
+      const { error } = await supabase
+        .from('inv_stores')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', s.id);
+      if (!error) {
+        deactivated++;
+        console.log(`[sync-stores] Deactivated: ${s.store_name} (${s.store_code})`);
+      }
     }
 
+    // 9. Reactivate stores back in BQ
     let reactivated = 0;
     for (const s of toReactivate) {
-      const { error } = await supabase.from('inv_stores')
-        .update({ is_active: true, updated_at: new Date().toISOString() }).eq('id', s.id);
-      if (!error) reactivated++;
+      const { error } = await supabase
+        .from('inv_stores')
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq('id', s.id);
+      if (!error) {
+        reactivated++;
+        console.log(`[sync-stores] Reactivated: ${s.store_name} (${s.store_code})`);
+      }
     }
 
     return new Response(JSON.stringify({
-      success: true, tenant_id: tenantId,
-      bq_branches: bqBranches.length, existing_stores: existingCodes.size,
-      new_added: inserted, deactivated, reactivated, errors,
+      success: true,
+      bq_branches: bqBranches.length,
+      existing_stores: existingCodes.size,
+      new_added: inserted,
+      deactivated,
+      reactivated,
+      errors,
+      deactivated_stores: toDeactivate.map((s: any) => ({ code: s.store_code, name: s.store_name })),
+      reactivated_stores: toReactivate.map((s: any) => ({ code: s.store_code, name: s.store_name })),
+      new_branches: newBranches.map(b => ({ code: b.branch_id, name: b.branchName })),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (err: any) {
-    console.error('[sync-stores] Error:', err.message);
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  } catch (err) {
+    console.error('[sync-stores] Error:', err);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: err instanceof Error ? err.message : 'Unknown error' 
+    }), { 
+      status: 500, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
   }
 });

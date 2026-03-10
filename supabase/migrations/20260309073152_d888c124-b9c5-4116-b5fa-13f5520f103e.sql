@@ -1,1 +1,0 @@
-ALTER TABLE public.bigquery_tenant_sources ADD COLUMN service_account_secret text; UPDATE public.bigquery_tenant_sources SET service_account_secret = 'ICONDENIM_GOOGLE_SERVICE_ACCOUNT_JSON' WHERE tenant_id = '364a23ad-66f5-44d6-8da9-74c7ff333dcc';

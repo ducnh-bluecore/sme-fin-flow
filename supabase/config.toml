@@ -41,12 +41,3 @@ verify_jwt = false
 
 [functions.ads-content-generator]
 verify_jwt = false
-
-[functions.cron-orchestrator]
-verify_jwt = false
-
-[functions.sync-color-from-bigquery]
-verify_jwt = false
-
-[functions.sync-product-created-date]
-verify_jwt = false
