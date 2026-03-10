@@ -170,23 +170,9 @@ export default function InventoryAllocationPage() {
 
     setIsSyncAndRun(true);
     try {
-      // Step 1: Sync inventory from KiotViet
-      toast.info('Bước 1/2: Đang đồng bộ tồn kho từ KiotViet...');
-      const { data: storesData } = await supabase.from('inv_stores')
-        .select('id')
-        .eq('tenant_id', tenantId)
-        .eq('is_active', true);
-      const totalStores = storesData?.length || 0;
-      const chunkSize = 5;
-      const totalChunks = Math.ceil(totalStores / chunkSize);
-      
-      for (let chunk = 0; chunk < totalChunks; chunk++) {
-        const { error } = await supabase.functions.invoke('sync-inventory-positions', {
-          body: { chunk },
-        });
-        if (error) throw new Error(`Sync chunk ${chunk} failed: ${error.message}`);
-      }
-      toast.success(`Đồng bộ tồn kho hoàn tất (${totalStores} cửa hàng)`);
+      // Inventory positions are pre-synced by daily cron (orch-daily-inventory)
+      // Only run allocation engine from front-end
+      toast.info('Đang chạy Engine phân bổ...');
 
       // Step 2: Run allocation engine (V1 + V2)
       toast.info('Bước 2/2: Đang chạy Engine phân bổ...');
