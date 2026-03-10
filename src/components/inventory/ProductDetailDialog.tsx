@@ -1,17 +1,21 @@
 /**
  * ProductDetailDialog - Lifecycle detail for a single product
- * Shows timeline, milestone progress, metrics, and batch history
+ * Shows timeline, milestone progress, metrics, channel sales, and AI insight
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, TrendingUp, Package, DollarSign, Clock, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, TrendingUp, Package, DollarSign, Clock, Zap, ShoppingBag, Sparkles, Store, Percent, Tag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useProductChannelSales } from '@/hooks/inventory/useProductChannelSales';
+import { toast } from 'sonner';
 
 interface ProductDetailDialogProps {
   open: boolean;
@@ -68,6 +72,8 @@ const milestoneStatusConfig: Record<string, { label: string; icon: string; class
 };
 
 export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId }: ProductDetailDialogProps) {
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+
   const { data: detail, isLoading, error } = useQuery({
     queryKey: ['lifecycle-product-detail', tenantId, fcId],
     queryFn: async () => {
@@ -82,12 +88,52 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
     enabled: !!tenantId && !!fcId && open,
   });
 
+  const fcCode = detail?.product?.fc_code || null;
+  const { data: channelData, isLoading: channelLoading } = useProductChannelSales(tenantId, fcCode, open && !!detail);
+
+  const aiMutation = useMutation({
+    mutationFn: async () => {
+      if (!detail || !channelData) throw new Error('No data');
+      const activeBatch = detail.active_batch;
+      const ageDays = activeBatch?.age_days ?? 0;
+      const stages = ['Launch', 'Growth', 'Markdown', 'Clearance'];
+      const stageIdx = ageDays <= 60 ? 0 : ageDays <= 120 ? 1 : ageDays <= 150 ? 2 : 3;
+
+      const { data, error } = await supabase.functions.invoke('product-ai-insight', {
+        body: {
+          product: {
+            name: detail.product.fc_name,
+            fc_code: detail.product.fc_code,
+            category: detail.product.category,
+          },
+          lifecycle: {
+            age_days: ageDays,
+            total_days: detail.lifecycle_days,
+            stage: stages[stageIdx],
+            sell_through: detail.current_sell_through,
+            target_pct: [50, 70, 85, 100][stageIdx],
+            velocity: detail.velocity_current,
+            velocity_required: detail.velocity_required,
+            on_hand: detail.current_on_hand,
+            initial_qty: detail.initial_qty,
+            cash_at_risk: detail.cash_at_risk,
+          },
+          channelSales: channelData.channels,
+        },
+      });
+      if (error) throw error;
+      return (data as any).insight as string;
+    },
+    onSuccess: (insight) => setAiInsight(insight),
+    onError: (err) => toast.error('AI insight failed', { description: err.message }),
+  });
+
   const activeBatch = detail?.active_batch;
   const ageDays = activeBatch?.age_days ?? 0;
   const lifecycleDays = detail?.lifecycle_days ?? 180;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) setAiInsight(null); onOpenChange(v); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Chi tiết vòng đời sản phẩm</DialogTitle>
@@ -218,7 +264,93 @@ export default function ProductDetailDialog({ open, onOpenChange, fcId, tenantId
               </Table>
             </div>
 
-            {/* Batch History */}
+            {/* Channel Sales Breakdown */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                <Store className="h-3.5 w-3.5" /> Bán theo kênh
+              </h4>
+              {channelLoading ? (
+                <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+              ) : channelData && channelData.channels.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><ShoppingBag className="h-3 w-3" /> Tổng đơn</p>
+                      <p className="text-sm font-bold tabular-nums">{channelData.total_orders}</p>
+                    </CardContent></Card>
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Tag className="h-3 w-3" /> Tổng KM</p>
+                      <p className="text-sm font-bold tabular-nums text-amber-500">{(channelData.total_discount / 1000000).toFixed(1)}M</p>
+                    </CardContent></Card>
+                    <Card><CardContent className="py-2.5 text-center">
+                      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1"><Percent className="h-3 w-3" /> Tỷ lệ KM</p>
+                      <p className="text-sm font-bold tabular-nums">{channelData.avg_discount_pct.toFixed(1)}%</p>
+                    </CardContent></Card>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Kênh</TableHead>
+                        <TableHead className="text-center">SL bán</TableHead>
+                        <TableHead className="text-right">Doanh thu</TableHead>
+                        <TableHead className="text-right">Khuyến mãi</TableHead>
+                        <TableHead className="text-center">% KM</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {channelData.channels.map(ch => (
+                        <TableRow key={ch.channel}>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px] capitalize">{ch.channel}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">{ch.qty_sold}</TableCell>
+                          <TableCell className="text-right tabular-nums text-sm">{(ch.revenue / 1000000).toFixed(1)}M</TableCell>
+                          <TableCell className="text-right tabular-nums text-sm text-amber-500">{(ch.discount_amount / 1000000).toFixed(1)}M</TableCell>
+                          <TableCell className="text-center tabular-nums text-sm">
+                            <span className={cn(ch.avg_discount_pct > 15 ? 'text-destructive font-semibold' : 'text-muted-foreground')}>
+                              {ch.avg_discount_pct.toFixed(1)}%
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">Chưa có dữ liệu bán hàng</p>
+              )}
+            </div>
+
+            {/* AI Insight */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" /> AI Insight
+                </h4>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs gap-1"
+                  disabled={aiMutation.isPending || !channelData}
+                  onClick={() => aiMutation.mutate()}
+                >
+                  {aiMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                  {aiMutation.isPending ? 'Đang phân tích...' : 'Phân tích'}
+                </Button>
+              </div>
+              {aiInsight ? (
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-3 px-4">
+                    <div className="text-sm whitespace-pre-line leading-relaxed">{aiInsight}</div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  Nhấn "Phân tích" để AI đánh giá sản phẩm
+                </p>
+              )}
+            </div>
+
             {detail.batches && detail.batches.length > 1 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-muted-foreground">Batch History ({detail.batches.length} batches)</h4>
