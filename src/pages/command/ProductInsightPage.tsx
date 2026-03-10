@@ -96,13 +96,12 @@ const PAGE_SIZE = 50;
 export default function ProductInsightPage() {
   const { activeTenant } = useTenantContext();
   const tenantId = activeTenant?.id;
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(0);
   const [syncing, setSyncing] = useState(false);
-  const [selectedFcId, setSelectedFcId] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
 
   const handleSearchChange = useCallback((val: string) => {
     setSearchTerm(val);
