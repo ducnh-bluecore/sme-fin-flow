@@ -1655,7 +1655,8 @@ async function syncOrderItems(
         const orderItems = [];
         for (const row of rows) {
           const orderKey = String(row[source.mapping.order_key]);
-          const resolvedOrderId = orderKeyToUuid[orderKey];
+          const fullOrderKey = `${source.channel}:${orderKey}`;
+          const resolvedOrderId = orderKeyToUuid[fullOrderKey];
           
           if (!resolvedOrderId) {
             batchSkipped++;
