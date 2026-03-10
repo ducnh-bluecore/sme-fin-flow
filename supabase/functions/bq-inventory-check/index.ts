@@ -36,8 +36,9 @@ Deno.serve(async (req) => {
     const action = body.action || 'list_tables';
 
     const saJson = Deno.env.get(saKeyName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error(`No SA key: ${saKeyName}`);
-    const token = await getAccessToken(JSON.parse(saJson));
+    const sa = JSON.parse(saJson);
+    console.log(`[bq-check] SA email: ${sa.client_email}, project: ${sa.project_id}`);
+    const token = await getAccessToken(sa);
 
     if (action === 'list_tables') {
       const filter = body.filter || '%nvent%';
