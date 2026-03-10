@@ -1481,12 +1481,7 @@ async function syncOrders(
           };
         });
         
-        const { error, count } = await supabase
-          .from('cdp_orders')
-          .upsert(orders, { 
-            onConflict: 'tenant_id,channel,order_key',
-            count: 'exact'
-          });
+        const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_orders', orders, ['tenant_id', 'channel', 'order_key']);
         
         if (error) {
           console.error('Order upsert error:', error);
