@@ -292,12 +292,6 @@ export default function ProductInsightPage() {
         )}
       </div>
 
-      <ProductDetailDialog
-        open={detailOpen}
-        onOpenChange={setDetailOpen}
-        fcId={selectedFcId}
-        tenantId={tenantId ?? null}
-      />
     </>
   );
 }
