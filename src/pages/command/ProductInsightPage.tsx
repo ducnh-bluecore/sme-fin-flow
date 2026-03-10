@@ -175,7 +175,9 @@ export default function ProductInsightPage() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-lifecycle-batches');
+      const { data, error } = await supabase.functions.invoke('sync-lifecycle-batches', {
+        body: { tenant_id: tenantId },
+      });
       if (error) throw error;
       toast.success(`Sync hoàn tất: ${data?.batch1_created || 0} batch mới, ${data?.restocks_detected || 0} restock`);
       refetch();
