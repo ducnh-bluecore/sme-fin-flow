@@ -514,6 +514,23 @@ const PRODUCT_SOURCES = [
     }
   },
   {
+    channel: 'haravan',
+    dataset: 'olvboutique',
+    table: 'raw_hrv_Products',
+    mapping: {
+      product_id: 'Id',
+      sku: 'Sku',
+      name: 'Title',
+      category: 'Product_type',
+      brand: 'Vendor',
+      cost_price: null,
+      selling_price: 'Price',
+      current_stock: null,
+      date_col: 'Updated_at',
+      created_col: 'Created_at',
+    }
+  },
+  {
     channel: 'shopee',
     dataset: 'olvboutique_shopee',
     table: 'shopee_Products',
