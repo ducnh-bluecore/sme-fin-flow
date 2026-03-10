@@ -1691,10 +1691,7 @@ async function syncOrderItems(
         
         // Step 4: Upsert only valid items
         if (orderItems.length > 0) {
-          const { error, count } = await supabase
-            .from('cdp_order_items')
-            .upsert(orderItems, { onConflict: 'tenant_id,order_id,sku' })
-            .select('id');
+          const { error, count } = await tenantUpsert(supabase, tenantId, 'cdp_order_items', orderItems, ['tenant_id', 'order_id', 'sku']);
           
           if (error) {
             console.error('Order item upsert error:', error);
