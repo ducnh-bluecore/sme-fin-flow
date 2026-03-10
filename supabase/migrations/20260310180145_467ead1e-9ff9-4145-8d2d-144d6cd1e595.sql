@@ -1,0 +1,192 @@
+
+CREATE OR REPLACE FUNCTION public.fn_lifecycle_progress(
+  p_tenant_id UUID,
+  p_status TEXT DEFAULT NULL,
+  p_search TEXT DEFAULT NULL,
+  p_limit INT DEFAULT 50,
+  p_offset INT DEFAULT 0
+)
+RETURNS TABLE(
+  fc_id UUID,
+  fc_name TEXT,
+  category TEXT,
+  collection_id UUID,
+  collection_name TEXT,
+  collection_season TEXT,
+  batch_number INT,
+  initial_qty BIGINT,
+  current_qty INT,
+  sold_qty INT,
+  sell_through_pct NUMERIC,
+  age_days INT,
+  first_sale_date DATE,
+  batch_start_date DATE,
+  status TEXT,
+  target_pct NUMERIC,
+  gap_pct NUMERIC,
+  days_behind INT,
+  velocity_required NUMERIC,
+  cash_at_risk BIGINT,
+  total_count BIGINT
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_total BIGINT;
+BEGIN
+  -- Count total matching FCs (removed product_created_date cutoff)
+  SELECT COUNT(DISTINCT b.fc_id) INTO v_total
+  FROM public.inv_lifecycle_batches b
+  JOIN public.inv_family_codes fc ON fc.id = b.fc_id AND fc.tenant_id = b.tenant_id
+  WHERE b.tenant_id = p_tenant_id
+    AND b.is_completed = false
+    AND (p_search IS NULL OR fc.fc_code ILIKE '%' || p_search || '%' OR fc.fc_name ILIKE '%' || p_search || '%');
+
+  RETURN QUERY
+  WITH active_batches AS (
+    SELECT DISTINCT ON (b2.fc_id)
+      b2.fc_id AS batch_fc_id,
+      b2.batch_number AS b_number,
+      COALESCE(b2.first_sale_date, b2.batch_start_date) AS effective_start,
+      b2.first_sale_date AS raw_first_sale_date,
+      b2.batch_start_date AS raw_batch_start_date
+    FROM public.inv_lifecycle_batches b2
+    JOIN public.inv_family_codes fc2 ON fc2.id = b2.fc_id AND fc2.tenant_id = b2.tenant_id
+    WHERE b2.tenant_id = p_tenant_id
+      AND b2.is_completed = false
+      AND (p_search IS NULL OR fc2.fc_code ILIKE '%' || p_search || '%' OR fc2.fc_name ILIKE '%' || p_search || '%')
+    ORDER BY b2.fc_id, b2.batch_number DESC
+  ),
+  store_max_dates AS (
+    SELECT sp.store_id, MAX(sp.snapshot_date) as max_date
+    FROM public.inv_state_positions sp
+    WHERE sp.tenant_id = p_tenant_id
+    GROUP BY sp.store_id
+  ),
+  latest_stock AS (
+    SELECT sp.fc_id AS stock_fc_id, SUM(sp.on_hand)::int AS total_on_hand
+    FROM public.inv_state_positions sp
+    JOIN store_max_dates smd ON smd.store_id = sp.store_id AND smd.max_date = sp.snapshot_date
+    WHERE sp.tenant_id = p_tenant_id
+    GROUP BY sp.fc_id
+  ),
+  real_sold AS (
+    SELECT 
+      m.fc_id AS sold_fc_id,
+      COALESCE(SUM(oi.qty), 0)::int AS total_sold
+    FROM active_batches ab
+    JOIN public.inv_sku_fc_mapping m ON m.fc_id = ab.batch_fc_id AND m.tenant_id = p_tenant_id
+    JOIN public.cdp_order_items oi ON TRIM(oi.sku) = m.sku AND oi.tenant_id = p_tenant_id
+    JOIN public.cdp_orders o ON o.id = oi.order_id AND o.tenant_id = p_tenant_id
+      AND o.order_at >= ab.effective_start::timestamp
+    GROUP BY m.fc_id
+  ),
+  fc_info AS (
+    SELECT fc3.id AS info_fc_id, fc3.fc_code, fc3.fc_name, fc3.category, fc3.collection_id
+    FROM public.inv_family_codes fc3
+    WHERE fc3.tenant_id = p_tenant_id
+  ),
+  coll_info AS (
+    SELECT c.id AS coll_id, c.collection_name, c.season
+    FROM public.inv_collections c
+    WHERE c.tenant_id = p_tenant_id
+  ),
+  template AS (
+    SELECT t.milestones
+    FROM public.inv_lifecycle_templates t
+    WHERE t.tenant_id = p_tenant_id AND t.is_default = true
+    LIMIT 1
+  ),
+  progress AS (
+    SELECT
+      fi.info_fc_id AS p_fc_id,
+      fi.fc_name,
+      fi.category,
+      fi.collection_id AS p_collection_id,
+      ci.collection_name AS p_collection_name,
+      ci.season AS p_collection_season,
+      ab.b_number,
+      (COALESCE(rs.total_sold, 0) + COALESCE(ls.total_on_hand, 0))::bigint AS true_initial,
+      COALESCE(ls.total_on_hand, 0) AS cur_qty,
+      COALESCE(rs.total_sold, 0) AS s_qty,
+      CASE
+        WHEN (COALESCE(rs.total_sold, 0) + COALESCE(ls.total_on_hand, 0)) > 0 
+          THEN ROUND(COALESCE(rs.total_sold, 0)::numeric / (COALESCE(rs.total_sold, 0) + COALESCE(ls.total_on_hand, 0)) * 100, 1)
+        ELSE 0
+      END AS st_pct,
+      (CURRENT_DATE - ab.effective_start)::int AS a_days,
+      ab.raw_first_sale_date,
+      ab.raw_batch_start_date,
+      t.milestones
+    FROM active_batches ab
+    LEFT JOIN latest_stock ls ON ls.stock_fc_id = ab.batch_fc_id
+    LEFT JOIN real_sold rs ON rs.sold_fc_id = ab.batch_fc_id
+    LEFT JOIN fc_info fi ON fi.info_fc_id = ab.batch_fc_id
+    LEFT JOIN coll_info ci ON ci.coll_id = fi.collection_id
+    CROSS JOIN template t
+  ),
+  with_status AS (
+    SELECT
+      p.*,
+      COALESCE(
+        (SELECT (m2->>'target_pct')::numeric
+         FROM jsonb_array_elements(p.milestones) m2
+         WHERE (m2->>'day')::int <= p.a_days
+         ORDER BY (m2->>'day')::int DESC
+         LIMIT 1),
+        0
+      ) AS cur_target,
+      CASE
+        WHEN p.st_pct >= COALESCE((SELECT (m3->>'target_pct')::numeric FROM jsonb_array_elements(p.milestones) m3 WHERE (m3->>'day')::int <= p.a_days ORDER BY (m3->>'day')::int DESC LIMIT 1), 0) + 10 THEN 'ahead'
+        WHEN p.st_pct >= COALESCE((SELECT (m3->>'target_pct')::numeric FROM jsonb_array_elements(p.milestones) m3 WHERE (m3->>'day')::int <= p.a_days ORDER BY (m3->>'day')::int DESC LIMIT 1), 0) - 5 THEN 'on_track'
+        WHEN p.st_pct >= COALESCE((SELECT (m3->>'target_pct')::numeric FROM jsonb_array_elements(p.milestones) m3 WHERE (m3->>'day')::int <= p.a_days ORDER BY (m3->>'day')::int DESC LIMIT 1), 0) - 20 THEN 'behind'
+        ELSE 'critical'
+      END AS computed_status
+    FROM progress p
+  )
+  SELECT
+    ws.p_fc_id,
+    ws.fc_name,
+    ws.category,
+    ws.p_collection_id,
+    ws.p_collection_name,
+    ws.p_collection_season,
+    ws.b_number,
+    ws.true_initial,
+    ws.cur_qty,
+    ws.s_qty,
+    ws.st_pct,
+    ws.a_days,
+    ws.raw_first_sale_date,
+    ws.raw_batch_start_date,
+    ws.computed_status,
+    ws.cur_target,
+    ws.st_pct - ws.cur_target,
+    CASE
+      WHEN ws.st_pct < ws.cur_target AND ws.a_days > 0 AND ws.st_pct > 0
+        THEN LEAST(ROUND((ws.cur_target - ws.st_pct) * ws.a_days / GREATEST(ws.st_pct, 1))::int, 9999)
+      WHEN ws.st_pct < ws.cur_target AND ws.st_pct = 0
+        THEN LEAST(ws.a_days, 9999)
+      ELSE 0
+    END,
+    CASE
+      WHEN ws.cur_qty > 0 AND ws.true_initial > 0 THEN ROUND((ws.cur_qty::numeric / GREATEST(180 - ws.a_days, 1)), 1)
+      ELSE 0
+    END,
+    CASE
+      WHEN ws.cur_qty > 0 THEN (ws.cur_qty::bigint * 250000)
+      ELSE 0::bigint
+    END,
+    v_total
+  FROM with_status ws
+  WHERE (p_status IS NULL OR ws.computed_status = p_status)
+  ORDER BY
+    ws.p_collection_name NULLS LAST,
+    CASE ws.computed_status WHEN 'critical' THEN 1 WHEN 'behind' THEN 2 WHEN 'on_track' THEN 3 WHEN 'ahead' THEN 4 END,
+    ws.a_days DESC
+  LIMIT p_limit OFFSET p_offset;
+END;
+$$;
