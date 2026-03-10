@@ -235,14 +235,14 @@ Deno.serve(async (req) => {
         QUALIFY ROW_NUMBER() OVER (PARTITION BY inv.loc_id, v.SKU ORDER BY inv.dw_timestamp DESC) = 1
       `;
     } else {
-      // KiotViet - bdm_kov_xuat_nhap_ton uses createdDate instead of dw_timestamp
+      // KiotViet - use raw_kiotviet_ProductInventories for actual on-hand positions
       bqQuery = `
         SELECT CAST(branchId AS STRING) AS branch_id, productCode AS product_code,
-          IFNULL(SAFE_CAST(xuat_ban AS INT64), 0) AS on_hand, 0 AS reserved
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+          IFNULL(onHand, 0) AS on_hand, 0 AS reserved
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.raw_kiotviet_ProductInventories\`
         WHERE productCode IS NOT NULL AND productCode != ''
           AND CAST(branchId AS STRING) IN (${branchFilter})
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY createdDate DESC) = 1
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY dw_timestamp DESC) = 1
       `;
     }
 
@@ -250,6 +250,9 @@ Deno.serve(async (req) => {
     let totalBqRows = 0, totalUpserted = 0, upsertErrors = 0;
     let noFc = 0, noStore = 0, skipped = 0;
     const UPSERT_BATCH = 2000;
+    
+    // Track all upserted store_id|sku keys to detect stale records
+    const upsertedKeys = new Set<string>();
 
     const mapAndUpsert = async (bqRows: Record<string, any>[]) => {
       const upsertRows: any[] = [];
@@ -260,6 +263,7 @@ Deno.serve(async (req) => {
         if (!sku) { skipped++; continue; }
         const fcId = skuToFc.get(sku);
         if (!fcId) { noFc++; continue; }
+        upsertedKeys.add(`${storeId}|${sku}`);
         upsertRows.push({
           tenant_id: tenantId, store_id: storeId, fc_id: fcId, sku,
           snapshot_date: today, on_hand: Math.round(Number(row.on_hand) || 0),
@@ -303,13 +307,58 @@ Deno.serve(async (req) => {
       pageToken = pageData.pageToken;
     }
 
+    // ========== ZERO-OUT STALE RECORDS ==========
+    // Find records in DB for these stores with on_hand > 0 that were NOT in BQ results
+    const storeIds = Array.from(storeMap.values());
+    let zeroedCount = 0;
+
+    for (const storeId of storeIds) {
+      // Get all records with on_hand > 0 for this store (any snapshot date)
+      let offset = 0;
+      const staleIds: string[] = [];
+      while (true) {
+        const { data: rows, error } = await supabase
+          .from('inv_state_positions')
+          .select('id, sku, snapshot_date')
+          .eq('tenant_id', tenantId)
+          .eq('store_id', storeId)
+          .gt('on_hand', 0)
+          .range(offset, offset + 999)
+          .limit(1000);
+        if (error || !rows?.length) break;
+        for (const r of rows) {
+          // If this store+sku was NOT in today's BQ sync → it's stale
+          if (!upsertedKeys.has(`${storeId}|${r.sku}`)) {
+            staleIds.push(r.id);
+          }
+        }
+        if (rows.length < 1000) break;
+        offset += 1000;
+      }
+
+      // Zero out stale records in batches
+      for (let i = 0; i < staleIds.length; i += 500) {
+        const batch = staleIds.slice(i, i + 500);
+        const { error } = await supabase
+          .from('inv_state_positions')
+          .update({ on_hand: 0, reserved: 0, available: 0 })
+          .in('id', batch);
+        if (!error) zeroedCount += batch.length;
+      }
+    }
+
+    if (zeroedCount > 0) {
+      console.log(`[sync-inv] Zeroed ${zeroedCount} stale records not found in BQ`);
+    }
+
     const duration = Date.now() - startTime;
     const summary = {
       success: upsertErrors === 0, tenant_id: tenantId, bq_rows: totalBqRows, upserted: totalUpserted,
       upsert_errors: upsertErrors, skipped: { no_store: noStore, no_fc: noFc, no_sku: skipped },
       stores: storeMap.size, sku_mappings: skuToFc.size, snapshot_date: today, chunk, duration_ms: duration,
+      zeroed_stale: zeroedCount,
     };
-    console.log(`[sync-inv] Done in ${duration}ms. Upserted: ${totalUpserted}`);
+    console.log(`[sync-inv] Done in ${duration}ms. Upserted: ${totalUpserted}, zeroed: ${zeroedCount}`);
 
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
