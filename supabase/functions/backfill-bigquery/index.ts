@@ -1637,12 +1637,9 @@ async function syncOrderItems(
         const orderKeyToUuid: Record<string, string> = {};
         for (let i = 0; i < batchOrderKeys.length; i += 200) {
           const chunk = batchOrderKeys.slice(i, i + 200);
-          const { data: orderRows, error: lookupError } = await supabase
-            .from('cdp_orders')
-            .select('id, order_key')
-            .eq('tenant_id', tenantId)
-            .eq('channel', source.channel)
-            .in('order_key', chunk);
+          // Use tenant-aware lookup to query correct schema
+          const orderKeysWithChannel = chunk.map(k => `${source.channel}:${k}`);
+          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, orderKeysWithChannel);
           
           if (lookupError) {
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
