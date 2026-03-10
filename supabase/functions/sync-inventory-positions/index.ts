@@ -85,55 +85,86 @@ interface BqConfig {
   dataset: string;
   table: string;
   accessToken: string;
+  sourceType: string; // 'kiotviet' or 'haravan'
+  variantTable?: string; // for haravan JOIN
 }
 
 async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
   let projectId = DEFAULT_PROJECT_ID;
   let dataset = DEFAULT_DATASET;
   let table = DEFAULT_TABLE;
-  let saSecretName = 'GOOGLE_SERVICE_ACCOUNT_JSON';
+  let sourceType = 'kiotviet';
+  let variantTable: string | undefined;
+  let serviceAccountJson: string | null = null;
 
-  const { data: config } = await supabase
+  // 1) Check bigquery_configs for credentials_json (preferred)
+  const { data: bqCfg } = await supabase
     .from('bigquery_configs')
-    .select('project_id')
+    .select('gcp_project_id, dataset_id, credentials_json')
     .eq('tenant_id', tenantId)
+    .eq('is_active', true)
     .maybeSingle();
-  if (config?.project_id) projectId = config.project_id;
 
-  // Check for inventory-specific source first, then fall back to products
+  if (bqCfg?.gcp_project_id) projectId = bqCfg.gcp_project_id;
+  if (bqCfg?.dataset_id) dataset = bqCfg.dataset_id;
+
+  if (bqCfg?.credentials_json) {
+    const creds = typeof bqCfg.credentials_json === 'string'
+      ? bqCfg.credentials_json
+      : JSON.stringify(bqCfg.credentials_json);
+    serviceAccountJson = creds;
+  }
+
+  // 2) Check bigquery_tenant_sources for inventory_positions or inventory
   const { data: invSource } = await supabase
     .from('bigquery_tenant_sources')
-    .select('dataset, table_name, service_account_secret')
+    .select('dataset, table_name, service_account_secret, mapping_overrides')
     .eq('tenant_id', tenantId)
-    .eq('model_type', 'inventory')
+    .in('model_type', ['inventory_positions', 'inventory'])
     .eq('is_enabled', true)
+    .order('model_type') // inventory_positions first alphabetically
+    .limit(1)
     .maybeSingle();
 
   if (invSource?.dataset) {
     dataset = invSource.dataset;
     table = invSource.table_name || DEFAULT_TABLE;
-    if (invSource.service_account_secret) saSecretName = invSource.service_account_secret;
+    const overrides = invSource.mapping_overrides;
+    if (overrides?.source_type) sourceType = overrides.source_type;
+    if (overrides?.variant_table) variantTable = overrides.variant_table;
+
+    // Use env secret if no DB credentials
+    if (!serviceAccountJson && invSource.service_account_secret) {
+      const envVal = Deno.env.get(invSource.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
+    }
   } else {
+    // Fallback: check products source
     const { data: source } = await supabase
       .from('bigquery_tenant_sources')
-      .select('dataset, table_name, service_account_secret')
+      .select('dataset, service_account_secret')
       .eq('tenant_id', tenantId)
       .eq('model_type', 'products')
       .eq('is_enabled', true)
       .maybeSingle();
-    if (source?.dataset) {
-      dataset = source.dataset;
-      table = DEFAULT_TABLE;
+    if (source?.dataset) dataset = source.dataset;
+    if (!serviceAccountJson && source?.service_account_secret) {
+      const envVal = Deno.env.get(source.service_account_secret);
+      if (envVal) serviceAccountJson = envVal;
     }
-    if (source?.service_account_secret) saSecretName = source.service_account_secret;
   }
 
-  console.log(`[sync-inv] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
+  // 3) Final fallback to default env secret
+  if (!serviceAccountJson) {
+    const envVal = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+    if (envVal) serviceAccountJson = envVal;
+  }
 
-  const saJson = Deno.env.get(saSecretName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-  if (!saJson) throw new Error(`No service account key found (tried ${saSecretName})`);
-  const accessToken = await getAccessToken(JSON.parse(saJson));
-  return { projectId, dataset, table, accessToken };
+  if (!serviceAccountJson) throw new Error('No service account credentials found');
+
+  console.log(`[sync-inv] Config: project=${projectId}, dataset=${dataset}, table=${table}, type=${sourceType}`);
+  const accessToken = await getAccessToken(JSON.parse(serviceAccountJson));
+  return { projectId, dataset, table, accessToken, sourceType, variantTable };
 }
 
 // ============= Main =============
