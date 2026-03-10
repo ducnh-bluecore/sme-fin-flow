@@ -5,6 +5,8 @@
  * and upserts into inv_state_positions, mapping:
  *   branchId → inv_stores.store_code → store_id
  *   productCode → inv_sku_fc_mapping.sku → fc_id
+ * 
+ * Now supports dynamic tenant_id + resolves BQ config from DB.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -15,10 +17,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-const PROJECT_ID = 'bluecore-dcp';
-const DATASET = 'olvboutique';
-const TABLE = 'raw_kiotviet_ProductInventories';
+const DEFAULT_TENANT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+const DEFAULT_PROJECT_ID = 'bluecore-dcp';
+const DEFAULT_DATASET = 'olvboutique';
+const DEFAULT_TABLE = 'raw_kiotviet_ProductInventories';
 const BQ_BATCH_SIZE = 10000;
 
 // ============= Auth =============
@@ -48,9 +50,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
 
 // ============= BigQuery =============
 
-async function startBqJob(accessToken: string, query: string) {
+async function startBqJob(accessToken: string, projectId: string, query: string) {
   console.log('[sync-inv] BQ query:', query.substring(0, 200));
-  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${PROJECT_ID}/queries`;
+  const url = `https://bigquery.googleapis.com/bigquery/v2/projects/${projectId}/queries`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -76,6 +78,50 @@ async function fetchBqPage(accessToken: string, jobProjectId: string, jobId: str
   return await res.json();
 }
 
+// ============= Config Resolution =============
+
+interface BqConfig {
+  projectId: string;
+  dataset: string;
+  table: string;
+  accessToken: string;
+}
+
+async function resolveBqConfig(supabase: any, tenantId: string): Promise<BqConfig> {
+  let projectId = DEFAULT_PROJECT_ID;
+  let dataset = DEFAULT_DATASET;
+  let table = DEFAULT_TABLE;
+  let saSecretName = 'GOOGLE_SERVICE_ACCOUNT_JSON';
+
+  const { data: config } = await supabase
+    .from('bigquery_configs')
+    .select('project_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  if (config?.project_id) projectId = config.project_id;
+
+  const { data: source } = await supabase
+    .from('bigquery_tenant_sources')
+    .select('dataset, service_account_secret')
+    .eq('tenant_id', tenantId)
+    .eq('model_type', 'products')
+    .eq('is_enabled', true)
+    .maybeSingle();
+
+  if (source?.dataset) {
+    dataset = source.dataset;
+    table = 'raw_kiotviet_ProductInventories';
+  }
+  if (source?.service_account_secret) saSecretName = source.service_account_secret;
+
+  console.log(`[sync-inv] Config: project=${projectId}, dataset=${dataset}, table=${table}, key=${saSecretName}`);
+
+  const saJson = Deno.env.get(saSecretName) || Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
+  if (!saJson) throw new Error(`No service account key found (tried ${saSecretName})`);
+  const accessToken = await getAccessToken(JSON.parse(saJson));
+  return { projectId, dataset, table, accessToken };
+}
+
 // ============= Main =============
 
 Deno.serve(async (req) => {
@@ -86,28 +132,25 @@ Deno.serve(async (req) => {
   const startTime = Date.now();
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-  // Parse optional chunk parameter (0-based, splits 44 stores into groups of CHUNK_SIZE)
   let body: any = {};
   try { body = await req.json(); } catch { /* no body */ }
+  const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
   const chunk = Number(body.chunk ?? 0);
-  const CHUNK_SIZE = 5; // ~5 stores per chunk to stay within CPU limit
+  const CHUNK_SIZE = 5;
 
   try {
-    // 1. GCP auth
-    const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    if (!saJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured');
-    const accessToken = await getAccessToken(JSON.parse(saJson));
+    console.log(`[sync-inv] tenant=${tenantId}, chunk=${chunk}`);
+    const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // 2. Load mappings
+    // Load mappings
     const storesRes = await supabase.from('inv_stores').select('id, store_code')
-      .eq('tenant_id', TENANT_ID).eq('is_active', true).limit(500);
+      .eq('tenant_id', tenantId).eq('is_active', true).limit(500);
     if (storesRes.error) throw new Error(`Stores: ${storesRes.error.message}`);
     const allStores: any[] = storesRes.data || [];
     
-    // Split stores into chunks
     const chunkStores = allStores.slice(chunk * CHUNK_SIZE, (chunk + 1) * CHUNK_SIZE);
     if (!chunkStores.length) {
-      return new Response(JSON.stringify({ success: true, message: 'No stores in this chunk', chunk }), {
+      return new Response(JSON.stringify({ success: true, message: 'No stores in this chunk', chunk, total_stores: allStores.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -121,7 +164,7 @@ Deno.serve(async (req) => {
     while (true) {
       const from = skuPage * 1000;
       const { data, error } = await supabase.from('inv_sku_fc_mapping').select('sku, fc_id')
-        .eq('tenant_id', TENANT_ID).eq('is_active', true).range(from, from + 999).limit(1000);
+        .eq('tenant_id', tenantId).eq('is_active', true).range(from, from + 999).limit(1000);
       if (error) throw new Error(`SKU map: ${error.message}`);
       if (!data?.length) break;
       for (const m of data as any[]) skuToFc.set(m.sku, m.fc_id);
@@ -130,12 +173,12 @@ Deno.serve(async (req) => {
     }
     console.log(`[sync-inv] Loaded ${storeMap.size} stores, ${skuToFc.size} SKU mappings`);
 
-    // 3. Start BQ query
+    // Start BQ query
     const branchFilter = Array.from(storeMap.keys()).map(b => `'${b}'`).join(',');
     const bqQuery = `
       SELECT CAST(branchId AS STRING) AS branch_id, productCode AS product_code,
         IFNULL(onHand, 0) AS on_hand, IFNULL(reserveda, 0) AS reserved
-      FROM \`${PROJECT_ID}.${DATASET}.${TABLE}\`
+      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
       WHERE (isActive = 'true' OR isActive IS NULL)
         AND productCode IS NOT NULL AND productCode != ''
         AND CAST(branchId AS STRING) IN (${branchFilter})
@@ -147,7 +190,6 @@ Deno.serve(async (req) => {
     let noFc = 0, noStore = 0, skipped = 0;
     const UPSERT_BATCH = 2000;
 
-    // Helper: map BQ rows to upsert rows and flush
     const mapAndUpsert = async (bqRows: Record<string, any>[]) => {
       const upsertRows: any[] = [];
       for (const row of bqRows) {
@@ -158,12 +200,11 @@ Deno.serve(async (req) => {
         const fcId = skuToFc.get(sku);
         if (!fcId) { noFc++; continue; }
         upsertRows.push({
-          tenant_id: TENANT_ID, store_id: storeId, fc_id: fcId, sku,
+          tenant_id: tenantId, store_id: storeId, fc_id: fcId, sku,
           snapshot_date: today, on_hand: Math.round(Number(row.on_hand) || 0),
           reserved: Math.round(Number(row.reserved) || 0), in_transit: 0, safety_stock: 0,
         });
       }
-      // Fire upserts in parallel chunks of UPSERT_BATCH
       const promises: Promise<void>[] = [];
       for (let i = 0; i < upsertRows.length; i += UPSERT_BATCH) {
         const batch = upsertRows.slice(i, i + UPSERT_BATCH);
@@ -179,26 +220,23 @@ Deno.serve(async (req) => {
       await Promise.all(promises);
     };
 
-    // 4. Stream: fetch BQ pages and upsert as we go
-    const firstPage = await startBqJob(accessToken, bqQuery);
+    const firstPage = await startBqJob(bqConfig.accessToken, bqConfig.projectId, bqQuery);
     const firstRows = parseBqRows(firstPage);
     totalBqRows += firstRows.length;
     console.log(`[sync-inv] First page: ${firstRows.length} rows`);
     await mapAndUpsert(firstRows);
-    console.log(`[sync-inv] Upserted so far: ${totalUpserted}`);
 
     let pageToken = firstPage.pageToken;
     const jobRef = firstPage.jobReference;
-    const jobProjectId = jobRef?.projectId || PROJECT_ID;
+    const jobProjectId = jobRef?.projectId || bqConfig.projectId;
     const jobId = jobRef?.jobId;
     const location = jobRef?.location || 'US';
 
     while (pageToken && jobId) {
-      const pageData = await fetchBqPage(accessToken, jobProjectId, jobId, pageToken, location);
+      const pageData = await fetchBqPage(bqConfig.accessToken, jobProjectId, jobId, pageToken, location);
       if (pageData.error) throw new Error(`BQ page: ${pageData.error.message}`);
       const pageRows = parseBqRows(pageData);
       totalBqRows += pageRows.length;
-      // Upsert this page immediately
       await mapAndUpsert(pageRows);
       console.log(`[sync-inv] Fetched ${totalBqRows}, upserted ${totalUpserted}`);
       pageToken = pageData.pageToken;
@@ -206,11 +244,11 @@ Deno.serve(async (req) => {
 
     const duration = Date.now() - startTime;
     const summary = {
-      success: upsertErrors === 0, bq_rows: totalBqRows, upserted: totalUpserted,
+      success: upsertErrors === 0, tenant_id: tenantId, bq_rows: totalBqRows, upserted: totalUpserted,
       upsert_errors: upsertErrors, skipped: { no_store: noStore, no_fc: noFc, no_sku: skipped },
-      stores: storeMap.size, sku_mappings: skuToFc.size, snapshot_date: today, duration_ms: duration,
+      stores: storeMap.size, sku_mappings: skuToFc.size, snapshot_date: today, chunk, duration_ms: duration,
     };
-    console.log(`[sync-inv] Done in ${duration}ms. Upserted: ${totalUpserted}, Errors: ${upsertErrors}`);
+    console.log(`[sync-inv] Done in ${duration}ms. Upserted: ${totalUpserted}`);
 
     return new Response(JSON.stringify(summary), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
