@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
     }
 
     // Update FCs
-    const PAGE = 5000;
+    const PAGE = 1000;
     let offset = 0;
     const existingFcs: { id: string; fc_code: string }[] = [];
     while (true) {
