@@ -29,18 +29,7 @@ export function useProductChannelSales(tenantId: string | null, fcCode: string |
       if (!tenantId || !fcCode) throw new Error('Missing params');
 
       // Query channel breakdown using SKU prefix matching (fc_code -> SKU variants)
-      const { data, error } = await supabase.rpc('fn_product_channel_sales', {
-        p_tenant_id: tenantId,
-        p_fc_code: fcCode,
-      });
-
-      if (error) {
-        // Fallback: direct query if RPC doesn't exist
-        console.warn('fn_product_channel_sales RPC not found, using direct query');
-        return await directQuery(tenantId, fcCode);
-      }
-
-      return data as unknown as ProductChannelSalesData;
+      return await directQuery(tenantId, fcCode);
     },
     enabled: enabled && !!tenantId && !!fcCode,
     staleTime: 60_000,
