@@ -218,17 +218,34 @@ Deno.serve(async (req) => {
     }
     console.log(`[sync-inv] Loaded ${storeMap.size} stores, ${skuToFc.size} SKU mappings`);
 
-    // Start BQ query
+    // Start BQ query - different SQL for KiotViet vs Haravan
     const branchFilter = Array.from(storeMap.keys()).map(b => `'${b}'`).join(',');
-    const bqQuery = `
-      SELECT CAST(branchId AS STRING) AS branch_id, productCode AS product_code,
-        IFNULL(onHand, 0) AS on_hand, IFNULL(reserveda, 0) AS reserved
-      FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-      WHERE (isActive = 'true' OR isActive IS NULL)
-        AND productCode IS NOT NULL AND productCode != ''
-        AND CAST(branchId AS STRING) IN (${branchFilter})
-      QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY dw_timestamp DESC) = 1
-    `;
+    let bqQuery: string;
+
+    if (bqConfig.sourceType === 'haravan' && bqConfig.variantTable) {
+      // Haravan: JOIN InventoryLocations with Product_Variants to get SKU
+      bqQuery = `
+        SELECT CAST(inv.loc_id AS STRING) AS branch_id, v.SKU AS product_code,
+          IFNULL(inv.qty_onhand, 0) AS on_hand, IFNULL(inv.qty_commited, 0) AS reserved
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` inv
+        JOIN \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.variantTable}\` v
+          ON inv.variant_id = v.Id
+        WHERE v.SKU IS NOT NULL AND v.SKU != ''
+          AND CAST(inv.loc_id AS STRING) IN (${branchFilter})
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY inv.loc_id, v.SKU ORDER BY inv.dw_timestamp DESC) = 1
+      `;
+    } else {
+      // KiotViet (default)
+      bqQuery = `
+        SELECT CAST(branchId AS STRING) AS branch_id, productCode AS product_code,
+          IFNULL(onHand, 0) AS on_hand, IFNULL(reserveda, 0) AS reserved
+        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
+        WHERE (isActive = 'true' OR isActive IS NULL)
+          AND productCode IS NOT NULL AND productCode != ''
+          AND CAST(branchId AS STRING) IN (${branchFilter})
+        QUALIFY ROW_NUMBER() OVER (PARTITION BY branchId, productCode ORDER BY dw_timestamp DESC) = 1
+      `;
+    }
 
     const today = new Date().toISOString().split('T')[0];
     let totalBqRows = 0, totalUpserted = 0, upsertErrors = 0;
