@@ -53,12 +53,20 @@ export function useAssortmentData() {
   const { data: storeNames } = useQuery({
     queryKey: ['command-store-names', tenantId],
     queryFn: async () => {
-      const { data, error } = await buildSelectQuery('inv_stores' as any, 'id,store_name,store_code')
-        .limit(500);
-      if (error) throw error;
       const map = new Map<string, string>();
-      for (const s of (data || []) as any[]) {
-        map.set(String(s.id), s.store_name || s.store_code || String(s.id));
+      const PAGE = 1000;
+      let offset = 0;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await buildSelectQuery('inv_stores' as any, 'id,store_name,store_code')
+          .range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        const rows = (data || []) as any[];
+        for (const s of rows) {
+          map.set(String(s.id), s.store_name || s.store_code || String(s.id));
+        }
+        hasMore = rows.length === PAGE;
+        offset += PAGE;
       }
       return map;
     },
