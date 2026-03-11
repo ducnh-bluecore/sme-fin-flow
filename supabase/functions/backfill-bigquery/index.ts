@@ -1684,8 +1684,8 @@ async function syncOrderItems(
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              // RPC returns { id, order_key } — map order_key -> id (UUID)
-              orderKeyToUuid[o.order_key] = o.id;
+              // RPC returns { order_uuid, order_key } — map order_key -> UUID
+              orderKeyToUuid[o.order_key] = o.order_uuid || o.id;
             }
           }
         }
