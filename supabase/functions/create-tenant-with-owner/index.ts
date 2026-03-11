@@ -90,6 +90,46 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Handle create-user action (admin creates a new auth user)
+    if (body.action === 'create-user') {
+      const { email, password, fullName } = body
+      if (!email || !password) {
+        return new Response(
+          JSON.stringify({ error: 'email and password are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Check if user already exists
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers()
+      const existing = existingUsers?.users?.find(u => u.email === email)
+      if (existing) {
+        return new Response(
+          JSON.stringify({ userId: existing.id, existed: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName || email },
+      })
+
+      if (createError) {
+        return new Response(
+          JSON.stringify({ error: 'Failed to create user: ' + createError.message }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({ userId: newUser.user.id, existed: false }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Handle find-user-by-email action
     if (body.action === 'find-user-by-email') {
       const { email } = body
