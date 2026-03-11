@@ -1478,7 +1478,7 @@ async function syncOrders(
             integration_id: integrationId,
             order_key: String(row[source.mapping.order_key]),
             channel: source.channel,
-            order_at: row[source.mapping.order_at],
+            order_at: row[source.mapping.order_at] ? new Date(row[source.mapping.order_at]).toISOString() : null,
             status: row[source.mapping.status],
             customer_name: row[source.mapping.customer_name],
             customer_phone: row[source.mapping.customer_phone] || null,
@@ -1684,8 +1684,8 @@ async function syncOrderItems(
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              // RPC returns { id, order_key } — map order_key -> id (UUID)
-              orderKeyToUuid[o.order_key] = o.id;
+              // RPC returns { order_uuid, order_key } — map order_key -> UUID
+              orderKeyToUuid[o.order_key] = o.order_uuid || o.id;
             }
           }
         }
@@ -1702,8 +1702,8 @@ async function syncOrderItems(
             continue; // Skip orphan items
           }
           
-          const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
-          const lineRevenue = parseFloat(row[source.mapping.total] || '0');
+          const qty = source.mapping.quantity ? (parseInt(row[source.mapping.quantity] || '1', 10) || 1) : 1;
+          const lineRevenue = Number(row[source.mapping.total] || 0);
           
           orderItems.push({
             tenant_id: tenantId,
@@ -1712,10 +1712,10 @@ async function syncOrderItems(
             product_id: String(row[source.mapping.item_id] || ''),
             sku: row[source.mapping.sku] || `unknown_${row[source.mapping.item_id]}`,
             product_name: row[source.mapping.name],
-            qty,
-            unit_price: parseFloat(row[source.mapping.unit_price] || '0'),
-            original_price: parseFloat(row[source.mapping.unit_price] || '0'),
-            discount_amount: parseFloat(row[source.mapping.discount] || '0'),
+            qty: Number(qty) || 1,
+            unit_price: Number(row[source.mapping.unit_price] || 0),
+            original_price: Number(row[source.mapping.unit_price] || 0),
+            discount_amount: Number(row[source.mapping.discount] || 0),
             line_revenue: lineRevenue,
             raw_data: {
               source_channel: source.channel,
