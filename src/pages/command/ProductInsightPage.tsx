@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useTenantContext } from '@/contexts/TenantContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-// ProductDetailDialog removed - now uses full page route
+import RestockRecommendationsTab from '@/components/command/ProductInsight/RestockRecommendationsTab';
 
 interface LifecycleRow {
   fc_id: string;
@@ -252,7 +252,7 @@ export default function ProductInsightPage() {
             </TabsTrigger>
             <TabsTrigger value="restock" className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
-              Restock
+              Đề xuất Restock
             </TabsTrigger>
           </TabsList>
 
@@ -265,11 +265,10 @@ export default function ProductInsightPage() {
           </TabsContent>
 
           <TabsContent value="restock">
-            <CollectionGroupedView
-              groups={collectionGroups.map(g => ({ ...g, rows: g.rows.filter(r => r.batch_number > 1) })).filter(g => g.rows.length > 0)}
+            <RestockRecommendationsTab
+              lifecycleData={lifecycleData || []}
               isLoading={isLoading}
               onRowClick={handleRowClick}
-              showBatchCol
             />
           </TabsContent>
         </Tabs>
