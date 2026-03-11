@@ -154,42 +154,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    // First, discover column names from the table
-    const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
-    console.log(`[sync-stores] Discovering columns from: ${bqConfig.table}`);
-    const discoverRes = await fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: discoverSql, useLegacySql: false, maxResults: 1 }),
-      }
-    );
-    const discoverData = await discoverRes.json();
-    if (discoverData.error) throw new Error(`BigQuery schema discovery error: ${discoverData.error.message}`);
-    
-    const columnNames = (discoverData.schema?.fields || []).map((f: any) => f.name);
-    console.log(`[sync-stores] Table ${bqConfig.table} columns: ${columnNames.join(', ')}`);
-
-    // Build query based on source type with auto-detected columns
+    // Build query based on source type
     let sql: string;
     if (bqConfig.sourceType === 'haravan') {
-      // Auto-detect Haravan location columns
-      const idCol = columnNames.find((c: string) => /^(loc_id|location_id|LocationId)$/i.test(c)) || 'loc_id';
-      const nameCol = columnNames.find((c: string) => /^(OrgName|loc_name|location_name|LocationName)$/i.test(c)) || 'OrgName';
-      console.log(`[sync-stores] Haravan columns: id=${idCol}, name=${nameCol}`);
-      
+      // Use raw_hrv_Locations table which has actual location names
+      const locationsTable = `${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Locations`;
+      // Filter by OrgName matching the tenant if needed, get distinct locations
       sql = `
         SELECT DISTINCT
-          CAST(${idCol} AS STRING) as branch_id,
-          ANY_VALUE(${nameCol}) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE ${idCol} IS NOT NULL
-        GROUP BY ${idCol}
-        ORDER BY branchName
+          CAST(Id AS STRING) as branch_id,
+          name as branchName,
+          address1,
+          district,
+          province,
+          phone
+        FROM \`${locationsTable}\`
+        WHERE Id IS NOT NULL AND name IS NOT NULL
+        ORDER BY name
       `;
+      console.log(`[sync-stores] Using raw_hrv_Locations for Haravan stores`);
     } else {
-      // KiotViet
+      // KiotViet - discover columns first
+      const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
+      const discoverRes = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: discoverSql, useLegacySql: false, maxResults: 1 }),
+        }
+      );
+      const discoverData = await discoverRes.json();
+      if (discoverData.error) throw new Error(`BigQuery schema discovery error: ${discoverData.error.message}`);
+      const columnNames = (discoverData.schema?.fields || []).map((f: any) => f.name);
+
       const idCol = columnNames.find((c: string) => /^(branchId|BranchId|branch_id)$/i.test(c)) || 'branchId';
       const nameCol = columnNames.find((c: string) => /^(branchName|BranchName|branch_name)$/i.test(c)) || 'branchName';
       
