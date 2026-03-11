@@ -221,30 +221,65 @@ Deno.serve(async (req) => {
     });
     console.log(`[sync-stores] Found ${bqBranches.length} branches in BigQuery`);
 
+    // Build lookup from BQ branches
+    const bqMap = new Map<string, any>();
+    for (const b of bqBranches) {
+      bqMap.set(String(b.branch_id), b);
+    }
+    const bqCodes = new Set(bqMap.keys());
+
     // Get existing stores
     const { data: existing } = await supabase
       .from('inv_stores')
       .select('id, store_code, store_name, is_active')
       .eq('tenant_id', tenantId);
 
-    const existingCodes = new Set((existing || []).map((s: any) => String(s.store_code)));
-    const bqCodes = new Set(bqBranches.map((b: any) => String(b.branch_id)));
+    const existingMap = new Map<string, any>();
+    for (const s of (existing || [])) {
+      existingMap.set(String(s.store_code), s);
+    }
 
-    const newBranches = bqBranches.filter((b: any) => !existingCodes.has(String(b.branch_id)));
+    const newBranches = bqBranches.filter((b: any) => !existingMap.has(String(b.branch_id)));
     const toDeactivate = (existing || []).filter((s: any) => s.is_active && !bqCodes.has(String(s.store_code)));
     const toReactivate = (existing || []).filter((s: any) => !s.is_active && bqCodes.has(String(s.store_code)));
 
-    let inserted = 0, errors = 0;
+    // Also find existing stores that need name/address update
+    const toUpdate = (existing || []).filter((s: any) => {
+      const bq = bqMap.get(String(s.store_code));
+      return bq && bq.branchName && s.store_name !== bq.branchName;
+    });
+
+    let inserted = 0, updated = 0, errors = 0;
+    
+    // Build address string from BQ data
+    const buildAddress = (b: any) => {
+      const parts = [b.address1, b.district, b.province].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : null;
+    };
+
     for (const b of newBranches) {
       const { error } = await supabase.from('inv_stores').insert({
         tenant_id: tenantId,
         store_code: String(b.branch_id),
         store_name: b.branchName,
+        address: buildAddress(b),
         location_type: 'store',
         is_active: true,
         is_transfer_eligible: true,
       });
-      if (error) { errors++; } else { inserted++; }
+      if (error) { errors++; console.error(`[sync-stores] Insert error: ${error.message}`); } else { inserted++; }
+    }
+
+    // Update names for existing stores
+    for (const s of toUpdate) {
+      const bq = bqMap.get(String(s.store_code));
+      const { error } = await supabase.from('inv_stores')
+        .update({ 
+          store_name: bq.branchName, 
+          address: buildAddress(bq),
+          updated_at: new Date().toISOString() 
+        }).eq('id', s.id);
+      if (!error) updated++;
     }
 
     let deactivated = 0;
@@ -263,8 +298,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true, tenant_id: tenantId,
-      bq_branches: bqBranches.length, existing_stores: existingCodes.size,
-      new_added: inserted, deactivated, reactivated, errors,
+      bq_branches: bqBranches.length, existing_stores: existingMap.size,
+      new_added: inserted, updated, deactivated, reactivated, errors,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err: any) {
