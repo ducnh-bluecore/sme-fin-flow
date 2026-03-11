@@ -21,6 +21,7 @@ import ProductDetailPanel from '@/components/command/Clearance/ProductDetailPane
 import CollectionGroupHeader, { type CollectionGroup } from '@/components/command/Clearance/CollectionGroupHeader';
 import CandidateTableRows from '@/components/command/Clearance/CandidateTableRows';
 import MarkdownHistoryTab from '@/components/command/Clearance/MarkdownHistoryTab';
+import ClearanceSimulatorTab from '@/components/command/Clearance/ClearanceSimulatorTab';
 
 // ─── Tab 1: Clearance Candidates ───
 function ClearanceCandidatesTab() {
