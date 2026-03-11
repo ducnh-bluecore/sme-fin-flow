@@ -1702,8 +1702,8 @@ async function syncOrderItems(
             continue; // Skip orphan items
           }
           
-          const qty = source.mapping.quantity ? parseInt(row[source.mapping.quantity] || '1', 10) : 1;
-          const lineRevenue = parseFloat(row[source.mapping.total] || '0');
+          const qty = source.mapping.quantity ? (parseInt(row[source.mapping.quantity] || '1', 10) || 1) : 1;
+          const lineRevenue = Number(row[source.mapping.total] || 0);
           
           orderItems.push({
             tenant_id: tenantId,
