@@ -129,8 +129,8 @@ Deno.serve(async (req) => {
     let sql: string;
     if (bqConfig.sourceType === 'haravan') {
       // Auto-detect Haravan location columns
-      const idCol = columnNames.find((c: string) => /^(loc_id|location_id|LocationId|id)$/i.test(c)) || 'location_id';
-      const nameCol = columnNames.find((c: string) => /^(loc_name|location_name|name|Name)$/i.test(c)) || 'name';
+      const idCol = columnNames.find((c: string) => /^(loc_id|location_id|LocationId)$/i.test(c)) || 'loc_id';
+      const nameCol = columnNames.find((c: string) => /^(OrgName|loc_name|location_name|LocationName)$/i.test(c)) || 'OrgName';
       console.log(`[sync-stores] Haravan columns: id=${idCol}, name=${nameCol}`);
       
       sql = `
