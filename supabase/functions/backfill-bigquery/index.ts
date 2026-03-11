@@ -1590,6 +1590,18 @@ async function syncOrderItems(
     table: s.table,
   })));
   
+  // Optimization: get min order_key from cdp_orders to filter BQ queries
+  let minOrderKey: string | null = null;
+  try {
+    const { data: minRow } = await supabase.rpc('tenant_min_order_key', { p_tenant_id: tenantId });
+    if (minRow) {
+      minOrderKey = String(minRow);
+      console.log(`[order_items] Min order_key in cdp_orders: ${minOrderKey}`);
+    }
+  } catch (e: any) {
+    console.warn(`[order_items] Could not get min order_key: ${e.message}`);
+  }
+
   for (const source of sources) {
     // Read saved progress to resume
     const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
@@ -1626,18 +1638,26 @@ async function syncOrderItems(
       const mappingValues = Object.values(source.mapping).filter(Boolean);
       const columns = mappingValues.map(c => `\`${c}\``).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      const whereConditions: string[] = [];
       // Incremental: filter order items by joining with orders that have date >= date_from
       if (options.date_from) {
         // Use subquery to filter items belonging to recent orders only
         const orderSource = ORDER_SOURCES.find(os => os.channel === source.channel);
         if (orderSource) {
           const orderDateCol = orderSource.mapping.order_at;
-          query += ` WHERE \`${source.mapping.order_key}\` IN (
+          whereConditions.push(`\`${source.mapping.order_key}\` IN (
             SELECT \`${orderSource.mapping.order_key}\` 
             FROM \`${projectId}.${orderSource.dataset}.${orderSource.table}\`
             WHERE \`${orderDateCol}\` >= '${options.date_from}'
-          )`;
+          )`);
         }
+      }
+      // Optimization: filter by min order_key from cdp_orders to skip orphan rows early
+      if (minOrderKey && !options.date_from) {
+        whereConditions.push(`\`${source.mapping.order_key}\` >= ${minOrderKey}`);
+      }
+      if (whereConditions.length > 0) {
+        query += ` WHERE ` + whereConditions.join(' AND ');
       }
       query += ` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
@@ -1657,15 +1677,15 @@ async function syncOrderItems(
         const orderKeyToUuid: Record<string, string> = {};
         for (let i = 0; i < batchOrderKeys.length; i += 200) {
           const chunk = batchOrderKeys.slice(i, i + 200);
-          // Use tenant-aware lookup to query correct schema
-          const orderKeysWithChannel = chunk.map(k => `${source.channel}:${k}`);
-          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, orderKeysWithChannel);
+          // Pass raw order keys (without channel prefix) — cdp_orders stores order_key without prefix
+          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, chunk);
           
           if (lookupError) {
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              orderKeyToUuid[o.order_key] = o.order_uuid;
+              // RPC returns { id, order_key } — map order_key -> id (UUID)
+              orderKeyToUuid[o.order_key] = o.id;
             }
           }
         }
@@ -1675,8 +1695,7 @@ async function syncOrderItems(
         const orderItems = [];
         for (const row of rows) {
           const orderKey = String(row[source.mapping.order_key]);
-          const fullOrderKey = `${source.channel}:${orderKey}`;
-          const resolvedOrderId = orderKeyToUuid[fullOrderKey];
+          const resolvedOrderId = orderKeyToUuid[orderKey];
           
           if (!resolvedOrderId) {
             batchSkipped++;
