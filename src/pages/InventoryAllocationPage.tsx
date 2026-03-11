@@ -82,6 +82,18 @@ export default function InventoryAllocationPage() {
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
   const { data: collections = [] } = useCollections();
+  const { buildQuery, tenantId: tqbTenantId, isReady: tqbReady } = useTenantQueryBuilder();
+  
+  const { data: allocationPolicies = [] } = useQuery({
+    queryKey: ['sem-policies-alloc', tqbTenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('sem_allocation_policies' as any)
+        .order('policy_type');
+      if (error) return [];
+      return (data || []) as any[];
+    },
+    enabled: !!tqbTenantId && tqbReady,
+  });
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
   const fcNameMap = useMemo(() => {
     const map: Record<string, string> = {};
