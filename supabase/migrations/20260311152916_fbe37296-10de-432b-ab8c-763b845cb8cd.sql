@@ -1,0 +1,1 @@
+UPDATE bigquery_backfill_jobs SET status = 'pending', processed_records = 0, metadata = '{}' WHERE id = '521ea5c7-948d-4043-bfef-e8a4086f78b4';
