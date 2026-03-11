@@ -1590,6 +1590,18 @@ async function syncOrderItems(
     table: s.table,
   })));
   
+  // Optimization: get min order_key from cdp_orders to filter BQ queries
+  let minOrderKey: string | null = null;
+  try {
+    const { data: minRow } = await supabase.rpc('tenant_min_order_key', { p_tenant_id: tenantId });
+    if (minRow) {
+      minOrderKey = String(minRow);
+      console.log(`[order_items] Min order_key in cdp_orders: ${minOrderKey}`);
+    }
+  } catch (e: any) {
+    console.warn(`[order_items] Could not get min order_key: ${e.message}`);
+  }
+
   for (const source of sources) {
     // Read saved progress to resume
     const savedProgress = await getSourceProgress(supabase, jobId, source.channel);
