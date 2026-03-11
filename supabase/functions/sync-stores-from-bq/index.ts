@@ -108,27 +108,52 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // Build query based on source type - use the resolved table from config
+    // First, discover column names from the table
+    const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
+    console.log(`[sync-stores] Discovering columns from: ${bqConfig.table}`);
+    const discoverRes = await fetch(
+      `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: discoverSql, useLegacySql: false, maxResults: 1 }),
+      }
+    );
+    const discoverData = await discoverRes.json();
+    if (discoverData.error) throw new Error(`BigQuery schema discovery error: ${discoverData.error.message}`);
+    
+    const columnNames = (discoverData.schema?.fields || []).map((f: any) => f.name);
+    console.log(`[sync-stores] Table ${bqConfig.table} columns: ${columnNames.join(', ')}`);
+
+    // Build query based on source type with auto-detected columns
     let sql: string;
     if (bqConfig.sourceType === 'haravan') {
+      // Auto-detect Haravan location columns
+      const idCol = columnNames.find((c: string) => /^(loc_id|location_id|LocationId|id)$/i.test(c)) || 'location_id';
+      const nameCol = columnNames.find((c: string) => /^(loc_name|location_name|name|Name)$/i.test(c)) || 'name';
+      console.log(`[sync-stores] Haravan columns: id=${idCol}, name=${nameCol}`);
+      
       sql = `
         SELECT DISTINCT
-          CAST(loc_id AS STRING) as branch_id,
-          ANY_VALUE(loc_name) as branchName
+          CAST(${idCol} AS STRING) as branch_id,
+          ANY_VALUE(${nameCol}) as branchName
         FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE loc_id IS NOT NULL
-        GROUP BY loc_id
+        WHERE ${idCol} IS NOT NULL
+        GROUP BY ${idCol}
         ORDER BY branchName
       `;
     } else {
-      // KiotViet - use the resolved inventory table (e.g. bdm_kov_xuat_nhap_ton)
+      // KiotViet
+      const idCol = columnNames.find((c: string) => /^(branchId|BranchId|branch_id)$/i.test(c)) || 'branchId';
+      const nameCol = columnNames.find((c: string) => /^(branchName|BranchName|branch_name)$/i.test(c)) || 'branchName';
+      
       sql = `
         SELECT
-          CAST(branchId AS STRING) as branch_id,
-          ANY_VALUE(branchName) as branchName
+          CAST(${idCol} AS STRING) as branch_id,
+          ANY_VALUE(${nameCol}) as branchName
         FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE branchName IS NOT NULL AND branchId IS NOT NULL
-        GROUP BY branchId
+        WHERE ${nameCol} IS NOT NULL AND ${idCol} IS NOT NULL
+        GROUP BY ${idCol}
         ORDER BY branchName
       `;
     }
