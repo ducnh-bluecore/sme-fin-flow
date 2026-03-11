@@ -104,9 +104,55 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
+    const mode = body.mode || 'sync'; // 'sync' | 'discover_tables' | 'sample_table'
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const bqConfig = await resolveBqConfig(supabase, tenantId);
+
+    // Mode: discover tables in dataset
+    if (mode === 'discover_tables') {
+      const sql = `SELECT table_name FROM \`${bqConfig.projectId}.${bqConfig.dataset}.INFORMATION_SCHEMA.TABLES\` ORDER BY table_name`;
+      const res = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 500 }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const tables = (data.rows || []).map((r: any) => r.f[0].v);
+      return new Response(JSON.stringify({ success: true, dataset: bqConfig.dataset, tables }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Mode: sample a specific table
+    if (mode === 'sample_table') {
+      const tableName = body.table_name;
+      if (!tableName) throw new Error('table_name required');
+      const sql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${tableName}\` LIMIT 5`;
+      const res = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5 }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const fields = (data.schema?.fields || []).map((f: any) => f.name);
+      const rows = (data.rows || []).map((r: any) => {
+        const obj: any = {};
+        fields.forEach((f: string, i: number) => { obj[f] = r.f[i].v; });
+        return obj;
+      });
+      return new Response(JSON.stringify({ success: true, table: tableName, columns: fields, sample: rows }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // First, discover column names from the table
     const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
