@@ -252,7 +252,7 @@ export default function ProductInsightPage() {
             </TabsTrigger>
             <TabsTrigger value="restock" className="gap-1.5">
               <RefreshCw className="h-3.5 w-3.5" />
-              Restock
+              Đề xuất Restock
             </TabsTrigger>
           </TabsList>
 
@@ -265,11 +265,10 @@ export default function ProductInsightPage() {
           </TabsContent>
 
           <TabsContent value="restock">
-            <CollectionGroupedView
-              groups={collectionGroups.map(g => ({ ...g, rows: g.rows.filter(r => r.batch_number > 1) })).filter(g => g.rows.length > 0)}
+            <RestockRecommendationsTab
+              lifecycleData={lifecycleData || []}
               isLoading={isLoading}
               onRowClick={handleRowClick}
-              showBatchCol
             />
           </TabsContent>
         </Tabs>
