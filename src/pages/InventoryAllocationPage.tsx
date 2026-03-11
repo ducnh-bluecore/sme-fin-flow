@@ -436,6 +436,17 @@ export default function InventoryAllocationPage() {
           </TabsContent>
           <TabsContent value="config">
             <div className="space-y-6">
+              {/* Chính sách phân bổ theo tier (sem_allocation_policies) */}
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <Shield className="h-5 w-5" />
+                  Chính Sách Phân Bổ Theo Tier
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Cấu hình trọng số ưu tiên (S/A/B/C), quy tắc scarcity, và chiến lược phân bổ riêng cho tenant
+                </p>
+                <PolicyEditor policies={allocationPolicies} />
+              </div>
               <RebalanceConfigPanel />
               <StoreDirectoryTab />
             </div>
