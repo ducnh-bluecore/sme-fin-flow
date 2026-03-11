@@ -160,10 +160,12 @@ export default function ClearancePage() {
       <Tabs defaultValue="candidates" className="w-full">
         <TabsList>
           <TabsTrigger value="candidates">Cần Clearance</TabsTrigger>
+          <TabsTrigger value="simulator">Mô Phỏng</TabsTrigger>
           <TabsTrigger value="history">Lịch Sử Markdown</TabsTrigger>
           <TabsTrigger value="channels">Phân Tích Kênh</TabsTrigger>
         </TabsList>
         <TabsContent value="candidates"><ClearanceCandidatesTab /></TabsContent>
+        <TabsContent value="simulator"><ClearanceSimulatorTab /></TabsContent>
         <TabsContent value="history"><MarkdownHistoryTab /></TabsContent>
         <TabsContent value="channels"><ChannelAnalysisTab /></TabsContent>
       </Tabs>
