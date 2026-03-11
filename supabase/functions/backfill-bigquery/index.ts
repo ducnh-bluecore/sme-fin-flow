@@ -1657,15 +1657,15 @@ async function syncOrderItems(
         const orderKeyToUuid: Record<string, string> = {};
         for (let i = 0; i < batchOrderKeys.length; i += 200) {
           const chunk = batchOrderKeys.slice(i, i + 200);
-          // Use tenant-aware lookup to query correct schema
-          const orderKeysWithChannel = chunk.map(k => `${source.channel}:${k}`);
-          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, orderKeysWithChannel);
+          // Pass raw order keys (without channel prefix) — cdp_orders stores order_key without prefix
+          const { data: orderRows, error: lookupError } = await tenantLookupOrderIds(supabase, tenantId, chunk);
           
           if (lookupError) {
             console.error(`Order UUID lookup error for ${source.channel}:`, lookupError);
           } else if (orderRows) {
             for (const o of orderRows) {
-              orderKeyToUuid[o.order_key] = o.order_uuid;
+              // RPC returns { id, order_key } — map order_key -> id (UUID)
+              orderKeyToUuid[o.order_key] = o.id;
             }
           }
         }
@@ -1675,8 +1675,7 @@ async function syncOrderItems(
         const orderItems = [];
         for (const row of rows) {
           const orderKey = String(row[source.mapping.order_key]);
-          const fullOrderKey = `${source.channel}:${orderKey}`;
-          const resolvedOrderId = orderKeyToUuid[fullOrderKey];
+          const resolvedOrderId = orderKeyToUuid[orderKey];
           
           if (!resolvedOrderId) {
             batchSkipped++;
