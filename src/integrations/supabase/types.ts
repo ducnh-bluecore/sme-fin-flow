@@ -43373,6 +43373,7 @@ export type Database = {
           order_uuid: string
         }[]
       }
+      tenant_min_order_key: { Args: { p_tenant_id: string }; Returns: string }
       tenant_upsert_jsonb: {
         Args: {
           p_conflict_columns: string[]
