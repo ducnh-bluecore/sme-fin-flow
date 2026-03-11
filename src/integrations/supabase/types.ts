@@ -42231,6 +42231,10 @@ export type Database = {
         Args: { p_fc_id: string; p_tenant_id: string }
         Returns: Json
       }
+      fn_get_tenant_allowed_channels: {
+        Args: { p_tenant_id: string }
+        Returns: string[]
+      }
       fn_inv_overview_stats: {
         Args: { p_tenant_id: string }
         Returns: {

@@ -870,7 +870,10 @@ async function resolveTenantServiceAccountKey(tenantId: string): Promise<string 
 /**
  * Resolves BigQuery sources for a tenant.
  * If tenant has entries in `bigquery_tenant_sources`, use ONLY those (filtered by model_type).
- * Otherwise, fallback to hardcoded defaults (backward compatible for OLV Boutique).
+ * 
+ * GUARDRAIL v2: For provisioned tenants, NEVER fallback to hardcoded defaults.
+ * This prevents cross-tenant data contamination (e.g. OLV data leaking into Icon Denim).
+ * Only non-provisioned tenants (shared schema) may use defaults.
  */
 async function resolveSources<T extends { channel?: string; name?: string; dataset: string; table: string }>(
   supabase: any,
@@ -879,6 +882,15 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
   defaultSources: readonly T[],
 ): Promise<T[]> {
   try {
+    // GUARDRAIL: Check if tenant is provisioned (has dedicated schema)
+    const { data: tenantInfo } = await supabase
+      .from('tenants')
+      .select('schema_provisioned, slug')
+      .eq('id', tenantId)
+      .single();
+    
+    const isProvisioned = tenantInfo?.schema_provisioned === true;
+
     const { data: overrides, error } = await supabase
       .from('bigquery_tenant_sources')
       .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret')
@@ -887,12 +899,27 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
       .eq('is_enabled', true);
 
     if (error) {
-      console.warn(`[resolveSources] Error querying tenant sources: ${error.message}. Using defaults.`);
+      if (isProvisioned) {
+        // GUARDRAIL: Provisioned tenant MUST have explicit sources - NEVER fallback
+        throw new Error(
+          `[GUARDRAIL] Provisioned tenant ${tenantId} (${tenantInfo?.slug}) has no source config for '${modelType}' ` +
+          `and source query failed: ${error.message}. BLOCKING to prevent cross-tenant contamination.`
+        );
+      }
+      console.warn(`[resolveSources] Error querying tenant sources: ${error.message}. Using defaults for non-provisioned tenant.`);
       return [...defaultSources] as T[];
     }
 
     if (!overrides || overrides.length === 0) {
-      // No tenant-specific config → use hardcoded defaults
+      if (isProvisioned) {
+        // GUARDRAIL: Provisioned tenant with NO configured sources → BLOCK
+        throw new Error(
+          `[GUARDRAIL] Provisioned tenant ${tenantId} (${tenantInfo?.slug}) has NO configured sources for '${modelType}' ` +
+          `in bigquery_tenant_sources. BLOCKING backfill. Configure sources first.`
+        );
+      }
+      // Non-provisioned tenant → safe to use hardcoded defaults
+      console.log(`[resolveSources] Non-provisioned tenant ${tenantId}: using default sources for ${modelType}`);
       return [...defaultSources] as T[];
     }
 
@@ -923,10 +950,35 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
       }
     }
 
+    if (resolved.length === 0 && isProvisioned) {
+      throw new Error(
+        `[GUARDRAIL] Provisioned tenant ${tenantId} (${tenantInfo?.slug}): resolved 0 sources for '${modelType}' ` +
+        `despite having ${overrides.length} config entries. Check channel names match defaults.`
+      );
+    }
+
     console.log(`[resolveSources] Tenant ${tenantId} model=${modelType}: using ${resolved.length} custom sources (${resolved.map(s => (s as any).channel || (s as any).name).join(', ')})`);
     return resolved;
   } catch (err: any) {
-    console.warn(`[resolveSources] Exception: ${err.message}. Using defaults.`);
+    if (err.message?.includes('[GUARDRAIL]')) {
+      // Re-throw guardrail errors - these must NOT be caught silently
+      throw err;
+    }
+    // For provisioned tenants, ANY error is fatal
+    const { data: tenantCheck } = await supabase
+      .from('tenants')
+      .select('schema_provisioned, slug')
+      .eq('id', tenantId)
+      .single();
+    
+    if (tenantCheck?.schema_provisioned) {
+      throw new Error(
+        `[GUARDRAIL] Provisioned tenant ${tenantId} (${tenantCheck?.slug}): source resolution failed: ${err.message}. ` +
+        `BLOCKING to prevent cross-tenant contamination.`
+      );
+    }
+    
+    console.warn(`[resolveSources] Exception for non-provisioned tenant: ${err.message}. Using defaults.`);
     return [...defaultSources] as T[];
   }
 }
