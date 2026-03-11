@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw, DatabaseZap, Filter, X } from 'lucide-react';
+import { RefreshCw, Package, ArrowRightLeft, Settings2, BarChart3, History, ChevronDown, Layers, Target, Crown, Store, Wand2, ClipboardList, RotateCcw, DatabaseZap, Filter, X, Shield } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +15,8 @@ import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulati
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
 import { RecallOrderPanel } from '@/components/inventory/RecallOrderPanel';
+import PolicyEditor from '@/components/command/settings/PolicyEditor';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useAllocationRecommendations, useLatestAllocationRun } from '@/hooks/inventory/useAllocationRecommendations';
@@ -29,7 +31,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActiveTenantId } from '@/hooks/useActiveTenantId';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { RebalanceSuggestion } from '@/hooks/inventory/useRebalanceSuggestions';
 
 export default function InventoryAllocationPage() {
@@ -80,6 +82,18 @@ export default function InventoryAllocationPage() {
   const { data: stores = [] } = useInventoryStores();
   const { data: familyCodes = [] } = useFamilyCodes();
   const { data: collections = [] } = useCollections();
+  const { buildQuery, tenantId: tqbTenantId, isReady: tqbReady } = useTenantQueryBuilder();
+  
+  const { data: allocationPolicies = [] } = useQuery({
+    queryKey: ['sem-policies-alloc', tqbTenantId],
+    queryFn: async () => {
+      const { data, error } = await buildQuery('sem_allocation_policies' as any)
+        .order('policy_type');
+      if (error) return [];
+      return (data || []) as any[];
+    },
+    enabled: !!tqbTenantId && tqbReady,
+  });
   const storeMap = useMemo(() => buildStoreMap(stores), [stores]);
   const fcNameMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -422,6 +436,17 @@ export default function InventoryAllocationPage() {
           </TabsContent>
           <TabsContent value="config">
             <div className="space-y-6">
+              {/* Chính sách phân bổ theo tier (sem_allocation_policies) */}
+              <div>
+                <h3 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                  <Shield className="h-5 w-5" />
+                  Chính Sách Phân Bổ Theo Tier
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Cấu hình trọng số ưu tiên (S/A/B/C), quy tắc scarcity, và chiến lược phân bổ riêng cho tenant
+                </p>
+                <PolicyEditor policies={allocationPolicies} />
+              </div>
               <RebalanceConfigPanel />
               <StoreDirectoryTab />
             </div>
