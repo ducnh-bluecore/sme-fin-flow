@@ -1626,18 +1626,26 @@ async function syncOrderItems(
       const mappingValues = Object.values(source.mapping).filter(Boolean);
       const columns = mappingValues.map(c => `\`${c}\``).join(', ');
       let query = `SELECT ${columns} FROM \`${projectId}.${source.dataset}.${source.table}\``;
+      const whereConditions: string[] = [];
       // Incremental: filter order items by joining with orders that have date >= date_from
       if (options.date_from) {
         // Use subquery to filter items belonging to recent orders only
         const orderSource = ORDER_SOURCES.find(os => os.channel === source.channel);
         if (orderSource) {
           const orderDateCol = orderSource.mapping.order_at;
-          query += ` WHERE \`${source.mapping.order_key}\` IN (
+          whereConditions.push(`\`${source.mapping.order_key}\` IN (
             SELECT \`${orderSource.mapping.order_key}\` 
             FROM \`${projectId}.${orderSource.dataset}.${orderSource.table}\`
             WHERE \`${orderDateCol}\` >= '${options.date_from}'
-          )`;
+          )`);
         }
+      }
+      // Optimization: filter by min order_key from cdp_orders to skip orphan rows early
+      if (minOrderKey && !options.date_from) {
+        whereConditions.push(`\`${source.mapping.order_key}\` >= ${minOrderKey}`);
+      }
+      if (whereConditions.length > 0) {
+        query += ` WHERE ` + whereConditions.join(' AND ');
       }
       query += ` ORDER BY \`${source.mapping.order_key}\` LIMIT ${batchSize} OFFSET ${offset}`;
       
