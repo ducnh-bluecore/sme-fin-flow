@@ -15,6 +15,8 @@ import { RebalanceSimulationTab } from '@/components/inventory/RebalanceSimulati
 import { RebalanceAuditLog } from '@/components/inventory/RebalanceAuditLog';
 import { StoreDirectoryTab } from '@/components/inventory/StoreDirectoryTab';
 import { RecallOrderPanel } from '@/components/inventory/RecallOrderPanel';
+import PolicyEditor from '@/components/command/settings/PolicyEditor';
+import { useTenantQueryBuilder } from '@/hooks/useTenantQueryBuilder';
 
 import { useRebalanceSuggestions, useLatestRebalanceRun } from '@/hooks/inventory/useRebalanceSuggestions';
 import { useAllocationRecommendations, useLatestAllocationRun } from '@/hooks/inventory/useAllocationRecommendations';
