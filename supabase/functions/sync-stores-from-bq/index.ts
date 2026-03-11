@@ -104,46 +104,90 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const tenantId = body.tenant_id || DEFAULT_TENANT_ID;
+    const mode = body.mode || 'sync'; // 'sync' | 'discover_tables' | 'sample_table'
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const bqConfig = await resolveBqConfig(supabase, tenantId);
 
-    // First, discover column names from the table
-    const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
-    console.log(`[sync-stores] Discovering columns from: ${bqConfig.table}`);
-    const discoverRes = await fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
-      {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: discoverSql, useLegacySql: false, maxResults: 1 }),
-      }
-    );
-    const discoverData = await discoverRes.json();
-    if (discoverData.error) throw new Error(`BigQuery schema discovery error: ${discoverData.error.message}`);
-    
-    const columnNames = (discoverData.schema?.fields || []).map((f: any) => f.name);
-    console.log(`[sync-stores] Table ${bqConfig.table} columns: ${columnNames.join(', ')}`);
+    // Mode: discover tables in dataset
+    if (mode === 'discover_tables') {
+      const sql = `SELECT table_name FROM \`${bqConfig.projectId}.${bqConfig.dataset}.INFORMATION_SCHEMA.TABLES\` ORDER BY table_name`;
+      const res = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 500 }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const tables = (data.rows || []).map((r: any) => r.f[0].v);
+      return new Response(JSON.stringify({ success: true, dataset: bqConfig.dataset, tables }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    // Build query based on source type with auto-detected columns
+    // Mode: sample a specific table
+    if (mode === 'sample_table') {
+      const tableName = body.table_name;
+      if (!tableName) throw new Error('table_name required');
+      const sql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${tableName}\` LIMIT 5`;
+      const res = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: sql, useLegacySql: false, maxResults: 5 }),
+        }
+      );
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      const fields = (data.schema?.fields || []).map((f: any) => f.name);
+      const rows = (data.rows || []).map((r: any) => {
+        const obj: any = {};
+        fields.forEach((f: string, i: number) => { obj[f] = r.f[i].v; });
+        return obj;
+      });
+      return new Response(JSON.stringify({ success: true, table: tableName, columns: fields, sample: rows }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Build query based on source type
     let sql: string;
     if (bqConfig.sourceType === 'haravan') {
-      // Auto-detect Haravan location columns
-      const idCol = columnNames.find((c: string) => /^(loc_id|location_id|LocationId)$/i.test(c)) || 'loc_id';
-      const nameCol = columnNames.find((c: string) => /^(OrgName|loc_name|location_name|LocationName)$/i.test(c)) || 'OrgName';
-      console.log(`[sync-stores] Haravan columns: id=${idCol}, name=${nameCol}`);
-      
+      // Use raw_hrv_Locations table which has actual location names
+      const locationsTable = `${bqConfig.projectId}.${bqConfig.dataset}.raw_hrv_Locations`;
+      // Filter by OrgName matching the tenant if needed, get distinct locations
       sql = `
         SELECT DISTINCT
-          CAST(${idCol} AS STRING) as branch_id,
-          ANY_VALUE(${nameCol}) as branchName
-        FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\`
-        WHERE ${idCol} IS NOT NULL
-        GROUP BY ${idCol}
-        ORDER BY branchName
+          CAST(Id AS STRING) as branch_id,
+          name as branchName,
+          address1,
+          district,
+          province,
+          phone
+        FROM \`${locationsTable}\`
+        WHERE Id IS NOT NULL AND name IS NOT NULL
+        ORDER BY name
       `;
+      console.log(`[sync-stores] Using raw_hrv_Locations for Haravan stores`);
     } else {
-      // KiotViet
+      // KiotViet - discover columns first
+      const discoverSql = `SELECT * FROM \`${bqConfig.projectId}.${bqConfig.dataset}.${bqConfig.table}\` LIMIT 1`;
+      const discoverRes = await fetch(
+        `https://bigquery.googleapis.com/bigquery/v2/projects/${bqConfig.projectId}/queries`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${bqConfig.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: discoverSql, useLegacySql: false, maxResults: 1 }),
+        }
+      );
+      const discoverData = await discoverRes.json();
+      if (discoverData.error) throw new Error(`BigQuery schema discovery error: ${discoverData.error.message}`);
+      const columnNames = (discoverData.schema?.fields || []).map((f: any) => f.name);
+
       const idCol = columnNames.find((c: string) => /^(branchId|BranchId|branch_id)$/i.test(c)) || 'branchId';
       const nameCol = columnNames.find((c: string) => /^(branchName|BranchName|branch_name)$/i.test(c)) || 'branchName';
       
@@ -177,30 +221,65 @@ Deno.serve(async (req) => {
     });
     console.log(`[sync-stores] Found ${bqBranches.length} branches in BigQuery`);
 
+    // Build lookup from BQ branches
+    const bqMap = new Map<string, any>();
+    for (const b of bqBranches) {
+      bqMap.set(String(b.branch_id), b);
+    }
+    const bqCodes = new Set(bqMap.keys());
+
     // Get existing stores
     const { data: existing } = await supabase
       .from('inv_stores')
       .select('id, store_code, store_name, is_active')
       .eq('tenant_id', tenantId);
 
-    const existingCodes = new Set((existing || []).map((s: any) => String(s.store_code)));
-    const bqCodes = new Set(bqBranches.map((b: any) => String(b.branch_id)));
+    const existingMap = new Map<string, any>();
+    for (const s of (existing || [])) {
+      existingMap.set(String(s.store_code), s);
+    }
 
-    const newBranches = bqBranches.filter((b: any) => !existingCodes.has(String(b.branch_id)));
+    const newBranches = bqBranches.filter((b: any) => !existingMap.has(String(b.branch_id)));
     const toDeactivate = (existing || []).filter((s: any) => s.is_active && !bqCodes.has(String(s.store_code)));
     const toReactivate = (existing || []).filter((s: any) => !s.is_active && bqCodes.has(String(s.store_code)));
 
-    let inserted = 0, errors = 0;
+    // Also find existing stores that need name/address update
+    const toUpdate = (existing || []).filter((s: any) => {
+      const bq = bqMap.get(String(s.store_code));
+      return bq && bq.branchName && s.store_name !== bq.branchName;
+    });
+
+    let inserted = 0, updated = 0, errors = 0;
+    
+    // Build address string from BQ data
+    const buildAddress = (b: any) => {
+      const parts = [b.address1, b.district, b.province].filter(Boolean);
+      return parts.length > 0 ? parts.join(', ') : null;
+    };
+
     for (const b of newBranches) {
       const { error } = await supabase.from('inv_stores').insert({
         tenant_id: tenantId,
         store_code: String(b.branch_id),
         store_name: b.branchName,
+        address: buildAddress(b),
         location_type: 'store',
         is_active: true,
         is_transfer_eligible: true,
       });
-      if (error) { errors++; } else { inserted++; }
+      if (error) { errors++; console.error(`[sync-stores] Insert error: ${error.message}`); } else { inserted++; }
+    }
+
+    // Update names for existing stores
+    for (const s of toUpdate) {
+      const bq = bqMap.get(String(s.store_code));
+      const { error } = await supabase.from('inv_stores')
+        .update({ 
+          store_name: bq.branchName, 
+          address: buildAddress(bq),
+          updated_at: new Date().toISOString() 
+        }).eq('id', s.id);
+      if (!error) updated++;
     }
 
     let deactivated = 0;
@@ -219,8 +298,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true, tenant_id: tenantId,
-      bq_branches: bqBranches.length, existing_stores: existingCodes.size,
-      new_added: inserted, deactivated, reactivated, errors,
+      bq_branches: bqBranches.length, existing_stores: existingMap.size,
+      new_added: inserted, updated, deactivated, reactivated, errors,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err: any) {
