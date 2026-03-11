@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.sync-product-created-date]
 verify_jwt = false
+
+[functions.clearance-simulator]
+verify_jwt = false
