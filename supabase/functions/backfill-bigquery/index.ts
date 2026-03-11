@@ -1478,7 +1478,7 @@ async function syncOrders(
             integration_id: integrationId,
             order_key: String(row[source.mapping.order_key]),
             channel: source.channel,
-            order_at: row[source.mapping.order_at],
+            order_at: row[source.mapping.order_at] ? new Date(row[source.mapping.order_at]).toISOString() : null,
             status: row[source.mapping.status],
             customer_name: row[source.mapping.customer_name],
             customer_phone: row[source.mapping.customer_phone] || null,
