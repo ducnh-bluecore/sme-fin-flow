@@ -4713,6 +4713,7 @@ export type Database = {
           channel: string
           created_at: string | null
           dataset: string
+          extra_where: string | null
           id: string
           is_enabled: boolean | null
           mapping_overrides: Json | null
@@ -4725,6 +4726,7 @@ export type Database = {
           channel: string
           created_at?: string | null
           dataset: string
+          extra_where?: string | null
           id?: string
           is_enabled?: boolean | null
           mapping_overrides?: Json | null
@@ -4737,6 +4739,7 @@ export type Database = {
           channel?: string
           created_at?: string | null
           dataset?: string
+          extra_where?: string | null
           id?: string
           is_enabled?: boolean | null
           mapping_overrides?: Json | null
