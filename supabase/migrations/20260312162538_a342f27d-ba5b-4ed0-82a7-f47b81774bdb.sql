@@ -1,0 +1,1 @@
+UPDATE public.bigquery_tenant_sources SET dataset = '160store_tiktokshop' WHERE tenant_id = '364a23ad-66f5-44d6-8da9-74c7ff333dcc' AND channel = 'tiktok';
