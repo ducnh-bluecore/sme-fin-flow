@@ -1078,11 +1078,19 @@ async function countSourceRecords(
   dataset: string,
   table: string,
   dateColumn?: string,
-  dateFrom?: string
+  dateFrom?: string,
+  extraWhere?: string
 ): Promise<number> {
   let query = `SELECT COUNT(*) as cnt FROM \`${projectId}.${dataset}.${table}\``;
+  const conditions: string[] = [];
   if (dateFrom && dateColumn) {
-    query += ` WHERE DATE(\`${dateColumn}\`) >= '${dateFrom}'`;
+    conditions.push(`DATE(\`${dateColumn}\`) >= '${dateFrom}'`);
+  }
+  if (extraWhere) {
+    conditions.push(extraWhere);
+  }
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
   }
   
   try {
