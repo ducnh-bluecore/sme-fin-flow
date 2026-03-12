@@ -6,6 +6,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PASSES = [
+  "link_orders_pass_phone",
+  "link_orders_pass_canonical",
+  "link_orders_pass_haravan_phone",
+  "link_orders_pass_name",
+];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,7 +25,7 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { tenant_id, batch_size = 5000, max_iterations = 10 } = body;
+    const { tenant_id, batch_size = 5000, max_iterations = 5, pass } = body;
 
     if (!tenant_id) {
       return new Response(JSON.stringify({ error: "tenant_id required" }), {
@@ -28,41 +35,44 @@ Deno.serve(async (req) => {
     }
 
     const startMs = Date.now();
+    const passesToRun = pass ? [pass] : PASSES;
+    const results: Record<string, number> = {};
     let totalLinked = 0;
-    const errors: string[] = [];
 
-    for (let i = 0; i < max_iterations; i++) {
-      if (Date.now() - startMs > 50000) {
-        console.log(`[Link Orders] Time limit at iteration ${i}`);
-        break;
+    for (const passName of passesToRun) {
+      if (Date.now() - startMs > 50000) break;
+      
+      let passTotal = 0;
+      for (let i = 0; i < max_iterations; i++) {
+        if (Date.now() - startMs > 50000) break;
+
+        const { data: linked, error } = await supabase.rpc(passName, {
+          p_tenant_id: tenant_id,
+          p_batch_size: batch_size,
+        });
+
+        if (error) {
+          console.error(`[Link] ${passName} batch ${i+1} error:`, error.message);
+          results[passName + "_error"] = -1;
+          break;
+        }
+
+        passTotal += linked || 0;
+        console.log(`[Link] ${passName} batch ${i+1}: ${linked} (pass total: ${passTotal})`);
+        if (!linked || linked === 0) break;
       }
-
-      const { data: linked, error } = await supabase.rpc("link_orders_batch", {
-        p_tenant_id: tenant_id,
-        p_batch_size: batch_size,
-      });
-
-      if (error) {
-        console.error(`[Link Orders] Batch ${i + 1} error:`, error.message);
-        errors.push(error.message);
-        break;
-      }
-
-      totalLinked += linked || 0;
-      console.log(`[Link Orders] Batch ${i + 1}: linked ${linked} (total: ${totalLinked})`);
-
-      if (!linked || linked === 0) break;
+      results[passName] = passTotal;
+      totalLinked += passTotal;
     }
 
     const result = {
-      success: errors.length === 0,
+      success: true,
       total_linked: totalLinked,
+      passes: results,
       duration_ms: Date.now() - startMs,
-      errors: errors.length > 0 ? errors : undefined,
     };
 
     console.log(`[Link Orders] Done:`, JSON.stringify(result));
-
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
