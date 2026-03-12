@@ -938,6 +938,7 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
           ...defaultSource,
           dataset: ov.dataset,
           table: ov.table_name,
+          extra_where: ov.extra_where || undefined,
         };
         // Apply mapping_overrides if present
         if (ov.mapping_overrides && typeof ov.mapping_overrides === 'object' && (cloned as any).mapping) {
