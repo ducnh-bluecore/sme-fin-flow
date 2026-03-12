@@ -41817,7 +41817,7 @@ export type Database = {
       }
       cdp_run_daily_all: { Args: { p_as_of_date: string }; Returns: undefined }
       cdp_run_daily_build: {
-        Args: { p_as_of_date: string; p_tenant_id: string }
+        Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: Json
       }
       cdp_run_full_daily_pipeline: {
@@ -43332,6 +43332,7 @@ export type Database = {
         Returns: undefined
       }
       set_tenant_schema: { Args: { p_tenant_id: string }; Returns: undefined }
+      set_tenant_search_path: { Args: { p_tenant_id: string }; Returns: string }
       snooze_insight: {
         Args: {
           p_insight_event_id: string
