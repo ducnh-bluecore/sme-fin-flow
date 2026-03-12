@@ -43118,6 +43118,22 @@ export type Database = {
         Args: { p_batch_size?: number; p_tenant_id: string }
         Returns: number
       }
+      link_orders_pass_canonical: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
+      link_orders_pass_haravan_phone: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
+      link_orders_pass_name: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
+      link_orders_pass_phone: {
+        Args: { p_batch_size?: number; p_tenant_id: string }
+        Returns: number
+      }
       link_orders_to_customers: { Args: { p_tenant_id: string }; Returns: Json }
       log_audit_event: {
         Args: {
