@@ -1562,6 +1562,9 @@ async function syncOrders(
               } : source.mapping.order_code ? {
                 OrderCode: row[source.mapping.order_code],
               } : {}),
+              ...(source.mapping.order_source ? {
+                Order_source: row[source.mapping.order_source],
+              } : {}),
             },
           };
         });
