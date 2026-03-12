@@ -1471,7 +1471,7 @@ async function syncOrders(
     // Count total records
     const totalRecords = await countSourceRecords(
       accessToken, projectId, source.dataset, source.table,
-      source.mapping.order_at, options.date_from
+      source.mapping.order_at, options.date_from, (source as any).extra_where
     );
     
     await updateSourceProgress(supabase, jobId, source.channel, {
