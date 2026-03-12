@@ -893,7 +893,7 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
 
     const { data: overrides, error } = await supabase
       .from('bigquery_tenant_sources')
-      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret, extra_where')
       .eq('tenant_id', tenantId)
       .eq('model_type', modelType)
       .eq('is_enabled', true);
@@ -938,6 +938,7 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
           ...defaultSource,
           dataset: ov.dataset,
           table: ov.table_name,
+          extra_where: ov.extra_where || undefined,
         };
         // Apply mapping_overrides if present
         if (ov.mapping_overrides && typeof ov.mapping_overrides === 'object' && (cloned as any).mapping) {
@@ -1077,11 +1078,19 @@ async function countSourceRecords(
   dataset: string,
   table: string,
   dateColumn?: string,
-  dateFrom?: string
+  dateFrom?: string,
+  extraWhere?: string
 ): Promise<number> {
   let query = `SELECT COUNT(*) as cnt FROM \`${projectId}.${dataset}.${table}\``;
+  const conditions: string[] = [];
   if (dateFrom && dateColumn) {
-    query += ` WHERE DATE(\`${dateColumn}\`) >= '${dateFrom}'`;
+    conditions.push(`DATE(\`${dateColumn}\`) >= '${dateFrom}'`);
+  }
+  if (extraWhere) {
+    conditions.push(extraWhere);
+  }
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
   }
   
   try {
@@ -1462,7 +1471,7 @@ async function syncOrders(
     // Count total records
     const totalRecords = await countSourceRecords(
       accessToken, projectId, source.dataset, source.table,
-      source.mapping.order_at, options.date_from
+      source.mapping.order_at, options.date_from, (source as any).extra_where
     );
     
     await updateSourceProgress(supabase, jobId, source.channel, {
@@ -1491,6 +1500,10 @@ async function syncOrders(
       }
       if (options.date_to) {
         conditions.push(`DATE(\`${source.mapping.order_at}\`) <= '${options.date_to}'`);
+      }
+      // Apply extra_where filter (e.g., exclude marketplace orders from Haravan)
+      if ((source as any).extra_where) {
+        conditions.push((source as any).extra_where);
       }
       
       if (conditions.length > 0) {
