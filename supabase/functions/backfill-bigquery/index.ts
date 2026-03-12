@@ -893,7 +893,7 @@ async function resolveSources<T extends { channel?: string; name?: string; datas
 
     const { data: overrides, error } = await supabase
       .from('bigquery_tenant_sources')
-      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret')
+      .select('channel, dataset, table_name, mapping_overrides, is_enabled, service_account_secret, extra_where')
       .eq('tenant_id', tenantId)
       .eq('model_type', modelType)
       .eq('is_enabled', true);
