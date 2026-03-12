@@ -1493,6 +1493,10 @@ async function syncOrders(
       if (options.date_to) {
         conditions.push(`DATE(\`${source.mapping.order_at}\`) <= '${options.date_to}'`);
       }
+      // Apply extra_where filter (e.g., exclude marketplace orders from Haravan)
+      if ((source as any).extra_where) {
+        conditions.push((source as any).extra_where);
+      }
       
       if (conditions.length > 0) {
         query += ` WHERE ${conditions.join(' AND ')}`;
