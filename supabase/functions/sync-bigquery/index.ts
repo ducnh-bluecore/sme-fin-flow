@@ -1458,12 +1458,19 @@ serve(async (req) => {
             
             while (retries > 0 && !success) {
               try {
-                const { error } = await supabase
-                  .from('cdp_orders')
-                  .upsert(batch, { 
-                    onConflict: 'tenant_id,integration_id,order_key',
-                    ignoreDuplicates: false 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'cdp_orders', batch, ['tenant_id', 'integration_id', 'order_key']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('cdp_orders')
+                    .upsert(batch, { 
+                      onConflict: 'tenant_id,integration_id,order_key',
+                      ignoreDuplicates: false 
+                    });
+                  error = result.error;
+                }
 
                 if (error) {
                   retries--;
