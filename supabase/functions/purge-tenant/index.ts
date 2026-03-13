@@ -18,9 +18,10 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     target = "items",  // "items" -> "orders" -> "customers" -> "cleanup"
-    batch_size = 500,
+    batch_size = 50,
     cumulative_deleted = 0,
     invocation = 1,
+    max_invocations = 500,
   } = body;
 
   const startMs = Date.now();
