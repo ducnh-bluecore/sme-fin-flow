@@ -1,6 +1,67 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ============= Tenant-Aware Helpers =============
+// PostgREST (.from()) ALWAYS targets public schema regardless of search_path.
+// For schema-provisioned tenants, we MUST use RPCs to route writes/reads to tenant schema.
+
+async function tenantUpsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[],
+  conflictColumns: string[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: conflictColumns,
+  });
+  return { count: error ? 0 : (data || 0), error };
+}
+
+async function tenantInsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  // Use tenant_upsert_jsonb with empty conflict columns for INSERT behavior
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: [],
+  });
+  return { count: error ? 0 : (data || 0), error };
+}
+
+async function tenantLookupOrderIds(
+  supabase: any,
+  tenantId: string,
+  orderKeys: string[]
+): Promise<{ data: Array<{ id: string; order_key: string }> | null; error: any }> {
+  if (orderKeys.length === 0) return { data: [], error: null };
+  const { data, error } = await supabase.rpc('tenant_lookup_order_ids', {
+    p_tenant_id: tenantId,
+    p_order_keys: orderKeys,
+  });
+  return { data, error };
+}
+
+// Check if tenant has schema provisioned
+async function isSchemaProvisioned(supabase: any, tenantId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('tenants')
+    .select('schema_provisioned')
+    .eq('id', tenantId)
+    .single();
+  return data?.schema_provisioned === true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
