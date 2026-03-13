@@ -18,52 +18,67 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     target = "orders",
-    batch_size = 1000,
+    batch_size = 500,
     cumulative_deleted = 0,
     invocation = 1,
   } = body;
 
   const startMs = Date.now();
-  const MAX_TIME = 50000; // 50s safety
+  const MAX_TIME = 50000;
   let totalDeleted = 0;
   let batchNum = 0;
   let completed = false;
   const logs: string[] = [];
 
   try {
-    while (Date.now() - startMs < MAX_TIME) {
-      const table = target === "customers" ? "cdp_customers" : "cdp_orders";
-      
-      const { data, error } = await supabase.rpc("execute_sql_admin", {
-        sql_query: `WITH ids AS (SELECT id FROM ${table} WHERE tenant_id = '${tenantId}' ORDER BY id LIMIT ${batch_size}), del AS (DELETE FROM ${table} o USING ids WHERE o.id = ids.id RETURNING 1) SELECT count(*) AS d FROM del;`
-      });
+    const table = target === "customers" ? "cdp_customers" 
+                : target === "family_codes" ? "inv_family_codes"
+                : target === "connector" ? "connector_integrations"
+                : "cdp_orders";
 
-      if (error) {
-        logs.push(`Batch ${batchNum} error: ${error.message}`);
+    while (Date.now() - startMs < MAX_TIME) {
+      // Fetch a batch of IDs
+      const { data: rows, error: fetchErr } = await supabase
+        .from(table)
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .limit(batch_size);
+
+      if (fetchErr) {
+        logs.push(`Fetch error: ${fetchErr.message}`);
         break;
       }
 
-      const deleted = data?.[0]?.d ?? 0;
-      totalDeleted += Number(deleted);
-      batchNum++;
-
-      if (batchNum % 20 === 0) {
-        logs.push(`Batch ${batchNum}: total deleted this run = ${totalDeleted}`);
-      }
-
-      if (Number(deleted) === 0) {
+      if (!rows || rows.length === 0) {
         completed = true;
         logs.push(`${table}: ALL DONE ✅`);
         break;
+      }
+
+      const ids = rows.map((r: any) => r.id);
+
+      const { error: delErr } = await supabase
+        .from(table)
+        .delete()
+        .in("id", ids);
+
+      if (delErr) {
+        logs.push(`Delete error batch ${batchNum}: ${delErr.message}`);
+        break;
+      }
+
+      totalDeleted += ids.length;
+      batchNum++;
+
+      if (batchNum % 10 === 0) {
+        logs.push(`Batch ${batchNum}: deleted ${totalDeleted} this run`);
       }
     }
 
     const grandTotal = cumulative_deleted + totalDeleted;
 
-    // Auto-continue if not completed
     if (!completed) {
-      logs.push(`Time limit. Auto-continuing from invocation ${invocation + 1}...`);
-      
+      logs.push(`Time limit. Auto-continuing invocation ${invocation + 1}...`);
       fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
         method: "POST",
         headers: {
@@ -80,15 +95,9 @@ Deno.serve(async (req) => {
     }
 
     const result = {
-      success: true,
-      completed,
-      target,
-      invocation,
-      batches_this_run: batchNum,
-      deleted_this_run: totalDeleted,
-      grand_total_deleted: grandTotal,
-      elapsed_ms: Date.now() - startMs,
-      logs,
+      success: true, completed, target, invocation,
+      batches_this_run: batchNum, deleted_this_run: totalDeleted,
+      grand_total_deleted: grandTotal, elapsed_ms: Date.now() - startMs, logs,
     };
 
     console.log(`[purge-tenant] Result:`, JSON.stringify(result));
@@ -97,8 +106,7 @@ Deno.serve(async (req) => {
     });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message, logs }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
