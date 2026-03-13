@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!completed) {
+    if (!completed && invocation < max_invocations) {
       const continueBody = {
         target: nextTarget === target ? target : nextTarget,
         batch_size,
