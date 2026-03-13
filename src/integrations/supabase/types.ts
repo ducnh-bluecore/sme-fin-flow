@@ -42119,6 +42119,10 @@ export type Database = {
         Returns: string
       }
       fdp_push_ar_to_cdp: { Args: { p_tenant_id: string }; Returns: number }
+      fix_order_items_fk_batch: {
+        Args: { p_batch_size?: number; p_schema: string }
+        Returns: Json
+      }
       fn_allocate_size_split: {
         Args: {
           p_dest_store_id: string

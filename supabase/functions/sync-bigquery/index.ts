@@ -1,6 +1,67 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// ============= Tenant-Aware Helpers =============
+// PostgREST (.from()) ALWAYS targets public schema regardless of search_path.
+// For schema-provisioned tenants, we MUST use RPCs to route writes/reads to tenant schema.
+
+async function tenantUpsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[],
+  conflictColumns: string[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: conflictColumns,
+  });
+  return { count: error ? 0 : (data || 0), error };
+}
+
+async function tenantInsert(
+  supabase: any,
+  tenantId: string,
+  tableName: string,
+  rows: any[]
+): Promise<{ count: number; error: any }> {
+  if (rows.length === 0) return { count: 0, error: null };
+  // Use tenant_upsert_jsonb with empty conflict columns for INSERT behavior
+  const { data, error } = await supabase.rpc('tenant_upsert_jsonb', {
+    p_tenant_id: tenantId,
+    p_table_name: tableName,
+    p_rows: rows,
+    p_conflict_columns: [],
+  });
+  return { count: error ? 0 : (data || 0), error };
+}
+
+async function tenantLookupOrderIds(
+  supabase: any,
+  tenantId: string,
+  orderKeys: string[]
+): Promise<{ data: Array<{ id: string; order_key: string }> | null; error: any }> {
+  if (orderKeys.length === 0) return { data: [], error: null };
+  const { data, error } = await supabase.rpc('tenant_lookup_order_ids', {
+    p_tenant_id: tenantId,
+    p_order_keys: orderKeys,
+  });
+  return { data, error };
+}
+
+// Check if tenant has schema provisioned
+async function isSchemaProvisioned(supabase: any, tenantId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('tenants')
+    .select('schema_provisioned')
+    .eq('id', tenantId)
+    .single();
+  return data?.schema_provisioned === true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -852,6 +913,10 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Check if tenant has dedicated schema
+    const hasDedicatedSchema = await isSchemaProvisioned(supabase, tenant_id);
+    console.log(`Tenant ${tenant_id} schema_provisioned=${hasDedicatedSchema}`);
+
     // ========== NEW: Sync from Data Models ==========
     if (action === 'sync_from_models') {
       console.log('Syncing from Data Models configuration...');
@@ -955,11 +1020,22 @@ serve(async (req) => {
             console.log(`${modelKey}: cdp_order_items orderRefs unique=${orderRefs.length}`, orderRefs.slice(0, 5));
 
             if (orderRefs.length > 0) {
-              const { data: orders, error: ordersErr } = await supabase
-                .from('cdp_orders')
-                .select('id,order_key')
-                .eq('tenant_id', tenant_id)
-                .in('order_key', orderRefs);
+              // Use tenant-aware lookup for schema-provisioned tenants
+              let orders: any[] = [];
+              let ordersErr: any = null;
+              if (hasDedicatedSchema) {
+                const result = await tenantLookupOrderIds(supabase, tenant_id, orderRefs);
+                orders = (result.data || []).map((o: any) => ({ id: o.order_uuid || o.id, order_key: o.order_key }));
+                ordersErr = result.error;
+              } else {
+                const result = await supabase
+                  .from('cdp_orders')
+                  .select('id,order_key')
+                  .eq('tenant_id', tenant_id)
+                  .in('order_key', orderRefs);
+                orders = result.data || [];
+                ordersErr = result.error;
+              }
 
               if (ordersErr) {
                 throw new Error(`Failed to resolve cdp_order_items order ids: ${ordersErr.message}`);
@@ -1030,25 +1106,36 @@ serve(async (req) => {
             try {
               let error: any = null;
               
-              if (onConflict) {
-                // Use upsert for tables with proper constraints
-                const result = await supabase
-                  .from(targetTable)
-                  .upsert(batch, { onConflict, ignoreDuplicates: true });
-                error = result.error;
-              } else {
-                // Use INSERT for tables without proper constraints (ignore duplicates via primary key)
-                const result = await supabase
-                  .from(targetTable)
-                  .insert(batch);
-                  
-                // Ignore duplicate key errors
-                if (result.error && result.error.code === '23505') {
-                  // Duplicate key - this is expected, count as success
-                  modelSynced += batch.length;
-                  continue;
+              if (hasDedicatedSchema) {
+                // Route writes to tenant schema via RPC
+                if (onConflict) {
+                  const result = await tenantUpsert(supabase, tenant_id, targetTable, batch, onConflict.split(','));
+                  error = result.error;
+                } else {
+                  const result = await tenantInsert(supabase, tenant_id, targetTable, batch);
+                  if (result.error && result.error.message?.includes('duplicate key')) {
+                    modelSynced += batch.length;
+                    continue;
+                  }
+                  error = result.error;
                 }
-                error = result.error;
+              } else {
+                // Legacy: use PostgREST for public schema
+                if (onConflict) {
+                  const result = await supabase
+                    .from(targetTable)
+                    .upsert(batch, { onConflict, ignoreDuplicates: true });
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from(targetTable)
+                    .insert(batch);
+                  if (result.error && result.error.code === '23505') {
+                    modelSynced += batch.length;
+                    continue;
+                  }
+                  error = result.error;
+                }
               }
               
               if (error) {
@@ -1371,12 +1458,19 @@ serve(async (req) => {
             
             while (retries > 0 && !success) {
               try {
-                const { error } = await supabase
-                  .from('cdp_orders')
-                  .upsert(batch, { 
-                    onConflict: 'tenant_id,integration_id,order_key',
-                    ignoreDuplicates: false 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'cdp_orders', batch, ['tenant_id', 'integration_id', 'order_key']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('cdp_orders')
+                    .upsert(batch, { 
+                      onConflict: 'tenant_id,integration_id,order_key',
+                      ignoreDuplicates: false 
+                    });
+                  error = result.error;
+                }
 
                 if (error) {
                   retries--;
@@ -1405,16 +1499,25 @@ serve(async (req) => {
           // Batch upsert order items to cdp_order_items (SSOT Layer 2)
           // Note: order_id needs to be resolved to UUID from cdp_orders
           if (sync_items && allOrderItems.length > 0) {
-            // First, get the order UUIDs for the items
+            // First, get the order UUIDs for the items (tenant-aware)
             const orderKeys = [...new Set(mappedOrders.map((o: any) => o.order_key))];
-            const { data: insertedOrders } = await supabase
-              .from('cdp_orders')
-              .select('id, order_key')
-              .eq('tenant_id', tenant_id)
-              .in('order_key', orderKeys);
-            
             const orderKeyToId = new Map<string, string>();
-            (insertedOrders || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.id));
+            
+            if (hasDedicatedSchema) {
+              // Use tenant-aware RPC for schema-provisioned tenants
+              for (let i = 0; i < orderKeys.length; i += 200) {
+                const chunk = orderKeys.slice(i, i + 200);
+                const { data: orderRows } = await tenantLookupOrderIds(supabase, tenant_id, chunk);
+                (orderRows || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.order_uuid || o.id));
+              }
+            } else {
+              const { data: insertedOrders } = await supabase
+                .from('cdp_orders')
+                .select('id, order_key')
+                .eq('tenant_id', tenant_id)
+                .in('order_key', orderKeys);
+              (insertedOrders || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.id));
+            }
             
             // Map order_id from order_key to UUID
             const resolvedItems = allOrderItems
@@ -1428,14 +1531,21 @@ serve(async (req) => {
             for (let i = 0; i < resolvedItems.length; i += UPSERT_BATCH_SIZE) {
               const batch = resolvedItems.slice(i, i + UPSERT_BATCH_SIZE);
               try {
-                const { error } = await supabase
-                  .from('cdp_order_items')
-                  .insert(batch);
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantInsert(supabase, tenant_id, 'cdp_order_items', batch);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('cdp_order_items')
+                    .insert(batch);
+                  error = result.error;
+                }
 
                 if (!error) {
                   channelItemsSynced += batch.length;
                 } else {
-                  console.error(`Error inserting items:`, error.message);
+                  console.error(`Error inserting items:`, error?.message || error);
                 }
               } catch (e: any) {
                 console.error(`Exception items batch:`, e?.message || e);
@@ -1460,12 +1570,19 @@ serve(async (req) => {
                 mapSettlementData(row, channel, effectiveIntegrationId || 'default', tenant_id)
               );
               
-              const { error } = await supabase
-                .from('channel_settlements')
-                .upsert(mappedSettlements, { 
-                  onConflict: 'tenant_id,integration_id,settlement_id',
-                  ignoreDuplicates: false 
-                });
+              let error: any = null;
+              if (hasDedicatedSchema) {
+                const result = await tenantUpsert(supabase, tenant_id, 'channel_settlements', mappedSettlements, ['tenant_id', 'integration_id', 'settlement_id']);
+                error = result.error;
+              } else {
+                const result = await supabase
+                  .from('channel_settlements')
+                  .upsert(mappedSettlements, { 
+                    onConflict: 'tenant_id,integration_id,settlement_id',
+                    ignoreDuplicates: false 
+                  });
+                error = result.error;
+              }
 
               if (!error) {
                 channelSettlementsSynced = mappedSettlements.length;
@@ -1498,17 +1615,24 @@ serve(async (req) => {
               // Upsert to external_products
               for (let i = 0; i < mappedProducts.length; i += 100) {
                 const batch = mappedProducts.slice(i, i + 100);
-                const { error } = await supabase
-                  .from('external_products')
-                  .upsert(batch, { 
-                    onConflict: 'integration_id,external_product_id',
-                    ignoreDuplicates: false 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'external_products', batch, ['integration_id', 'external_product_id']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('external_products')
+                    .upsert(batch, { 
+                      onConflict: 'integration_id,external_product_id',
+                      ignoreDuplicates: false 
+                    });
+                  error = result.error;
+                }
 
                 if (!error) {
                   channelProductsSynced += batch.length;
                 } else {
-                  console.error(`Error upserting products:`, error.message);
+                  console.error(`Error upserting products:`, error?.message || error);
                 }
               }
               console.log(`${channel}: Synced ${channelProductsSynced} products`);
@@ -1537,15 +1661,22 @@ serve(async (req) => {
               // Upsert customers - use phone or email as conflict key
               for (let i = 0; i < mappedCustomers.length; i += 100) {
                 const batch = mappedCustomers.slice(i, i + 100);
-                const { error } = await supabase
-                  .from('customers')
-                  .upsert(batch, { 
-                    onConflict: 'tenant_id,phone',
-                    ignoreDuplicates: true 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'customers', batch, ['tenant_id', 'phone']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('customers')
+                    .upsert(batch, { 
+                      onConflict: 'tenant_id,phone',
+                      ignoreDuplicates: true 
+                    });
+                  error = result.error;
+                }
 
                 if (error) {
-                  console.error(`Error upserting customers:`, error.message);
+                  console.error(`Error upserting customers:`, error?.message || error);
                 }
               }
               console.log(`${channel}: Synced ${customerRows.length} customers`);
