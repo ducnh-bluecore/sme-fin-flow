@@ -41525,6 +41525,10 @@ export type Database = {
         Returns: boolean
       }
       backfill_cogs_pipeline: { Args: { p_tenant_id: string }; Returns: Json }
+      batch_create_and_link_customers: {
+        Args: { p_batch_size?: number }
+        Returns: Json
+      }
       batch_recalculate_metrics: {
         Args: { p_tenant_id: string }
         Returns: number
