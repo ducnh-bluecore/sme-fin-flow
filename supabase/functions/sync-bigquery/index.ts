@@ -1020,11 +1020,22 @@ serve(async (req) => {
             console.log(`${modelKey}: cdp_order_items orderRefs unique=${orderRefs.length}`, orderRefs.slice(0, 5));
 
             if (orderRefs.length > 0) {
-              const { data: orders, error: ordersErr } = await supabase
-                .from('cdp_orders')
-                .select('id,order_key')
-                .eq('tenant_id', tenant_id)
-                .in('order_key', orderRefs);
+              // Use tenant-aware lookup for schema-provisioned tenants
+              let orders: any[] = [];
+              let ordersErr: any = null;
+              if (hasDedicatedSchema) {
+                const result = await tenantLookupOrderIds(supabase, tenant_id, orderRefs);
+                orders = (result.data || []).map((o: any) => ({ id: o.order_uuid || o.id, order_key: o.order_key }));
+                ordersErr = result.error;
+              } else {
+                const result = await supabase
+                  .from('cdp_orders')
+                  .select('id,order_key')
+                  .eq('tenant_id', tenant_id)
+                  .in('order_key', orderRefs);
+                orders = result.data || [];
+                ordersErr = result.error;
+              }
 
               if (ordersErr) {
                 throw new Error(`Failed to resolve cdp_order_items order ids: ${ordersErr.message}`);
