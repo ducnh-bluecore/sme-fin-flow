@@ -1570,12 +1570,19 @@ serve(async (req) => {
                 mapSettlementData(row, channel, effectiveIntegrationId || 'default', tenant_id)
               );
               
-              const { error } = await supabase
-                .from('channel_settlements')
-                .upsert(mappedSettlements, { 
-                  onConflict: 'tenant_id,integration_id,settlement_id',
-                  ignoreDuplicates: false 
-                });
+              let error: any = null;
+              if (hasDedicatedSchema) {
+                const result = await tenantUpsert(supabase, tenant_id, 'channel_settlements', mappedSettlements, ['tenant_id', 'integration_id', 'settlement_id']);
+                error = result.error;
+              } else {
+                const result = await supabase
+                  .from('channel_settlements')
+                  .upsert(mappedSettlements, { 
+                    onConflict: 'tenant_id,integration_id,settlement_id',
+                    ignoreDuplicates: false 
+                  });
+                error = result.error;
+              }
 
               if (!error) {
                 channelSettlementsSynced = mappedSettlements.length;
