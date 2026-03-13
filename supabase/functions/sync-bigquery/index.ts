@@ -1499,16 +1499,25 @@ serve(async (req) => {
           // Batch upsert order items to cdp_order_items (SSOT Layer 2)
           // Note: order_id needs to be resolved to UUID from cdp_orders
           if (sync_items && allOrderItems.length > 0) {
-            // First, get the order UUIDs for the items
+            // First, get the order UUIDs for the items (tenant-aware)
             const orderKeys = [...new Set(mappedOrders.map((o: any) => o.order_key))];
-            const { data: insertedOrders } = await supabase
-              .from('cdp_orders')
-              .select('id, order_key')
-              .eq('tenant_id', tenant_id)
-              .in('order_key', orderKeys);
-            
             const orderKeyToId = new Map<string, string>();
-            (insertedOrders || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.id));
+            
+            if (hasDedicatedSchema) {
+              // Use tenant-aware RPC for schema-provisioned tenants
+              for (let i = 0; i < orderKeys.length; i += 200) {
+                const chunk = orderKeys.slice(i, i + 200);
+                const { data: orderRows } = await tenantLookupOrderIds(supabase, tenant_id, chunk);
+                (orderRows || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.order_uuid || o.id));
+              }
+            } else {
+              const { data: insertedOrders } = await supabase
+                .from('cdp_orders')
+                .select('id, order_key')
+                .eq('tenant_id', tenant_id)
+                .in('order_key', orderKeys);
+              (insertedOrders || []).forEach((o: any) => orderKeyToId.set(o.order_key, o.id));
+            }
             
             // Map order_id from order_key to UUID
             const resolvedItems = allOrderItems
@@ -1522,14 +1531,21 @@ serve(async (req) => {
             for (let i = 0; i < resolvedItems.length; i += UPSERT_BATCH_SIZE) {
               const batch = resolvedItems.slice(i, i + UPSERT_BATCH_SIZE);
               try {
-                const { error } = await supabase
-                  .from('cdp_order_items')
-                  .insert(batch);
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantInsert(supabase, tenant_id, 'cdp_order_items', batch);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('cdp_order_items')
+                    .insert(batch);
+                  error = result.error;
+                }
 
                 if (!error) {
                   channelItemsSynced += batch.length;
                 } else {
-                  console.error(`Error inserting items:`, error.message);
+                  console.error(`Error inserting items:`, error?.message || error);
                 }
               } catch (e: any) {
                 console.error(`Exception items batch:`, e?.message || e);
