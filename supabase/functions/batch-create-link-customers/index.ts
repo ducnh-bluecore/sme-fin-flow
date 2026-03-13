@@ -18,49 +18,78 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const { batch_size = 2000, max_iterations = 10 } = body;
+    const { 
+      mode = "both",           // "create" | "link" | "both"
+      batch_size = 500, 
+      link_batch_size = 5000,
+      max_iterations = 50,
+      start_offset = 0 
+    } = body;
 
     const startMs = Date.now();
     let totalCreated = 0;
     let totalLinked = 0;
-    const rounds: Array<{ created: number; linked: number; ms: number }> = [];
+    const rounds: Array<{ phase: string; count: number; ms: number }> = [];
 
-    for (let i = 0; i < max_iterations; i++) {
-      if (Date.now() - startMs > 50000) break; // 50s safety
+    // Phase 1: Create customers
+    if (mode === "create" || mode === "both") {
+      let offset = start_offset;
+      for (let i = 0; i < max_iterations; i++) {
+        if (Date.now() - startMs > 50000) break;
 
-      const roundStart = Date.now();
-      const { data, error } = await supabase.rpc(
-        "batch_create_and_link_customers",
-        { p_batch_size: batch_size }
-      );
+        const roundStart = Date.now();
+        const { data, error } = await supabase.rpc("batch_create_customers_v2", {
+          p_batch_size: batch_size,
+          p_offset: offset,
+        });
 
-      if (error) {
-        console.error(`[Batch ${i + 1}] Error:`, error.message);
-        rounds.push({ created: -1, linked: -1, ms: Date.now() - roundStart });
-        break;
+        if (error) {
+          console.error(`[Create ${i + 1}] Error:`, error.message);
+          rounds.push({ phase: "create", count: -1, ms: Date.now() - roundStart });
+          break;
+        }
+
+        const created = (data as any).created ?? 0;
+        totalCreated += created;
+        rounds.push({ phase: "create", count: created, ms: Date.now() - roundStart });
+        console.log(`[Create ${i + 1}] offset=${offset} created=${created}`);
+
+        offset += batch_size;
+        // If we got 0 created for 3 consecutive batches, likely done
+        if (created === 0 && i > 2) break;
       }
+    }
 
-      const result = data as { created: number; linked: number };
-      totalCreated += result.created;
-      totalLinked += result.linked;
-      rounds.push({
-        created: result.created,
-        linked: result.linked,
-        ms: Date.now() - roundStart,
-      });
+    // Phase 2: Link orders
+    if (mode === "link" || mode === "both") {
+      for (let i = 0; i < max_iterations; i++) {
+        if (Date.now() - startMs > 50000) break;
 
-      console.log(
-        `[Batch ${i + 1}] Created: ${result.created}, Linked: ${result.linked}`
-      );
+        const roundStart = Date.now();
+        const { data, error } = await supabase.rpc("batch_link_orders_v2", {
+          p_batch_size: link_batch_size,
+        });
 
-      // Stop if no more work
-      if (result.created === 0 && result.linked === 0) break;
+        if (error) {
+          console.error(`[Link ${i + 1}] Error:`, error.message);
+          rounds.push({ phase: "link", count: -1, ms: Date.now() - roundStart });
+          break;
+        }
+
+        const linked = (data as any).linked ?? 0;
+        totalLinked += linked;
+        rounds.push({ phase: "link", count: linked, ms: Date.now() - roundStart });
+        console.log(`[Link ${i + 1}] linked=${linked}`);
+
+        if (linked === 0) break;
+      }
     }
 
     const response = {
       success: true,
       total_created: totalCreated,
       total_linked: totalLinked,
+      rounds_count: rounds.length,
       rounds,
       duration_ms: Date.now() - startMs,
     };
