@@ -105,22 +105,73 @@ export default function RevenuePage() {
     refetchConnectors,
   } = useRevenuePageData();
 
-  // Process connector data with order statistics
+  const externalChannelStats = useMemo<Record<string, ExternalChannelStats>>(() => {
+    const stats: Record<string, ExternalChannelStats> = {};
+
+    for (const order of externalOrders) {
+      if (order.status !== 'delivered') continue;
+
+      const channelKey = normalizeChannelKey(order.channel || order.integration_id);
+      if (!channelKey) continue;
+
+      if (!stats[channelKey]) {
+        stats[channelKey] = {
+          channelKey,
+          channelLabel: toChannelLabel(channelKey),
+          totalRevenue: 0,
+          totalOrders: 0,
+        };
+      }
+
+      stats[channelKey].totalRevenue += Number(order.total_amount || 0);
+      stats[channelKey].totalOrders += Number(order.order_count) > 0 ? Number(order.order_count) : 1;
+    }
+
+    return stats;
+  }, [externalOrders]);
+
+  // Process connector data with order statistics (with channel fallback when no connector metadata)
   const connectorData = useMemo<ConnectorData[]>(() => {
-    return connectors.map(c => {
-      const connectorOrders = externalOrders.filter(o => o.integration_id === c.id);
-      const deliveredOrders = connectorOrders.filter(o => o.status === 'delivered');
+    if (connectors.length === 0) {
+      return Object.values(externalChannelStats).map((stat) => ({
+        id: `channel-${stat.channelKey}`,
+        name: stat.channelLabel,
+        type: stat.channelKey,
+        status: 'active',
+        lastSync: null,
+        ordersCount: stat.totalOrders,
+        totalRevenue: stat.totalRevenue,
+      }));
+    }
+
+    return connectors.map((c) => {
+      const candidateKeys = new Set(
+        [c.connector_type, c.connector_name, c.shop_name]
+          .map((value) => normalizeChannelKey(value))
+          .filter(Boolean)
+      );
+
+      let ordersCount = 0;
+      let totalRevenue = 0;
+
+      candidateKeys.forEach((key) => {
+        const stat = externalChannelStats[key];
+        if (!stat) return;
+        ordersCount += stat.totalOrders;
+        totalRevenue += stat.totalRevenue;
+      });
+
       return {
         id: c.id,
         name: c.connector_name || c.shop_name || c.connector_type,
-        type: c.connector_type,
+        type: normalizeChannelKey(c.connector_type) || 'other',
         status: c.status || 'inactive',
         lastSync: c.last_sync_at,
-        ordersCount: deliveredOrders.length,
-        totalRevenue: (() => { let t = 0; for (const o of deliveredOrders) t += Number(o.total_amount || 0); return t; })(),
+        ordersCount,
+        totalRevenue,
       };
     });
-  }, [connectors, externalOrders]);
+  }, [connectors, externalChannelStats]);
 
   // Filter revenues
   const filteredRevenues = revenues.filter((revenue) => {
