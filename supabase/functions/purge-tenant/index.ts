@@ -17,8 +17,8 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const {
-    target = "orders",
-    batch_size = 100,
+    target = "items",  // "items" -> "orders" -> "customers" -> "cleanup"
+    batch_size = 500,
     cumulative_deleted = 0,
     invocation = 1,
   } = body;
@@ -30,14 +30,18 @@ Deno.serve(async (req) => {
   let completed = false;
   const logs: string[] = [];
 
-  try {
-    const table = target === "customers" ? "cdp_customers" 
-                : target === "family_codes" ? "inv_family_codes"
-                : target === "connector" ? "connector_integrations"
-                : "cdp_orders";
+  const tableMap: Record<string, string> = {
+    items: "cdp_order_items",
+    orders: "cdp_orders",
+    customers: "cdp_customers",
+    family_codes: "inv_family_codes",
+    connector: "connector_integrations",
+  };
 
+  const table = tableMap[target] || target;
+
+  try {
     while (Date.now() - startMs < MAX_TIME) {
-      // Fetch a batch of IDs
       const { data: rows, error: fetchErr } = await supabase
         .from(table)
         .select("id")
@@ -70,27 +74,40 @@ Deno.serve(async (req) => {
       totalDeleted += ids.length;
       batchNum++;
 
-      if (batchNum % 10 === 0) {
+      if (batchNum % 20 === 0) {
         logs.push(`Batch ${batchNum}: deleted ${totalDeleted} this run`);
       }
     }
 
     const grandTotal = cumulative_deleted + totalDeleted;
 
+    // Auto-continue: same target if not done, or next target
+    let nextTarget = target;
+    if (completed) {
+      const sequence = ["items", "orders", "customers", "family_codes", "connector"];
+      const idx = sequence.indexOf(target);
+      if (idx >= 0 && idx < sequence.length - 1) {
+        nextTarget = sequence[idx + 1];
+        completed = false; // still more work
+        logs.push(`Moving to next target: ${nextTarget}`);
+      }
+    }
+
     if (!completed) {
-      logs.push(`Time limit. Auto-continuing invocation ${invocation + 1}...`);
+      const continueBody = {
+        target: nextTarget === target ? target : nextTarget,
+        batch_size,
+        cumulative_deleted: nextTarget === target ? grandTotal : 0,
+        invocation: invocation + 1,
+      };
+
       fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${serviceKey}`,
         },
-        body: JSON.stringify({
-          target,
-          batch_size,
-          cumulative_deleted: grandTotal,
-          invocation: invocation + 1,
-        }),
+        body: JSON.stringify(continueBody),
       }).catch(err => console.error("Auto-continue error:", err));
     }
 
