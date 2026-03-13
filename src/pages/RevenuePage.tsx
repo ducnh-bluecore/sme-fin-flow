@@ -185,12 +185,15 @@ export default function RevenuePage() {
   // Calculate summary — UI-level aggregation on pre-fetched page data
   let totalManualRevenue = 0;
   for (const r of revenues) totalManualRevenue += Number(r.amount);
+
   let totalIntegratedRevenue = 0;
   let totalIntegratedOrders = 0;
-  for (const c of connectorData) {
-    totalIntegratedRevenue += c.totalRevenue;
-    totalIntegratedOrders += c.ordersCount;
+  for (const order of externalOrders) {
+    if (order.status !== 'delivered') continue;
+    totalIntegratedRevenue += Number(order.total_amount || 0);
+    totalIntegratedOrders += Number(order.order_count) > 0 ? Number(order.order_count) : 1;
   }
+
   const grandTotalRevenue = totalManualRevenue + totalIntegratedRevenue;
   const activeConnectors = connectorData.filter(c => c.status === 'active');
   
@@ -200,7 +203,7 @@ export default function RevenuePage() {
     ? ((grandTotalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
     : 0;
 
-  const hasData = grandTotalRevenue > 0 || revenues.length > 0 || connectorData.length > 0;
+  const hasData = grandTotalRevenue > 0 || revenues.length > 0 || connectorData.length > 0 || externalOrders.length > 0;
 
   // Source breakdown for chart
   const sourceBreakdown = useMemo(() => {
