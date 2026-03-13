@@ -913,6 +913,10 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Check if tenant has dedicated schema
+    const hasDedicatedSchema = await isSchemaProvisioned(supabase, tenant_id);
+    console.log(`Tenant ${tenant_id} schema_provisioned=${hasDedicatedSchema}`);
+
     // ========== NEW: Sync from Data Models ==========
     if (action === 'sync_from_models') {
       console.log('Syncing from Data Models configuration...');
