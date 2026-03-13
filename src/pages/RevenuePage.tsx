@@ -67,6 +67,18 @@ interface ConnectorData {
   totalRevenue: number;
 }
 
+interface ExternalChannelStats {
+  channelKey: string;
+  channelLabel: string;
+  totalRevenue: number;
+  totalOrders: number;
+}
+
+const normalizeChannelKey = (value: string | null | undefined): string =>
+  (value || '').trim().toLowerCase();
+
+const toChannelLabel = (key: string): string => (key ? key.toUpperCase() : 'UNKNOWN');
+
 const sourceColors: Record<string, string> = {
   'haravan': '#3b82f6',
   'shopee': '#ee4d2d',
