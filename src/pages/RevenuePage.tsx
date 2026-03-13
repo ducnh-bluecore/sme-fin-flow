@@ -130,10 +130,14 @@ export default function RevenuePage() {
     return stats;
   }, [externalOrders]);
 
-  // Process connector data with order statistics (with channel fallback when no connector metadata)
+  // Process connector data: always show all channels from RPC data, merge with connector metadata
   const connectorData = useMemo<ConnectorData[]>(() => {
-    if (connectors.length === 0) {
-      return Object.values(externalChannelStats).map((stat) => ({
+    const result: ConnectorData[] = [];
+    const coveredKeys = new Set<string>();
+
+    // First: build entries from all RPC channels (primary source of truth)
+    for (const stat of Object.values(externalChannelStats)) {
+      result.push({
         id: `channel-${stat.channelKey}`,
         name: stat.channelLabel,
         type: stat.channelKey,
@@ -141,36 +145,21 @@ export default function RevenuePage() {
         lastSync: null,
         ordersCount: stat.totalOrders,
         totalRevenue: stat.totalRevenue,
-      }));
+      });
+      coveredKeys.add(stat.channelKey);
     }
 
-    return connectors.map((c) => {
-      const candidateKeys = new Set(
-        [c.connector_type, c.connector_name, c.shop_name]
-          .map((value) => normalizeChannelKey(value))
-          .filter(Boolean)
-      );
+    // Enrich with connector metadata (last_sync etc.) if available
+    for (const c of connectors) {
+      const cKey = normalizeChannelKey(c.connector_name?.replace(/bigquery\s*-?\s*/i, '') || c.connector_type);
+      const existing = result.find(r => r.type === cKey);
+      if (existing) {
+        existing.lastSync = c.last_sync_at;
+        existing.status = c.status || existing.status;
+      }
+    }
 
-      let ordersCount = 0;
-      let totalRevenue = 0;
-
-      candidateKeys.forEach((key) => {
-        const stat = externalChannelStats[key];
-        if (!stat) return;
-        ordersCount += stat.totalOrders;
-        totalRevenue += stat.totalRevenue;
-      });
-
-      return {
-        id: c.id,
-        name: c.connector_name || c.shop_name || c.connector_type,
-        type: normalizeChannelKey(c.connector_type) || 'other',
-        status: c.status || 'inactive',
-        lastSync: c.last_sync_at,
-        ordersCount,
-        totalRevenue,
-      };
-    });
+    return result;
   }, [connectors, externalChannelStats]);
 
   // Filter revenues
@@ -272,18 +261,27 @@ export default function RevenuePage() {
       });
   }, [revenues, externalOrders]);
 
-  // Top customers
-  const topCustomers = useMemo(() => {
-    const customerTotals: Record<string, number> = {};
-    for (const rev of revenues) {
-      const customer = rev.customer_name || 'Không xác định';
-      customerTotals[customer] = (customerTotals[customer] || 0) + Number(rev.amount);
-    }
-
-    return Object.entries(customerTotals)
-      .sort(([, a], [, b]) => b - a)
+  // Top channels by revenue
+  const topChannels = useMemo(() => {
+    return Object.values(externalChannelStats)
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
       .slice(0, 5);
-  }, [revenues]);
+  }, [externalChannelStats]);
+
+  // Daily detail for detail tab
+  const dailyDetail = useMemo(() => {
+    const rows: Array<{ date: string; channel: string; revenue: number; orders: number }> = [];
+    for (const order of externalOrders) {
+      if (order.status !== 'delivered') continue;
+      rows.push({
+        date: order.order_date,
+        channel: (order.channel || order.integration_id || '').toUpperCase(),
+        revenue: Number(order.total_amount || 0),
+        orders: Number(order.order_count) || 1,
+      });
+    }
+    return rows.sort((a, b) => b.date.localeCompare(a.date));
+  }, [externalOrders]);
 
   const handleRefresh = () => {
     refetchRevenues();
@@ -479,29 +477,43 @@ export default function RevenuePage() {
               {/* Top Customers */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top khách hàng</CardTitle>
+                  <CardTitle>Top kênh bán hàng</CardTitle>
                   <CardDescription>Theo tổng doanh thu</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {topCustomers.length > 0 ? (
-                      topCustomers.map(([customer, amount]) => (
-                        <div key={customer} className="space-y-2">
+                    {topChannels.length > 0 ? (
+                      topChannels.map((ch) => (
+                        <div key={ch.channelKey} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{customer}</span>
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: sourceColors[ch.channelKey] || sourceColors['other'] }}
+                              />
+                              <span className="text-sm font-medium">{ch.channelLabel}</span>
+                            </div>
                             <span className="text-sm text-muted-foreground">
-                              {formatCurrency(amount)}
+                              {formatCurrency(ch.totalRevenue)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{formatCount(ch.totalOrders)} đơn</span>
+                            <span>
+                              {grandTotalRevenue > 0 
+                                ? `${((ch.totalRevenue / grandTotalRevenue) * 100).toFixed(1)}%`
+                                : '0%'}
                             </span>
                           </div>
                           <Progress 
-                            value={totalManualRevenue > 0 ? (amount / totalManualRevenue) * 100 : 0} 
+                            value={grandTotalRevenue > 0 ? (ch.totalRevenue / grandTotalRevenue) * 100 : 0} 
                             className="h-2"
                           />
                         </div>
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        Chưa có dữ liệu khách hàng
+                        Chưa có dữ liệu kênh bán
                       </p>
                     )}
                   </div>
@@ -606,59 +618,54 @@ export default function RevenuePage() {
           <TabsContent value="detail">
             <Card>
               <CardHeader>
-                <CardTitle>Danh sách giao dịch</CardTitle>
+                <CardTitle>Chi tiết doanh thu theo ngày</CardTitle>
                 <CardDescription>
-                  {filteredRevenues.length} giao dịch trong kỳ phân tích
+                  {dailyDetail.length} dòng dữ liệu trong kỳ phân tích
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {filteredRevenues.length > 0 ? (
+                {dailyDetail.length > 0 ? (
                   <>
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Ngày</TableHead>
-                          <TableHead>Tên hợp đồng</TableHead>
-                          <TableHead>Khách hàng</TableHead>
-                          <TableHead>Nguồn</TableHead>
-                          <TableHead>Loại</TableHead>
-                          <TableHead className="text-right">Số tiền</TableHead>
+                          <TableHead>Kênh</TableHead>
+                          <TableHead className="text-right">Đơn hàng</TableHead>
+                          <TableHead className="text-right">Doanh thu</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredRevenues.slice(0, 20).map((revenue) => (
-                          <TableRow key={revenue.id}>
+                        {dailyDetail.slice(0, 50).map((row, idx) => (
+                          <TableRow key={`${row.date}-${row.channel}-${idx}`}>
                             <TableCell className="font-mono text-sm">
-                              {format(new Date(revenue.start_date), 'dd/MM/yyyy')}
-                            </TableCell>
-                            <TableCell>{revenue.contract_name}</TableCell>
-                            <TableCell>{revenue.customer_name || '-'}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {revenue.source === 'manual' ? 'Nhập tay' : 'Tích hợp'}
-                              </Badge>
+                              {format(new Date(row.date), 'dd/MM/yyyy')}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={revenue.revenue_type === 'recurring' ? 'default' : 'secondary'}>
-                                {revenue.revenue_type === 'recurring' ? 'Định kỳ' : '1 lần'}
+                              <Badge 
+                                variant="outline"
+                                style={{ borderColor: sourceColors[row.channel.toLowerCase()] || sourceColors['other'] }}
+                              >
+                                {row.channel}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-mono text-green-600">
-                              {formatCurrency(revenue.amount)}
+                            <TableCell className="text-right">{formatCount(row.orders)}</TableCell>
+                            <TableCell className="text-right font-mono text-primary">
+                              {formatCurrency(row.revenue)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                    {filteredRevenues.length > 20 && (
+                    {dailyDetail.length > 50 && (
                       <p className="text-center text-sm text-muted-foreground mt-4">
-                        Hiển thị 20/{filteredRevenues.length} giao dịch
+                        Hiển thị 50/{dailyDetail.length} dòng
                       </p>
                     )}
                   </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    Chưa có giao dịch doanh thu trong kỳ phân tích
+                    Chưa có dữ liệu doanh thu trong kỳ phân tích
                   </div>
                 )}
               </CardContent>
