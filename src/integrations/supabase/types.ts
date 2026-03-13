@@ -42074,6 +42074,7 @@ export type Database = {
         Args: { params?: Json; query_text: string }
         Returns: Json
       }
+      execute_sql_admin: { Args: { sql_text: string }; Returns: undefined }
       fdp_get_budget_recommendations: {
         Args: { p_lookback_days?: number; p_tenant_id: string }
         Returns: {
