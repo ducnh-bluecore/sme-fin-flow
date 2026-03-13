@@ -130,10 +130,14 @@ export default function RevenuePage() {
     return stats;
   }, [externalOrders]);
 
-  // Process connector data with order statistics (with channel fallback when no connector metadata)
+  // Process connector data: always show all channels from RPC data, merge with connector metadata
   const connectorData = useMemo<ConnectorData[]>(() => {
-    if (connectors.length === 0) {
-      return Object.values(externalChannelStats).map((stat) => ({
+    const result: ConnectorData[] = [];
+    const coveredKeys = new Set<string>();
+
+    // First: build entries from all RPC channels (primary source of truth)
+    for (const stat of Object.values(externalChannelStats)) {
+      result.push({
         id: `channel-${stat.channelKey}`,
         name: stat.channelLabel,
         type: stat.channelKey,
@@ -141,36 +145,21 @@ export default function RevenuePage() {
         lastSync: null,
         ordersCount: stat.totalOrders,
         totalRevenue: stat.totalRevenue,
-      }));
+      });
+      coveredKeys.add(stat.channelKey);
     }
 
-    return connectors.map((c) => {
-      const candidateKeys = new Set(
-        [c.connector_type, c.connector_name, c.shop_name]
-          .map((value) => normalizeChannelKey(value))
-          .filter(Boolean)
-      );
+    // Enrich with connector metadata (last_sync etc.) if available
+    for (const c of connectors) {
+      const cKey = normalizeChannelKey(c.connector_name?.replace(/bigquery\s*-?\s*/i, '') || c.connector_type);
+      const existing = result.find(r => r.type === cKey);
+      if (existing) {
+        existing.lastSync = c.last_sync_at;
+        existing.status = c.status || existing.status;
+      }
+    }
 
-      let ordersCount = 0;
-      let totalRevenue = 0;
-
-      candidateKeys.forEach((key) => {
-        const stat = externalChannelStats[key];
-        if (!stat) return;
-        ordersCount += stat.totalOrders;
-        totalRevenue += stat.totalRevenue;
-      });
-
-      return {
-        id: c.id,
-        name: c.connector_name || c.shop_name || c.connector_type,
-        type: normalizeChannelKey(c.connector_type) || 'other',
-        status: c.status || 'inactive',
-        lastSync: c.last_sync_at,
-        ordersCount,
-        totalRevenue,
-      };
-    });
+    return result;
   }, [connectors, externalChannelStats]);
 
   // Filter revenues
