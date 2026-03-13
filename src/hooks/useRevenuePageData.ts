@@ -93,26 +93,24 @@ export function useRevenuePageData() {
   });
 
   // Fetch external orders for integrated revenue
-  // ARCHITECTURE: Hook → View → Table (v_revenue_channel_daily → cdp_orders)
+  // ARCHITECTURE: Hook → RPC get_revenue_channel_daily (schema-aware, no timeout)
   const externalOrdersQuery = useQuery({
     queryKey: ['cdp-orders-revenue', tenantId, start, end],
     queryFn: async () => {
       if (!tenantId) return [];
 
-      let query = client
-        .from('v_revenue_channel_daily' as any)
-        .select('channel, order_date, total_gross_revenue, order_count')
-        .gte('order_date', start)
-        .lte('order_date', end);
-      
-      if (shouldAddTenantFilter) {
-        query = query.eq('tenant_id', tenantId);
+      const { data, error } = await client.rpc('get_revenue_channel_daily', {
+        p_tenant_id: tenantId,
+        p_start_date: start,
+        p_end_date: end,
+      });
+
+      if (error) {
+        console.error('[useRevenuePageData] RPC error:', error);
+        return [];
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Map aggregated view data to legacy format
+      // Map RPC result to legacy format
       return (data || []).map((o: any) => ({
         integration_id: o.channel,
         total_amount: Number(o.total_gross_revenue) || 0,
