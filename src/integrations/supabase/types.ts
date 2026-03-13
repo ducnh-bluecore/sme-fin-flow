@@ -41525,6 +41525,10 @@ export type Database = {
         Returns: boolean
       }
       backfill_cogs_pipeline: { Args: { p_tenant_id: string }; Returns: Json }
+      backfill_order_fees: {
+        Args: { p_schema: string; p_updates: Json }
+        Returns: number
+      }
       batch_create_customers_v2: {
         Args: { p_batch_size?: number; p_offset?: number }
         Returns: Json
@@ -42074,6 +42078,7 @@ export type Database = {
         Args: { params?: Json; query_text: string }
         Returns: Json
       }
+      execute_sql_admin: { Args: { sql_text: string }; Returns: undefined }
       fdp_get_budget_recommendations: {
         Args: { p_lookback_days?: number; p_tenant_id: string }
         Returns: {

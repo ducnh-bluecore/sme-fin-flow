@@ -460,40 +460,69 @@ function mapGenericData(row: any, tenantId: string, integrationId: string, targe
   // Target-specific mapping (SSOT Layer 2)
   switch (targetTable) {
     case 'cdp_orders': {
-      const totalAmount = parseFloat(row.total_amount || row.total_paid_amount || row.escrow_amount || 0);
-      const totalFees = parseFloat(row.total_fees || row.platform_fee || 0) + 
-                        parseFloat(row.commission_fee || row.commission || 0);
+      const totalAmount = parseFloat(row.total_amount || row.total_paid_amount || row.escrow_amount || row.payment_total_amount || row.Total_price || 0);
+      
+      // === SHIPPING FEE: Match actual BigQuery column names ===
+      // Shopee: "actual_shipping_fee_" (trailing underscore!), "estimated_shipping_fee"
+      // TikTok: "payment_shipping_fee", "payment_original_shipping_fee"
+      // Haravan: no shipping fee column
+      const shippingFee = parseFloat(
+        row['actual_shipping_fee_'] || row.actual_shipping_fee || row.estimated_shipping_fee ||
+        row.payment_shipping_fee || row.payment_original_shipping_fee ||
+        row.shipping_fee || row.buyer_paid_shipping_fee || 0
+      );
+      
+      // === PLATFORM/SELLER DISCOUNTS (TikTok) ===
+      const platformDiscount = parseFloat(row.payment_platform_discount || 0);
+      const sellerDiscount = parseFloat(row.payment_seller_discount || row.voucher_discount || row.discount || row.Total_discounts || 0);
+      const shippingPlatformDiscount = parseFloat(row.payment_shipping_fee_platform_discount || 0);
+      const shippingSellerDiscount = parseFloat(row.payment_shipping_fee_seller_discount || 0);
+      
+      // === FEES ===
+      const platformFee = parseFloat(row.platform_fee || row.transaction_fee || 0);
+      const commissionFee = parseFloat(row.commission_fee || row.commission || 0);
+      const totalFees = parseFloat(row.total_fees || 0) || (platformFee + commissionFee);
+      
       const cogs = parseFloat(row.cogs || row.cost_of_goods || 0);
-      const netRevenue = parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0) || (totalAmount - totalFees);
+      
+      // Net revenue: seller_income > escrow > subtotal > (total - fees - discounts)
+      const subtotal = parseFloat(row.payment_sub_total || row.Subtotal_price || 0);
+      const netRevenue = parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0) 
+        || subtotal 
+        || (totalAmount - totalFees - Math.abs(sellerDiscount) - Math.abs(platformDiscount));
       const grossMargin = netRevenue - cogs;
+      
+      // Total discount amount
+      const discountAmount = Math.abs(sellerDiscount) + Math.abs(platformDiscount) + Math.abs(shippingPlatformDiscount) + Math.abs(shippingSellerDiscount);
       
       return {
         ...baseData,
-        order_key: String(row[model.primary_key_field] || row.order_id || row.order_sn || row.id || row.code),
-        channel: row.channel || model.bigquery_dataset.split('_')[1] || 'unknown',
-        order_at: row[model.timestamp_field] || row.create_time || row.created_at || row.created_on,
+        order_key: String(row[model.primary_key_field] || row.order_id || row.order_sn || row.id || row.code || row.OrderId),
+        channel: row.channel || model.bigquery_dataset?.split('_')[1] || 'unknown',
+        order_at: row[model.timestamp_field] || row.create_time || row.Created_at || row.created_at || row.created_on,
         status: mapOrderStatus(row.order_status || row.status || 'pending', ''),
-        customer_name: row.buyer_username || row.customer_name || row.recipient_name,
-        customer_phone: row.recipient_phone || row.phone,
+        customer_name: row.buyer_username || row.customer_name || row.recipient_name || row.recipient_address_name,
+        customer_phone: row.recipient_phone || row.phone || row.recipient_address_phone,
         gross_revenue: totalAmount,
-        discount_amount: parseFloat(row.voucher_discount || row.discount || 0),
+        discount_amount: discountAmount,
         net_revenue: netRevenue,
         cogs: cogs,
         gross_margin: grossMargin,
-        is_discounted: parseFloat(row.voucher_discount || row.discount || 0) > 0,
+        is_discounted: discountAmount > 0,
         is_bundle: false,
         currency: 'VND',
-        shipping_fee: parseFloat(row.shipping_fee || row.buyer_paid_shipping_fee || 0),
-        platform_fee: parseFloat(row.platform_fee || row.transaction_fee || 0),
-        commission_fee: parseFloat(row.commission_fee || row.commission || 0),
+        shipping_fee: shippingFee,
+        platform_fee: platformFee || platformDiscount, // Use platform_discount as proxy if no explicit fee
+        commission_fee: commissionFee,
         payment_fee: parseFloat(row.payment_fee || 0),
         service_fee: parseFloat(row.service_fee || 0),
-        total_fees: totalFees,
+        total_fees: totalFees || (platformFee + commissionFee + shippingFee),
         other_fees: 0,
+        voucher_discount: Math.abs(sellerDiscount),
         seller_income: parseFloat(row.seller_income || row.escrow_amount || row.actual_amount || 0),
-        payment_method: row.payment_method || row.payment_type,
-        shop_id: row.shop_id || row.organization_id,
-        shop_name: row.shop_name || row.organization_name,
+        payment_method: row.payment_method || row.payment_method_name || row.payment_type || row.Gateway,
+        shop_id: row.shop_id || row.organization_id || row.OrgId,
+        shop_name: row.shop_name || row.organization_name || row.OrgName,
         raw_data: row,
         last_synced_at: new Date().toISOString(),
       };
