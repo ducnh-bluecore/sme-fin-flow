@@ -261,18 +261,27 @@ export default function RevenuePage() {
       });
   }, [revenues, externalOrders]);
 
-  // Top customers
-  const topCustomers = useMemo(() => {
-    const customerTotals: Record<string, number> = {};
-    for (const rev of revenues) {
-      const customer = rev.customer_name || 'Không xác định';
-      customerTotals[customer] = (customerTotals[customer] || 0) + Number(rev.amount);
-    }
-
-    return Object.entries(customerTotals)
-      .sort(([, a], [, b]) => b - a)
+  // Top channels by revenue
+  const topChannels = useMemo(() => {
+    return Object.values(externalChannelStats)
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
       .slice(0, 5);
-  }, [revenues]);
+  }, [externalChannelStats]);
+
+  // Daily detail for detail tab
+  const dailyDetail = useMemo(() => {
+    const rows: Array<{ date: string; channel: string; revenue: number; orders: number }> = [];
+    for (const order of externalOrders) {
+      if (order.status !== 'delivered') continue;
+      rows.push({
+        date: order.order_date,
+        channel: (order.channel || order.integration_id || '').toUpperCase(),
+        revenue: Number(order.total_amount || 0),
+        orders: Number(order.order_count) || 1,
+      });
+    }
+    return rows.sort((a, b) => b.date.localeCompare(a.date));
+  }, [externalOrders]);
 
   const handleRefresh = () => {
     refetchRevenues();
