@@ -618,59 +618,54 @@ export default function RevenuePage() {
           <TabsContent value="detail">
             <Card>
               <CardHeader>
-                <CardTitle>Danh sách giao dịch</CardTitle>
+                <CardTitle>Chi tiết doanh thu theo ngày</CardTitle>
                 <CardDescription>
-                  {filteredRevenues.length} giao dịch trong kỳ phân tích
+                  {dailyDetail.length} dòng dữ liệu trong kỳ phân tích
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {filteredRevenues.length > 0 ? (
+                {dailyDetail.length > 0 ? (
                   <>
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Ngày</TableHead>
-                          <TableHead>Tên hợp đồng</TableHead>
-                          <TableHead>Khách hàng</TableHead>
-                          <TableHead>Nguồn</TableHead>
-                          <TableHead>Loại</TableHead>
-                          <TableHead className="text-right">Số tiền</TableHead>
+                          <TableHead>Kênh</TableHead>
+                          <TableHead className="text-right">Đơn hàng</TableHead>
+                          <TableHead className="text-right">Doanh thu</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredRevenues.slice(0, 20).map((revenue) => (
-                          <TableRow key={revenue.id}>
+                        {dailyDetail.slice(0, 50).map((row, idx) => (
+                          <TableRow key={`${row.date}-${row.channel}-${idx}`}>
                             <TableCell className="font-mono text-sm">
-                              {format(new Date(revenue.start_date), 'dd/MM/yyyy')}
-                            </TableCell>
-                            <TableCell>{revenue.contract_name}</TableCell>
-                            <TableCell>{revenue.customer_name || '-'}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {revenue.source === 'manual' ? 'Nhập tay' : 'Tích hợp'}
-                              </Badge>
+                              {format(new Date(row.date), 'dd/MM/yyyy')}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={revenue.revenue_type === 'recurring' ? 'default' : 'secondary'}>
-                                {revenue.revenue_type === 'recurring' ? 'Định kỳ' : '1 lần'}
+                              <Badge 
+                                variant="outline"
+                                style={{ borderColor: sourceColors[row.channel.toLowerCase()] || sourceColors['other'] }}
+                              >
+                                {row.channel}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right font-mono text-green-600">
-                              {formatCurrency(revenue.amount)}
+                            <TableCell className="text-right">{formatCount(row.orders)}</TableCell>
+                            <TableCell className="text-right font-mono text-primary">
+                              {formatCurrency(row.revenue)}
                             </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
-                    {filteredRevenues.length > 20 && (
+                    {dailyDetail.length > 50 && (
                       <p className="text-center text-sm text-muted-foreground mt-4">
-                        Hiển thị 20/{filteredRevenues.length} giao dịch
+                        Hiển thị 50/{dailyDetail.length} dòng
                       </p>
                     )}
                   </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    Chưa có giao dịch doanh thu trong kỳ phân tích
+                    Chưa có dữ liệu doanh thu trong kỳ phân tích
                   </div>
                 )}
               </CardContent>
