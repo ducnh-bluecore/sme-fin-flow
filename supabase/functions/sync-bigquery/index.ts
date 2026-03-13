@@ -1615,17 +1615,24 @@ serve(async (req) => {
               // Upsert to external_products
               for (let i = 0; i < mappedProducts.length; i += 100) {
                 const batch = mappedProducts.slice(i, i + 100);
-                const { error } = await supabase
-                  .from('external_products')
-                  .upsert(batch, { 
-                    onConflict: 'integration_id,external_product_id',
-                    ignoreDuplicates: false 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'external_products', batch, ['integration_id', 'external_product_id']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('external_products')
+                    .upsert(batch, { 
+                      onConflict: 'integration_id,external_product_id',
+                      ignoreDuplicates: false 
+                    });
+                  error = result.error;
+                }
 
                 if (!error) {
                   channelProductsSynced += batch.length;
                 } else {
-                  console.error(`Error upserting products:`, error.message);
+                  console.error(`Error upserting products:`, error?.message || error);
                 }
               }
               console.log(`${channel}: Synced ${channelProductsSynced} products`);
