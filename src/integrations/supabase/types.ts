@@ -42947,6 +42947,16 @@ export type Database = {
         Returns: Json
       }
       get_reconciliation_stats: { Args: { p_tenant_id: string }; Returns: Json }
+      get_revenue_channel_daily: {
+        Args: { p_end_date: string; p_start_date: string; p_tenant_id: string }
+        Returns: {
+          channel: string
+          order_count: number
+          order_date: string
+          total_gross_revenue: number
+          total_net_revenue: number
+        }[]
+      }
       get_revenue_page_summary: { Args: { p_tenant_id: string }; Returns: Json }
       get_sku_cost_breakdown: {
         Args: {
