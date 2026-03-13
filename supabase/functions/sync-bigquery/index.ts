@@ -1661,15 +1661,22 @@ serve(async (req) => {
               // Upsert customers - use phone or email as conflict key
               for (let i = 0; i < mappedCustomers.length; i += 100) {
                 const batch = mappedCustomers.slice(i, i + 100);
-                const { error } = await supabase
-                  .from('customers')
-                  .upsert(batch, { 
-                    onConflict: 'tenant_id,phone',
-                    ignoreDuplicates: true 
-                  });
+                let error: any = null;
+                if (hasDedicatedSchema) {
+                  const result = await tenantUpsert(supabase, tenant_id, 'customers', batch, ['tenant_id', 'phone']);
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from('customers')
+                    .upsert(batch, { 
+                      onConflict: 'tenant_id,phone',
+                      ignoreDuplicates: true 
+                    });
+                  error = result.error;
+                }
 
                 if (error) {
-                  console.error(`Error upserting customers:`, error.message);
+                  console.error(`Error upserting customers:`, error?.message || error);
                 }
               }
               console.log(`${channel}: Synced ${customerRows.length} customers`);
