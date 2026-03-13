@@ -1106,25 +1106,36 @@ serve(async (req) => {
             try {
               let error: any = null;
               
-              if (onConflict) {
-                // Use upsert for tables with proper constraints
-                const result = await supabase
-                  .from(targetTable)
-                  .upsert(batch, { onConflict, ignoreDuplicates: true });
-                error = result.error;
-              } else {
-                // Use INSERT for tables without proper constraints (ignore duplicates via primary key)
-                const result = await supabase
-                  .from(targetTable)
-                  .insert(batch);
-                  
-                // Ignore duplicate key errors
-                if (result.error && result.error.code === '23505') {
-                  // Duplicate key - this is expected, count as success
-                  modelSynced += batch.length;
-                  continue;
+              if (hasDedicatedSchema) {
+                // Route writes to tenant schema via RPC
+                if (onConflict) {
+                  const result = await tenantUpsert(supabase, tenant_id, targetTable, batch, onConflict.split(','));
+                  error = result.error;
+                } else {
+                  const result = await tenantInsert(supabase, tenant_id, targetTable, batch);
+                  if (result.error && result.error.message?.includes('duplicate key')) {
+                    modelSynced += batch.length;
+                    continue;
+                  }
+                  error = result.error;
                 }
-                error = result.error;
+              } else {
+                // Legacy: use PostgREST for public schema
+                if (onConflict) {
+                  const result = await supabase
+                    .from(targetTable)
+                    .upsert(batch, { onConflict, ignoreDuplicates: true });
+                  error = result.error;
+                } else {
+                  const result = await supabase
+                    .from(targetTable)
+                    .insert(batch);
+                  if (result.error && result.error.code === '23505') {
+                    modelSynced += batch.length;
+                    continue;
+                  }
+                  error = result.error;
+                }
               }
               
               if (error) {
