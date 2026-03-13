@@ -12,57 +12,51 @@ Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { db: { schema: "public" }, global: { headers: { "x-supabase-db-timeout": "120s" } } }
   );
 
   const tenantId = "364a23ad-66f5-44d6-8da9-74c7ff333dcc";
   const results: string[] = [];
 
+  // Parse which table to target from query param (default: all)
+  const url = new URL(req.url);
+  const target = url.searchParams.get("target") || "all";
+
   try {
-    // Use raw SQL via rpc for large deletes in batches
-    const batchSize = 5000;
-    
-    // Delete cdp_orders in small batches
-    for (let i = 0; i < 300; i++) { // max 300 iterations = 1.5M rows
-      const { data, error } = await supabase.rpc("exec_sql_admin" as any, {
-        sql_query: `DELETE FROM cdp_orders WHERE id IN (SELECT id FROM cdp_orders WHERE tenant_id = '${tenantId}' LIMIT ${batchSize})`
-      });
-      
-      // Fallback: direct delete with small limit
-      if (error) {
-        const { error: e2, count } = await supabase.from("cdp_orders")
-          .delete({ count: "exact" })
-          .eq("tenant_id", tenantId)
-          .limit(batchSize);
-        
-        if (e2) {
-          results.push(`cdp_orders iteration ${i} error: ${e2.message}`);
+    const batchDelete = async (table: string, batchSize: number, maxIterations: number) => {
+      let totalDeleted = 0;
+      for (let i = 0; i < maxIterations; i++) {
+        const { data, error } = await supabase.rpc("execute_sql_admin", {
+          sql_query: `DELETE FROM ${table} WHERE ctid IN (SELECT ctid FROM ${table} WHERE tenant_id = '${tenantId}' LIMIT ${batchSize})`
+        });
+        if (error) {
+          results.push(`${table} error at batch ${i}: ${error.message}`);
           break;
         }
-        if (count === 0) { results.push(`cdp_orders done after ${i} batches`); break; }
-        if (i % 20 === 0) results.push(`cdp_orders batch ${i}, deleted ${count}`);
+        // Check if rows remain
+        const { data: countData } = await supabase.rpc("execute_sql_admin", {
+          sql_query: `SELECT COUNT(*)::int as c FROM ${table} WHERE tenant_id = '${tenantId}'`
+        });
+        const remaining = countData?.[0]?.c ?? 0;
+        totalDeleted += batchSize;
+        if (i % 10 === 0) results.push(`${table}: batch ${i}, ~${remaining} remaining`);
+        if (remaining === 0) { results.push(`${table}: DONE ✅`); break; }
       }
+      return totalDeleted;
+    };
+
+    if (target === "all" || target === "orders") {
+      await batchDelete("cdp_orders", 5000, 500);
     }
-
-    // Delete cdp_customers in small batches
-    for (let i = 0; i < 100; i++) {
-      const { error, count } = await supabase.from("cdp_customers")
-        .delete({ count: "exact" })
-        .eq("tenant_id", tenantId)
-        .limit(batchSize);
-      
-      if (error) { results.push(`cdp_customers error: ${error.message}`); break; }
-      if (count === 0) { results.push(`cdp_customers done after ${i} batches`); break; }
-      if (i % 20 === 0) results.push(`cdp_customers batch ${i}, deleted ${count}`);
+    if (target === "all" || target === "customers") {
+      await batchDelete("cdp_customers", 5000, 200);
     }
-
-    // Cleanup remaining
-    await supabase.from("inv_sku_fc_mapping" as any).delete().eq("tenant_id", tenantId);
-    const { error: fcErr } = await supabase.from("inv_family_codes").delete().eq("tenant_id", tenantId);
-    results.push(`inv_family_codes: ${fcErr ? fcErr.message : "ok"}`);
-
-    const { error: ciErr } = await supabase.from("connector_integrations").delete().eq("tenant_id", tenantId);
-    results.push(`connector_integrations: ${ciErr ? ciErr.message : "ok"}`);
+    if (target === "all" || target === "family_codes") {
+      await batchDelete("inv_family_codes", 2000, 100);
+    }
+    if (target === "all" || target === "connector") {
+      const { error } = await supabase.from("connector_integrations").delete().eq("tenant_id", tenantId);
+      results.push(`connector_integrations: ${error ? error.message : "ok ✅"}`);
+    }
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
