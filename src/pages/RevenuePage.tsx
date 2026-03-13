@@ -207,12 +207,12 @@ export default function RevenuePage() {
 
   // Source breakdown for chart
   const sourceBreakdown = useMemo(() => {
-    const breakdown = connectorData
-      .filter(c => c.totalRevenue > 0)
-      .map(c => ({
-        name: c.name,
-        value: c.totalRevenue,
-        color: sourceColors[c.type.toLowerCase()] || sourceColors['other'],
+    const breakdown = Object.values(externalChannelStats)
+      .filter((stat) => stat.totalRevenue > 0)
+      .map((stat) => ({
+        name: stat.channelLabel,
+        value: stat.totalRevenue,
+        color: sourceColors[stat.channelKey] || sourceColors['other'],
       }));
 
     if (totalManualRevenue > 0) {
@@ -224,7 +224,7 @@ export default function RevenuePage() {
     }
 
     return breakdown;
-  }, [connectorData, totalManualRevenue]);
+  }, [externalChannelStats, totalManualRevenue]);
 
   // Monthly trend - combine manual revenues + integrated orders
   const trendData = useMemo(() => {
