@@ -13,6 +13,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useTenantQueryBuilder } from './useTenantQueryBuilder';
+import { useTenantSupabaseCompat } from './useTenantSupabase';
+import { useDateRangeForQuery } from '@/contexts/DateRangeContext';
 import { Database } from '@/integrations/supabase/types';
 
 // ✅ SSOT: Use cdp_orders type instead of external_orders
