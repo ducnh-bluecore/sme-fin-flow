@@ -12,83 +12,57 @@ Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { db: { schema: "public" }, global: { headers: { "x-supabase-db-timeout": "120s" } } }
   );
 
   const tenantId = "364a23ad-66f5-44d6-8da9-74c7ff333dcc";
-  const batchSize = 20000;
   const results: string[] = [];
 
   try {
-    // Delete cdp_orders in batches
-    let totalOrders = 0;
-    while (true) {
-      const { error } = await supabase.from("cdp_orders")
-        .delete()
+    // Use raw SQL via rpc for large deletes in batches
+    const batchSize = 5000;
+    
+    // Delete cdp_orders in small batches
+    for (let i = 0; i < 300; i++) { // max 300 iterations = 1.5M rows
+      const { data, error } = await supabase.rpc("exec_sql_admin" as any, {
+        sql_query: `DELETE FROM cdp_orders WHERE id IN (SELECT id FROM cdp_orders WHERE tenant_id = '${tenantId}' LIMIT ${batchSize})`
+      });
+      
+      // Fallback: direct delete with small limit
+      if (error) {
+        const { error: e2, count } = await supabase.from("cdp_orders")
+          .delete({ count: "exact" })
+          .eq("tenant_id", tenantId)
+          .limit(batchSize);
+        
+        if (e2) {
+          results.push(`cdp_orders iteration ${i} error: ${e2.message}`);
+          break;
+        }
+        if (count === 0) { results.push(`cdp_orders done after ${i} batches`); break; }
+        if (i % 20 === 0) results.push(`cdp_orders batch ${i}, deleted ${count}`);
+      }
+    }
+
+    // Delete cdp_customers in small batches
+    for (let i = 0; i < 100; i++) {
+      const { error, count } = await supabase.from("cdp_customers")
+        .delete({ count: "exact" })
         .eq("tenant_id", tenantId)
         .limit(batchSize);
       
-      if (error) {
-        results.push(`cdp_orders error: ${error.message}`);
-        break;
-      }
-
-      const { count } = await supabase.from("cdp_orders")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId);
-      
-      totalOrders += batchSize;
-      results.push(`cdp_orders batch, remaining: ${count}`);
-      
-      if (!count || count === 0) break;
-      if (totalOrders > 2000000) break;
+      if (error) { results.push(`cdp_customers error: ${error.message}`); break; }
+      if (count === 0) { results.push(`cdp_customers done after ${i} batches`); break; }
+      if (i % 20 === 0) results.push(`cdp_customers batch ${i}, deleted ${count}`);
     }
 
-    // Delete cdp_customers in batches
-    while (true) {
-      const { error } = await supabase.from("cdp_customers")
-        .delete()
-        .eq("tenant_id", tenantId)
-        .limit(batchSize);
-      
-      if (error) {
-        results.push(`cdp_customers error: ${error.message}`);
-        break;
-      }
+    // Cleanup remaining
+    await supabase.from("inv_sku_fc_mapping" as any).delete().eq("tenant_id", tenantId);
+    const { error: fcErr } = await supabase.from("inv_family_codes").delete().eq("tenant_id", tenantId);
+    results.push(`inv_family_codes: ${fcErr ? fcErr.message : "ok"}`);
 
-      const { count } = await supabase.from("cdp_customers")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId);
-      
-      results.push(`cdp_customers batch, remaining: ${count}`);
-      if (!count || count === 0) break;
-    }
-
-    // Remaining tables
-    const tables = [
-      "kpi_facts_daily", "kpi_targets", "central_metric_facts",
-      "products", "inv_family_codes",
-      "bigquery_backfill_jobs", "bigquery_sync_watermarks", 
-      "bigquery_data_models", "bigquery_tenant_sources", "bigquery_configs",
-      "connector_integrations", "tenant_ltv_config",
-    ];
-
-    for (const table of tables) {
-      const { error } = await supabase.from(table as any)
-        .delete()
-        .eq("tenant_id", tenantId);
-      results.push(`${table}: ${error ? error.message : "ok"}`);
-    }
-
-    // Tenant users & tenant
-    await supabase.from("tenant_users").delete().eq("tenant_id", tenantId);
-    results.push("tenant_users: ok");
-
-    await supabase.from("tenants").delete().eq("id", tenantId);
-    results.push("tenants: ok");
-
-    // Clean profiles
-    await supabase.from("profiles").update({ active_tenant_id: null } as any).eq("active_tenant_id", tenantId);
-    results.push("profiles cleaned");
+    const { error: ciErr } = await supabase.from("connector_integrations").delete().eq("tenant_id", tenantId);
+    results.push(`connector_integrations: ${ciErr ? ciErr.message : "ok"}`);
 
     return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
