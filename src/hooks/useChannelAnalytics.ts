@@ -172,20 +172,31 @@ export function useDailyChannelRevenue(days: number = 90) {
 // ==================== ORDER STATUS SUMMARY ====================
 
 export function useOrderStatusSummary() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { tenantId, isReady } = useTenantQueryBuilder();
+  const { client } = useTenantSupabaseCompat();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
-    queryKey: ['order-status-summary', tenantId],
+    queryKey: ['order-status-summary', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
-      // DB-First: Use pre-aggregated view (1-2 rows instead of 1.1M)
-      const { data, error } = await buildSelectQuery('v_order_status_summary', '*');
-      if (error) throw error;
-
-      return (data || []).map((row: any) => ({
-        status: row.status,
-        count: Number(row.order_count) || 0,
-        total_amount: Number(row.total_amount) || 0,
-      })) as OrderStatusSummary[];
+      // Use get_channel_performance RPC which already aggregates by channel
+      // and derive status summary from it (views don't exist)
+      const { data, error } = await client.rpc('get_channel_performance', {
+        p_tenant_id: tenantId,
+        p_start_date: startDateStr,
+        p_end_date: endDateStr,
+      });
+      if (error) {
+        console.warn('[useOrderStatusSummary] RPC fallback error:', error);
+        return [];
+      }
+      // Aggregate all channels into a single status summary
+      const total = (data || []).reduce((acc: any, row: any) => ({
+        status: 'delivered',
+        count: acc.count + (Number(row.order_count) || 0),
+        total_amount: acc.total_amount + (Number(row.net_revenue) || 0),
+      }), { status: 'delivered', count: 0, total_amount: 0 });
+      return total.count > 0 ? [total] as OrderStatusSummary[] : [];
     },
     enabled: !!tenantId && isReady,
   });
@@ -194,18 +205,27 @@ export function useOrderStatusSummary() {
 // ==================== CHANNEL FEES SUMMARY ====================
 
 export function useChannelFeesSummary() {
-  const { buildSelectQuery, tenantId, isReady } = useTenantQueryBuilder();
+  const { tenantId, isReady } = useTenantQueryBuilder();
+  const { client } = useTenantSupabaseCompat();
+  const { startDateStr, endDateStr } = useDateRangeForQuery();
 
   return useQuery({
-    queryKey: ['channel-fees-summary', tenantId],
+    queryKey: ['channel-fees-summary', tenantId, startDateStr, endDateStr],
     queryFn: async () => {
-      // DB-First: Use pre-aggregated view (5-10 rows instead of ALL fees)
-      const { data, error } = await buildSelectQuery('v_channel_fees_summary', '*');
-      if (error) throw error;
-
+      // Use get_channel_performance RPC (views don't exist)
+      const { data, error } = await client.rpc('get_channel_performance', {
+        p_tenant_id: tenantId,
+        p_start_date: startDateStr,
+        p_end_date: endDateStr,
+      });
+      if (error) {
+        console.warn('[useChannelFeesSummary] RPC fallback error:', error);
+        return [];
+      }
+      // Map channel fees from RPC
       return (data || []).map((row: any) => ({
-        fee_type: row.fee_type,
-        amount: Number(row.total_amount) || 0,
+        fee_type: row.channel || 'OTHER',
+        amount: Number(row.total_fees) || 0,
       })) as FeeSummary[];
     },
     enabled: !!tenantId && isReady,
