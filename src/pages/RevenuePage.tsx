@@ -477,29 +477,43 @@ export default function RevenuePage() {
               {/* Top Customers */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top khách hàng</CardTitle>
+                  <CardTitle>Top kênh bán hàng</CardTitle>
                   <CardDescription>Theo tổng doanh thu</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {topCustomers.length > 0 ? (
-                      topCustomers.map(([customer, amount]) => (
-                        <div key={customer} className="space-y-2">
+                    {topChannels.length > 0 ? (
+                      topChannels.map((ch) => (
+                        <div key={ch.channelKey} className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{customer}</span>
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: sourceColors[ch.channelKey] || sourceColors['other'] }}
+                              />
+                              <span className="text-sm font-medium">{ch.channelLabel}</span>
+                            </div>
                             <span className="text-sm text-muted-foreground">
-                              {formatCurrency(amount)}
+                              {formatCurrency(ch.totalRevenue)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{formatCount(ch.totalOrders)} đơn</span>
+                            <span>
+                              {grandTotalRevenue > 0 
+                                ? `${((ch.totalRevenue / grandTotalRevenue) * 100).toFixed(1)}%`
+                                : '0%'}
                             </span>
                           </div>
                           <Progress 
-                            value={totalManualRevenue > 0 ? (amount / totalManualRevenue) * 100 : 0} 
+                            value={grandTotalRevenue > 0 ? (ch.totalRevenue / grandTotalRevenue) * 100 : 0} 
                             className="h-2"
                           />
                         </div>
                       ))
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">
-                        Chưa có dữ liệu khách hàng
+                        Chưa có dữ liệu kênh bán
                       </p>
                     )}
                   </div>
