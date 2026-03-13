@@ -40,6 +40,7 @@ export interface ExternalOrder {
   status: string;
   channel: string;
   order_date: string;
+  order_count?: number;
 }
 
 export function useRevenuePageData() {
@@ -117,6 +118,7 @@ export function useRevenuePageData() {
         status: 'delivered',
         channel: o.channel,
         order_date: o.order_date,
+        order_count: Number(o.order_count) || 0,
       })) as ExternalOrder[];
     },
     enabled: !!tenantId && isReady,
