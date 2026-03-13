@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     target = "orders",
-    batch_size = 500,
+    batch_size = 100,
     cumulative_deleted = 0,
     invocation = 1,
   } = body;
