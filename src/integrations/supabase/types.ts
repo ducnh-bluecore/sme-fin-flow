@@ -8994,13 +8994,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "cdp_order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "cdp_orders"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -9543,13 +9536,6 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "v_cdp_customer_research"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cdp_refunds_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "cdp_orders"
             referencedColumns: ["id"]
           },
           {
@@ -38495,13 +38481,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "cdp_order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "cdp_orders"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -40243,13 +40222,6 @@ export type Database = {
           unit_price?: number | null
         }
         Relationships: [
-          {
-            foreignKeyName: "cdp_order_items_order_id_fkey"
-            columns: ["order_id"]
-            isOneToOne: false
-            referencedRelation: "cdp_orders"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "cdp_order_items_tenant_id_fkey"
             columns: ["tenant_id"]
