@@ -66,13 +66,15 @@ Deno.serve(async (req) => {
     const sql = `
       SET LOCAL statement_timeout = '55s';
       SET LOCAL lock_timeout = '55s';
-      WITH del AS (
-        DELETE FROM public.${table}
-        WHERE ctid IN (
-          SELECT ctid FROM public.${table}
-          WHERE tenant_id = '${tenantId}'
-          LIMIT ${batch_size}
-        )
+      WITH ids AS (
+        SELECT id FROM public.${table}
+        WHERE tenant_id = '${tenantId}'
+        ORDER BY id
+        LIMIT ${batch_size}
+      ),
+      del AS (
+        DELETE FROM public.${table} t
+        USING ids WHERE t.id = ids.id
         RETURNING 1
       )
       SELECT count(*) as deleted FROM del;
