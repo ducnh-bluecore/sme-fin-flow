@@ -18,66 +18,50 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     table = "cdp_orders",
-    batch_size = 2000,
+    batch_size = 500,
     chain = 0,
-    max_chains = 200,
+    max_chains = 2000,
   } = body;
 
+  const startMs = Date.now();
+  let totalDeleted = 0;
+  let batchNum = 0;
+
   try {
-    const sql = `
-      SET LOCAL statement_timeout = '50s';
-      SET LOCAL lock_timeout = '10s';
-      WITH del AS (
-        DELETE FROM public.${table}
-        WHERE ctid IN (
-          SELECT ctid FROM public.${table}
-          WHERE tenant_id = '${tenantId}'
-          LIMIT ${batch_size}
-        )
-        RETURNING 1
-      )
-      SELECT count(*) as deleted FROM del;
-    `;
+    // Run as many batches as possible within 45s
+    while (Date.now() - startMs < 45000) {
+      const { data: rows, error: fetchErr } = await supabase
+        .from(table)
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .limit(batch_size);
 
-    const { data, error } = await supabase.rpc('execute_sql_admin', {
-      sql_text: sql,
-    });
-
-    if (error) {
-      // On lock/timeout, just retry via chain
-      if (chain < max_chains && (error.message.includes('lock') || error.message.includes('timeout'))) {
-        fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${serviceKey}`,
-          },
-          body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains }),
-        }).catch(() => {});
-
+      if (fetchErr) break;
+      if (!rows || rows.length === 0) {
+        // All done!
         return new Response(JSON.stringify({ 
-          success: false, retrying: true, error: error.message, chain,
+          success: true, done: true, table, chain,
+          deleted_this_run: totalDeleted,
+          message: `DONE! ${table} fully purged after chain ${chain}.`,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      return new Response(JSON.stringify({ success: false, error: error.message, chain }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const ids = rows.map((r: any) => r.id);
+      const { error: delErr } = await supabase.from(table).delete().in("id", ids);
+      
+      if (delErr) {
+        // On error, still chain to retry
+        break;
+      }
+
+      totalDeleted += ids.length;
+      batchNum++;
     }
 
-    // Check remaining
-    const { count } = await supabase
-      .from(table)
-      .select("*", { count: "exact", head: true })
-      .eq("tenant_id", tenantId);
-
-    const rowsLeft = count ?? 0;
-
-    // Auto-chain if more rows
-    if (rowsLeft > 0 && chain < max_chains) {
+    // Auto-chain
+    if (chain < max_chains) {
       fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
         method: "POST",
         headers: {
@@ -89,10 +73,10 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ 
-      success: true, table, chain, rows_remaining: rowsLeft,
-      message: rowsLeft > 0 
-        ? `Chain ${chain}: batch done, ${rowsLeft} remaining. Auto-continuing...`
-        : `DONE! ${table} fully purged.`,
+      success: true, table, chain, batchNum,
+      deleted_this_run: totalDeleted,
+      elapsed_ms: Date.now() - startMs,
+      message: `Chain ${chain}: deleted ${totalDeleted}. Auto-continuing...`,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
