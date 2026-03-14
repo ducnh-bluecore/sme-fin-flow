@@ -81,15 +81,7 @@ Deno.serve(async (req) => {
     const { data, error } = await supabase.rpc('execute_sql_admin', { sql_text: sql });
 
     if (error) {
-      // Retry on lock/timeout
-      if (chain < max_chains) {
-        fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-          body: JSON.stringify({ table, batch_size: Math.max(1000, batch_size / 2), chain: chain + 1, max_chains, phase }),
-        }).catch(() => {});
-      }
-      return new Response(JSON.stringify({ success: false, error: error.message, chain, retrying: true }), {
+      return new Response(JSON.stringify({ success: false, error: error.message, chain }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -101,14 +93,6 @@ Deno.serve(async (req) => {
       .eq("tenant_id", tenantId);
 
     const rowsLeft = count ?? 0;
-
-    if (rowsLeft > 0 && chain < max_chains) {
-      fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-        body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains, phase }),
-      }).catch(() => {});
-    }
 
     return new Response(JSON.stringify({ 
       success: true, table, chain, rows_remaining: rowsLeft,
