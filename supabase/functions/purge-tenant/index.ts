@@ -18,17 +18,17 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     table = "cdp_orders",
-    batch_size = 500,
+    batch_size = 100,
     chain = 0,
-    max_chains = 2000,
+    max_chains = 5000,
   } = body;
 
   const startMs = Date.now();
   let totalDeleted = 0;
   let batchNum = 0;
+  let lastError = "";
 
   try {
-    // Run as many batches as possible within 45s
     while (Date.now() - startMs < 45000) {
       const { data: rows, error: fetchErr } = await supabase
         .from(table)
@@ -36,13 +36,16 @@ Deno.serve(async (req) => {
         .eq("tenant_id", tenantId)
         .limit(batch_size);
 
-      if (fetchErr) break;
+      if (fetchErr) {
+        lastError = `fetch: ${fetchErr.message}`;
+        console.error(lastError);
+        break;
+      }
+
       if (!rows || rows.length === 0) {
-        // All done!
         return new Response(JSON.stringify({ 
           success: true, done: true, table, chain,
           deleted_this_run: totalDeleted,
-          message: `DONE! ${table} fully purged after chain ${chain}.`,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -52,7 +55,8 @@ Deno.serve(async (req) => {
       const { error: delErr } = await supabase.from(table).delete().in("id", ids);
       
       if (delErr) {
-        // On error, still chain to retry
+        lastError = `delete: ${delErr.message}`;
+        console.error(lastError);
         break;
       }
 
@@ -76,7 +80,7 @@ Deno.serve(async (req) => {
       success: true, table, chain, batchNum,
       deleted_this_run: totalDeleted,
       elapsed_ms: Date.now() - startMs,
-      message: `Chain ${chain}: deleted ${totalDeleted}. Auto-continuing...`,
+      lastError: lastError || undefined,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
