@@ -18,42 +18,25 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     table = "cdp_orders",
-    batch_size = 5000,
-    max_batches = 8,  // ~40k per call, keeps under 50s
-    cumulative = 0,
+    batch_size = 2000,
     chain = 0,
-    max_chains = 100,
+    max_chains = 200,
   } = body;
 
   try {
-    // DO block with limited iterations to stay within edge function timeout
     const sql = `
-      DO $$
-      DECLARE
-        batch_deleted bigint;
-        i int := 0;
-      BEGIN
-        SET LOCAL statement_timeout = '45s';
-        LOOP
-          i := i + 1;
-          EXIT WHEN i > ${max_batches};
-          
-          WITH del AS (
-            DELETE FROM public.${table}
-            WHERE ctid IN (
-              SELECT ctid FROM public.${table}
-              WHERE tenant_id = '${tenantId}'
-              LIMIT ${batch_size}
-            )
-            RETURNING 1
-          )
-          SELECT count(*) INTO batch_deleted FROM del;
-          
-          EXIT WHEN batch_deleted = 0;
-          
-          RAISE NOTICE 'Batch %: deleted %', i, batch_deleted;
-        END LOOP;
-      END $$;
+      SET LOCAL statement_timeout = '50s';
+      SET LOCAL lock_timeout = '10s';
+      WITH del AS (
+        DELETE FROM public.${table}
+        WHERE ctid IN (
+          SELECT ctid FROM public.${table}
+          WHERE tenant_id = '${tenantId}'
+          LIMIT ${batch_size}
+        )
+        RETURNING 1
+      )
+      SELECT count(*) as deleted FROM del;
     `;
 
     const { data, error } = await supabase.rpc('execute_sql_admin', {
@@ -61,24 +44,31 @@ Deno.serve(async (req) => {
     });
 
     if (error) {
-      return new Response(JSON.stringify({ 
-        success: false, error: error.message, table, chain,
-      }), {
+      // On lock/timeout, just retry via chain
+      if (chain < max_chains && (error.message.includes('lock') || error.message.includes('timeout'))) {
+        fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains }),
+        }).catch(() => {});
+
+        return new Response(JSON.stringify({ 
+          success: false, retrying: true, error: error.message, chain,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: false, error: error.message, chain }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Check if more rows remain
-    const { data: remaining } = await supabase
-      .from(table)
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId);
-
-    const estimatedDeleted = cumulative + (max_batches * batch_size);
-
-    // Auto-chain if rows remain
-    const hasMore = remaining !== null; // if query succeeded, check count
+    // Check remaining
     const { count } = await supabase
       .from(table)
       .select("*", { count: "exact", head: true })
@@ -86,28 +76,22 @@ Deno.serve(async (req) => {
 
     const rowsLeft = count ?? 0;
 
+    // Auto-chain if more rows
     if (rowsLeft > 0 && chain < max_chains) {
-      // Fire next chain asynchronously
       fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${serviceKey}`,
         },
-        body: JSON.stringify({
-          table, batch_size, max_batches,
-          cumulative: estimatedDeleted,
-          chain: chain + 1,
-          max_chains,
-        }),
-      }).catch(err => console.error("Chain error:", err));
+        body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains }),
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ 
-      success: true, table, chain,
-      rows_remaining: rowsLeft,
+      success: true, table, chain, rows_remaining: rowsLeft,
       message: rowsLeft > 0 
-        ? `Chain ${chain}: ~${max_batches * batch_size} deleted, ${rowsLeft} remaining. Auto-continuing...`
+        ? `Chain ${chain}: batch done, ${rowsLeft} remaining. Auto-continuing...`
         : `DONE! ${table} fully purged.`,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
