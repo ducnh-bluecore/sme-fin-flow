@@ -17,114 +17,76 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const {
-    target = "items",  // "items" -> "orders" -> "customers" -> "cleanup"
-    batch_size = 50,
-    cumulative_deleted = 0,
-    invocation = 1,
-    max_invocations = 500,
+    table = "cdp_order_items",
+    batch_size = 10000,
+    timeout_seconds = 300,
   } = body;
 
-  const startMs = Date.now();
-  const MAX_TIME = 50000;
-  let totalDeleted = 0;
-  let batchNum = 0;
-  let completed = false;
-  const logs: string[] = [];
-
-  const tableMap: Record<string, string> = {
-    items: "cdp_order_items",
-    orders: "cdp_orders",
-    customers: "cdp_customers",
-    family_codes: "inv_family_codes",
-    connector: "connector_integrations",
-  };
-
-  const table = tableMap[target] || target;
-
   try {
-    while (Date.now() - startMs < MAX_TIME) {
-      const { data: rows, error: fetchErr } = await supabase
-        .from(table)
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .limit(batch_size);
+    // Use execute_sql_admin to run with elevated timeout inside DB
+    const sql = `
+      SET LOCAL statement_timeout = '${timeout_seconds}s';
+      
+      DO $$
+      DECLARE
+        total_deleted bigint := 0;
+        batch_deleted bigint;
+        batch_num int := 0;
+      BEGIN
+        LOOP
+          WITH del AS (
+            DELETE FROM public.${table}
+            WHERE ctid IN (
+              SELECT ctid FROM public.${table}
+              WHERE tenant_id = '${tenantId}'
+              LIMIT ${batch_size}
+            )
+            RETURNING 1
+          )
+          SELECT count(*) INTO batch_deleted FROM del;
+          
+          total_deleted := total_deleted + batch_deleted;
+          batch_num := batch_num + 1;
+          
+          IF batch_num % 10 = 0 THEN
+            RAISE NOTICE 'Batch %: deleted % total so far', batch_num, total_deleted;
+          END IF;
+          
+          EXIT WHEN batch_deleted = 0;
+        END LOOP;
+        
+        RAISE NOTICE 'DONE: % total deleted from ${table}', total_deleted;
+      END $$;
+    `;
 
-      if (fetchErr) {
-        logs.push(`Fetch error: ${fetchErr.message}`);
-        break;
-      }
+    const { data, error } = await supabase.rpc('execute_sql_admin', {
+      sql_query: sql,
+    });
 
-      if (!rows || rows.length === 0) {
-        completed = true;
-        logs.push(`${table}: ALL DONE ✅`);
-        break;
-      }
-
-      const ids = rows.map((r: any) => r.id);
-
-      const { error: delErr } = await supabase
-        .from(table)
-        .delete()
-        .in("id", ids);
-
-      if (delErr) {
-        logs.push(`Delete error batch ${batchNum}: ${delErr.message}`);
-        break;
-      }
-
-      totalDeleted += ids.length;
-      batchNum++;
-
-      if (batchNum % 20 === 0) {
-        logs.push(`Batch ${batchNum}: deleted ${totalDeleted} this run`);
-      }
+    if (error) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        hint: "Try smaller batch_size or specific table",
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const grandTotal = cumulative_deleted + totalDeleted;
-
-    // Auto-continue: same target if not done, or next target
-    let nextTarget = target;
-    if (completed) {
-      const sequence = ["items", "orders", "customers", "family_codes", "connector"];
-      const idx = sequence.indexOf(target);
-      if (idx >= 0 && idx < sequence.length - 1) {
-        nextTarget = sequence[idx + 1];
-        completed = false; // still more work
-        logs.push(`Moving to next target: ${nextTarget}`);
-      }
-    }
-
-    if (!completed && invocation < max_invocations) {
-      const continueBody = {
-        target: nextTarget === target ? target : nextTarget,
-        batch_size,
-        cumulative_deleted: nextTarget === target ? grandTotal : 0,
-        invocation: invocation + 1,
-      };
-
-      fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceKey}`,
-        },
-        body: JSON.stringify(continueBody),
-      }).catch(err => console.error("Auto-continue error:", err));
-    }
-
-    const result = {
-      success: true, completed, target, invocation,
-      batches_this_run: batchNum, deleted_this_run: totalDeleted,
-      grand_total_deleted: grandTotal, elapsed_ms: Date.now() - startMs, logs,
-    };
-
-    console.log(`[purge-tenant] Result:`, JSON.stringify(result));
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      table,
+      message: `Purge completed for ${table}`,
+      result: data,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: e.message, logs }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
