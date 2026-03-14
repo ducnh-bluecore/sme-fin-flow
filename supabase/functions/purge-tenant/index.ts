@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       });
     }
     if (phase === "disable_triggers") {
-      const sql = `SET LOCAL lock_timeout = '30s'; ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_cdp_orders_queue_refresh; ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_guard_order_source;`;
+      const sql = `SET LOCAL lock_timeout = '30s'; ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_cdp_orders_queue_refresh; ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_guard_order_source; ALTER TABLE public.cdp_order_items DROP CONSTRAINT IF EXISTS cdp_order_items_order_id_fkey; ALTER TABLE public.cdp_refunds DROP CONSTRAINT IF EXISTS cdp_refunds_order_id_fkey;`;
       const { error } = await supabase.rpc('execute_sql_admin', { sql_text: sql });
       return new Response(JSON.stringify({ success: !error, phase, error: error?.message }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
