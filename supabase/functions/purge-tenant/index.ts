@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     batch_size = 50000,
     chain = 0,
     max_chains = 50,
-    phase = "purge",
+    phase = "purge",  // "kill_locks" | "disable_triggers" | "purge" | "enable_triggers"
   } = body;
 
   try {
