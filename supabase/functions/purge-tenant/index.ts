@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
 
     if (phase === "disable_triggers") {
       const sql = `
+        SET LOCAL lock_timeout = '30s';
         ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_cdp_orders_queue_refresh;
         ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_guard_order_source;
       `;
