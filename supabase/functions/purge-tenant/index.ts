@@ -25,6 +25,20 @@ Deno.serve(async (req) => {
   } = body;
 
   try {
+    if (phase === "kill_locks") {
+      const sql = `
+        SELECT pg_terminate_backend(pid) 
+        FROM pg_stat_activity 
+        WHERE pid != pg_backend_pid() 
+        AND query LIKE '%cdp_orders%'
+        AND state != 'idle';
+      `;
+      const { data, error } = await supabase.rpc('execute_sql_admin', { sql_text: sql });
+      return new Response(JSON.stringify({ success: !error, phase, result: data, error: error?.message }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (phase === "disable_triggers") {
       const sql = `
         ALTER TABLE public.cdp_orders DISABLE TRIGGER trg_cdp_orders_queue_refresh;
