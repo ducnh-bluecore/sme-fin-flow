@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
     // Use execute_sql_admin for DELETE with extended timeout
     const sql = `
       SET LOCAL statement_timeout = '55s';
+      SET LOCAL lock_timeout = '55s';
       WITH del AS (
         DELETE FROM public.${table}
         WHERE ctid IN (
