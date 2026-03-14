@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     `;
 
     const { data, error } = await supabase.rpc('execute_sql_admin', {
-      sql_query: sql,
+      sql_text: sql,
     });
 
     if (error) {
