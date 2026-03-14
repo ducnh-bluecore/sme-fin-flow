@@ -18,10 +18,10 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const {
     table = "cdp_orders",
-    batch_size = 10000,
+    batch_size = 50000,
     chain = 0,
-    max_chains = 200,
-    phase = "purge",  // "disable_triggers" | "purge" | "enable_triggers"
+    max_chains = 50,
+    phase = "purge",
   } = body;
 
   try {
@@ -47,49 +47,61 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Phase: purge - use execute_sql_admin for direct DELETE with no trigger overhead
-    const startMs = Date.now();
-    let totalDeleted = 0;
-    let batchNum = 0;
-    let lastError = "";
+    // Use execute_sql_admin for DELETE with extended timeout
+    const sql = `
+      SET LOCAL statement_timeout = '50s';
+      SET LOCAL lock_timeout = '10s';
+      WITH del AS (
+        DELETE FROM public.${table}
+        WHERE ctid IN (
+          SELECT ctid FROM public.${table}
+          WHERE tenant_id = '${tenantId}'
+          LIMIT ${batch_size}
+        )
+        RETURNING 1
+      )
+      SELECT count(*) as deleted FROM del;
+    `;
 
-    while (Date.now() - startMs < 45000) {
-      const { data: rows, error: fetchErr } = await supabase
-        .from(table)
-        .select("id")
-        .eq("tenant_id", tenantId)
-        .limit(batch_size);
+    const { data, error } = await supabase.rpc('execute_sql_admin', { sql_text: sql });
 
-      if (fetchErr) { lastError = fetchErr.message; break; }
-      if (!rows || rows.length === 0) {
-        return new Response(JSON.stringify({ 
-          success: true, done: true, table, chain, deleted_this_run: totalDeleted,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (error) {
+      // Retry on lock/timeout
+      if (chain < max_chains) {
+        fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
+          body: JSON.stringify({ table, batch_size: Math.max(1000, batch_size / 2), chain: chain + 1, max_chains, phase }),
+        }).catch(() => {});
       }
-
-      const ids = rows.map((r: any) => r.id);
-      const { error: delErr } = await supabase.from(table).delete().in("id", ids);
-      
-      if (delErr) { lastError = delErr.message; break; }
-
-      totalDeleted += ids.length;
-      batchNum++;
+      return new Response(JSON.stringify({ success: false, error: error.message, chain, retrying: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    if (chain < max_chains && !lastError.includes("fully purged")) {
+    // Check if done
+    const { count } = await supabase
+      .from(table)
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+
+    const rowsLeft = count ?? 0;
+
+    if (rowsLeft > 0 && chain < max_chains) {
       fetch(`${supabaseUrl}/functions/v1/purge-tenant`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
-        body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains, phase: "purge" }),
+        body: JSON.stringify({ table, batch_size, chain: chain + 1, max_chains, phase }),
       }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ 
-      success: true, table, chain, batchNum,
-      deleted_this_run: totalDeleted,
-      elapsed_ms: Date.now() - startMs,
-      lastError: lastError || undefined,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      success: true, table, chain, rows_remaining: rowsLeft,
+      result: data,
+      done: rowsLeft === 0,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
 
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), {
