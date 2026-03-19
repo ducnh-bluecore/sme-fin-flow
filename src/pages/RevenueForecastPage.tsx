@@ -5,6 +5,7 @@ import { ForecastInputPanel } from '@/components/revenue-forecast/ForecastInputP
 import { ForecastSummaryCards } from '@/components/revenue-forecast/ForecastSummaryCards';
 import { ForecastChart } from '@/components/revenue-forecast/ForecastChart';
 import { CohortBreakdownTable } from '@/components/revenue-forecast/CohortBreakdownTable';
+import { ForecastMethodologyInfo } from '@/components/revenue-forecast/ForecastMethodologyInfo';
 import { Loader2, TrendingUp } from 'lucide-react';
 
 export default function RevenueForecastPage() {
