@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { AlertTriangle } from 'lucide-react';
 import type { ForecastMonth } from '@/hooks/useRevenueForecast';
 
 function fmt(n: number) {
