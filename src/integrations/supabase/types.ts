@@ -42471,16 +42471,28 @@ export type Database = {
         Args: { p_run_id: string; p_table_name?: string; p_tenant_id: string }
         Returns: undefined
       }
-      forecast_revenue_cohort_based: {
-        Args: {
-          p_ads_spend?: number
-          p_growth_adj?: number
-          p_horizon_months?: number
-          p_roas_override?: number
-          p_tenant_id: string
-        }
-        Returns: Json
-      }
+      forecast_revenue_cohort_based:
+        | {
+            Args: {
+              p_ads_spend?: number
+              p_growth_adj?: number
+              p_horizon_months?: number
+              p_roas_override?: number
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_ads_spend?: number
+              p_as_of_date?: string
+              p_growth_adj?: number
+              p_horizon_months?: number
+              p_roas_override?: number
+              p_tenant_id: string
+            }
+            Returns: Json
+          }
       generate_asset_code: {
         Args: { p_category: string; p_tenant_id: string }
         Returns: string
