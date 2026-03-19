@@ -37,6 +37,7 @@ const InvoiceTrackingPage = lazy(() => import("./pages/InvoiceTrackingPage"));
 const InvoiceDetailPage = lazy(() => import("./pages/InvoiceDetailPage"));
 const ExpensesPage = lazy(() => import("./pages/ExpensesPage"));
 const RevenuePage = lazy(() => import("./pages/RevenuePage"));
+const RevenueForecastPage = lazy(() => import("./pages/RevenueForecastPage"));
 const TaxCompliancePage = lazy(() => import("./pages/TaxCompliancePage"));
 const ETLRulesPage = lazy(() => import("./pages/ETLRulesPage"));
 const CashForecastPage = lazy(() => import("./pages/CashForecastPage"));
