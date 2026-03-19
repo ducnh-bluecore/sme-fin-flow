@@ -11,7 +11,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle } from 'lucide-react';
 import type { ForecastMonth } from '@/hooks/useRevenueForecast';
+
+function hasLunarNewYearMonths(data: ForecastMonth[]) {
+  return data.some((m) => {
+    const month = parseInt(m.month.split('-')[1], 10);
+    return month === 12 || month === 1 || month === 2;
+  });
+}
 
 function fmtAxis(v: number) {
   if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
