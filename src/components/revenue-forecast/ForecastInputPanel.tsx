@@ -57,6 +57,11 @@ export function ForecastInputPanel({ params, onChange, isLoading }: Props) {
             onChange={(e) => setDraft({ ...draft, adsSpend: Number(e.target.value) || 0 })}
             className="h-8 text-sm"
           />
+          {draft.adsSpend === 0 && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight">
+              = 0₫ → Dự báo chỉ tính doanh thu tự nhiên (không ads). Nhập số để xem thêm doanh thu từ ads.
+            </p>
+          )}
         </div>
 
         {/* ROAS Override */}

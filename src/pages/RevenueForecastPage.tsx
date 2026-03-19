@@ -28,6 +28,9 @@ export default function RevenueForecastPage() {
         <span className="text-xs text-muted-foreground ml-2">Cohort-based Forecast</span>
       </div>
 
+      {/* Methodology Info */}
+      <ForecastMethodologyInfo />
+
       {/* Input Panel */}
       <ForecastInputPanel params={params} onChange={setParams} isLoading={isLoading} />
 
