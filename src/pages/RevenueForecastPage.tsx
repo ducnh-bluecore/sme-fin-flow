@@ -5,6 +5,7 @@ import { ForecastInputPanel } from '@/components/revenue-forecast/ForecastInputP
 import { ForecastSummaryCards } from '@/components/revenue-forecast/ForecastSummaryCards';
 import { ForecastChart } from '@/components/revenue-forecast/ForecastChart';
 import { CohortBreakdownTable } from '@/components/revenue-forecast/CohortBreakdownTable';
+import { ForecastMethodologyInfo } from '@/components/revenue-forecast/ForecastMethodologyInfo';
 import { Loader2, TrendingUp } from 'lucide-react';
 
 export default function RevenueForecastPage() {
@@ -26,6 +27,9 @@ export default function RevenueForecastPage() {
         <h1 className="text-xl font-bold">Dự báo Doanh thu</h1>
         <span className="text-xs text-muted-foreground ml-2">Cohort-based Forecast</span>
       </div>
+
+      {/* Methodology Info */}
+      <ForecastMethodologyInfo />
 
       {/* Input Panel */}
       <ForecastInputPanel params={params} onChange={setParams} isLoading={isLoading} />
