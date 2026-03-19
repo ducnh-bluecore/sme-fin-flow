@@ -1,66 +1,112 @@
 
 
+## Revenue Forecast — Plan v2 (Cohort-based)
 
-## Plan: Fix 5 bugs trong Allocation & Rebalance Engine ✅ DONE
+### Thay đổi chính so với Plan v1
 
-### Bug #1: Duplicate Recommendations (CRITICAL) ✅
-- Added UNIQUE constraint `uq_alloc_run_fc_store` on `(run_id, fc_id, store_id)`
-- Cleaned existing duplicates
-- Added GROUP BY in V1 CTE + ON CONFLICT DO NOTHING
+Thay vì dùng công thức tổng quát, **doanh thu khách cũ được tính chi tiết từ cohort analysis** — mỗi cohort (theo tháng acquisition) có tỷ lệ quay lại riêng, từ đó dự báo chính xác hơn và dễ giải thích kết quả.
 
-### Bug #2: CW Reserve quá bảo thủ ✅
-- Changed from fixed `v_cw_reserve_min` (20 units) to percentage-based: `GREATEST(3, FLOOR(cw_available * 0.15))`
-- CORE/HERO still use dedicated reserve rules
+---
 
-### Bug #3: Scarcity filter chặn Tier C ✅
-- Updated `min_system_stock` from 50 → 20 in scarcity policy
-- BST mới (< 60 days) bypasses scarcity filter entirely
+### Phương pháp tính toán
 
-### Bug #4: Rebalance Push cumulative stock ✅
-- Added `push_cumulative` CTE with `SUM(push_qty) OVER (PARTITION BY fc_id ORDER BY weeks_cover ASC)`
-- Filter `WHERE cum_push <= cw_available` prevents over-allocation
+#### A. Doanh thu khách cũ (Cohort-based)
 
-### Bug #5: V2 miss BST mới ✅
-- BST mới bypasses `vel > 0` requirement in V2
-- Fallback to V1 min_stock logic when velocity = 0
-- Reason text shows "V2-BST mới (phủ nền, chưa có sales)"
+Hệ thống đã có view `v_cdp_ltv_by_cohort` chứa:
+- `cohort_month`: tháng acquisition
+- `cohort_size`: số khách trong cohort
+- `retention_rate_3m / 6m / 12m`: tỷ lệ quay lại
+- `avg_revenue`: doanh thu TB/khách
 
-## Phase 4: Option B — Time-Based Virtual Deduction ✅ DONE
+**Logic forecast:**
 
-### Nguyên lý
-`available = raw_on_hand - SUM(approved_qty WHERE approved_at > last_sync_snapshot_date)`
-Khi sync chạy lại → snapshot_date mới > approved_at cũ → deduction tự biến mất. Không double deduction.
+```text
+Với mỗi cohort đã tồn tại:
+  age = số tháng từ cohort_month đến tháng forecast
+  
+  Tính retention_at_age dựa trên decay curve:
+    - Nếu age ≤ 3: nội suy từ retention_3m
+    - Nếu age ≤ 6: nội suy retention_3m → retention_6m  
+    - Nếu age ≤ 12: nội suy retention_6m → retention_12m
+    - Nếu age > 12: external decay (retention_12m × 0.85^(age-12)/12)
+  
+  Doanh thu cohort tháng X = cohort_size × retention_at_age × avg_monthly_revenue
 
-### Thay đổi đã triển khai
-1. **fn_allocation_engine**: Thêm `tmp_pending_deductions` (UNION ALL alloc + rebalance approved) → trừ từ `tmp_cw`
-2. **fn_rebalance_engine**: Thêm `_pending_deductions` → trừ vào `_pos.available` cho CW stores
-3. **useSourceOnHand.ts**: Fetch approved alloc/rebalance records có `approved_at > cwLastSync`, trừ từ CW store positions
-4. **useApproveRebalance.ts**: Invalidate `inv-source-dest-on-hand` + `inv-positions` cache sau approve
+Tổng doanh thu khách cũ = SUM(tất cả cohort)
+```
 
-## Multi-tenant Daily Sync ✅ DONE
+Kết quả: bảng chi tiết "Cohort tháng 1/2025: 500 khách, 35% quay lại = 175 khách × 850k = 148M"
 
-### Thay đổi
-- **`daily-bigquery-sync`**: Bỏ hardcode `TENANT_ID`, thay bằng query `bigquery_configs WHERE is_active = true` để auto-discover active tenants
-- **Logic**: 
-  - Cron trigger (không có `tenant_id` trong body) → sync TẤT CẢ active tenants
-  - Manual/Admin trigger (có `tenant_id`) → sync 1 tenant cụ thể
-  - Multi-tenant chạy sequential, mỗi tenant có run log riêng trong `daily_sync_runs`
-- **pg_cron**: Không cần sửa — existing cron jobs gọi edge function KHÔNG truyền tenant_id → tự động chạy cho tất cả active tenants
+#### B. Doanh thu khách mới
 
-## Schema Routing cho Multi-tenant ✅ DONE
+```text
+New_customers/tháng = trend 3 tháng gần nhất (từ cdp_orders)
+Revenue_new = new_customers × AOV_first_order
+```
 
-### Thay đổi
-- **`backfill-bigquery`**: Thêm `init_tenant_session` RPC call sau khi tạo supabase client, trước khi ghi data. Tenant có schema riêng → data route vào `tenant_xxx.*`. Tenant chưa có → fallback `public` (backward compatible).
-- **`daily-bigquery-sync`**: Thêm `init_tenant_session` ở đầu `syncTenant()` để mỗi tenant trong loop được set đúng `search_path`.
-- **Graceful fallback**: Nếu `init_tenant_session` fail → warn log + tiếp tục với public schema, không crash pipeline.
+#### C. Doanh thu từ Ads
 
-## Multi-tenant BigQuery Sources ✅ DONE
+```text
+Ads_revenue = ads_spend × ROAS
+```
+(ROAS lấy từ `central_metrics_snapshots.marketing_roas`, cho phép override)
 
-### Thay đổi
-- **Bảng `bigquery_tenant_sources`**: Cấu hình nguồn BQ theo tenant (model_type, channel, dataset, table_name). UNIQUE(tenant_id, model_type, channel).
-- **Seed Icon Denim**: 5 records (customers, orders, order_items, products, fulfillments) → dataset `DW-160STORE-BQ`, bảng `raw_hrv_*`
-- **`backfill-bigquery/index.ts`**: 
-  - Thêm `resolveSources()` — query `bigquery_tenant_sources` theo tenant_id + model_type, override dataset/table từ config. Fallback về hardcode nếu không có config.
-  - Thêm `hasKiotVietChannel()` — chỉ apply marketplace dedup khi tenant dùng kiotviet.
-  - Áp dụng cho tất cả sync functions: customers, orders, order_items, refunds, payments, fulfillments, products.
-- **Không ảnh hưởng OLV Boutique** — không có config trong bảng mới → fallback hardcode.
+#### D. Tổng forecast
+
+```text
+Revenue_month[i] = Returning_cohort_revenue + New_customer_revenue + Ads_revenue
+                   × seasonal_factor × (1 + manual_growth_adj)
+```
+
+3 scenarios: Conservative (×0.85), Base (×1.0), Optimistic (×1.15)
+
+---
+
+### Cấu trúc triển khai
+
+#### 1. Database — RPC `forecast_revenue_cohort_based`
+
+- Input: `p_tenant_id`, `p_horizon_months` (1/3/6), `p_ads_spend`, `p_roas_override`, `p_growth_adj`
+- Logic:
+  1. Query `v_cdp_ltv_by_cohort` → lấy tất cả cohort
+  2. Query `cdp_orders` → tính new customer trend (3 tháng gần), AOV first-order
+  3. Loop từng tháng forecast → tính retention mỗi cohort → sum
+  4. Cộng new + ads
+- Output: `JSONB[]` gồm `{ month, returning_revenue, returning_breakdown[], new_revenue, new_customers, ads_revenue, total_conservative, total_base, total_optimistic }`
+
+#### 2. Frontend
+
+| Component | Mô tả |
+|-----------|-------|
+| `RevenueForecastPage.tsx` | Trang chính, layout + orchestration |
+| `ForecastInputPanel.tsx` | Inputs: horizon (1/3/6 tháng), ads spend, ROAS, growth adj, seasonal toggle |
+| `ForecastSummaryCards.tsx` | KPI cards: tổng doanh thu dự báo, % từ khách cũ/mới/ads |
+| `ForecastChart.tsx` | Bar chart theo tháng, stacked (returning/new/ads) + 3 scenario lines |
+| `CohortBreakdownTable.tsx` | **Bảng chi tiết cohort**: mỗi row = 1 cohort, cột = tháng forecast, cell = doanh thu dự kiến |
+| `useRevenueForecast.ts` | Hook gọi RPC |
+
+#### 3. Navigation
+
+Thêm vào section "PHÂN TÍCH" trong `fdpNavConfig.ts`:
+```
+{ id: 'revenue-forecast', label: 'Dự báo doanh thu', href: '/revenue-forecast' }
+```
+
+### Files cần tạo/sửa
+
+| File | Action |
+|------|--------|
+| Migration SQL | RPC `forecast_revenue_cohort_based` |
+| `src/pages/RevenueForecastPage.tsx` | Tạo mới |
+| `src/hooks/useRevenueForecast.ts` | Tạo mới |
+| `src/components/revenue-forecast/*.tsx` | 4-5 components mới |
+| `src/components/layout/fdpNavConfig.ts` | Thêm menu item |
+| `src/App.tsx` | Thêm route |
+
+### Điểm khác biệt chính vs Plan v1
+
+- **Cohort-level detail**: Không chỉ 1 con số "doanh thu khách cũ" mà chi tiết từng cohort quay lại bao nhiêu
+- **Giải thích được**: "Cohort T1/2025 có 35% retention → dự kiến 148M" thay vì black-box
+- **Dữ liệu sẵn có**: Tận dụng `v_cdp_ltv_by_cohort` đã có retention 3m/6m/12m
+- **Decay curve thực tế**: Dùng retention thực của từng cohort thay vì 1 tỷ lệ chung
+
