@@ -1,0 +1,92 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Settings2 } from 'lucide-react';
+import type { ForecastParams } from '@/hooks/useRevenueForecast';
+
+interface Props {
+  params: ForecastParams;
+  onChange: (params: ForecastParams) => void;
+}
+
+export function ForecastInputPanel({ params, onChange }: Props) {
+  const horizonOptions = [1, 3, 6];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Settings2 className="h-4 w-4" />
+          Tham số dự báo
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Horizon */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Khoảng thời gian</Label>
+          <div className="flex gap-1">
+            {horizonOptions.map((h) => (
+              <Button
+                key={h}
+                size="sm"
+                variant={params.horizonMonths === h ? 'default' : 'outline'}
+                className="flex-1 text-xs"
+                onClick={() => onChange({ ...params, horizonMonths: h })}
+              >
+                {h} tháng
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ads Spend */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Chi phí Ads/tháng (VNĐ)</Label>
+          <Input
+            type="number"
+            value={params.adsSpend}
+            onChange={(e) => onChange({ ...params, adsSpend: Number(e.target.value) || 0 })}
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* ROAS Override */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            ROAS {params.roasOverride === null ? '(tự động)' : `(${params.roasOverride}x)`}
+          </Label>
+          <Input
+            type="number"
+            step="0.1"
+            placeholder="Để trống = tự động"
+            value={params.roasOverride ?? ''}
+            onChange={(e) =>
+              onChange({
+                ...params,
+                roasOverride: e.target.value ? Number(e.target.value) : null,
+              })
+            }
+            className="h-8 text-sm"
+          />
+        </div>
+
+        {/* Growth Adjustment */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            Tăng trưởng/tháng: {(params.growthAdj * 100).toFixed(0)}%
+          </Label>
+          <Slider
+            value={[params.growthAdj * 100]}
+            onValueChange={([v]) => onChange({ ...params, growthAdj: v / 100 })}
+            min={-20}
+            max={30}
+            step={1}
+            className="py-2"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
