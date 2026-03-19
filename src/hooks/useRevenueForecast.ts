@@ -15,6 +15,7 @@ export interface ForecastMonth {
   total_base: number;
   total_optimistic: number;
   growth_factor: number;
+  seasonal_multiplier?: number;
 }
 
 export interface CohortBreakdown {
