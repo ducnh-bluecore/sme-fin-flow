@@ -60,6 +60,7 @@ export function useFDPNavConfig() {
               { id: 'channel', label: t('nav.channelAnalytics'), href: '/channel-analytics' },
               { id: 'unit-economics', label: t('nav.unitEconomics'), href: '/unit-economics' },
               { id: 'revenue', label: t('nav.revenue'), href: '/revenue' },
+              { id: 'revenue-forecast', label: 'Dự báo doanh thu', href: '/revenue-forecast' },
             ],
           },
         ],
