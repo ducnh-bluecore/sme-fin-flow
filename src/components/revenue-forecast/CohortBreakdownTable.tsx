@@ -123,6 +123,16 @@ export function CohortBreakdownTable({ data }: Props) {
                 </TableCell>
               ))}
             </TableRow>
+            {data.some((fm) => fm.seasonal_multiplier && fm.seasonal_multiplier !== 1) && (
+              <TableRow>
+                <TableCell className="text-xs text-purple-600">🌊 Seasonal</TableCell>
+                {data.map((fm) => (
+                  <TableCell key={fm.month} className="text-xs text-right text-purple-600">
+                    {fm.seasonal_multiplier ? `×${fm.seasonal_multiplier.toFixed(2)}` : '×1.00'}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>

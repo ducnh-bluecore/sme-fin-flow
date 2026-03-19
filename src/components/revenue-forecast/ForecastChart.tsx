@@ -36,6 +36,7 @@ export function ForecastChart({ data }: Props) {
     Ads: m.ads_revenue,
     Conservative: m.total_conservative,
     Optimistic: m.total_optimistic,
+    seasonal: m.seasonal_multiplier ?? 1,
   }));
 
   return (
