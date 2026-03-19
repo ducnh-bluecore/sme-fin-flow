@@ -21,7 +21,6 @@ interface Props {
 }
 
 export function CohortBreakdownTable({ data }: Props) {
-  // Collect all unique cohort months across forecast months
   const cohortMap = new Map<string, Record<string, { retention_pct: number; returning_customers: number; revenue: number }>>();
 
   data.forEach((fm) => {
@@ -37,6 +36,7 @@ export function CohortBreakdownTable({ data }: Props) {
 
   const cohortMonths = Array.from(cohortMap.keys()).sort();
   const forecastMonths = data.map((d) => d.month);
+  const hasAdditionalAds = data.some((m) => m.ads_revenue > 0);
 
   if (cohortMonths.length === 0) {
     return (
@@ -121,14 +121,16 @@ export function CohortBreakdownTable({ data }: Props) {
                 </TableCell>
               ))}
             </TableRow>
-            <TableRow>
-              <TableCell className="text-xs text-amber-600">+ Ads</TableCell>
-              {data.map((fm) => (
-                <TableCell key={fm.month} className="text-xs text-right text-amber-600">
-                  {fmt(fm.ads_revenue)}
-                </TableCell>
-              ))}
-            </TableRow>
+            {hasAdditionalAds && (
+              <TableRow>
+                <TableCell className="text-xs text-amber-600">+ Ads bổ sung</TableCell>
+                {data.map((fm) => (
+                  <TableCell key={fm.month} className="text-xs text-right text-amber-600">
+                    {fmt(fm.ads_revenue)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            )}
             <TableRow className="bg-muted/50 font-bold">
               <TableCell className="text-xs">TỔNG (Base)</TableCell>
               {data.map((fm) => (

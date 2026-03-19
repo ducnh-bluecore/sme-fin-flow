@@ -18,45 +18,49 @@ export function ForecastSummaryCards({ data }: Props) {
   const totalReturning = data.reduce((s, m) => s + m.returning_revenue, 0);
   const totalNew = data.reduce((s, m) => s + m.new_revenue, 0);
   const totalAds = data.reduce((s, m) => s + m.ads_revenue, 0);
-  const pctReturning = totalBase > 0 ? (totalReturning / totalBase) * 100 : 0;
-  const pctNew = totalBase > 0 ? (totalNew / totalBase) * 100 : 0;
-  const pctAds = totalBase > 0 ? (totalAds / totalBase) * 100 : 0;
+  const hasAdditionalAds = totalAds > 0;
+
+  const baseWithoutAds = totalBase - totalAds;
+  const pctReturning = baseWithoutAds > 0 ? (totalReturning / baseWithoutAds) * 100 : 0;
+  const pctNew = baseWithoutAds > 0 ? (totalNew / baseWithoutAds) * 100 : 0;
 
   const cards = [
     {
       label: 'Tổng dự báo (Base)',
       value: fmt(totalBase),
-      sub: `${data.length} tháng`,
+      sub: `${data.length} tháng` + (hasAdditionalAds ? ' · gồm ads bổ sung' : ''),
       icon: TrendingUp,
       color: 'text-primary',
     },
     {
       label: 'Từ khách cũ',
       value: fmt(totalReturning),
-      sub: `${pctReturning.toFixed(0)}% tổng`,
+      sub: `${pctReturning.toFixed(0)}% baseline`,
       icon: Users,
       color: 'text-emerald-600',
     },
     {
       label: 'Từ khách mới',
       value: fmt(totalNew),
-      sub: `${pctNew.toFixed(0)}% tổng`,
+      sub: `${pctNew.toFixed(0)}% baseline`,
       icon: Users,
       color: 'text-blue-600',
     },
     {
-      label: 'Từ Ads',
-      value: fmt(totalAds),
-      sub: `${pctAds.toFixed(0)}% tổng`,
+      label: hasAdditionalAds ? 'Ads bổ sung' : 'Ads bổ sung',
+      value: hasAdditionalAds ? fmt(totalAds) : '—',
+      sub: hasAdditionalAds
+        ? `+${fmt(data[0]?.ads_spend || 0)}₫/tháng × ${data[0]?.roas || 0}x ROAS`
+        : 'Đã bao gồm trong baseline',
       icon: Megaphone,
-      color: 'text-amber-600',
+      color: hasAdditionalAds ? 'text-amber-600' : 'text-muted-foreground',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {cards.map((c) => (
-        <Card key={c.label}>
+        <Card key={c.label + c.value}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <c.icon className={`h-4 w-4 ${c.color}`} />

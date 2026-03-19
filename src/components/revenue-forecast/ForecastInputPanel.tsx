@@ -4,16 +4,25 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Settings2, Calculator } from 'lucide-react';
+import { Settings2, Calculator, Info } from 'lucide-react';
 import type { ForecastParams } from '@/hooks/useRevenueForecast';
+
+function fmtVnd(n: number) {
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B₫`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M₫`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K₫`;
+  return n.toLocaleString('vi-VN') + '₫';
+}
 
 interface Props {
   params: ForecastParams;
   onChange: (params: ForecastParams) => void;
   isLoading?: boolean;
+  historicalAvgAdsSpend?: number | null;
+  hasAdsData?: boolean;
 }
 
-export function ForecastInputPanel({ params, onChange, isLoading }: Props) {
+export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgAdsSpend, hasAdsData }: Props) {
   const [draft, setDraft] = useState<ForecastParams>(params);
   const horizonOptions = [1, 3, 6];
 
@@ -48,20 +57,38 @@ export function ForecastInputPanel({ params, onChange, isLoading }: Props) {
           </div>
         </div>
 
-        {/* Ads Spend */}
+        {/* Ads Spend - Now "Additional" */}
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Chi phí Ads/tháng (VNĐ)</Label>
+          <Label className="text-xs text-muted-foreground">Chi phí Ads bổ sung/tháng (VNĐ)</Label>
           <Input
             type="number"
             value={draft.adsSpend}
             onChange={(e) => setDraft({ ...draft, adsSpend: Number(e.target.value) || 0 })}
             className="h-8 text-sm"
           />
-          {draft.adsSpend === 0 && (
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-tight">
-              = 0₫ → Dự báo chỉ tính doanh thu tự nhiên (không ads). Nhập số để xem thêm doanh thu từ ads.
-            </p>
-          )}
+          {/* Baseline explanation */}
+          <div className="rounded-md bg-muted/60 px-2.5 py-2 space-y-1">
+            <div className="flex items-start gap-1.5">
+              <Info className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                <strong>Baseline đã bao gồm hiệu quả ads lịch sử.</strong> Doanh thu quá khứ trong hệ thống bao gồm cả đơn hàng từ quảng cáo đã chạy.
+              </p>
+            </div>
+            {hasAdsData && historicalAvgAdsSpend != null && historicalAvgAdsSpend > 0 && (
+              <p className="text-[10px] text-primary font-medium ml-[18px]">
+                TB ads lịch sử: {fmtVnd(historicalAvgAdsSpend)}/tháng
+              </p>
+            )}
+            {draft.adsSpend === 0 ? (
+              <p className="text-[10px] text-muted-foreground ml-[18px] leading-tight">
+                = 0₫ → Dự báo duy trì mức chi tiêu ads như hiện tại (status quo). Không phải "ngừng ads".
+              </p>
+            ) : (
+              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 ml-[18px] leading-tight">
+                + {fmtVnd(draft.adsSpend)}/tháng → Dự báo sẽ tính thêm doanh thu từ ngân sách ads <strong>bổ sung</strong> này.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* ROAS Override */}

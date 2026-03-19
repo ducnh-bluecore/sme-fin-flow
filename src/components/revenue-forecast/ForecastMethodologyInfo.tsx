@@ -1,20 +1,21 @@
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { CardContent } from '@/components/ui/card';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Info, ChevronDown, ChevronUp, Database, Brain, CalendarDays, Megaphone } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 
 interface Props {
   dataMonths?: number;
   earliestDate?: string;
   latestDate?: string;
+  hasAdsData?: boolean;
 }
 
-export function ForecastMethodologyInfo({ dataMonths = 105, earliestDate = '07/2017', latestDate = '03/2026' }: Props) {
+export function ForecastMethodologyInfo({ dataMonths = 105, earliestDate = '07/2017', latestDate = '03/2026', hasAdsData = false }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -106,24 +107,29 @@ export function ForecastMethodologyInfo({ dataMonths = 105, earliestDate = '07/2
               </div>
             </div>
 
-            {/* Ads Spend */}
+            {/* Ads Spend - Updated for Baseline = Status Quo */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Megaphone className="h-3.5 w-3.5 text-amber-600" />
-                <span className="text-xs font-semibold">Chi phí Ads & ROAS</span>
+                <span className="text-xs font-semibold">Baseline & Chi phí Ads</span>
               </div>
               <ul className="text-[11px] text-muted-foreground space-y-1 ml-5 list-disc">
                 <li>
-                  <strong>Ads = 0₫ (mặc định)</strong>: Dự báo chỉ bao gồm doanh thu tự nhiên (khách cũ quay lại + khách mới organic). Đây là kịch bản "không chạy ads".
+                  <strong>⚡ Quan trọng:</strong> Doanh thu lịch sử <strong>đã bao gồm</strong> hiệu quả từ chi phí quảng cáo đã chạy trước đó. Baseline dự báo = duy trì mức hoạt động hiện tại (bao gồm cả ads đã chạy).
                 </li>
                 <li>
-                  Khi nhập chi phí ads: Hệ thống tính thêm <strong>Doanh thu Ads = Chi phí × ROAS</strong> và cộng vào tổng dự báo
+                  <strong>Chi phí Ads = 0₫ (mặc định)</strong>: Dự báo duy trì mức chi tiêu ads như hiện tại — <strong>không phải ngừng ads</strong>.
                 </li>
                 <li>
-                  ROAS tự động = ROAS trung bình từ dữ liệu lịch sử. Có thể override thủ công nếu kỳ vọng khác
+                  Khi nhập chi phí ads {'>'} 0: Đây là ngân sách <strong>bổ sung</strong> so với mức hiện tại. Hệ thống tính thêm doanh thu = Chi phí bổ sung × ROAS.
                 </li>
-                <li className="text-amber-700 dark:text-amber-400">
-                  ⚠️ Doanh thu Ads là <strong>cộng thêm</strong>, không thay thế doanh thu tự nhiên. Nếu Ads = 0 thì phần "Từ Ads" trên biểu đồ sẽ = 0.
+                {!hasAdsData && (
+                  <li className="text-amber-700 dark:text-amber-400">
+                    ⚠️ <strong>Chưa có dữ liệu ads chi tiết</strong> trong hệ thống. Không thể tách riêng doanh thu organic vs paid. ROAS sử dụng giá trị mặc định (3.0x).
+                  </li>
+                )}
+                <li>
+                  ROAS tự động = ROAS trung bình từ dữ liệu ads lịch sử (nếu có). Có thể override thủ công.
                 </li>
               </ul>
             </div>

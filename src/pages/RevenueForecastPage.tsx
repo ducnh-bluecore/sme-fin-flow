@@ -19,6 +19,10 @@ export default function RevenueForecastPage() {
 
   const { data, isLoading, error } = useRevenueForecast(params);
 
+  // Extract metadata from first forecast month
+  const hasAdsData = data?.[0]?.has_ads_data ?? false;
+  const historicalAvgAdsSpend = data?.[0]?.historical_avg_ads_spend ?? null;
+
   return (
     <div className="space-y-4 p-4 md:p-6">
       {/* Header */}
@@ -29,10 +33,16 @@ export default function RevenueForecastPage() {
       </div>
 
       {/* Methodology Info */}
-      <ForecastMethodologyInfo />
+      <ForecastMethodologyInfo hasAdsData={hasAdsData} />
 
       {/* Input Panel */}
-      <ForecastInputPanel params={params} onChange={setParams} isLoading={isLoading} />
+      <ForecastInputPanel
+        params={params}
+        onChange={setParams}
+        isLoading={isLoading}
+        historicalAvgAdsSpend={historicalAvgAdsSpend}
+        hasAdsData={hasAdsData}
+      />
 
       {/* Loading / Error */}
       {isLoading && (
