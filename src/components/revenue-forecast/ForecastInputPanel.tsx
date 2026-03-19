@@ -1,18 +1,25 @@
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Calculator } from 'lucide-react';
 import type { ForecastParams } from '@/hooks/useRevenueForecast';
 
 interface Props {
   params: ForecastParams;
   onChange: (params: ForecastParams) => void;
+  isLoading?: boolean;
 }
 
-export function ForecastInputPanel({ params, onChange }: Props) {
+export function ForecastInputPanel({ params, onChange, isLoading }: Props) {
+  const [draft, setDraft] = useState<ForecastParams>(params);
   const horizonOptions = [1, 3, 6];
+
+  const handleCalculate = () => {
+    onChange(draft);
+  };
 
   return (
     <Card>
@@ -31,9 +38,9 @@ export function ForecastInputPanel({ params, onChange }: Props) {
               <Button
                 key={h}
                 size="sm"
-                variant={params.horizonMonths === h ? 'default' : 'outline'}
+                variant={draft.horizonMonths === h ? 'default' : 'outline'}
                 className="flex-1 text-xs"
-                onClick={() => onChange({ ...params, horizonMonths: h })}
+                onClick={() => setDraft({ ...draft, horizonMonths: h })}
               >
                 {h} tháng
               </Button>
@@ -46,8 +53,8 @@ export function ForecastInputPanel({ params, onChange }: Props) {
           <Label className="text-xs text-muted-foreground">Chi phí Ads/tháng (VNĐ)</Label>
           <Input
             type="number"
-            value={params.adsSpend}
-            onChange={(e) => onChange({ ...params, adsSpend: Number(e.target.value) || 0 })}
+            value={draft.adsSpend}
+            onChange={(e) => setDraft({ ...draft, adsSpend: Number(e.target.value) || 0 })}
             className="h-8 text-sm"
           />
         </div>
@@ -55,16 +62,16 @@ export function ForecastInputPanel({ params, onChange }: Props) {
         {/* ROAS Override */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
-            ROAS {params.roasOverride === null ? '(tự động)' : `(${params.roasOverride}x)`}
+            ROAS {draft.roasOverride === null ? '(tự động)' : `(${draft.roasOverride}x)`}
           </Label>
           <Input
             type="number"
             step="0.1"
             placeholder="Để trống = tự động"
-            value={params.roasOverride ?? ''}
+            value={draft.roasOverride ?? ''}
             onChange={(e) =>
-              onChange({
-                ...params,
+              setDraft({
+                ...draft,
                 roasOverride: e.target.value ? Number(e.target.value) : null,
               })
             }
@@ -75,17 +82,28 @@ export function ForecastInputPanel({ params, onChange }: Props) {
         {/* Growth Adjustment */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
-            Tăng trưởng/tháng: {(params.growthAdj * 100).toFixed(0)}%
+            Tăng trưởng/tháng: {(draft.growthAdj * 100).toFixed(0)}%
           </Label>
           <Slider
-            value={[params.growthAdj * 100]}
-            onValueChange={([v]) => onChange({ ...params, growthAdj: v / 100 })}
+            value={[draft.growthAdj * 100]}
+            onValueChange={([v]) => setDraft({ ...draft, growthAdj: v / 100 })}
             min={-20}
             max={30}
             step={1}
             className="py-2"
           />
         </div>
+
+        {/* Calculate Button */}
+        <Button
+          onClick={handleCalculate}
+          disabled={isLoading}
+          className="w-full"
+          size="sm"
+        >
+          <Calculator className="h-4 w-4 mr-2" />
+          {isLoading ? 'Đang tính toán...' : 'Tính toán dự báo'}
+        </Button>
       </CardContent>
     </Card>
   );
