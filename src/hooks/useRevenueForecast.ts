@@ -33,6 +33,7 @@ export interface ForecastParams {
   adsSpend: number;
   roasOverride: number | null;
   growthAdj: number;
+  asOfDate?: string | null; // 'YYYY-MM-DD' for backtesting
 }
 
 export function useRevenueForecast(params: ForecastParams) {
@@ -49,6 +50,7 @@ export function useRevenueForecast(params: ForecastParams) {
         p_ads_spend: params.adsSpend,
         p_roas_override: params.roasOverride,
         p_growth_adj: params.growthAdj,
+        p_as_of_date: params.asOfDate || null,
       });
 
       if (error) throw error;
