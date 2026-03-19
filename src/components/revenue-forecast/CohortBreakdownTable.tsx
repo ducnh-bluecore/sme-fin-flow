@@ -48,10 +48,23 @@ export function CohortBreakdownTable({ data }: Props) {
     );
   }
 
+  const hasLunarMonths = data.some((m) => {
+    const month = parseInt(m.month.split('-')[1], 10);
+    return month === 12 || month === 1 || month === 2;
+  });
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Chi tiết doanh thu theo Cohort</CardTitle>
+        {hasLunarMonths && (
+          <div className="flex items-start gap-1.5 mt-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+            <span className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+              Lưu ý: Tết Âm lịch ảnh hưởng đến doanh thu tháng 12–2. Ngày Tết thay đổi mỗi năm nên so sánh cùng kỳ theo dương lịch có thể không chính xác.
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <Table>
