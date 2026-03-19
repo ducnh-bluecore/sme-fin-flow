@@ -663,6 +663,7 @@ const AppRoutes = () => {
         <Route path="/invoice/:id" element={<InvoiceDetailPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/revenue" element={<RevenuePage />} />
+        <Route path="/revenue-forecast" element={<RevenueForecastPage />} />
         <Route path="/tax-compliance" element={<TaxCompliancePage />} />
         <Route path="/data-hub" element={<DataHubPage />} />
         <Route path="/data-warehouse" element={<DataWarehousePage />} />
