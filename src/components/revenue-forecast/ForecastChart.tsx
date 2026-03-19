@@ -47,10 +47,20 @@ export function ForecastChart({ data }: Props) {
     seasonal: m.seasonal_multiplier ?? 1,
   }));
 
+  const showLunarWarning = hasLunarNewYearMonths(data);
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Dự báo doanh thu theo tháng</CardTitle>
+        {showLunarWarning && (
+          <div className="flex items-start gap-1.5 mt-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+            <span className="text-[11px] text-amber-700 dark:text-amber-400 leading-tight">
+              Tháng 12–2 chịu ảnh hưởng Tết Âm lịch (mỗi năm lệch ~10 ngày). Độ chính xác seasonal có thể thấp hơn các tháng khác.
+            </span>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="h-[320px]">
