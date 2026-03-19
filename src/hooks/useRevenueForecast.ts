@@ -16,6 +16,8 @@ export interface ForecastMonth {
   total_optimistic: number;
   growth_factor: number;
   seasonal_multiplier?: number;
+  historical_avg_ads_spend?: number | null;
+  has_ads_data?: boolean;
 }
 
 export interface CohortBreakdown {

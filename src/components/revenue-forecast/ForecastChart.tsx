@@ -37,11 +37,13 @@ interface Props {
 }
 
 export function ForecastChart({ data }: Props) {
+  const hasAdditionalAds = data.some((m) => m.ads_revenue > 0);
+
   const chartData = data.map((m) => ({
     month: m.month,
     'Khách cũ': m.returning_revenue,
     'Khách mới': m.new_revenue,
-    Ads: m.ads_revenue,
+    ...(hasAdditionalAds ? { 'Ads bổ sung': m.ads_revenue } : {}),
     Conservative: m.total_conservative,
     Optimistic: m.total_optimistic,
     seasonal: m.seasonal_multiplier ?? 1,
@@ -80,8 +82,10 @@ export function ForecastChart({ data }: Props) {
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Khách cũ" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Khách mới" stackId="a" fill="hsl(142 71% 45%)" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Ads" stackId="a" fill="hsl(38 92% 50%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Khách mới" stackId="a" fill="hsl(142 71% 45%)" radius={hasAdditionalAds ? [0, 0, 0, 0] : [4, 4, 0, 0]} />
+              {hasAdditionalAds && (
+                <Bar dataKey="Ads bổ sung" stackId="a" fill="hsl(38 92% 50%)" radius={[4, 4, 0, 0]} />
+              )}
               <Line
                 type="monotone"
                 dataKey="Conservative"
