@@ -52,6 +52,7 @@ export function useRevenueForecast(params: ForecastParams) {
       return (data as unknown as ForecastMonth[]) || [];
     },
     enabled: !!tenantId,
-    staleTime: 60000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }

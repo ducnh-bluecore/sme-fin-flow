@@ -28,7 +28,7 @@ export default function RevenueForecastPage() {
       </div>
 
       {/* Input Panel */}
-      <ForecastInputPanel params={params} onChange={setParams} />
+      <ForecastInputPanel params={params} onChange={setParams} isLoading={isLoading} />
 
       {/* Loading / Error */}
       {isLoading && (
