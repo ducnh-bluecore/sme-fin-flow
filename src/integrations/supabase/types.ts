@@ -19623,6 +19623,59 @@ export type Database = {
           },
         ]
       }
+      inv_size_curves: {
+        Row: {
+          created_at: string | null
+          fc_id: string
+          id: string
+          size_ratios: Json | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          fc_id: string
+          id?: string
+          size_ratios?: Json | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          fc_id?: string
+          id?: string
+          size_ratios?: Json | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inv_size_curves_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inv_size_curves_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_decay_alerts"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_size_curves_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_cdp_ltv_rules"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "inv_size_curves_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "v_retail_concentration_risk"
+            referencedColumns: ["tenant_id"]
+          },
+        ]
+      }
       inv_sku_fc_mapping: {
         Row: {
           color: string | null
