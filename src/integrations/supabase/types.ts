@@ -29574,6 +29574,36 @@ export type Database = {
         }
         Relationships: []
       }
+      state_evidence_packs: {
+        Row: {
+          as_of_date: string
+          created_at: string | null
+          evidence_data: Json | null
+          evidence_type: string | null
+          id: string
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          as_of_date: string
+          created_at?: string | null
+          evidence_data?: Json | null
+          evidence_type?: string | null
+          id?: string
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          as_of_date?: string
+          created_at?: string | null
+          evidence_data?: Json | null
+          evidence_type?: string | null
+          id?: string
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       state_lost_revenue_daily: {
         Row: {
           as_of_date: string
@@ -42033,7 +42063,7 @@ export type Database = {
         Returns: undefined
       }
       compute_inventory_kpi_all: {
-        Args: { p_as_of_date: string; p_tenant_id: string }
+        Args: { p_as_of_date?: string; p_tenant_id: string }
         Returns: Json
       }
       compute_kpi_facts_daily: {
