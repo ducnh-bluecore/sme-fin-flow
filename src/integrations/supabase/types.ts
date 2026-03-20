@@ -42558,6 +42558,7 @@ export type Database = {
         | {
             Args: {
               p_ads_spend?: number
+              p_as_of_date?: string
               p_growth_adj?: number
               p_horizon_months?: number
               p_roas_override?: number
@@ -42567,11 +42568,10 @@ export type Database = {
           }
         | {
             Args: {
-              p_ads_spend?: number
-              p_as_of_date?: string
-              p_growth_adj?: number
-              p_horizon_months?: number
-              p_roas_override?: number
+              p_ads_spend: number
+              p_growth_adj: number
+              p_horizon_months: number
+              p_roas_override: number
               p_tenant_id: string
             }
             Returns: Json
