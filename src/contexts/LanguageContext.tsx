@@ -1790,6 +1790,7 @@ const en: Record<string, string> = {
   'nav.boardReports': 'Board Reports',
   'nav.expenses': 'Expenses',
   'nav.revenue': 'Revenue',
+  'nav.revenueForecast': 'Revenue Forecast',
 
   'nav.planSimulation': 'Planning & Decisions',
   'nav.aiAgent': 'AI Analyst',
