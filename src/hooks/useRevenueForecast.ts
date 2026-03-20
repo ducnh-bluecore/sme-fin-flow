@@ -18,6 +18,7 @@ export interface ForecastMonth {
   seasonal_multiplier?: number;
   historical_avg_ads_spend?: number | null;
   has_ads_data?: boolean;
+  actual_revenue?: number;
 }
 
 export interface CohortBreakdown {

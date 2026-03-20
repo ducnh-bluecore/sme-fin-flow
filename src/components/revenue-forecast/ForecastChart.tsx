@@ -1,5 +1,4 @@
 import {
-  BarChart,
   Bar,
   XAxis,
   YAxis,
@@ -34,10 +33,12 @@ function fmtTooltip(v: number) {
 
 interface Props {
   data: ForecastMonth[];
+  isBacktest?: boolean;
 }
 
-export function ForecastChart({ data }: Props) {
+export function ForecastChart({ data, isBacktest }: Props) {
   const hasAdditionalAds = data.some((m) => m.ads_revenue > 0);
+  const hasActuals = isBacktest && data.some((m) => m.actual_revenue !== undefined);
 
   const chartData = data.map((m) => ({
     month: m.month,
@@ -46,7 +47,7 @@ export function ForecastChart({ data }: Props) {
     ...(hasAdditionalAds ? { 'Ads bổ sung': m.ads_revenue } : {}),
     Conservative: m.total_conservative,
     Optimistic: m.total_optimistic,
-    seasonal: m.seasonal_multiplier ?? 1,
+    ...(hasActuals && m.actual_revenue !== undefined ? { 'Thực tế': m.actual_revenue } : {}),
   }));
 
   const showLunarWarning = hasLunarNewYearMonths(data);
@@ -54,7 +55,9 @@ export function ForecastChart({ data }: Props) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Dự báo doanh thu theo tháng</CardTitle>
+        <CardTitle className="text-base">
+          {isBacktest ? 'Backtest: Dự báo vs Thực tế' : 'Dự báo doanh thu theo tháng'}
+        </CardTitle>
         {showLunarWarning && (
           <div className="flex items-start gap-1.5 mt-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5">
             <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
@@ -102,6 +105,16 @@ export function ForecastChart({ data }: Props) {
                 dot={false}
                 strokeWidth={1.5}
               />
+              {hasActuals && (
+                <Line
+                  type="monotone"
+                  dataKey="Thực tế"
+                  stroke="hsl(0 84% 60%)"
+                  dot={{ r: 4, fill: 'hsl(0 84% 60%)' }}
+                  strokeWidth={2.5}
+                  activeDot={{ r: 6 }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>

@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { TrendingUp, Users, Megaphone } from 'lucide-react';
+import { TrendingUp, Users, Megaphone, Target } from 'lucide-react';
 import type { ForecastMonth } from '@/hooks/useRevenueForecast';
 
 function fmt(n: number) {
@@ -11,9 +11,10 @@ function fmt(n: number) {
 
 interface Props {
   data: ForecastMonth[];
+  isBacktest?: boolean;
 }
 
-export function ForecastSummaryCards({ data }: Props) {
+export function ForecastSummaryCards({ data, isBacktest }: Props) {
   const totalBase = data.reduce((s, m) => s + m.total_base, 0);
   const totalReturning = data.reduce((s, m) => s + m.returning_revenue, 0);
   const totalNew = data.reduce((s, m) => s + m.new_revenue, 0);
@@ -23,6 +24,25 @@ export function ForecastSummaryCards({ data }: Props) {
   const baseWithoutAds = totalBase - totalAds;
   const pctReturning = baseWithoutAds > 0 ? (totalReturning / baseWithoutAds) * 100 : 0;
   const pctNew = baseWithoutAds > 0 ? (totalNew / baseWithoutAds) * 100 : 0;
+
+  // Accuracy calculation for backtest
+  const hasActuals = isBacktest && data.some((m) => m.actual_revenue !== undefined);
+  let totalActual = 0;
+  let mapeSum = 0;
+  let mapeCount = 0;
+
+  if (hasActuals) {
+    data.forEach((m) => {
+      if (m.actual_revenue !== undefined && m.actual_revenue > 0) {
+        totalActual += m.actual_revenue;
+        mapeSum += Math.abs(m.total_base - m.actual_revenue) / m.actual_revenue;
+        mapeCount++;
+      }
+    });
+  }
+
+  const mape = mapeCount > 0 ? (mapeSum / mapeCount) * 100 : null;
+  const accuracy = mape !== null ? 100 - mape : null;
 
   const cards = [
     {
@@ -46,16 +66,28 @@ export function ForecastSummaryCards({ data }: Props) {
       icon: Users,
       color: 'text-blue-600',
     },
-    {
-      label: hasAdditionalAds ? 'Ads bổ sung' : 'Ads bổ sung',
+  ];
+
+  // Replace 4th card: Accuracy in backtest mode, Ads otherwise
+  if (hasActuals && accuracy !== null) {
+    cards.push({
+      label: 'Độ chính xác (Accuracy)',
+      value: `${accuracy.toFixed(1)}%`,
+      sub: `Thực tế: ${fmt(totalActual)} · MAPE: ${mape!.toFixed(1)}%`,
+      icon: Target,
+      color: accuracy >= 85 ? 'text-emerald-600' : accuracy >= 70 ? 'text-amber-600' : 'text-destructive',
+    });
+  } else {
+    cards.push({
+      label: 'Ads bổ sung',
       value: hasAdditionalAds ? fmt(totalAds) : '—',
       sub: hasAdditionalAds
         ? `+${fmt(data[0]?.ads_spend || 0)}₫/tháng × ${data[0]?.roas || 0}x ROAS`
         : 'Đã bao gồm trong baseline',
       icon: Megaphone,
       color: hasAdditionalAds ? 'text-amber-600' : 'text-muted-foreground',
-    },
-  ];
+    });
+  }
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
