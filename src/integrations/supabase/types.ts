@@ -42635,6 +42635,13 @@ export type Database = {
         Returns: string
       }
       get_active_tenant_id: { Args: never; Returns: string }
+      get_actual_monthly_revenue: {
+        Args: { p_months: string[]; p_tenant_id: string }
+        Returns: {
+          actual_revenue: number
+          month: string
+        }[]
+      }
       get_ai_recommendation: {
         Args: {
           p_alert_id?: string

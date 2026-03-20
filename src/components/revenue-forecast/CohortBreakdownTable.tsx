@@ -18,9 +18,10 @@ function fmt(n: number) {
 
 interface Props {
   data: ForecastMonth[];
+  isBacktest?: boolean;
 }
 
-export function CohortBreakdownTable({ data }: Props) {
+export function CohortBreakdownTable({ data, isBacktest }: Props) {
   const cohortMap = new Map<string, Record<string, { retention_pct: number; returning_customers: number; revenue: number }>>();
 
   data.forEach((fm) => {
@@ -37,6 +38,7 @@ export function CohortBreakdownTable({ data }: Props) {
   const cohortMonths = Array.from(cohortMap.keys()).sort();
   const forecastMonths = data.map((d) => d.month);
   const hasAdditionalAds = data.some((m) => m.ads_revenue > 0);
+  const hasActuals = isBacktest && data.some((m) => m.actual_revenue !== undefined);
 
   if (cohortMonths.length === 0) {
     return (
@@ -148,6 +150,47 @@ export function CohortBreakdownTable({ data }: Props) {
                   </TableCell>
                 ))}
               </TableRow>
+            )}
+            {/* Backtest: Actual revenue row */}
+            {hasActuals && (
+              <>
+                <TableRow className="border-t-2 border-red-300 dark:border-red-800">
+                  <TableCell className="text-xs font-bold text-red-600">📊 Thực tế</TableCell>
+                  {data.map((fm) => (
+                    <TableCell key={fm.month} className="text-xs text-right font-bold text-red-600">
+                      {fm.actual_revenue !== undefined ? fmt(fm.actual_revenue) : '—'}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="text-xs text-muted-foreground">Sai lệch %</TableCell>
+                  {data.map((fm) => {
+                    if (fm.actual_revenue === undefined || fm.actual_revenue === 0) {
+                      return (
+                        <TableCell key={fm.month} className="text-xs text-right text-muted-foreground">
+                          —
+                        </TableCell>
+                      );
+                    }
+                    const variance = ((fm.total_base - fm.actual_revenue) / fm.actual_revenue) * 100;
+                    const isOver = variance > 0;
+                    return (
+                      <TableCell
+                        key={fm.month}
+                        className={`text-xs text-right font-medium ${
+                          Math.abs(variance) <= 10
+                            ? 'text-emerald-600'
+                            : Math.abs(variance) <= 20
+                            ? 'text-amber-600'
+                            : 'text-destructive'
+                        }`}
+                      >
+                        {isOver ? '+' : ''}{variance.toFixed(1)}%
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              </>
             )}
           </TableBody>
         </Table>
