@@ -83,6 +83,7 @@ const vi: Record<string, string> = {
   'nav.boardReports': 'Báo cáo HĐQT',
   'nav.expenses': 'Chi phí',
   'nav.revenue': 'Doanh thu',
+  'nav.revenueForecast': 'Dự báo doanh thu',
 
   'nav.planSimulation': 'Kế Hoạch & Quyết Định',
   'nav.aiAgent': 'AI Analyst',
@@ -1789,6 +1790,7 @@ const en: Record<string, string> = {
   'nav.boardReports': 'Board Reports',
   'nav.expenses': 'Expenses',
   'nav.revenue': 'Revenue',
+  'nav.revenueForecast': 'Revenue Forecast',
 
   'nav.planSimulation': 'Planning & Decisions',
   'nav.aiAgent': 'AI Analyst',

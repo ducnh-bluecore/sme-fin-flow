@@ -73,6 +73,7 @@ const navItems: NavItem[] = [
       { labelKey: 'nav.channelAnalytics', href: '/channel-analytics' },
       { labelKey: 'nav.unitEconomics', href: '/unit-economics' },
       { labelKey: 'nav.revenue', href: '/revenue' },
+      { labelKey: 'nav.revenueForecast', href: '/revenue-forecast' },
     ],
   },
   // [3] ĐỐI SOÁT & CÔNG NỢ
