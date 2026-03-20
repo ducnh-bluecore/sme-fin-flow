@@ -1,10 +1,16 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Settings2, Calculator, Info } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Settings2, Calculator, Info, CalendarIcon, FlaskConical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { ForecastParams } from '@/hooks/useRevenueForecast';
 
 function fmtVnd(n: number) {
@@ -23,11 +29,12 @@ interface Props {
 }
 
 export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgAdsSpend, hasAdsData }: Props) {
-  const [draft, setDraft] = useState<ForecastParams>(params);
+  const [draft, setDraft] = useState<ForecastParams>({ ...params, asOfDate: params.asOfDate || null });
+  const [backtestEnabled, setBacktestEnabled] = useState(!!params.asOfDate);
   const horizonOptions = [1, 3, 6];
 
   const handleCalculate = () => {
-    onChange(draft);
+    onChange({ ...draft, asOfDate: backtestEnabled ? draft.asOfDate : null });
   };
 
   return (
@@ -126,6 +133,68 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
           />
         </div>
 
+        {/* Backtest Mode */}
+        <div className="space-y-2 rounded-lg border border-dashed border-muted-foreground/30 p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FlaskConical className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-xs font-medium">Backtest (thử nghiệm quá khứ)</Label>
+            </div>
+            <Switch
+              checked={backtestEnabled}
+              onCheckedChange={(checked) => {
+                setBacktestEnabled(checked);
+                if (!checked) setDraft({ ...draft, asOfDate: null });
+              }}
+            />
+          </div>
+          {backtestEnabled && (
+            <div className="space-y-1.5">
+              <Label className="text-[10px] text-muted-foreground">
+                Giả lập "đứng tại ngày" để dự báo tương lai
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      'w-full justify-start text-left font-normal h-8 text-sm',
+                      !draft.asOfDate && 'text-muted-foreground'
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                    {draft.asOfDate
+                      ? format(new Date(draft.asOfDate + 'T00:00:00'), 'dd/MM/yyyy', { locale: vi })
+                      : 'Chọn ngày backtest...'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={draft.asOfDate ? new Date(draft.asOfDate + 'T00:00:00') : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        const yyyy = date.getFullYear();
+                        const mm = String(date.getMonth() + 1).padStart(2, '0');
+                        const dd = String(date.getDate()).padStart(2, '0');
+                        setDraft({ ...draft, asOfDate: `${yyyy}-${mm}-${dd}` });
+                      }
+                    }}
+                    disabled={(date) => date > new Date()}
+                    locale={vi}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+              {draft.asOfDate && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                  ⚠ Chế độ backtest: Dự báo sẽ chỉ sử dụng dữ liệu trước ngày {format(new Date(draft.asOfDate + 'T00:00:00'), 'dd/MM/yyyy')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Calculate Button */}
         <Button
           onClick={handleCalculate}
@@ -134,7 +203,7 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
           size="sm"
         >
           <Calculator className="h-4 w-4 mr-2" />
-          {isLoading ? 'Đang tính toán...' : 'Tính toán dự báo'}
+          {isLoading ? 'Đang tính toán...' : backtestEnabled && draft.asOfDate ? 'Chạy Backtest' : 'Tính toán dự báo'}
         </Button>
       </CardContent>
     </Card>
