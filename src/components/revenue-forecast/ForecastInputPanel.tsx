@@ -29,11 +29,12 @@ interface Props {
 }
 
 export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgAdsSpend, hasAdsData }: Props) {
-  const [draft, setDraft] = useState<ForecastParams>(params);
+  const [draft, setDraft] = useState<ForecastParams>({ ...params, asOfDate: params.asOfDate || null });
+  const [backtestEnabled, setBacktestEnabled] = useState(!!params.asOfDate);
   const horizonOptions = [1, 3, 6];
 
   const handleCalculate = () => {
-    onChange(draft);
+    onChange({ ...draft, asOfDate: backtestEnabled ? draft.asOfDate : null });
   };
 
   return (
