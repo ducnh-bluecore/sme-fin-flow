@@ -16,11 +16,12 @@ export default function RevenueForecastPage() {
     adsSpend: 0,
     roasOverride: null,
     growthAdj: 0,
+    backtestMonths: [],
   });
 
   const { data, isLoading, error } = useRevenueForecast(params);
 
-  const isBacktest = !!params.asOfDate;
+  const isBacktest = !!params.asOfDate || (params.backtestMonths?.length ?? 0) > 0;
   const forecastMonths = useMemo(() => data?.map((d) => d.month) || [], [data]);
 
   const { data: actualsMap, isLoading: actualsLoading } = useBacktestActuals(

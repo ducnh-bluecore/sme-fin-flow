@@ -41,11 +41,19 @@ interface Props {
 }
 
 export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgAdsSpend, hasAdsData }: Props) {
-  const [draft, setDraft] = useState<ForecastParams>({ ...params, asOfDate: params.asOfDate || null });
-  const [backtestEnabled, setBacktestEnabled] = useState(!!params.asOfDate);
-  const [selectedMonths, setSelectedMonths] = useState<string[]>(
-    params.asOfDate ? [params.asOfDate.substring(0, 7)] : []
-  );
+  const initialSelectedMonths =
+    params.backtestMonths && params.backtestMonths.length > 0
+      ? params.backtestMonths
+      : params.asOfDate
+      ? [params.asOfDate.substring(0, 7)]
+      : [];
+  const [draft, setDraft] = useState<ForecastParams>({
+    ...params,
+    asOfDate: params.asOfDate || null,
+    backtestMonths: initialSelectedMonths,
+  });
+  const [backtestEnabled, setBacktestEnabled] = useState(initialSelectedMonths.length > 0 || !!params.asOfDate);
+  const [selectedMonths, setSelectedMonths] = useState<string[]>(initialSelectedMonths);
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const horizonOptions = [1, 3, 6];
   const monthOptions = generateMonthOptions();
@@ -55,23 +63,17 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
       const next = prev.includes(monthValue)
         ? prev.filter((m) => m !== monthValue)
         : [...prev, monthValue].sort();
-      // Use last day of the earliest selected month as asOfDate
-      if (next.length > 0) {
-        const earliest = next[0];
-        const [y, m] = earliest.split('-').map(Number);
-        // Last day of that month
-        const lastDay = new Date(y, m, 0);
-        const dateStr = format(lastDay, 'yyyy-MM-dd');
-        setDraft((d) => ({ ...d, asOfDate: dateStr }));
-      } else {
-        setDraft((d) => ({ ...d, asOfDate: null }));
-      }
+      setDraft((d) => ({ ...d, asOfDate: null, backtestMonths: next }));
       return next;
     });
   };
 
   const handleCalculate = () => {
-    onChange({ ...draft, asOfDate: backtestEnabled ? draft.asOfDate : null });
+    onChange({
+      ...draft,
+      asOfDate: null,
+      backtestMonths: backtestEnabled ? selectedMonths : [],
+    });
   };
 
   return (
@@ -181,7 +183,7 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
               onCheckedChange={(checked) => {
                 setBacktestEnabled(checked);
                 if (!checked) {
-                  setDraft({ ...draft, asOfDate: null });
+                    setDraft({ ...draft, asOfDate: null, backtestMonths: [] });
                   setSelectedMonths([]);
                 }
               }}
@@ -241,7 +243,7 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
                         className="w-full text-xs h-7 text-muted-foreground"
                         onClick={() => {
                           setSelectedMonths([]);
-                          setDraft((d) => ({ ...d, asOfDate: null }));
+                          setDraft((d) => ({ ...d, asOfDate: null, backtestMonths: [] }));
                         }}
                       >
                         <X className="h-3 w-3 mr-1" /> Bỏ chọn tất cả
@@ -252,8 +254,8 @@ export function ForecastInputPanel({ params, onChange, isLoading, historicalAvgA
               </Popover>
               {selectedMonths.length > 0 && (
                 <p className="text-[10px] text-amber-600 dark:text-amber-400">
-                  ⚠ Chế độ backtest: Dự báo sẽ chạy từ cuối tháng {selectedMonths[0].split('-').reverse().join('/')}
-                  {selectedMonths.length > 1 && ` (${selectedMonths.length} tháng được chọn)`}
+                  ⚠ Chế độ backtest: Hệ thống sẽ mô phỏng đúng các tháng đã chọn để so sánh với doanh thu thực tế
+                  {selectedMonths.length > 1 && ` (${selectedMonths.length} tháng)`}
                 </p>
               )}
             </div>

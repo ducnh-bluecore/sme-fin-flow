@@ -35,6 +35,12 @@ export interface ForecastParams {
   roasOverride: number | null;
   growthAdj: number;
   asOfDate?: string | null; // 'YYYY-MM-DD' for backtesting
+  backtestMonths?: string[];
+}
+
+function getBacktestCutoff(month: string) {
+  const [year, monthNum] = month.split('-').map(Number);
+  return new Date(Date.UTC(year, monthNum - 1, 0)).toISOString().slice(0, 10);
 }
 
 export function useRevenueForecast(params: ForecastParams) {
@@ -44,6 +50,30 @@ export function useRevenueForecast(params: ForecastParams) {
     queryKey: ['revenue-forecast', tenantId, params],
     queryFn: async () => {
       if (!tenantId) return null;
+
+      const backtestMonths = [...new Set(params.backtestMonths ?? [])].sort();
+
+      if (backtestMonths.length > 0) {
+        const monthResults = await Promise.all(
+          backtestMonths.map(async (month) => {
+            const { data, error } = await supabase.rpc('forecast_revenue_cohort_based', {
+              p_tenant_id: tenantId,
+              p_horizon_months: 1,
+              p_ads_spend: params.adsSpend,
+              p_roas_override: params.roasOverride,
+              p_growth_adj: params.growthAdj,
+              p_as_of_date: getBacktestCutoff(month),
+            });
+
+            if (error) throw error;
+
+            const result = (data as unknown as ForecastMonth[]) || [];
+            return result[0] ?? null;
+          })
+        );
+
+        return monthResults.filter((item): item is ForecastMonth => item !== null);
+      }
 
       const { data, error } = await supabase.rpc('forecast_revenue_cohort_based', {
         p_tenant_id: tenantId,
